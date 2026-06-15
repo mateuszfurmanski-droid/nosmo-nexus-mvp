@@ -66,8 +66,10 @@ export const ActivityItemType = {
   project_created: 'project_created',
   task_created: 'task_created',
   task_updated: 'task_updated',
+  task_moved: 'task_moved',
   plan_uploaded: 'plan_uploaded',
   comment_added: 'comment_added',
+  demo_seeded: 'demo_seeded',
 } as const;
 
 export interface ActivityItem {
@@ -75,6 +77,8 @@ export interface ActivityItem {
   type: ActivityItemType;
   description: string;
   entityName: string;
+  /** @nullable */
+  projectId?: number | null;
   createdAt: string;
 }
 
@@ -311,6 +315,13 @@ export type HandleBrowserLoginCallbackParams = {
 code?: string;
 state?: string;
 iss?: string;
+};
+
+export type SeedDemoData200 = {
+  message: string;
+  projectsCreated: number;
+  tasksCreated: number;
+  plansCreated: number;
 };
 
 export type ListTasksParams = {

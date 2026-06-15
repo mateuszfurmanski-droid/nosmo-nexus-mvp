@@ -35,6 +35,7 @@ export * from './projectPatch';
 export * from './projectPatchStatus';
 export * from './projectStats';
 export * from './projectStatus';
+export * from './seedDemoData200';
 export * from './task';
 export * from './taskInput';
 export * from './taskInputPriority';

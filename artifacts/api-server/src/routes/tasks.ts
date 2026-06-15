@@ -33,11 +33,16 @@ router.post("/tasks", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [task] = await db.insert(tasksTable).values(parsed.data).returning();
+  const { dueDate: dueDateIn, ...restIn } = parsed.data;
+  const [task] = await db.insert(tasksTable).values({
+    ...restIn,
+    ...(dueDateIn ? { dueDate: dueDateIn.toISOString() } : {}),
+  }).returning();
   await db.insert(activityTable).values({
     type: "task_created",
     description: `Task created`,
     entityName: task.title,
+    projectId: task.projectId ?? null,
   });
   res.status(201).json(GetTaskResponse.parse(task));
 });
@@ -67,15 +72,21 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [task] = await db.update(tasksTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(tasksTable.id, params.data.id)).returning();
+  const { dueDate: dueDateUp, ...restUp } = parsed.data;
+  const [task] = await db.update(tasksTable).set({
+    ...restUp,
+    ...(dueDateUp ? { dueDate: dueDateUp.toISOString() } : {}),
+    updatedAt: new Date(),
+  }).where(eq(tasksTable.id, params.data.id)).returning();
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
   }
   await db.insert(activityTable).values({
-    type: "task_updated",
-    description: `Task updated to ${task.status}`,
+    type: "task_moved",
+    description: `Task moved to ${task.status.replace("_", " ")}`,
     entityName: task.title,
+    projectId: task.projectId ?? null,
   });
   res.json(UpdateTaskResponse.parse(task));
 });

@@ -12,5 +12,7 @@ export interface ActivityItem {
   type: ActivityItemType;
   description: string;
   entityName: string;
+  /** @nullable */
+  projectId?: number | null;
   createdAt: Date;
 }

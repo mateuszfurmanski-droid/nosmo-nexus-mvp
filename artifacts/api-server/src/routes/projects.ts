@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, count } from "drizzle-orm";
+import { eq, count, desc } from "drizzle-orm";
 import { db, projectsTable, tasksTable, plansTable, activityTable } from "@workspace/db";
 import {
   ListProjectsResponse,
@@ -12,12 +12,14 @@ import {
   DeleteProjectParams,
   GetProjectStatsParams,
   GetProjectStatsResponse,
+  GetProjectActivityParams,
+  GetProjectActivityResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
 router.get("/projects", async (req, res): Promise<void> => {
-  const projects = await db.select().from(projectsTable).orderBy(projectsTable.createdAt);
+  const projects = await db.select().from(projectsTable).orderBy(desc(projectsTable.createdAt));
   res.json(ListProjectsResponse.parse(projects));
 });
 
@@ -32,6 +34,7 @@ router.post("/projects", async (req, res): Promise<void> => {
     type: "project_created",
     description: `Project created`,
     entityName: project.name,
+    projectId: project.id,
   });
   res.status(201).json(GetProjectResponse.parse(project));
 });
@@ -106,6 +109,27 @@ router.get("/projects/:id/stats", async (req, res): Promise<void> => {
     totalPlans: plansCount?.value ?? 0,
   };
   res.json(GetProjectStatsResponse.parse(stats));
+});
+
+router.get("/projects/:id/activity", async (req, res): Promise<void> => {
+  const params = GetProjectActivityParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const projectId = params.data.id;
+  const [project] = await db.select().from(projectsTable).where(eq(projectsTable.id, projectId));
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
+  const activity = await db
+    .select()
+    .from(activityTable)
+    .where(eq(activityTable.projectId, projectId))
+    .orderBy(desc(activityTable.createdAt))
+    .limit(30);
+  res.json(GetProjectActivityResponse.parse(activity));
 });
 
 export default router;

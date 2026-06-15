@@ -7,6 +7,7 @@ import plansRouter from "./plans";
 import commentsRouter from "./comments";
 import dashboardRouter from "./dashboard";
 import aiRouter from "./ai";
+import demoRouter from "./demo";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(plansRouter);
 router.use(commentsRouter);
 router.use(dashboardRouter);
 router.use(aiRouter);
+router.use(demoRouter);
 
 export default router;

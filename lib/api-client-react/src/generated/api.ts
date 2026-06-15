@@ -42,6 +42,7 @@ import type {
   ProjectInput,
   ProjectPatch,
   ProjectStats,
+  SeedDemoData200,
   Task,
   TaskInput,
   TaskPatch
@@ -1197,6 +1198,153 @@ export function useGetProjectStats<TData = Awaited<ReturnType<typeof getProjectS
 
 
 
+
+export const getGetProjectActivityUrl = (id: number,) => {
+
+
+
+
+  return `/api/projects/${id}/activity`
+}
+
+/**
+ * @summary Activity log for a single project
+ */
+export const getProjectActivity = async (id: number, options?: RequestInit): Promise<ActivityItem[]> => {
+
+  return customFetch<ActivityItem[]>(getGetProjectActivityUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProjectActivityQueryKey = (id: number,) => {
+    return [
+    `/api/projects/${id}/activity`
+    ] as const;
+    }
+
+
+export const getGetProjectActivityQueryOptions = <TData = Awaited<ReturnType<typeof getProjectActivity>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProjectActivityQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjectActivity>>> = ({ signal }) => getProjectActivity(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProjectActivity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProjectActivityQueryResult = NonNullable<Awaited<ReturnType<typeof getProjectActivity>>>
+export type GetProjectActivityQueryError = ErrorType<void>
+
+
+/**
+ * @summary Activity log for a single project
+ */
+
+export function useGetProjectActivity<TData = Awaited<ReturnType<typeof getProjectActivity>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProjectActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProjectActivityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSeedDemoDataUrl = () => {
+
+
+
+
+  return `/api/demo/seed`
+}
+
+/**
+ * @summary Seed realistic demo data (projects, tasks, plans, activity)
+ */
+export const seedDemoData = async ( options?: RequestInit): Promise<SeedDemoData200> => {
+
+  return customFetch<SeedDemoData200>(getSeedDemoDataUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSeedDemoDataMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof seedDemoData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof seedDemoData>>, TError,void, TContext> => {
+
+const mutationKey = ['seedDemoData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof seedDemoData>>, void> = () => {
+
+
+          return  seedDemoData(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SeedDemoDataMutationResult = NonNullable<Awaited<ReturnType<typeof seedDemoData>>>
+
+    export type SeedDemoDataMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Seed realistic demo data (projects, tasks, plans, activity)
+ */
+export const useSeedDemoData = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof seedDemoData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof seedDemoData>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSeedDemoDataMutationOptions(options));
+    }
 
 export const getListTasksUrl = (params?: ListTasksParams,) => {
   const normalizedParams = new URLSearchParams();

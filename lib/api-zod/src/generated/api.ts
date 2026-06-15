@@ -113,9 +113,10 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 export const GetRecentActivityResponseItem = zod.object({
   "id": zod.number(),
-  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'plan_uploaded', 'comment_added']),
+  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'task_moved', 'plan_uploaded', 'comment_added', 'demo_seeded']),
   "description": zod.string(),
   "entityName": zod.string(),
+  "projectId": zod.number().nullish(),
   "createdAt": zod.coerce.date()
 })
 export const GetRecentActivityResponse = zod.array(GetRecentActivityResponseItem)
@@ -218,6 +219,35 @@ export const GetProjectStatsResponse = zod.object({
   "inProgressTasks": zod.number(),
   "doneTasks": zod.number(),
   "totalPlans": zod.number()
+})
+
+
+/**
+ * @summary Activity log for a single project
+ */
+export const GetProjectActivityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetProjectActivityResponseItem = zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'task_moved', 'plan_uploaded', 'comment_added', 'demo_seeded']),
+  "description": zod.string(),
+  "entityName": zod.string(),
+  "projectId": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const GetProjectActivityResponse = zod.array(GetProjectActivityResponseItem)
+
+
+/**
+ * @summary Seed realistic demo data (projects, tasks, plans, activity)
+ */
+export const SeedDemoDataResponse = zod.object({
+  "message": zod.string(),
+  "projectsCreated": zod.number(),
+  "tasksCreated": zod.number(),
+  "plansCreated": zod.number()
 })
 
 

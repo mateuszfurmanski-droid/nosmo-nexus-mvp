@@ -303,6 +303,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProjectStats"
 
+  /projects/{id}/activity:
+    get:
+      operationId: getProjectActivity
+      tags: [projects]
+      summary: Activity log for a single project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity items for this project
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+        "404":
+          description: Not found
+
+  /demo/seed:
+    post:
+      operationId: seedDemoData
+      tags: [demo]
+      summary: Seed realistic demo data (projects, tasks, plans, activity)
+      responses:
+        "200":
+          description: Demo data seeded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, projectsCreated, tasksCreated, plansCreated]
+                properties:
+                  message:
+                    type: string
+                  projectsCreated:
+                    type: integer
+                  tasksCreated:
+                    type: integer
+                  plansCreated:
+                    type: integer
+
   # ── Tasks ──────────────────────────────────────────────────────────────
   /tasks:
     get:
@@ -674,11 +720,13 @@ components:
           type: integer
         type:
           type: string
-          enum: [project_created, task_created, task_updated, plan_uploaded, comment_added]
+          enum: [project_created, task_created, task_updated, task_moved, plan_uploaded, comment_added, demo_seeded]
         description:
           type: string
         entityName:
           type: string
+        projectId:
+          type: [integer, "null"]
         createdAt:
           type: string
           format: date-time

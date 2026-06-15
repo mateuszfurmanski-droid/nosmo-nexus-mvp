@@ -35,6 +35,7 @@ router.post("/plans", async (req, res): Promise<void> => {
     type: "plan_uploaded",
     description: `PDF plan uploaded`,
     entityName: plan.originalName,
+    projectId: plan.projectId ?? null,
   });
   // Mock: simulate async analysis after 2 seconds
   setTimeout(async () => {

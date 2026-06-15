@@ -16,27 +16,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Trash2, ChevronRight, ChevronLeft, LayoutGrid } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 type Status = "todo" | "in_progress" | "done";
 
-const COLUMNS: { id: Status; label: string }[] = [
-  { id: "todo", label: "To Do" },
-  { id: "in_progress", label: "In Progress" },
-  { id: "done", label: "Done" },
+const COLUMNS: { id: Status; label: string; accent: string; headerBg: string }[] = [
+  { id: "todo", label: "To Do", accent: "border-border", headerBg: "bg-card" },
+  { id: "in_progress", label: "In Progress", accent: "border-primary/30", headerBg: "bg-primary/5" },
+  { id: "done", label: "Done", accent: "border-green-500/30", headerBg: "bg-green-500/5" },
 ];
 
-const statusColor: Record<Status, string> = {
-  todo: "border-border",
-  in_progress: "border-primary/30",
-  done: "border-green-500/30",
-};
-
-const priorityColor: Record<string, string> = {
-  low: "bg-blue-500/10 text-blue-400",
-  medium: "bg-yellow-500/10 text-yellow-400",
-  high: "bg-red-500/10 text-red-400",
+const priorityBadge: Record<string, string> = {
+  low: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  medium: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+  high: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
 type TaskFormData = {
@@ -55,6 +49,8 @@ export default function Tasks() {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+
+  const projectMap = Object.fromEntries((projects ?? []).map(p => [p.id, p.name]));
 
   const form = useForm<TaskFormData>({
     defaultValues: { title: "", projectId: "", priority: "medium", assignee: "" },
@@ -118,11 +114,15 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 h-full">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-            <p className="text-muted-foreground mt-1">Track work across all projects.</p>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <LayoutGrid className="w-6 h-6 text-primary" /> Task Board
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {tasks?.length ?? 0} tasks across {projects?.length ?? 0} projects
+            </p>
           </div>
           <Button data-testid="button-create-task" onClick={() => setOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" /> New Task
@@ -136,55 +136,73 @@ export default function Tasks() {
         ) : (
           <div className="grid grid-cols-3 gap-4 items-start">
             {COLUMNS.map(col => (
-              <div key={col.id} className={`rounded-xl border ${statusColor[col.id]} bg-card overflow-hidden`}>
-                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+              <div key={col.id} className={`rounded-xl border ${col.accent} overflow-hidden`}>
+                <div className={`px-4 py-3 border-b border-border flex items-center justify-between ${col.headerBg}`}>
                   <span className="font-semibold text-sm">{col.label}</span>
-                  <Badge variant="secondary" className="text-xs">{tasksByStatus[col.id]?.length ?? 0}</Badge>
+                  <Badge variant="secondary" className="text-xs tabular-nums">
+                    {tasksByStatus[col.id]?.length ?? 0}
+                  </Badge>
                 </div>
-                <div className="p-3 space-y-2 min-h-32">
+                <div className="p-2.5 space-y-2 min-h-36 bg-card/30">
+                  {(tasksByStatus[col.id] ?? []).length === 0 && (
+                    <div className="py-6 text-center">
+                      <p className="text-xs text-muted-foreground/50">No tasks</p>
+                    </div>
+                  )}
                   {(tasksByStatus[col.id] ?? []).map(task => (
                     <div
                       key={task.id}
                       data-testid={`task-card-${task.id}`}
-                      className="rounded-lg border border-border bg-background p-3 space-y-2 group"
+                      className="rounded-lg border border-border bg-card p-3 space-y-2 group hover:border-border/80 transition-colors"
                     >
-                      <p className="text-sm font-medium leading-tight">{task.title}</p>
+                      <p className="text-sm font-medium leading-snug">{task.title}</p>
+
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {task.priority && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${priorityColor[task.priority] ?? ""}`}>
+                          <Badge variant="outline" className={`text-xs ${priorityBadge[task.priority] ?? ""}`}>
                             {task.priority}
+                          </Badge>
+                        )}
+                        {task.projectId && projectMap[task.projectId] && (
+                          <span className="text-xs text-muted-foreground truncate max-w-28">
+                            {projectMap[task.projectId]}
                           </span>
                         )}
-                        {task.assignee && (
-                          <span className="text-xs text-muted-foreground truncate">{task.assignee}</span>
-                        )}
                       </div>
-                      <div className="flex items-center gap-1 pt-1">
+
+                      {task.assignee && (
+                        <p className="text-xs text-muted-foreground">{task.assignee}</p>
+                      )}
+
+                      {/* Action row */}
+                      <div className="flex items-center gap-1 border-t border-border/50 pt-1.5 mt-1.5">
                         {col.id !== "todo" && (
                           <button
                             data-testid={`button-task-back-${task.id}`}
                             onClick={() => moveTask(task.id, col.id, "back")}
-                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                             title="Move back"
+                            className="flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                           >
-                            <ChevronLeft className="w-3.5 h-3.5" />
+                            <ChevronLeft className="w-3 h-3" />
+                            {COLUMNS[COLUMNS.findIndex(c => c.id === col.id) - 1]?.label}
                           </button>
                         )}
                         {col.id !== "done" && (
                           <button
                             data-testid={`button-task-forward-${task.id}`}
                             onClick={() => moveTask(task.id, col.id, "forward")}
-                            className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                             title="Move forward"
+                            className="flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                           >
-                            <ChevronRight className="w-3.5 h-3.5" />
+                            {COLUMNS[COLUMNS.findIndex(c => c.id === col.id) + 1]?.label}
+                            <ChevronRight className="w-3 h-3" />
                           </button>
                         )}
                         <button
                           data-testid={`button-delete-task-${task.id}`}
                           onClick={() => handleDelete(task.id)}
-                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto opacity-0 group-hover:opacity-100"
-                          title="Delete task"
+                          title="Delete"
+                          className="ml-auto p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -203,35 +221,45 @@ export default function Tasks() {
           <DialogHeader>
             <DialogTitle>New Task</DialogTitle>
           </DialogHeader>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <Input data-testid="input-task-title" placeholder="Task title..." {...form.register("title", { required: true })} />
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Project</label>
-              <Select onValueChange={v => form.setValue("projectId", v)}>
-                <SelectTrigger data-testid="select-task-project">
-                  <SelectValue placeholder="Select project..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects?.map(p => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+            <Input
+              data-testid="input-task-title"
+              placeholder="Task title *"
+              {...form.register("title", { required: true })}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Project</label>
+                <Select onValueChange={v => form.setValue("projectId", v)}>
+                  <SelectTrigger data-testid="select-task-project" className="text-sm">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects?.map(p => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Priority</label>
+                <Select defaultValue="medium" onValueChange={v => form.setValue("priority", v)}>
+                  <SelectTrigger data-testid="select-task-priority" className="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Priority</label>
-              <Select defaultValue="medium" onValueChange={v => form.setValue("priority", v)}>
-                <SelectTrigger data-testid="select-task-priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Input data-testid="input-task-assignee" placeholder="Assignee (optional)" {...form.register("assignee")} />
+            <Input
+              data-testid="input-task-assignee"
+              placeholder="Assignee (optional)"
+              {...form.register("assignee")}
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button data-testid="button-submit-task" type="submit" disabled={createTask.isPending}>
