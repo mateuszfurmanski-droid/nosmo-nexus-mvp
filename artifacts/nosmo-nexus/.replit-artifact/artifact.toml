@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "NOSMO Nexus™"
+version = "1.0.0"
+id = "artifacts/nosmo-nexus"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24329
+
+[services.development]
+run = "pnpm --filter @workspace/nosmo-nexus run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nosmo-nexus", "run", "build" ]
+publicDir = "artifacts/nosmo-nexus/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24329"
+BASE_PATH = "/"
