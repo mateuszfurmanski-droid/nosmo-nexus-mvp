@@ -3,16 +3,17 @@ import { useAuth } from "@workspace/replit-auth-web";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, FolderKanban, FileText, CheckSquare,
-  MessageSquare, Plug2, LogOut, LogIn, Menu, X, Zap,
+  Plug2, LogOut, LogIn, Menu, X, Zap, Sparkles,
 } from "lucide-react";
 import { useEffect } from "react";
+import { SearchPalette } from "@/components/search-palette";
 
 const navItems = [
   { path: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard },
   { path: "/projects",     label: "Projects",     icon: FolderKanban    },
   { path: "/tasks",        label: "Tasks",        icon: CheckSquare     },
   { path: "/plans",        label: "Plans",        icon: FileText        },
-  { path: "/ai",           label: "AI Assistant", icon: MessageSquare   },
+  { path: "/ai",           label: "Ask Nexus",    icon: Sparkles        },
   { path: "/integrations", label: "Integrations", icon: Plug2           },
 ];
 
@@ -50,8 +51,13 @@ function SidebarContent({
         </div>
       </div>
 
+      {/* Search */}
+      <div className="px-2 pt-2 pb-1">
+        <SearchPalette />
+      </div>
+
       {/* Nav */}
-      <nav className="flex-1 py-3 px-2 flex flex-col gap-0.5 overflow-y-auto">
+      <nav className="flex-1 py-1 px-2 flex flex-col gap-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = location === item.path || location.startsWith(item.path + "/");

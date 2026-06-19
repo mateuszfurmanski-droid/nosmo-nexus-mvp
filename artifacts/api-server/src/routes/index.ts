@@ -8,6 +8,9 @@ import commentsRouter from "./comments";
 import dashboardRouter from "./dashboard";
 import aiRouter from "./ai";
 import demoRouter from "./demo";
+import notesRouter from "./notes";
+import searchRouter from "./search";
+import conversationsRouter from "./conversations";
 
 const router: IRouter = Router();
 
@@ -20,5 +23,8 @@ router.use(commentsRouter);
 router.use(dashboardRouter);
 router.use(aiRouter);
 router.use(demoRouter);
+router.use(notesRouter);
+router.use(searchRouter);
+router.use(conversationsRouter);
 
 export default router;

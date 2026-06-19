@@ -471,3 +471,144 @@ export const SendAiMessageResponse = zod.object({
 })
 
 
+/**
+ * @summary List all conversations
+ */
+export const ListConversationsResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListConversationsResponse = zod.array(ListConversationsResponseItem)
+
+
+/**
+ * @summary Create a new conversation
+ */
+export const CreateConversationBody = zod.object({
+  "title": zod.string().optional()
+})
+
+
+/**
+ * @summary Get a conversation with its messages
+ */
+export const GetConversationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetConversationResponse = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "messages": zod.array(zod.object({
+  "id": zod.number(),
+  "conversationId": zod.number(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a conversation and its messages
+ */
+export const DeleteConversationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List notes for a project
+ */
+export const ListNotesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "title": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListNotesResponse = zod.array(ListNotesResponseItem)
+
+
+/**
+ * @summary Create a note for a project
+ */
+export const CreateNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const CreateNoteBody = zod.object({
+  "title": zod.string().min(1),
+  "content": zod.string()
+})
+
+
+/**
+ * @summary Update a note
+ */
+export const UpdateNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateNoteBody = zod.object({
+  "title": zod.string().min(1).optional(),
+  "content": zod.string().optional()
+})
+
+export const UpdateNoteResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "title": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a note
+ */
+export const DeleteNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Search across projects, tasks, plans, and notes
+ */
+
+
+
+export const GlobalSearchQueryParams = zod.object({
+  "q": zod.coerce.string().min(1)
+})
+
+export const GlobalSearchResponse = zod.object({
+  "query": zod.string(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['project', 'task', 'plan', 'note']),
+  "title": zod.string(),
+  "excerpt": zod.string().nullable(),
+  "projectId": zod.number().nullable(),
+  "projectName": zod.string().nullish()
+})),
+  "total": zod.number()
+})
+
+

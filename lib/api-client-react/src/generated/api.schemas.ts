@@ -291,6 +291,90 @@ export interface CommentInput {
   authorName?: string;
 }
 
+export interface Note {
+  id: number;
+  projectId: number;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoteInput {
+  /** @minLength 1 */
+  title: string;
+  content: string;
+}
+
+export interface NotePatch {
+  /** @minLength 1 */
+  title?: string;
+  content?: string;
+}
+
+export interface Conversation {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationInput {
+  title?: string;
+}
+
+export type ChatMessageRole = typeof ChatMessageRole[keyof typeof ChatMessageRole];
+
+
+export const ChatMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface ChatMessage {
+  id: number;
+  conversationId: number;
+  role: ChatMessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface ConversationWithMessages {
+  id: number;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SearchResultItemType = typeof SearchResultItemType[keyof typeof SearchResultItemType];
+
+
+export const SearchResultItemType = {
+  project: 'project',
+  task: 'task',
+  plan: 'plan',
+  note: 'note',
+} as const;
+
+export interface SearchResultItem {
+  id: number;
+  type: SearchResultItemType;
+  title: string;
+  /** @nullable */
+  excerpt: string | null;
+  /** @nullable */
+  projectId: number | null;
+  /** @nullable */
+  projectName?: string | null;
+}
+
+export interface SearchResults {
+  query: string;
+  results: SearchResultItem[];
+  total: number;
+}
+
 export interface AiMessageInput {
   /** @minLength 1 */
   message: string;
@@ -330,5 +414,12 @@ projectId?: number;
 
 export type ListPlansParams = {
 projectId?: number;
+};
+
+export type GlobalSearchParams = {
+/**
+ * @minLength 1
+ */
+q: string;
 };
 

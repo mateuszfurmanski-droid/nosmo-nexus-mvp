@@ -24,11 +24,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
+import { NotesTab } from "@/components/notes-tab";
 import {
   ArrowLeft, MapPin, FileText, CheckSquare,
   BarChart3, Plus, ChevronRight, ChevronLeft,
-  Activity, Clock, Circle,
+  Activity, Clock, Circle, StickyNote,
 } from "lucide-react";
+
+type TabId = "tasks" | "plans" | "notes" | "activity";
 
 const taskStatusColor: Record<string, string> = {
   todo: "bg-muted/60 text-muted-foreground border-border",
@@ -84,6 +87,7 @@ export default function ProjectDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [taskOpen, setTaskOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("tasks");
 
   const { data: project, isLoading: projectLoading } = useGetProject(projectId, {
     query: { queryKey: getGetProjectQueryKey(projectId), enabled: !!projectId },
@@ -163,9 +167,16 @@ export default function ProjectDetail() {
     return acc;
   }, { todo: [], in_progress: [], done: [] });
 
+  const TABS: { id: TabId; label: string; icon: React.ElementType; count?: number }[] = [
+    { id: "tasks", label: "Tasks", icon: CheckSquare, count: tasks?.length },
+    { id: "plans", label: "Plans", icon: FileText, count: plans?.length },
+    { id: "notes", label: "Notes", icon: StickyNote },
+    { id: "activity", label: "Activity", icon: Activity, count: activity?.length },
+  ];
+
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-5">
 
         {/* Back + header */}
         <div>
@@ -175,7 +186,7 @@ export default function ProjectDetail() {
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{project.name}</h1>
                 <Badge variant="outline" className={`text-xs shrink-0 ${projectStatusColor[project.status]}`}>
                   {project.status.replace("_", " ")}
                 </Badge>
@@ -211,13 +222,37 @@ export default function ProjectDetail() {
           </div>
         )}
 
-        {/* Kanban board */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm flex items-center gap-1.5">
-              <CheckSquare className="w-4 h-4 text-primary" /> Tasks
-            </h2>
-            <div className="flex items-center gap-2">
+        {/* Tab nav */}
+        <div className="flex items-center gap-0.5 border-b border-border overflow-x-auto scrollbar-none -mb-px">
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.label}
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                    active ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                  }`}>{tab.count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab: Tasks */}
+        {activeTab === "tasks" && (
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-end gap-2">
               <Link href="/tasks">
                 <Button size="sm" variant="ghost" className="text-xs text-muted-foreground gap-1 h-7">
                   Full board <ChevronRight className="w-3 h-3" />
@@ -227,67 +262,69 @@ export default function ProjectDetail() {
                 <Plus className="w-3 h-3" /> Add Task
               </Button>
             </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {COLUMNS.map(col => (
-              <div key={col.id} className="rounded-lg border border-border bg-card/50 overflow-hidden">
-                <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-card">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{col.label}</span>
-                  <Badge variant="secondary" className="text-xs h-4 px-1.5">{tasksByStatus[col.id]?.length ?? 0}</Badge>
-                </div>
-                <div className="p-2 space-y-1.5 min-h-20">
-                  {(tasksByStatus[col.id] ?? []).map(task => (
-                    <div key={task.id} data-testid={`task-card-${task.id}`}
-                      className="rounded-md border border-border bg-card px-2.5 py-2 group space-y-1.5">
-                      <p className="text-xs font-medium leading-snug">{task.title}</p>
-                      {task.assignee && <p className="text-xs text-muted-foreground">{task.assignee}</p>}
-                      <div className="flex items-center gap-1 pt-0.5">
-                        {col.id !== "todo" && (
-                          <button
-                            data-testid={`btn-back-${task.id}`}
-                            onClick={() => moveTask(task.id, col.id, "back")}
-                            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                          ><ChevronLeft className="w-3 h-3" /></button>
-                        )}
-                        {col.id !== "done" && (
-                          <button
-                            data-testid={`btn-forward-${task.id}`}
-                            onClick={() => moveTask(task.id, col.id, "forward")}
-                            className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                          ><ChevronRight className="w-3 h-3" /></button>
-                        )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {COLUMNS.map(col => (
+                <div key={col.id} className="rounded-lg border border-border bg-card/50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-card">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{col.label}</span>
+                    <Badge variant="secondary" className="text-xs h-4 px-1.5">{tasksByStatus[col.id]?.length ?? 0}</Badge>
+                  </div>
+                  <div className="p-2 space-y-1.5 min-h-20">
+                    {(tasksByStatus[col.id] ?? []).map(task => (
+                      <div key={task.id} data-testid={`task-card-${task.id}`}
+                        className="rounded-md border border-border bg-card px-2.5 py-2 group space-y-1.5">
+                        <p className="text-xs font-medium leading-snug">{task.title}</p>
+                        {task.assignee && <p className="text-xs text-muted-foreground">{task.assignee}</p>}
+                        <div className="flex items-center gap-1 pt-0.5">
+                          {col.id !== "todo" && (
+                            <button
+                              data-testid={`btn-back-${task.id}`}
+                              onClick={() => moveTask(task.id, col.id, "back")}
+                              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                            ><ChevronLeft className="w-3 h-3" /></button>
+                          )}
+                          {col.id !== "done" && (
+                            <button
+                              data-testid={`btn-forward-${task.id}`}
+                              onClick={() => moveTask(task.id, col.id, "forward")}
+                              className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            ><ChevronRight className="w-3 h-3" /></button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                    {(tasksByStatus[col.id]?.length ?? 0) === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-3">Empty</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Bottom row: plans + activity */}
-        <div className="grid lg:grid-cols-2 gap-6">
-
-          {/* Plans */}
+        {/* Tab: Plans */}
+        {activeTab === "plans" && (
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-sm flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-primary" /> PDF Plans
-              </h2>
+            <div className="flex items-center justify-end">
               <Link href="/plans">
                 <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs">
-                  <Plus className="w-3 h-3" /> Upload
+                  <Plus className="w-3 h-3" /> Upload Plan
                 </Button>
               </Link>
             </div>
             {plans && plans.length > 0 ? (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {plans.map(plan => (
                   <div key={plan.id} data-testid={`plan-item-${plan.id}`}
-                    className="rounded-lg border border-border bg-card px-3 py-2.5 flex items-center gap-2.5">
-                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <p className="text-xs flex-1 truncate font-medium">{plan.originalName}</p>
+                    className="rounded-lg border border-border bg-card px-3.5 py-3 flex items-center gap-3">
+                    <FileText className="w-4 h-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{plan.originalName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(plan.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
                     <Badge variant="outline" className={`text-xs shrink-0 ${planStatusColor[plan.status]}`}>
                       {plan.status}
                     </Badge>
@@ -295,27 +332,35 @@ export default function ProjectDetail() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border py-6 text-center">
-                <p className="text-xs text-muted-foreground">No plans uploaded.</p>
-              </div>
+              <Link href="/plans">
+                <div className="rounded-xl border border-dashed border-border py-10 text-center hover:border-primary/40 transition-colors cursor-pointer">
+                  <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm font-medium">No plans uploaded</p>
+                  <p className="text-xs text-muted-foreground mt-1">Click to go to Plans and upload a PDF.</p>
+                </div>
+              </Link>
             )}
           </div>
+        )}
 
-          {/* Activity log */}
-          <div className="space-y-2.5">
-            <h2 className="font-semibold text-sm flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-primary" /> Activity Log
-            </h2>
+        {/* Tab: Notes */}
+        {activeTab === "notes" && (
+          <NotesTab projectId={projectId} />
+        )}
+
+        {/* Tab: Activity */}
+        {activeTab === "activity" && (
+          <div className="space-y-2">
             {activityLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-9 w-full" />)}
               </div>
             ) : activity && activity.length > 0 ? (
               <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                <div className="divide-y divide-border">
                   {activity.map(item => (
                     <div key={item.id} data-testid={`proj-activity-${item.id}`}
-                      className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-secondary/30 transition-colors">
+                      className="flex items-center gap-2.5 px-3.5 py-3 hover:bg-secondary/30 transition-colors">
                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activityDot[item.type] ?? "bg-muted"}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate">{item.entityName}</p>
@@ -329,12 +374,12 @@ export default function ProjectDetail() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-border py-6 text-center">
+              <div className="rounded-lg border border-dashed border-border py-8 text-center">
                 <p className="text-xs text-muted-foreground">No activity yet for this project.</p>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
 
       <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
