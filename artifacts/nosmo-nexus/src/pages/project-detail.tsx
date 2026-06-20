@@ -28,8 +28,10 @@ import { NotesTab } from "@/components/notes-tab";
 import {
   ArrowLeft, MapPin, FileText, CheckSquare,
   BarChart3, Plus, ChevronRight, ChevronLeft,
-  Activity, Clock, Circle, StickyNote,
+  Activity, Clock, Circle, StickyNote, Eye, ExternalLink,
 } from "lucide-react";
+
+const API_BASE = import.meta.env.BASE_URL ?? "/";
 
 type TabId = "tasks" | "plans" | "notes" | "activity";
 
@@ -60,6 +62,7 @@ const activityDot: Record<string, string> = {
   task_updated: "bg-yellow-500",
   plan_uploaded: "bg-purple-500",
   comment_added: "bg-green-500",
+  note_added: "bg-yellow-500",
 };
 
 const activityLabel: Record<string, string> = {
@@ -69,6 +72,7 @@ const activityLabel: Record<string, string> = {
   task_updated: "Task updated",
   plan_uploaded: "Plan uploaded",
   comment_added: "Comment added",
+  note_added: "Note added",
 };
 
 type Status = "todo" | "in_progress" | "done";
@@ -88,6 +92,7 @@ export default function ProjectDetail() {
   const { toast } = useToast();
   const [taskOpen, setTaskOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("tasks");
+  const [pdfPlan, setPdfPlan] = useState<{ id: number; name: string } | null>(null);
 
   const { data: project, isLoading: projectLoading } = useGetProject(projectId, {
     query: { queryKey: getGetProjectQueryKey(projectId), enabled: !!projectId },
@@ -171,7 +176,7 @@ export default function ProjectDetail() {
     { id: "tasks", label: "Tasks", icon: CheckSquare, count: tasks?.length },
     { id: "plans", label: "Plans", icon: FileText, count: plans?.length },
     { id: "notes", label: "Notes", icon: StickyNote },
-    { id: "activity", label: "Activity", icon: Activity, count: activity?.length },
+    { id: "activity", label: "Timeline", icon: Activity, count: activity?.length },
   ];
 
   return (
@@ -328,6 +333,17 @@ export default function ProjectDetail() {
                     <Badge variant="outline" className={`text-xs shrink-0 ${planStatusColor[plan.status]}`}>
                       {plan.status}
                     </Badge>
+                    {plan.hasFile && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid={`button-view-plan-${plan.id}`}
+                        onClick={() => setPdfPlan({ id: plan.id, name: plan.originalName })}
+                        className="gap-1.5 h-7 text-xs shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -356,21 +372,28 @@ export default function ProjectDetail() {
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-9 w-full" />)}
               </div>
             ) : activity && activity.length > 0 ? (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="divide-y divide-border">
-                  {activity.map(item => (
-                    <div key={item.id} data-testid={`proj-activity-${item.id}`}
-                      className="flex items-center gap-2.5 px-3.5 py-3 hover:bg-secondary/30 transition-colors">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activityDot[item.type] ?? "bg-muted"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{item.entityName}</p>
-                        <p className="text-xs text-muted-foreground">{activityLabel[item.type] ?? item.type}</p>
+              <div className="rounded-xl border border-border bg-card px-5 py-5">
+                <div className="relative pl-6">
+                  {/* Connecting vertical line */}
+                  <div className="absolute left-[5px] top-1.5 bottom-1.5 w-px bg-border" />
+                  <div className="space-y-5">
+                    {activity.map(item => (
+                      <div key={item.id} data-testid={`proj-activity-${item.id}`} className="relative">
+                        <div className={`absolute -left-[23px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-card ${activityDot[item.type] ?? "bg-muted"}`} />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium leading-snug">{activityLabel[item.type] ?? item.type}</p>
+                            {item.entityName && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">{item.entityName}</p>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                            {new Date(item.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground shrink-0 tabular-nums">
-                        {new Date(item.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short" })}
-                      </p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -402,6 +425,38 @@ export default function ProjectDetail() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* In-project PDF viewer */}
+      <Dialog open={!!pdfPlan} onOpenChange={(o) => !o && setPdfPlan(null)}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col gap-3 p-4">
+          <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0">
+            <DialogTitle className="text-sm font-medium truncate flex items-center gap-2 min-w-0">
+              <FileText className="w-4 h-4 text-primary shrink-0" />
+              <span className="truncate">{pdfPlan?.name}</span>
+            </DialogTitle>
+            {pdfPlan && (
+              <a
+                href={`${API_BASE}api/plans/${pdfPlan.id}/file`}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="link-open-pdf-newtab"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 mr-6"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Open in new tab
+              </a>
+            )}
+          </DialogHeader>
+          {pdfPlan && (
+            <iframe
+              key={pdfPlan.id}
+              src={`${API_BASE}api/plans/${pdfPlan.id}/file`}
+              title={pdfPlan.name}
+              data-testid="pdf-viewer-frame"
+              className="flex-1 w-full rounded-lg border border-border bg-muted"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>

@@ -41,11 +41,6 @@ function SidebarContent({
         </div>
       </div>
 
-      {/* Search */}
-      <div className="px-2 pt-2 pb-1">
-        <SearchPalette />
-      </div>
-
       {/* Nav */}
       <nav className="flex-1 py-1 px-2 flex flex-col gap-0.5 overflow-y-auto">
         {navItems.map((item) => {
@@ -161,19 +156,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* ── Main content ─────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Mobile top bar */}
-        <header className="md:hidden h-14 border-b border-border bg-card flex items-center px-4 gap-3 shrink-0">
+        {/* Universal top bar with search — present on every page */}
+        <header className="h-14 border-b border-border bg-card/80 backdrop-blur sticky top-0 z-30 flex items-center px-3 sm:px-4 gap-3 shrink-0">
           <button
             onClick={() => setMobileOpen(v => !v)}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-6 h-6 bg-primary rounded flex items-center justify-center shrink-0">
+          <div className="md:hidden flex items-center shrink-0">
+            <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-xs">N</span>
             </div>
-            <span className="font-bold text-sm text-foreground">NOSMO Nexus™</span>
+          </div>
+          <div className="flex-1 max-w-xl">
+            <SearchPalette />
           </div>
         </header>
 

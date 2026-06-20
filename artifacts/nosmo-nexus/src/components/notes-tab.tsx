@@ -5,6 +5,7 @@ import {
   useUpdateNote,
   useDeleteNote,
   getListNotesQueryKey,
+  getGetProjectActivityQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +38,7 @@ export function NotesTab({ projectId }: { projectId: number }) {
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListNotesQueryKey(projectId) });
+    queryClient.invalidateQueries({ queryKey: getGetProjectActivityQueryKey(projectId) });
   }
 
   function openCreate() {

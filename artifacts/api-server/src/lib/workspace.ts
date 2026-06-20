@@ -1,4 +1,4 @@
-import { db, workspacesTable, projectsTable } from "@workspace/db";
+import { db, workspacesTable, projectsTable, activityTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Workspace } from "@workspace/db";
 
@@ -27,12 +27,23 @@ export async function ensureWorkspace(
 
   if (created) {
     // Seed a starter project so the workspace is not empty on first login.
-    await db.insert(projectsTable).values({
+    const [project] = await db
+      .insert(projectsTable)
+      .values({
+        workspaceId: created.id,
+        name: "NOSMO Nexus MVP",
+        description: "Your first project on the NOSMO Nexus platform.",
+        status: "active",
+        location: "Poland / UK",
+      })
+      .returning({ id: projectsTable.id });
+    // Seed a first timeline entry for the starter project.
+    await db.insert(activityTable).values({
       workspaceId: created.id,
-      name: "NOSMO Nexus MVP",
-      description: "Your first project on the NOSMO Nexus platform.",
-      status: "active",
-      location: "Poland / UK",
+      type: "project_created",
+      description: "Project created",
+      entityName: "NOSMO Nexus MVP",
+      projectId: project?.id ?? null,
     });
     return created;
   }

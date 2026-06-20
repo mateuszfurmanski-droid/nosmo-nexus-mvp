@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, notesTable, projectsTable } from "@workspace/db";
+import { db, notesTable, projectsTable, activityTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -44,6 +44,13 @@ router.post("/projects/:id/notes", async (req, res): Promise<void> => {
     .insert(notesTable)
     .values({ projectId, workspaceId, title, content })
     .returning();
+  await db.insert(activityTable).values({
+    workspaceId,
+    type: "note_added",
+    description: "Note added",
+    entityName: note.title,
+    projectId,
+  });
   res.status(201).json(note);
 });
 

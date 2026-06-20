@@ -113,7 +113,7 @@ export const GetDashboardSummaryResponse = zod.object({
  */
 export const GetRecentActivityResponseItem = zod.object({
   "id": zod.number(),
-  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'task_moved', 'plan_uploaded', 'comment_added', 'demo_seeded']),
+  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'task_moved', 'plan_uploaded', 'comment_added', 'note_added', 'demo_seeded']),
   "description": zod.string(),
   "entityName": zod.string(),
   "projectId": zod.number().nullish(),
@@ -231,7 +231,7 @@ export const GetProjectActivityParams = zod.object({
 
 export const GetProjectActivityResponseItem = zod.object({
   "id": zod.number(),
-  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'task_moved', 'plan_uploaded', 'comment_added', 'demo_seeded']),
+  "type": zod.enum(['project_created', 'task_created', 'task_updated', 'task_moved', 'plan_uploaded', 'comment_added', 'note_added', 'demo_seeded']),
   "description": zod.string(),
   "entityName": zod.string(),
   "projectId": zod.number().nullish(),

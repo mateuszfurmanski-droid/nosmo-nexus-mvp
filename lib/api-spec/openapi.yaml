@@ -900,7 +900,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [project_created, task_created, task_updated, task_moved, plan_uploaded, comment_added, demo_seeded]
+          enum: [project_created, task_created, task_updated, task_moved, plan_uploaded, comment_added, note_added, demo_seeded]
         description:
           type: string
         entityName:

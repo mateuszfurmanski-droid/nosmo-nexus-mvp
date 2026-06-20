@@ -69,6 +69,7 @@ export const ActivityItemType = {
   task_moved: 'task_moved',
   plan_uploaded: 'plan_uploaded',
   comment_added: 'comment_added',
+  note_added: 'note_added',
   demo_seeded: 'demo_seeded',
 } as const;
 
