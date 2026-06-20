@@ -17,6 +17,7 @@ const cardVariants = {
 
 export default function Dashboard() {
   const activeProjects = PROJECTS.filter(p => p.status === "Active").slice(0, 4);
+  const leadProject = activeProjects[0];
   const activePeople = PEOPLE.filter(p => p.status === "Active" || p.status === "Lead" || p.status === "Partner").slice(0, 5);
   const dueSoonTasks = TASKS.filter(t => t.status !== "Done").sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 5);
   const recentTimeline = TIMELINE.slice(0, 6);
@@ -36,9 +37,12 @@ export default function Dashboard() {
           <div className="flex-1">
             <h1 className="text-2xl font-semibold mb-2 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              Good morning, Alex.
+              Good morning, Mateusz.
             </h1>
-            <p className="text-muted-foreground">You have {dueSoonTasks.length} tasks due soon. Project Alpha is at 65% progress.</p>
+            <p className="text-muted-foreground">
+              You have {dueSoonTasks.length} tasks due soon.
+              {leadProject ? ` ${leadProject.name} is at ${leadProject.progress}% progress.` : ""}
+            </p>
           </div>
           <div className="w-full md:w-[400px]">
             <div className="relative group">

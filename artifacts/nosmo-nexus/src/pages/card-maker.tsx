@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   UserPlus,
   Sparkles,
@@ -20,9 +20,14 @@ import {
   Trash2,
   Camera,
   Users,
-  ArrowRight,
+  ArrowLeft,
   Check,
   Wand2,
+  Loader2,
+  Radar,
+  X,
+  Lock,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +46,8 @@ import {
 type VisibilityMode = "public" | "project_team" | "internal" | "private_admin";
 type Availability = "available_now" | "available_soon" | "currently_booked" | "unknown";
 type Confidence = "High" | "Medium" | "Low";
+type Decision = "confirmed" | "rejected" | "private";
+type View = "list" | "create";
 
 interface Participation {
   id: string;
@@ -73,6 +80,20 @@ interface PersonCard {
   savedAt?: string;
 }
 
+// Authorised sources the simulated scan "checks". Display order = scan order.
+// SAFE SIMULATION ONLY — nothing is actually fetched or scraped.
+const SCAN_SOURCES = [
+  "Checking existing Nexus database…",
+  "Checking project files…",
+  "Checking uploaded documents…",
+  "Checking saved contacts…",
+  "Checking email (if connected)…",
+  "Checking WhatsApp (if authorised)…",
+  "Checking public web…",
+  "Checking Companies House…",
+  "Checking LinkedIn / public profiles…",
+];
+
 const availabilityOptions: { value: Availability; label: string }[] = [
   { value: "available_now", label: "Available now" },
   { value: "available_soon", label: "Available soon" },
@@ -101,6 +122,9 @@ const confidenceStyle: Record<Confidence, string> = {
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+const getInitials = (name: string) =>
+  name.trim() ? name.trim().split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "?";
 
 const emptyParticipation = (): Participation => ({
   id: uid(),
@@ -279,6 +303,7 @@ type SuggestionTarget =
 interface AiSuggestion {
   id: string;
   category: string;
+  source: string;
   confidence: Confidence;
   summary: string;
   target: SuggestionTarget;
@@ -294,6 +319,7 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
   suggestions.push({
     id: uid(),
     category: "Suggested identity",
+    source: "Nexus database",
     confidence: card.fullName.trim() ? "High" : "Low",
     summary: card.fullName.trim()
       ? `Likely "${card.fullName.trim()}" — ${card.mainRole.trim() || "Joiner / Freelancer"} at ${
@@ -307,10 +333,26 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     },
   });
 
+  if (/(limited|ltd|360|nosmo)/.test(haystack)) {
+    suggestions.push({
+      id: uid(),
+      category: "Company registration",
+      source: "Companies House",
+      confidence: "Medium",
+      summary: `Possible registered company match for "${card.company.trim() || "360 Interiors"}". Verify before attaching.`,
+      target: {
+        kind: "identity",
+        mainRole: card.mainRole.trim() || "Joiner / Freelancer",
+        company: card.company.trim() || "360 Interiors",
+      },
+    });
+  }
+
   if (haystack.includes("halifax") || haystack.includes("lloyds")) {
     suggestions.push({
       id: uid(),
       category: "Possible project participation",
+      source: "Project files",
       confidence: "Medium",
       summary: "Halifax / Lloyds Bank fit-out via 360 Interiors — Joiner role with door & snag work.",
       target: {
@@ -327,6 +369,7 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     suggestions.push({
       id: uid(),
       category: "Related people",
+      source: "Saved contacts",
       confidence: "Medium",
       summary: "Possible site team: Lee, Tom, Akeem, Mateusz Zuchowski, John, Boo, Jamie.",
       target: {
@@ -338,6 +381,7 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     suggestions.push({
       id: uid(),
       category: "Linked documents / tasks / photos",
+      source: "Uploaded documents",
       confidence: "Low",
       summary: "Possible linked data: PDF plans, Excel door schedule, snag photos, completion photos.",
       target: {
@@ -352,6 +396,7 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     suggestions.push({
       id: uid(),
       category: "Possible project participation",
+      source: "Project files",
       confidence: "Medium",
       summary: "NOSMO Nexus product work — Product Architect / Founder context.",
       target: {
@@ -368,6 +413,7 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     suggestions.push({
       id: uid(),
       category: "Related people",
+      source: "Saved contacts",
       confidence: "Medium",
       summary: "Possible related participants: Mateusz Furmański, Kamil Karaszewski, advisors, investors.",
       target: {
@@ -380,6 +426,7 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     suggestions.push({
       id: uid(),
       category: "Possible project participation",
+      source: "Public web",
       confidence: "Low",
       summary: "No strong project match yet. Add a project name to improve participation suggestions.",
       target: {
@@ -389,24 +436,75 @@ function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
     });
   }
 
+  if (card.profileLink.trim() || card.fullName.trim()) {
+    suggestions.push({
+      id: uid(),
+      category: "Public profile",
+      source: "LinkedIn / public profiles",
+      confidence: "Low",
+      summary: "A public profile may exist. Keep private unless you have permission to attach it.",
+      target: {
+        kind: "identity",
+        mainRole: card.mainRole.trim() || "Joiner / Freelancer",
+        company: card.company.trim() || "360 Interiors",
+      },
+    });
+  }
+
   return suggestions;
 }
 
 export default function CardMaker() {
+  const [view, setView] = useState<View>("list");
   const [card, setCard] = useState<PersonCard>(emptyCard);
   const [revealPhone, setRevealPhone] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
-  const [pendingLow, setPendingLow] = useState<string | null>(null);
+
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
-  const [appliedIds, setAppliedIds] = useState<string[]>([]);
+  const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+  const [scanning, setScanning] = useState(false);
+  const [scanStep, setScanStep] = useState(0);
+  const [scanned, setScanned] = useState(false);
 
   const [drafts, setDrafts] = useState<PersonCard[]>(() => loadDrafts());
+
+  // Keep the latest card available to the scan timer without restarting it on every keystroke.
+  const cardRef = useRef(card);
+  cardRef.current = card;
 
   const visibilityHint = useMemo(
     () => visibilityOptions.find((v) => v.value === card.visibility)?.hint ?? "",
     [card.visibility],
   );
+
+  // Simulated scan: step through SCAN_SOURCES, then surface suggestions. Safe simulation only.
+  useEffect(() => {
+    if (!scanning) return;
+    let step = 0;
+    setScanStep(0);
+    const interval = setInterval(() => {
+      step += 1;
+      if (step >= SCAN_SOURCES.length) {
+        clearInterval(interval);
+        setScanning(false);
+        setScanned(true);
+        setSuggestions(buildAiSuggestions(cardRef.current));
+        setDecisions({});
+      } else {
+        setScanStep(step);
+      }
+    }, 480);
+    return () => clearInterval(interval);
+  }, [scanning]);
+
+  const resetScan = () => {
+    setScanning(false);
+    setScanStep(0);
+    setScanned(false);
+    setSuggestions([]);
+    setDecisions({});
+  };
 
   const updateField = <K extends keyof PersonCard>(key: K, value: PersonCard[K]) => {
     setCard((prev) => ({ ...prev, [key]: value }));
@@ -434,10 +532,12 @@ export default function CardMaker() {
     }));
   };
 
-  const generateSuggestions = () => {
-    setSuggestions(buildAiSuggestions(card));
-    setAppliedIds([]);
-    setPendingLow(null);
+  const runPrefill = () => {
+    if (scanning) return;
+    setScanned(false);
+    setSuggestions([]);
+    setDecisions({});
+    setScanning(true);
   };
 
   const applyTarget = (s: AiSuggestion) => {
@@ -485,34 +585,45 @@ export default function CardMaker() {
       };
       return { ...prev, participations: parts };
     });
-    setAppliedIds((prev) => [...prev, s.id]);
-    setPendingLow(null);
     setSavedFlash(false);
   };
 
-  const handleApply = (s: AiSuggestion) => {
-    if (s.confidence === "Low" && pendingLow !== s.id) {
-      setPendingLow(s.id);
-      return;
-    }
+  const confirmSuggestion = (s: AiSuggestion) => {
     applyTarget(s);
+    setDecisions((prev) => ({ ...prev, [s.id]: "confirmed" }));
+  };
+  const rejectSuggestion = (s: AiSuggestion) => {
+    setDecisions((prev) => ({ ...prev, [s.id]: "rejected" }));
+  };
+  const privateSuggestion = (s: AiSuggestion) => {
+    setDecisions((prev) => ({ ...prev, [s.id]: "private" }));
   };
 
-  const loadExample = () => {
-    setCard(exampleCard());
+  const goCreate = (next: PersonCard) => {
+    setCard(next);
     setConfirmed(false);
     setSavedFlash(false);
-    setSuggestions([]);
-    setAppliedIds([]);
+    setRevealPhone(false);
+    resetScan();
+    setView("create");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const newCard = () => goCreate(emptyCard());
+  const loadExample = () => goCreate(exampleCard());
+  const loadDraft = (draft: PersonCard) => goCreate({ ...draft, id: uid() });
+
+  const backToList = () => {
+    setView("list");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const resetDraft = () => {
     setCard(emptyCard());
     setConfirmed(false);
     setSavedFlash(false);
-    setSuggestions([]);
-    setAppliedIds([]);
     setRevealPhone(false);
+    resetScan();
   };
 
   const saveDraft = () => {
@@ -523,14 +634,7 @@ export default function CardMaker() {
     localStorage.setItem("nexus_card_maker_drafts", JSON.stringify(next));
     setSavedFlash(true);
     setConfirmed(false);
-  };
-
-  const loadDraft = (draft: PersonCard) => {
-    setCard({ ...draft, id: uid() });
-    setConfirmed(false);
-    setSavedFlash(false);
-    setSuggestions([]);
-    setAppliedIds([]);
+    setView("list");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -541,34 +645,309 @@ export default function CardMaker() {
   };
 
   const isPublic = card.visibility === "public";
-  const initials = card.fullName
-    ? card.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "?";
+  const initials = getInitials(card.fullName);
+  const confirmedCount = Object.values(decisions).filter((d) => d === "confirmed").length;
 
-  return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-16">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <UserPlus className="w-6 h-6 text-primary" /> Card Maker
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm max-w-2xl">
-            Build project-aware Person Cards from partial data. Nexus AI pre-fills suggested identity,
-            participation and links — you confirm before anything is saved.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={loadExample} data-testid="button-load-example">
-            <Wand2 className="w-4 h-4" /> Load example
-          </Button>
+  // ============================ LIST VIEW ============================
+  if (view === "list") {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 pb-16">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <UserPlus className="w-6 h-6 text-primary" /> Card Maker
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm max-w-2xl">
+              Build project-aware Person Cards from partial data. Nexus AI pre-fills suggested identity,
+              participation and links — you confirm before anything is saved.
+            </p>
+          </div>
           <Button variant="secondary" asChild data-testid="link-people-directory">
             <Link href="/people">
               <Users className="w-4 h-4" /> People Directory
             </Link>
           </Button>
         </div>
+
+        {savedFlash && (
+          <div className="rounded-xl border border-green-500/30 bg-green-500/10 text-green-300 p-3 text-sm flex gap-2">
+            <Check className="w-5 h-5 shrink-0" /> Draft saved locally.
+          </div>
+        )}
+
+        {/* Prominent "+ Card" CTA */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
+          <button
+            onClick={newCard}
+            data-testid="button-new-card"
+            className="group relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-8 text-left transition-all hover:border-primary/60 hover:shadow-[0_0_30px_rgba(0,255,255,0.08)]"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+                <Plus className="w-7 h-7 text-primary" />
+              </div>
+              <div>
+                <p className="text-xl font-bold tracking-tight">+ Card</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Create a new Person Card — then run AI pre-fill to scan connected sources.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={loadExample}
+            data-testid="button-load-example"
+            className="rounded-2xl border border-border bg-card p-6 text-left transition-all hover:border-primary/40 sm:w-56 flex flex-col justify-center"
+          >
+            <Wand2 className="w-6 h-6 text-primary mb-2" />
+            <p className="font-semibold">Load example</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Mateusz Furmański — one person, three roles.</p>
+          </button>
+        </div>
+
+        {/* Privacy reminder */}
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 p-3 text-sm flex gap-2">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <span>
+            <span className="font-medium">AI pre-fills. Human confirms.</span> Phone numbers stay masked,
+            private links are never published without permission, and low-confidence matches are never
+            attached automatically.
+          </span>
+        </div>
+
+        {/* Saved drafts */}
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Saved cards</h2>
+          {drafts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-card/40 py-12 text-center">
+              <UserPlus className="w-8 h-8 mx-auto text-muted-foreground/60 mb-3" />
+              <p className="text-sm text-muted-foreground">No cards yet. Hit <span className="text-foreground font-medium">+ Card</span> to make your first one.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {drafts.map((d) => (
+                <div
+                  key={d.id}
+                  className="rounded-xl border border-border bg-card p-4 flex items-start justify-between gap-3 hover:border-primary/40 transition-colors"
+                >
+                  <button
+                    onClick={() => loadDraft(d)}
+                    className="flex items-start gap-3 text-left min-w-0 flex-1"
+                    data-testid={`button-load-draft-${d.id}`}
+                  >
+                    <div className="w-11 h-11 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold shrink-0">
+                      {getInitials(d.fullName)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{d.fullName || "Unnamed person"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {d.mainRole || "Role not set"} · {d.participations.filter((p) => p.projectName).length} project(s)
+                      </p>
+                      <Badge variant="outline" className="mt-1.5 text-[10px]">
+                        {visibilityOptions.find((v) => v.value === d.visibility)?.label}
+                      </Badge>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => deleteDraft(d.id)}
+                    aria-label="Delete draft"
+                    className="text-muted-foreground hover:text-red-400 transition-colors shrink-0"
+                    data-testid={`button-delete-draft-${d.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+    );
+  }
+
+  // ============================ CREATE VIEW ============================
+  return (
+    <div className="max-w-7xl mx-auto space-y-6 pb-16">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-3">
+        <Button variant="ghost" onClick={backToList} data-testid="button-back-to-list">
+          <ArrowLeft className="w-4 h-4" /> All cards
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={loadExample} data-testid="button-load-example">
+            <Wand2 className="w-4 h-4" /> Load example
+          </Button>
+          <Button variant="outline" onClick={resetDraft} data-testid="button-reset">
+            <RotateCcw className="w-4 h-4" /> Reset
+          </Button>
+        </div>
+      </div>
+
+      {/* ===== AI PREFILL hero — most prominent control ===== */}
+      <section className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-6 md:p-8">
+        <div className="absolute -top-10 -right-10 opacity-10 pointer-events-none">
+          <Radar className="w-44 h-44 text-primary" />
+        </div>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <Radar className="w-5 h-5 text-primary" />
+              <Badge variant="outline" className="text-[10px]">Safe simulation</Badge>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight">AI PREFILL</h2>
+            <p className="text-sm text-muted-foreground max-w-xl">
+              Scan connected sources to pre-fill this card with suggested identity, participation and links.{" "}
+              <span className="text-foreground font-semibold">AI pre-fills. Human confirms.</span>
+            </p>
+          </div>
+          <div className="w-full lg:w-auto">
+            <Button
+              size="lg"
+              onClick={runPrefill}
+              disabled={scanning}
+              data-testid="button-ai-prefill"
+              className="w-full lg:w-auto h-14 px-8 text-base font-semibold"
+            >
+              {scanning ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" /> Scanning…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" /> {scanned ? "Re-run AI Pre-fill" : "Run AI Pre-fill"}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Live scanning status */}
+        <AnimatePresence>
+          {scanning && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="relative z-10 overflow-hidden"
+            >
+              <div className="mt-6 rounded-xl border border-border bg-background/50 p-4 space-y-3" aria-live="polite">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <motion.span
+                    key={scanStep}
+                    initial={{ opacity: 0, x: 6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    data-testid="text-scan-status"
+                  >
+                    {SCAN_SOURCES[scanStep]}
+                  </motion.span>
+                </div>
+                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-primary rounded-full"
+                    animate={{ width: `${((scanStep + 1) / SCAN_SOURCES.length) * 100}%` }}
+                    transition={{ ease: "linear" }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {SCAN_SOURCES.map((s, i) => (
+                    <span
+                      key={s}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                        i < scanStep
+                          ? "bg-green-500/10 text-green-400 border-green-500/20"
+                          : i === scanStep
+                            ? "bg-primary/10 text-primary border-primary/30"
+                            : "bg-secondary text-muted-foreground border-border"
+                      }`}
+                    >
+                      {i < scanStep && <Check className="w-3 h-3" />}
+                      {s.replace("Checking ", "").replace("…", "")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* ===== AI suggestions ===== */}
+      {scanned && (
+        <section className="bg-card border border-border rounded-xl p-5 md:p-6 space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" /> AI suggestions
+            </h2>
+            <Badge variant="outline" className="text-[10px]">
+              {suggestions.length} found · {confirmedCount > 0 ? `${confirmedCount} attached` : "nothing attached yet"}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Each suggestion shows its source and confidence. Confirm to attach, reject to discard, or keep
+            private so it is noted but never published.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {suggestions.map((s) => {
+              const decision = decisions[s.id];
+              return (
+                <div key={s.id} className="rounded-lg border border-border bg-background/40 p-4 space-y-3 flex flex-col">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">{s.category}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${confidenceStyle[s.confidence]}`}>
+                      {s.confidence}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Database className="w-3.5 h-3.5" /> Source: <span className="text-foreground/80 font-medium">{s.source}</span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground flex-1">{s.summary}</p>
+
+                  {s.confidence === "Low" && !decision && (
+                    <p className="text-[11px] text-red-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Low confidence — review carefully before attaching.
+                    </p>
+                  )}
+
+                  {decision === "confirmed" && (
+                    <span className="text-xs text-green-400 flex items-center gap-1.5" data-testid={`status-${s.id}`}>
+                      <Check className="w-3.5 h-3.5" /> Confirmed &amp; applied
+                    </span>
+                  )}
+                  {decision === "rejected" && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid={`status-${s.id}`}>
+                      <X className="w-3.5 h-3.5" /> Rejected
+                    </span>
+                  )}
+                  {decision === "private" && (
+                    <span className="text-xs text-blue-400 flex items-center gap-1.5" data-testid={`status-${s.id}`}>
+                      <Lock className="w-3.5 h-3.5" /> Kept private — not attached
+                    </span>
+                  )}
+
+                  {!decision && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <Button size="sm" onClick={() => confirmSuggestion(s)} data-testid={`button-confirm-${s.id}`}>
+                        <Check className="w-3.5 h-3.5" /> Confirm
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => rejectSuggestion(s)} data-testid={`button-reject-${s.id}`}>
+                        <X className="w-3.5 h-3.5" /> Reject
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => privateSuggestion(s)} data-testid={`button-private-${s.id}`}>
+                        <Lock className="w-3.5 h-3.5" /> Keep private
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Privacy banner */}
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 p-3 text-sm flex gap-2">
@@ -579,7 +958,7 @@ export default function CardMaker() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
         {/* ============ LEFT: FORM ============ */}
         <div className="space-y-6">
           {/* Identity */}
@@ -912,85 +1291,17 @@ export default function CardMaker() {
 
             <div className="flex flex-wrap items-center gap-3">
               <Button onClick={saveDraft} disabled={!confirmed} data-testid="button-save">
-                <Save className="w-4 h-4" /> Confirm &amp; save draft
+                <Save className="w-4 h-4" /> Confirm &amp; save card
               </Button>
-              <Button variant="outline" onClick={resetDraft} data-testid="button-reset">
+              <Button variant="outline" onClick={resetDraft} data-testid="button-reset-form">
                 <RotateCcw className="w-4 h-4" /> Reset
               </Button>
-              {savedFlash && (
-                <span className="text-sm text-green-400 flex items-center gap-1.5">
-                  <Check className="w-4 h-4" /> Draft saved locally
-                </span>
-              )}
             </div>
           </section>
         </div>
 
-        {/* ============ RIGHT: AI + PRIVACY + PREVIEW + DRAFTS ============ */}
+        {/* ============ RIGHT: PRIVACY + PREVIEW ============ */}
         <div className="space-y-6">
-          {/* AI Pre-fill */}
-          <section className="bg-card border border-border rounded-xl p-5 md:p-6 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" /> AI pre-fill preview
-              </h2>
-              <Badge variant="outline" className="text-[10px]">Simulated</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Nexus suggests possible identity, participation, related people and links. Nothing is added
-              until you apply it. <span className="text-foreground font-medium">AI pre-fills, human confirms.</span>
-            </p>
-
-            <Button variant="secondary" onClick={generateSuggestions} className="w-full" data-testid="button-generate-ai">
-              <Sparkles className="w-4 h-4" /> Generate suggestions
-            </Button>
-
-            <div className="space-y-3">
-              {suggestions.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No suggestions yet. Enter a name or project, then generate.
-                </p>
-              )}
-              {suggestions.map((s) => {
-                const applied = appliedIds.includes(s.id);
-                const pending = pendingLow === s.id;
-                return (
-                  <div key={s.id} className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold">{s.category}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${confidenceStyle[s.confidence]}`}>
-                        {s.confidence}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{s.summary}</p>
-
-                    {pending && (
-                      <p className="text-[11px] text-red-400 flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Low-confidence match — confirm to attach.
-                      </p>
-                    )}
-
-                    {applied ? (
-                      <span className="text-xs text-green-400 flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5" /> Applied
-                      </span>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant={pending ? "destructive" : "outline"}
-                        onClick={() => handleApply(s)}
-                        data-testid={`button-apply-${s.id}`}
-                      >
-                        {pending ? "Confirm attach" : "Apply"} <ArrowRight className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
           {/* Privacy gates */}
           <section className="bg-card border border-border rounded-xl p-5 md:p-6 space-y-3">
             <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -1061,42 +1372,6 @@ export default function CardMaker() {
                 Showing the <span className="text-foreground font-medium">{visibilityOptions.find((v) => v.value === card.visibility)?.label}</span> view.
               </p>
             </div>
-          </section>
-
-          {/* Saved drafts */}
-          <section className="bg-card border border-border rounded-xl p-5 md:p-6 space-y-3">
-            <h2 className="text-lg font-semibold">Saved drafts</h2>
-            {drafts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No local drafts saved yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {drafts.map((d) => (
-                  <div key={d.id} className="rounded-lg border border-border bg-background/40 p-3 flex items-start justify-between gap-2">
-                    <button
-                      onClick={() => loadDraft(d)}
-                      className="text-left min-w-0 flex-1"
-                      data-testid={`button-load-draft-${d.id}`}
-                    >
-                      <p className="font-medium text-sm truncate">{d.fullName || "Unnamed person"}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {d.mainRole || "Role not set"} · {d.participations.filter((p) => p.projectName).length} project(s)
-                      </p>
-                      <Badge variant="outline" className="mt-1.5 text-[10px]">
-                        {visibilityOptions.find((v) => v.value === d.visibility)?.label}
-                      </Badge>
-                    </button>
-                    <button
-                      onClick={() => deleteDraft(d.id)}
-                      aria-label="Delete draft"
-                      className="text-muted-foreground hover:text-red-400 transition-colors shrink-0"
-                      data-testid={`button-delete-draft-${d.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
         </div>
       </div>

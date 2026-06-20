@@ -10,9 +10,9 @@ export function AskNexus({ open, onOpenChange }: { open: boolean; onOpenChange: 
   const [isTyping, setIsTyping] = useState(false);
 
   const suggestedPrompts = [
-    "What's the status of Project Alpha?",
-    "Show me recent notes for Eleanor Vance",
-    "Find the Q3 Financial Report",
+    "What's the status of Halifax / Lloyds Bank?",
+    "Show me recent notes for Mateusz Furmański",
+    "Find the Door Schedule",
     "What tasks are due this week?"
   ];
 
@@ -26,10 +26,10 @@ export function AskNexus({ open, onOpenChange }: { open: boolean; onOpenChange: 
       setIsTyping(false);
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: "Based on your workspace memory, Project Alpha (System Migration) is currently Active at 65% progress. The latest update from David Russo indicates the v2 API endpoints have been deployed. Would you like me to pull up the system migration timeline document?",
+        content: "Based on your workspace memory, Halifax / Lloyds Bank – 360 Interiors is currently Active at 72% progress. The latest update from Mateusz Furmański shows the fire door certification pack is complete, with frame alignment snags still to close before the Lloyds walkthrough. Would you like me to pull up the door schedule?",
         citations: [
-          { type: "project", id: "prj1", name: "Project Alpha" },
-          { type: "person", id: "p4", name: "David Russo" }
+          { type: "project", id: "prj1", name: "Halifax / Lloyds Bank" },
+          { type: "person", id: "p1", name: "Mateusz Furmański" }
         ]
       }]);
     }, 1500);
