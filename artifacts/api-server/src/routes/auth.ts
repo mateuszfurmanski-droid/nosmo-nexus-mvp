@@ -31,6 +31,25 @@ function getOrigin(req: Request): string {
   return `${proto}://${host}`;
 }
 
+function isSameOrigin(req: Request): boolean {
+  const expected = getOrigin(req);
+  const origin = req.headers["origin"];
+  if (origin) {
+    return origin === expected;
+  }
+  // Fall back to Referer when Origin is absent (e.g. same-origin navigations).
+  const referer = req.headers["referer"];
+  if (referer) {
+    try {
+      return new URL(referer).origin === expected;
+    } catch {
+      return false;
+    }
+  }
+  // No Origin or Referer — reject to be safe.
+  return false;
+}
+
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
@@ -190,7 +209,12 @@ router.get("/callback", async (req: Request, res: Response) => {
   res.redirect(returnTo);
 });
 
-router.get("/logout", async (req: Request, res: Response) => {
+router.post("/logout", async (req: Request, res: Response) => {
+  if (!isSameOrigin(req)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
   const config = await getOidcConfig();
   const origin = getOrigin(req);
 
@@ -202,7 +226,7 @@ router.get("/logout", async (req: Request, res: Response) => {
     post_logout_redirect_uri: origin,
   });
 
-  res.redirect(endSessionUrl.href);
+  res.json({ redirectUrl: endSessionUrl.href });
 });
 
 router.post(
