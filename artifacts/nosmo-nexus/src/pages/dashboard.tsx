@@ -1,310 +1,239 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import { AppLayout } from "@/components/layout";
-import {
-  useGetDashboardSummary,
-  useGetRecentActivity,
-  getGetDashboardSummaryQueryKey,
-  getGetRecentActivityQueryKey,
-  getListProjectsQueryKey,
-  useCreateProject,
-  useCreateTask,
-  useListProjects,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import {
-  FolderKanban, FileText, CheckSquare, CheckCircle2,
-  Activity, BarChart3, Plus, ArrowRight,
-  ClipboardList, ChevronRight,
-} from "lucide-react";
-import { useForm } from "react-hook-form";
+import { formatDistanceToNow } from "date-fns";
+import { motion } from "framer-motion";
+import { Users, FolderKanban, BookOpen, Clock, ArrowRight, Sparkles, Send, CheckSquare } from "lucide-react";
+import { 
+  PEOPLE, 
+  PROJECTS, 
+  TASKS, 
+  TIMELINE,
+  getPerson
+} from "@/demo/data";
 
-const typeLabel: Record<string, string> = {
-  project_created: "Project created",
-  task_created: "Task created",
-  task_updated: "Task updated",
-  task_moved: "Task moved",
-  plan_uploaded: "Plan uploaded",
-  comment_added: "Comment added",
-  demo_seeded: "Demo seeded",
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
 };
-
-const typeDot: Record<string, string> = {
-  project_created: "bg-blue-500",
-  task_created: "bg-primary",
-  task_updated: "bg-yellow-500",
-  task_moved: "bg-yellow-500",
-  plan_uploaded: "bg-purple-500",
-  comment_added: "bg-green-500",
-  demo_seeded: "bg-muted-foreground",
-};
-
-type ProjectFormData = { name: string; location?: string };
-type TaskFormData = { title: string; projectId: string };
-
-function StatCard({
-  label, value, icon: Icon, accent, href,
-}: {
-  label: string; value: number | undefined; icon: React.ElementType; accent?: boolean; href?: string;
-}) {
-  const inner = (
-    <div className={`rounded-xl border p-5 flex items-start gap-4 transition-colors ${
-      accent
-        ? "border-primary/30 bg-primary/5 hover:border-primary/50"
-        : "border-border bg-card hover:border-border/60"
-    }`}>
-      <div className={`p-2.5 rounded-lg shrink-0 ${accent ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        {value === undefined ? (
-          <Skeleton className="h-9 w-14 mt-1" />
-        ) : (
-          <p className="text-3xl font-bold mt-0.5 tabular-nums">{value}</p>
-        )}
-      </div>
-    </div>
-  );
-  if (href) return <Link href={href}>{inner}</Link>;
-  return inner;
-}
 
 export default function Dashboard() {
-  const [projectOpen, setProjectOpen] = useState(false);
-  const [taskOpen, setTaskOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
-  const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
-  const { data: projects } = useListProjects();
-  const createProject = useCreateProject();
-  const createTask = useCreateTask();
-
-  const projectForm = useForm<ProjectFormData>({ defaultValues: { name: "", location: "" } });
-  const taskForm = useForm<TaskFormData>({ defaultValues: { title: "", projectId: "" } });
-
-  function invalidateAll() {
-    queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
-  }
-
-  function onCreateProject(data: ProjectFormData) {
-    createProject.mutate(
-      { data: { name: data.name, location: data.location || undefined, status: "active" } },
-      {
-        onSuccess: () => {
-          invalidateAll();
-          toast({ title: "Project created" });
-          projectForm.reset();
-          setProjectOpen(false);
-        },
-        onError: () => toast({ title: "Failed to create project", variant: "destructive" }),
-      }
-    );
-  }
-
-  function onCreateTask(data: TaskFormData) {
-    createTask.mutate(
-      { data: { title: data.title, projectId: parseInt(data.projectId, 10) } },
-      {
-        onSuccess: () => {
-          invalidateAll();
-          toast({ title: "Task created" });
-          taskForm.reset();
-          setTaskOpen(false);
-        },
-        onError: () => toast({ title: "Failed to create task", variant: "destructive" }),
-      }
-    );
-  }
-
-  const total = (summary?.openTasks ?? 0) + (summary?.inProgressTasks ?? 0) + (summary?.completedTasks ?? 0);
+  const activeProjects = PROJECTS.filter(p => p.status === "Active").slice(0, 4);
+  const activePeople = PEOPLE.filter(p => p.status === "Active" || p.status === "Lead" || p.status === "Partner").slice(0, 5);
+  const dueSoonTasks = TASKS.filter(t => t.status !== "Done").sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 5);
+  const recentTimeline = TIMELINE.slice(0, 6);
 
   return (
-    <AppLayout>
-      <div className="space-y-8">
-
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Construction site intelligence overview.</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            <Button data-testid="button-quick-task" size="sm" variant="outline" onClick={() => setTaskOpen(true)} className="gap-1.5">
-              <Plus className="w-3.5 h-3.5" /> New Task
-            </Button>
-            <Button data-testid="button-quick-project" size="sm" onClick={() => setProjectOpen(true)} className="gap-1.5">
-              <Plus className="w-3.5 h-3.5" /> New Project
-            </Button>
-          </div>
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      {/* Ask Nexus Quick Prompt */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-2xl p-6 relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+          <Sparkles className="w-32 h-32 text-primary" />
         </div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Projects" value={summary?.totalProjects} icon={FolderKanban} href="/projects" />
-          <StatCard label="Uploaded Plans" value={summary?.totalPlans} icon={FileText} href="/plans" />
-          <StatCard label="Open Tasks" value={summary?.openTasks} icon={CheckSquare} accent href="/tasks" />
-          <StatCard label="Completed Tasks" value={summary?.completedTasks} icon={CheckCircle2} href="/tasks" />
-        </div>
-
-        {/* Middle row */}
-        <div className="grid lg:grid-cols-5 gap-6">
-
-          {/* Task breakdown */}
-          <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold text-sm">Task Breakdown</h2>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
+          <div className="flex-1">
+            <h1 className="text-2xl font-semibold mb-2 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Good morning, Alex.
+            </h1>
+            <p className="text-muted-foreground">You have {dueSoonTasks.length} tasks due soon. Project Alpha is at 65% progress.</p>
+          </div>
+          <div className="w-full md:w-[400px]">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-primary/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative flex items-center bg-card border border-border rounded-full p-1.5 focus-within:ring-2 focus-within:ring-primary/50 transition-all">
+                <input 
+                  type="text" 
+                  placeholder="Ask Nexus to summarize, find, or analyze..." 
+                  className="w-full bg-transparent border-none focus:outline-none px-4 text-sm"
+                />
+                <button className="bg-primary text-primary-foreground p-2 rounded-full hover:bg-primary/90 transition-colors shrink-0">
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
               </div>
-              <Link href="/tasks">
-                <span className="text-xs text-muted-foreground hover:text-primary flex items-center gap-0.5 transition-colors">
-                  View all <ChevronRight className="w-3 h-3" />
-                </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        {/* Left Column */}
+        <div className="md:col-span-8 space-y-8">
+          
+          {/* Active Projects */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <FolderKanban className="w-5 h-5 text-primary" />
+                Active Projects
+              </h2>
+              <Link href="/projects" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+                View all <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-            {summaryLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => <Skeleton key={i} className="h-7 w-full" />)}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {[
-                  { label: "To Do", value: summary?.openTasks ?? 0, bar: "bg-muted-foreground/60" },
-                  { label: "In Progress", value: summary?.inProgressTasks ?? 0, bar: "bg-primary" },
-                  { label: "Done", value: summary?.completedTasks ?? 0, bar: "bg-green-500" },
-                ].map(item => {
-                  const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-                  return (
-                    <div key={item.label} className="space-y-1.5">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{item.label}</span>
-                        <span className="font-semibold tabular-nums">{item.value} <span className="text-muted-foreground font-normal">({pct}%)</span></span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {activeProjects.map((project, i) => (
+                <motion.div 
+                  key={project.id}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: i * 0.1 }}
+                  className="h-full"
+                >
+                  <Link href={`/projects/${project.id}`} className="block h-full">
+                    <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all group h-full flex flex-col">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-1" title={project.name}>{project.name}</h3>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-md font-medium shrink-0">{project.progress}%</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                        <div className={`h-full rounded-full ${item.bar} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">{project.description}</p>
+                      <div className="flex items-center justify-between text-xs mt-auto pt-4 border-t border-border">
+                        <span className="text-muted-foreground truncate mr-2">{project.client}</span>
+                        <div className="flex -space-x-2 shrink-0">
+                          {project.peopleIds.slice(0, 3).map((pid, idx) => {
+                            const p = getPerson(pid);
+                            return p ? (
+                              <div key={pid} className="w-6 h-6 rounded-full bg-secondary border-2 border-card flex items-center justify-center text-[10px] font-bold z-10" style={{ zIndex: 3 - idx }}>
+                                {p.name.split(" ").map(n => n[0]).join("")}
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-                <div className="pt-2 border-t border-border flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total tasks</span>
-                  <span className="font-semibold tabular-nums">{total}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Recent activity */}
-          <div className="lg:col-span-3 rounded-xl border border-border bg-card p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-primary" />
-              <h2 className="font-semibold text-sm">Recent Activity</h2>
+                  </Link>
+                </motion.div>
+              ))}
             </div>
-            {activityLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : activity && activity.length > 0 ? (
-              <div className="space-y-1 max-h-72 overflow-y-auto -mr-2 pr-2">
-                {activity.slice(0, 12).map(item => (
-                  <div key={item.id} data-testid={`activity-item-${item.id}`} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${typeDot[item.type] ?? "bg-muted"}`} />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate">{item.entityName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{typeLabel[item.type] ?? item.type}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
-                      {new Date(item.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short" })}
-                    </span>
-                  </div>
+          </section>
+
+          {/* Active People */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Active Contacts
+              </h2>
+              <Link href="/people" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+                View directory <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="divide-y divide-border">
+                {activePeople.map((person, i) => (
+                  <motion.div 
+                    key={person.id}
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    transition={{ delay: 0.2 + (i * 0.05) }}
+                  >
+                    <Link href={`/people/${person.id}`}>
+                      <div className="flex items-center gap-4 p-4 hover:bg-secondary/50 transition-colors group">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 border border-primary/20 group-hover:border-primary/50 transition-colors">
+                          {person.name.split(" ").map(n => n[0]).join("")}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">{person.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{person.title} at {person.company}</p>
+                        </div>
+                        <div className="hidden sm:block shrink-0">
+                          <span className="text-xs px-2 py-1 bg-secondary rounded-md text-muted-foreground border border-border group-hover:border-primary/30 transition-colors">{person.status}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
                 ))}
               </div>
-            ) : (
-              <div className="py-8 text-center">
-                <ClipboardList className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No activity yet.</p>
-                <p className="text-xs text-muted-foreground mt-1">Create a project or task to get started.</p>
-              </div>
-            )}
-          </div>
+            </div>
+          </section>
+
         </div>
 
-        {/* Quick links */}
-        <div className="grid sm:grid-cols-3 gap-3">
-          {[
-            { label: "Manage Projects", desc: "View and create projects", href: "/projects", icon: FolderKanban },
-            { label: "Task Board", desc: "Kanban workflow tracker", href: "/tasks", icon: CheckSquare },
-            { label: "PDF Plans", desc: "Upload and analyse plans", href: "/plans", icon: FileText },
-          ].map(link => (
-            <Link key={link.href} href={link.href}>
-              <div className="rounded-xl border border-border bg-card px-4 py-3 flex items-center gap-3 hover:border-primary/30 hover:bg-primary/5 transition-colors cursor-pointer group">
-                <link.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{link.label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{link.desc}</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors ml-auto shrink-0" />
-              </div>
-            </Link>
-          ))}
+        {/* Right Column */}
+        <div className="md:col-span-4 space-y-8">
+          
+          {/* Due Soon */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-primary" />
+                Due Soon
+              </h2>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+              {dueSoonTasks.map((task, i) => {
+                const assignee = getPerson(task.assigneePersonId);
+                const isLate = new Date(task.dueDate) < new Date();
+                return (
+                  <motion.div 
+                    key={task.id}
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    transition={{ delay: 0.3 + (i * 0.1) }}
+                    className="flex items-start gap-3 group"
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      <div className={`w-4 h-4 rounded-sm border flex items-center justify-center ${task.status === "Done" ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"}`}>
+                        {task.status === "Done" && <CheckSquare className="w-3 h-3" />}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium leading-tight group-hover:text-primary transition-colors cursor-pointer">{task.title}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <span className={isLate ? "text-destructive" : ""}>
+                          {isLate ? "Overdue" : "Due"} {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true })}
+                        </span>
+                        {assignee && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate">{assignee.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* Recent Timeline */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                Activity
+              </h2>
+            </div>
+            <div className="relative pl-4 border-l-2 border-border/50 ml-2 space-y-6">
+              {recentTimeline.map((event, i) => (
+                <motion.div 
+                  key={event.id}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.5 + (i * 0.1) }}
+                  className="relative"
+                >
+                  <div className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-primary/50 ring-4 ring-background" />
+                  <div className="bg-card border border-border p-3 rounded-lg text-sm group hover:border-primary/30 transition-colors">
+                    <p className="text-foreground text-sm">{event.summary}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })} by {event.actor}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+
         </div>
       </div>
-
-      {/* Quick project modal */}
-      <Dialog open={projectOpen} onOpenChange={setProjectOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>New Project</DialogTitle></DialogHeader>
-          <form onSubmit={projectForm.handleSubmit(onCreateProject)} className="space-y-3">
-            <Input data-testid="input-project-name" placeholder="Project name *" {...projectForm.register("name", { required: true })} />
-            <Input data-testid="input-project-location" placeholder="Location (optional)" {...projectForm.register("location")} />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setProjectOpen(false)}>Cancel</Button>
-              <Button data-testid="button-submit-project" type="submit" disabled={createProject.isPending}>
-                {createProject.isPending ? "Creating..." : "Create"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quick task modal */}
-      <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>New Task</DialogTitle></DialogHeader>
-          <form onSubmit={taskForm.handleSubmit(onCreateTask)} className="space-y-3">
-            <Input data-testid="input-task-title" placeholder="Task title *" {...taskForm.register("title", { required: true })} />
-            <div className="space-y-1.5">
-              <Select onValueChange={v => taskForm.setValue("projectId", v)}>
-                <SelectTrigger data-testid="select-task-project">
-                  <SelectValue placeholder="Select project..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setTaskOpen(false)}>Cancel</Button>
-              <Button data-testid="button-submit-task" type="submit" disabled={createTask.isPending}>
-                {createTask.isPending ? "Creating..." : "Create"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </AppLayout>
+    </div>
   );
 }

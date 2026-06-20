@@ -3,4 +3,5 @@
 - [DB file storage](db-file-storage.md) — PDF plans stored as base64 in Postgres (no object storage); never return blob in list/get (use hasFile), validate %PDF- on upload, force application/pdf+nosniff on serve.
 - [Workspace isolation](workspace-isolation.md) — every data route filters by req.workspaceId; verify parent ownership for child records (comments→task, chat→conversation) to avoid IDOR; truncate domain tables before adding NOT NULL workspaceId + push.
 - [Activity type enum](activity-type-enum.md) — activity.type is constrained by an OpenAPI enum; new event types need spec edit + codegen or GET activity 500s; client must invalidate the activity query to update Timeline live.
+- [nosmo-nexus frontend demo mode](nosmo-frontend-demo-mode.md) — the nosmo-nexus frontend is a deliberate frontend-only investor demo (local sample data, no auth/API); don't re-wire backend; old backend pages remain on disk but unrouted.
 - [App "UI missing / only landing"](auth-gating-vs-landing.md) — all pages live behind AppLayout auth; signed-out users only ever see `/`. "App vanished" = stale public CTAs bouncing to /login, not a routing/deploy break.

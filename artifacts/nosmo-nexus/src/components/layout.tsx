@@ -1,37 +1,34 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@workspace/replit-auth-web";
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, FolderKanban, FileText, CheckSquare,
-  Plug2, LogOut, Menu, X, Sparkles,
+  LayoutDashboard, Users, FolderKanban, BookOpen, CheckSquare,
+  Clock, Settings as SettingsIcon, Menu, X, Sparkles, Search, Bell
 } from "lucide-react";
+import { AskNexus } from "@/components/ask-nexus";
 import { SearchPalette } from "@/components/search-palette";
 
 const navItems = [
-  { path: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard },
-  { path: "/projects",     label: "Projects",     icon: FolderKanban    },
-  { path: "/tasks",        label: "Tasks",        icon: CheckSquare     },
-  { path: "/plans",        label: "Plans",        icon: FileText        },
-  { path: "/ai",           label: "Ask Nexus",    icon: Sparkles        },
-  { path: "/integrations", label: "Integrations", icon: Plug2           },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/people", label: "People", icon: Users },
+  { path: "/projects", label: "Projects", icon: FolderKanban },
+  { path: "/knowledge", label: "Knowledge", icon: BookOpen },
+  { path: "/tasks", label: "Tasks", icon: CheckSquare },
+  { path: "/timeline", label: "Timeline", icon: Clock },
 ];
 
 function SidebarContent({
   location,
-  user,
-  logout,
   onNav,
+  openAskNexus
 }: {
   location: string;
-  user: { firstName?: string | null; email?: string | null; profileImageUrl?: string | null } | null;
-  logout: () => void;
   onNav?: () => void;
+  openAskNexus: () => void;
 }) {
   return (
-    <div className="flex flex-col h-full">
-      {/* Brand */}
-      <div className="h-16 flex items-center px-5 border-b border-border gap-3 shrink-0">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0">
+    <div className="flex flex-col h-full bg-card">
+      <div className="h-16 flex items-center px-6 border-b border-border gap-3 shrink-0">
+        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,255,255,0.3)]">
           <span className="text-primary-foreground font-bold text-sm">N</span>
         </div>
         <div className="flex-1 min-w-0">
@@ -41,20 +38,19 @@ function SidebarContent({
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 py-1 px-2 flex flex-col gap-0.5 overflow-y-auto">
+      <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const active = location === item.path || location.startsWith(item.path + "/");
+          const active = location === item.path || (item.path !== "/" && location.startsWith(item.path + "/"));
           return (
             <Link
               key={item.path}
               href={item.path}
               onClick={onNav}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
                 active
-                  ? "bg-primary/15 text-primary font-semibold"
-                  : "text-foreground/70 hover:bg-secondary hover:text-foreground"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -62,27 +58,42 @@ function SidebarContent({
             </Link>
           );
         })}
+
+        <div className="mt-4 pt-4 border-t border-border">
+          <button
+            onClick={() => {
+              openAskNexus();
+              if (onNav) onNav();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <Sparkles className="w-4 h-4 shrink-0 text-primary" />
+            Ask Nexus
+          </button>
+          <Link
+            href="/settings"
+            onClick={onNav}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
+              location.startsWith("/settings")
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            }`}
+          >
+            <SettingsIcon className="w-4 h-4 shrink-0" />
+            Settings
+          </Link>
+        </div>
       </nav>
 
-      {/* Footer */}
       <div className="p-4 border-t border-border shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden shrink-0 flex items-center justify-center">
-            {user?.profileImageUrl ? (
-              <img src={user.profileImageUrl} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xs font-bold text-foreground">{user?.firstName?.[0] ?? "U"}</span>
-            )}
+          <div className="w-9 h-9 rounded-full bg-secondary overflow-hidden shrink-0 flex items-center justify-center border border-border">
+            <span className="text-xs font-bold text-foreground">AK</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate text-foreground">{user?.firstName ?? "User"}</p>
-            <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
-              {user?.email ?? "Your workspace"}
-            </p>
+            <p className="text-sm font-semibold truncate text-foreground">Alex Knight</p>
+            <p className="text-xs text-muted-foreground truncate">alex@nexus.io</p>
           </div>
-          <button onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
       </div>
     </div>
@@ -90,89 +101,93 @@ function SidebarContent({
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [askNexusOpen, setAskNexusOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
 
-  // Close mobile nav on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [location]);
 
-  // Require authentication: redirect signed-out users to the login page.
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      setLocation("/login");
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(v => !v);
+      }
     }
-  }, [isLoading, isAuthenticated, setLocation]);
-
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center dark bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-            <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          </div>
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        </div>
-      </div>
-    );
-  }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground dark">
-
-      {/* ── Desktop sidebar ─────────────────────────────── */}
-      <aside className="hidden md:flex w-60 border-r border-border bg-card flex-col shrink-0">
+    <div className="min-h-[100dvh] flex bg-background text-foreground dark selection:bg-primary/30">
+      <aside className="hidden md:flex w-64 border-r border-border flex-col shrink-0 relative z-20">
         <SidebarContent
           location={location}
-          user={user ?? null}
-          logout={logout}
+          openAskNexus={() => setAskNexusOpen(true)}
         />
       </aside>
 
-      {/* ── Mobile sidebar overlay ───────────────────────── */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity"
           onClick={() => setMobileOpen(false)}
         />
       )}
       <aside
-        className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border flex flex-col transition-transform duration-200 ${
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <SidebarContent
           location={location}
-          user={user ?? null}
-          logout={logout}
           onNav={() => setMobileOpen(false)}
+          openAskNexus={() => setAskNexusOpen(true)}
         />
       </aside>
 
-      {/* ── Main content ─────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0">
-
-        {/* Universal top bar with search — present on every page */}
-        <header className="h-14 border-b border-border bg-card/80 backdrop-blur sticky top-0 z-30 flex items-center px-3 sm:px-4 gap-3 shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 relative z-10">
+        <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 flex items-center px-4 md:px-8 gap-4 shrink-0">
           <button
             onClick={() => setMobileOpen(v => !v)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
+            className="md:hidden p-2 -ml-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="md:hidden flex items-center shrink-0">
-            <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">N</span>
-            </div>
+          
+          <div className="flex-1 max-w-xl flex items-center">
+            <button
+              onClick={() => setSearchOpen(true)}
+              data-testid="button-open-search"
+              className="w-full flex items-center gap-3 px-4 py-2 bg-secondary/50 hover:bg-secondary border border-border rounded-full text-sm text-muted-foreground transition-all focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <Search className="w-4 h-4" />
+              <span>Search Nexus...</span>
+              <div className="ml-auto hidden md:flex items-center gap-1">
+                <kbd className="inline-flex h-5 items-center gap-1 rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">⌘</kbd>
+                <kbd className="inline-flex h-5 items-center gap-1 rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">K</kbd>
+              </div>
+            </button>
           </div>
-          <div className="flex-1 max-w-xl">
-            <SearchPalette />
+
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={() => setAskNexusOpen(true)}
+              className="hidden md:flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-full text-sm font-medium transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              Ask Nexus
+            </button>
+            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-background"></span>
+            </button>
           </div>
         </header>
 
@@ -180,6 +195,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <AskNexus open={askNexusOpen} onOpenChange={setAskNexusOpen} />
+      <SearchPalette open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }
