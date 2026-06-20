@@ -261,6 +261,9 @@ export interface Plan {
   originalName: string;
   /** @nullable */
   fileSize?: number | null;
+  /** @nullable */
+  mimeType?: string | null;
+  hasFile?: boolean;
   status: PlanStatus;
   /** @nullable */
   analysisResult?: string | null;
@@ -274,6 +277,9 @@ export interface PlanInput {
   /** @minLength 1 */
   originalName: string;
   fileSize?: number;
+  mimeType?: string;
+  /** Base64-encoded file contents (data URL stripped) stored in the database. */
+  fileData?: string;
 }
 
 export interface Comment {
@@ -399,13 +405,6 @@ export type HandleBrowserLoginCallbackParams = {
 code?: string;
 state?: string;
 iss?: string;
-};
-
-export type SeedDemoData200 = {
-  message: string;
-  projectsCreated: number;
-  tasksCreated: number;
-  plansCreated: number;
 };
 
 export type ListTasksParams = {

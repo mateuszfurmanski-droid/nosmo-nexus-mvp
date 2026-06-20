@@ -241,17 +241,6 @@ export const GetProjectActivityResponse = zod.array(GetProjectActivityResponseIt
 
 
 /**
- * @summary Seed realistic demo data (projects, tasks, plans, activity)
- */
-export const SeedDemoDataResponse = zod.object({
-  "message": zod.string(),
-  "projectsCreated": zod.number(),
-  "tasksCreated": zod.number(),
-  "plansCreated": zod.number()
-})
-
-
-/**
  * @summary List tasks, optionally filtered by project
  */
 export const ListTasksQueryParams = zod.object({
@@ -365,6 +354,8 @@ export const ListPlansResponseItem = zod.object({
   "filename": zod.string(),
   "originalName": zod.string(),
   "fileSize": zod.number().nullish(),
+  "mimeType": zod.string().nullish(),
+  "hasFile": zod.boolean().optional(),
   "status": zod.enum(['uploaded', 'processing', 'ready', 'failed']),
   "analysisResult": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -383,7 +374,9 @@ export const CreatePlanBody = zod.object({
   "projectId": zod.number(),
   "filename": zod.string().min(1),
   "originalName": zod.string().min(1),
-  "fileSize": zod.number().optional()
+  "fileSize": zod.number().optional(),
+  "mimeType": zod.string().optional(),
+  "fileData": zod.string().optional().describe('Base64-encoded file contents (data URL stripped) stored in the database.')
 })
 
 
@@ -400,6 +393,8 @@ export const GetPlanResponse = zod.object({
   "filename": zod.string(),
   "originalName": zod.string(),
   "fileSize": zod.number().nullish(),
+  "mimeType": zod.string().nullish(),
+  "hasFile": zod.boolean().optional(),
   "status": zod.enum(['uploaded', 'processing', 'ready', 'failed']),
   "analysisResult": zod.string().nullish(),
   "createdAt": zod.coerce.date()
@@ -410,6 +405,14 @@ export const GetPlanResponse = zod.object({
  * @summary Delete a plan
  */
 export const DeletePlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Download the stored PDF file for a plan
+ */
+export const GetPlanFileParams = zod.object({
   "id": zod.coerce.number()
 })
 

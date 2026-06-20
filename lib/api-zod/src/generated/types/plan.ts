@@ -14,6 +14,9 @@ export interface Plan {
   originalName: string;
   /** @nullable */
   fileSize?: number | null;
+  /** @nullable */
+  mimeType?: string | null;
+  hasFile?: boolean;
   status: PlanStatus;
   /** @nullable */
   analysisResult?: string | null;

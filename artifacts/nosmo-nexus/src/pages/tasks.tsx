@@ -16,10 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, ChevronRight, ChevronLeft, LayoutGrid } from "lucide-react";
+import { Plus, Trash2, ChevronRight, ChevronLeft, LayoutGrid, Pencil } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 type Status = "todo" | "in_progress" | "done";
+type Task = { id: number; title: string; status: string; priority?: string | null; assignee?: string | null; projectId: number };
 
 const COLUMNS: { id: Status; label: string; accent: string; headerBg: string }[] = [
   { id: "todo", label: "To Do", accent: "border-border", headerBg: "bg-card" },
@@ -42,6 +43,7 @@ type TaskFormData = {
 
 export default function Tasks() {
   const [open, setOpen] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: tasks, isLoading } = useListTasks();
@@ -55,6 +57,43 @@ export default function Tasks() {
   const form = useForm<TaskFormData>({
     defaultValues: { title: "", projectId: "", priority: "medium", assignee: "" },
   });
+
+  const editForm = useForm<{ title: string; priority: string; assignee: string; status: string }>({
+    defaultValues: { title: "", priority: "medium", assignee: "", status: "todo" },
+  });
+
+  function openEdit(task: Task) {
+    setEditTask(task);
+    editForm.reset({
+      title: task.title,
+      priority: task.priority ?? "medium",
+      assignee: task.assignee ?? "",
+      status: task.status,
+    });
+  }
+
+  function onEditSubmit(data: { title: string; priority: string; assignee: string; status: string }) {
+    if (!editTask) return;
+    updateTask.mutate(
+      {
+        id: editTask.id,
+        data: {
+          title: data.title,
+          priority: data.priority as never,
+          assignee: data.assignee || undefined,
+          status: data.status as never,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+          toast({ title: "Task updated" });
+          setEditTask(null);
+        },
+        onError: () => toast({ title: "Failed to update task", variant: "destructive" }),
+      }
+    );
+  }
 
   function onSubmit(data: TaskFormData) {
     createTask.mutate(
@@ -199,10 +238,18 @@ export default function Tasks() {
                           </button>
                         )}
                         <button
+                          data-testid={`button-edit-task-${task.id}`}
+                          onClick={() => openEdit(task as Task)}
+                          title="Edit"
+                          className="ml-auto p-0.5 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           data-testid={`button-delete-task-${task.id}`}
                           onClick={() => handleDelete(task.id)}
                           title="Delete"
-                          className="ml-auto p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                          className="p-0.5 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -264,6 +311,61 @@ export default function Tasks() {
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
               <Button data-testid="button-submit-task" type="submit" disabled={createTask.isPending}>
                 {createTask.isPending ? "Creating..." : "Create Task"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit task dialog */}
+      <Dialog open={!!editTask} onOpenChange={v => { if (!v) setEditTask(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-3">
+            <Input
+              data-testid="input-edit-task-title"
+              placeholder="Task title *"
+              {...editForm.register("title", { required: true })}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Status</label>
+                <Select value={editForm.watch("status")} onValueChange={v => editForm.setValue("status", v)}>
+                  <SelectTrigger data-testid="select-edit-task-status" className="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todo">To Do</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Priority</label>
+                <Select value={editForm.watch("priority")} onValueChange={v => editForm.setValue("priority", v)}>
+                  <SelectTrigger data-testid="select-edit-task-priority" className="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Input
+              data-testid="input-edit-task-assignee"
+              placeholder="Assignee (optional)"
+              {...editForm.register("assignee")}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditTask(null)}>Cancel</Button>
+              <Button data-testid="button-save-task" type="submit" disabled={updateTask.isPending}>
+                {updateTask.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

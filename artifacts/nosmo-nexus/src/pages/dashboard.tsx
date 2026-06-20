@@ -4,7 +4,6 @@ import { AppLayout } from "@/components/layout";
 import {
   useGetDashboardSummary,
   useGetRecentActivity,
-  useSeedDemoData,
   getGetDashboardSummaryQueryKey,
   getGetRecentActivityQueryKey,
   getListProjectsQueryKey,
@@ -23,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import {
   FolderKanban, FileText, CheckSquare, CheckCircle2,
-  Activity, BarChart3, Plus, Zap, ArrowRight,
+  Activity, BarChart3, Plus, ArrowRight,
   ClipboardList, ChevronRight,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -88,7 +87,6 @@ export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetDashboardSummary();
   const { data: activity, isLoading: activityLoading } = useGetRecentActivity();
   const { data: projects } = useListProjects();
-  const seedDemo = useSeedDemoData();
   const createProject = useCreateProject();
   const createTask = useCreateTask();
 
@@ -99,16 +97,6 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
-  }
-
-  function handleSeedDemo() {
-    seedDemo.mutate(undefined, {
-      onSuccess: (data) => {
-        invalidateAll();
-        toast({ title: `Demo data loaded — ${data.projectsCreated} projects, ${data.tasksCreated} tasks, ${data.plansCreated} plans` });
-      },
-      onError: () => toast({ title: "Failed to seed demo data", variant: "destructive" }),
-    });
   }
 
   function onCreateProject(data: ProjectFormData) {
@@ -154,17 +142,6 @@ export default function Dashboard() {
             <p className="text-muted-foreground mt-1">Construction site intelligence overview.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <Button
-              data-testid="button-seed-demo"
-              size="sm"
-              variant="outline"
-              onClick={handleSeedDemo}
-              disabled={seedDemo.isPending}
-              className="gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              {seedDemo.isPending ? "Loading..." : "Load Demo Data"}
-            </Button>
             <Button data-testid="button-quick-task" size="sm" variant="outline" onClick={() => setTaskOpen(true)} className="gap-1.5">
               <Plus className="w-3.5 h-3.5" /> New Task
             </Button>

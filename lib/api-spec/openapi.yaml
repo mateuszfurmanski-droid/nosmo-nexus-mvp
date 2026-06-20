@@ -332,29 +332,6 @@ paths:
         "404":
           description: Not found
 
-  /demo/seed:
-    post:
-      operationId: seedDemoData
-      tags: [demo]
-      summary: Seed realistic demo data (projects, tasks, plans, activity)
-      responses:
-        "200":
-          description: Demo data seeded
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [message, projectsCreated, tasksCreated, plansCreated]
-                properties:
-                  message:
-                    type: string
-                  projectsCreated:
-                    type: integer
-                  tasksCreated:
-                    type: integer
-                  plansCreated:
-                    type: integer
-
   # ── Tasks ──────────────────────────────────────────────────────────────
   /tasks:
     get:
@@ -529,6 +506,28 @@ paths:
           description: Deleted
         "404":
           description: Not found
+
+  /plans/{id}/file:
+    get:
+      operationId: getPlanFile
+      tags: [plans]
+      summary: Download the stored PDF file for a plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The stored PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found
 
   # ── Comments ───────────────────────────────────────────────────────────
   /tasks/{taskId}/comments:
@@ -1070,6 +1069,10 @@ components:
           type: string
         fileSize:
           type: [integer, "null"]
+        mimeType:
+          type: [string, "null"]
+        hasFile:
+          type: boolean
         status:
           type: string
           enum: [uploaded, processing, ready, failed]
@@ -1093,6 +1096,11 @@ components:
           minLength: 1
         fileSize:
           type: integer
+        mimeType:
+          type: string
+        fileData:
+          type: string
+          description: Base64-encoded file contents (data URL stripped) stored in the database.
 
     # ── Comments ──────────────────────────────────────────────────────────
     Comment:

@@ -50,7 +50,6 @@ import type {
   ProjectPatch,
   ProjectStats,
   SearchResults,
-  SeedDemoData200,
   Task,
   TaskInput,
   TaskPatch
@@ -1284,76 +1283,6 @@ export function useGetProjectActivity<TData = Awaited<ReturnType<typeof getProje
 
 
 
-export const getSeedDemoDataUrl = () => {
-
-
-
-
-  return `/api/demo/seed`
-}
-
-/**
- * @summary Seed realistic demo data (projects, tasks, plans, activity)
- */
-export const seedDemoData = async ( options?: RequestInit): Promise<SeedDemoData200> => {
-
-  return customFetch<SeedDemoData200>(getSeedDemoDataUrl(),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
-
-
-
-
-export const getSeedDemoDataMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof seedDemoData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof seedDemoData>>, TError,void, TContext> => {
-
-const mutationKey = ['seedDemoData'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof seedDemoData>>, void> = () => {
-
-
-          return  seedDemoData(requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type SeedDemoDataMutationResult = NonNullable<Awaited<ReturnType<typeof seedDemoData>>>
-
-    export type SeedDemoDataMutationError = ErrorType<unknown>
-
-    /**
- * @summary Seed realistic demo data (projects, tasks, plans, activity)
- */
-export const useSeedDemoData = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof seedDemoData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof seedDemoData>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getSeedDemoDataMutationOptions(options));
-    }
-
 export const getListTasksUrl = (params?: ListTasksParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -2029,6 +1958,83 @@ export const useDeletePlan = <TError = ErrorType<void>,
       > => {
       return useMutation(getDeletePlanMutationOptions(options));
     }
+
+export const getGetPlanFileUrl = (id: number,) => {
+
+
+
+
+  return `/api/plans/${id}/file`
+}
+
+/**
+ * @summary Download the stored PDF file for a plan
+ */
+export const getPlanFile = async (id: number, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetPlanFileUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlanFileQueryKey = (id: number,) => {
+    return [
+    `/api/plans/${id}/file`
+    ] as const;
+    }
+
+
+export const getGetPlanFileQueryOptions = <TData = Awaited<ReturnType<typeof getPlanFile>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlanFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlanFileQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlanFile>>> = ({ signal }) => getPlanFile(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlanFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlanFileQueryResult = NonNullable<Awaited<ReturnType<typeof getPlanFile>>>
+export type GetPlanFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download the stored PDF file for a plan
+ */
+
+export function useGetPlanFile<TData = Awaited<ReturnType<typeof getPlanFile>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlanFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlanFileQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListCommentsUrl = (taskId: number,) => {
 

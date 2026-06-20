@@ -14,7 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Trash2, RotateCcw, Cloud, X } from "lucide-react";
+import { Upload, FileText, Trash2, RotateCcw, Cloud, X, Eye } from "lucide-react";
+
+const API_BASE = import.meta.env.BASE_URL;
 
 const statusColor: Record<string, string> = {
   uploaded: "bg-muted text-muted-foreground border-border",
@@ -63,6 +65,18 @@ export default function Plans() {
     if (file) handleFile(file);
   }
 
+  function readAsBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.includes(",") ? result.split(",")[1] : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedFile || !projectId) return;
@@ -73,6 +87,15 @@ export default function Plans() {
       .replace(/\s+/g, "_")
       .replace(/[^a-z0-9._-]/g, "");
 
+    let fileData: string;
+    try {
+      fileData = await readAsBase64(selectedFile);
+    } catch {
+      toast({ title: "Could not read file", variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
     createPlan.mutate(
       {
         data: {
@@ -80,17 +103,19 @@ export default function Plans() {
           filename,
           projectId: parseInt(projectId, 10),
           fileSize: selectedFile.size,
+          mimeType: selectedFile.type || "application/pdf",
+          fileData,
         },
       },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListPlansQueryKey() });
-          toast({ title: `"${selectedFile.name}" registered` });
+          toast({ title: `"${selectedFile.name}" uploaded` });
           setSelectedFile(null);
           setProjectId("");
           setOpen(false);
         },
-        onError: () => toast({ title: "Failed to register plan", variant: "destructive" }),
+        onError: () => toast({ title: "Failed to upload plan", variant: "destructive" }),
         onSettled: () => setUploading(false),
       }
     );
@@ -164,13 +189,27 @@ export default function Plans() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
-                        <button
-                          data-testid={`button-delete-plan-${plan.id}`}
-                          onClick={() => handleDelete(plan.id, plan.originalName)}
-                          className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {plan.hasFile && (
+                            <a
+                              data-testid={`link-view-plan-${plan.id}`}
+                              href={`${API_BASE}api/plans/${plan.id}/file`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View file"
+                              className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </a>
+                          )}
+                          <button
+                            data-testid={`button-delete-plan-${plan.id}`}
+                            onClick={() => handleDelete(plan.id, plan.originalName)}
+                            className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -195,6 +234,16 @@ export default function Plans() {
                   <Badge variant="outline" className={`text-xs shrink-0 ${statusColor[plan.status]}`}>
                     {plan.status}
                   </Badge>
+                  {plan.hasFile && (
+                    <a
+                      href={`${API_BASE}api/plans/${plan.id}/file`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 rounded text-muted-foreground hover:text-primary transition-colors shrink-0"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </a>
+                  )}
                   <button
                     onClick={() => handleDelete(plan.id, plan.originalName)}
                     className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors shrink-0"
@@ -286,7 +335,7 @@ export default function Plans() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              File metadata is stored and analysis is queued. Full cloud storage in V1.
+              The PDF is uploaded and stored in the database. AI sheet analysis is mocked in this build.
             </p>
 
             <DialogFooter>

@@ -13,4 +13,7 @@ export interface PlanInput {
   /** @minLength 1 */
   originalName: string;
   fileSize?: number;
+  mimeType?: string;
+  /** Base64-encoded file contents (data URL stripped) stored in the database. */
+  fileData?: string;
 }

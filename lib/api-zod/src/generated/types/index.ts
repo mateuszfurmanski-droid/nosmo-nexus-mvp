@@ -47,7 +47,6 @@ export * from './projectStatus';
 export * from './searchResultItem';
 export * from './searchResultItemType';
 export * from './searchResults';
-export * from './seedDemoData200';
 export * from './task';
 export * from './taskInput';
 export * from './taskInputPriority';
