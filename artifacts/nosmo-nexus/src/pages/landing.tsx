@@ -24,10 +24,10 @@ export default function Landing() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard"
+            href="/login"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            View Demo
+            Log In
           </Link>
           <Link
             href="/login"
@@ -57,11 +57,11 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <Link
-              href="/dashboard"
+              href="/login"
               className="bg-primary text-primary-foreground px-8 py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity flex items-center gap-2 w-full sm:w-auto justify-center"
             >
               <Zap className="w-5 h-5" />
-              Explore Demo <ArrowRight className="w-5 h-5" />
+              Open the App <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
               href="/login"
@@ -71,7 +71,7 @@ export default function Landing() {
             </Link>
           </div>
           <p className="text-sm text-muted-foreground">
-            No login required to explore. Full functionality in demo mode.
+            Sign in with your Replit account to open your private workspace.
           </p>
         </section>
 
@@ -109,16 +109,16 @@ export default function Landing() {
 
         {/* CTA */}
         <section className="py-20 px-6 max-w-3xl mx-auto w-full text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">Ready to explore?</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-4">Ready to get started?</h2>
           <p className="text-muted-foreground mb-8">
-            No account needed. Click below to open the live demo with real data, a task board, AI assistant, and plan uploads.
+            Sign in with your Replit account to open your dashboard, projects, task board, AI assistant, and plan uploads — all in your own private workspace.
           </p>
           <Link
-            href="/dashboard"
+            href="/login"
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity"
           >
             <Zap className="w-5 h-5" />
-            Launch Demo <ArrowRight className="w-5 h-5" />
+            Sign In to NOSMO Nexus <ArrowRight className="w-5 h-5" />
           </Link>
         </section>
       </main>
