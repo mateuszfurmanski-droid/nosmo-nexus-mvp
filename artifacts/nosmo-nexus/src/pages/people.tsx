@@ -41,9 +41,9 @@ export default function People() {
               className="pl-9 pr-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all w-full sm:w-64"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-            <Plus className="w-4 h-4" /> Add Person
-          </button>
+          <Link href="/card-maker" className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors" data-testid="link-new-card">
+            <Plus className="w-4 h-4" /> New Card
+          </Link>
         </div>
       </div>
 

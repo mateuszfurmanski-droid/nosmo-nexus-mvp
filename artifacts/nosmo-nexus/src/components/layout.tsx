@@ -10,6 +10,7 @@ import { SearchPalette } from "@/components/search-palette";
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/people", label: "People", icon: Users },
+  { path: "/card-maker", label: "Card Maker", icon: UserPlus },
   { path: "/projects", label: "Projects", icon: FolderKanban },
   { path: "/knowledge", label: "Knowledge", icon: BookOpen },
   { path: "/tasks", label: "Tasks", icon: CheckSquare },
