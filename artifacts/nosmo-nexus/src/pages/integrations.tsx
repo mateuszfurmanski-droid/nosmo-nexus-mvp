@@ -1,4 +1,4 @@
-import { AppLayout } from "@/components/layout";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Puzzle } from "lucide-react";
 
@@ -64,49 +64,52 @@ const categoryColor: Record<string, string> = {
 
 export default function Integrations() {
   return (
-    <AppLayout>
-      <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Puzzle className="w-6 h-6 text-primary" /> Integrations
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">Connect NOSMO Nexus with your existing construction tools.</p>
+      </div>
+
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+        <Puzzle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-muted-foreground mt-1">Connect NOSMO Nexus with your existing construction tools.</p>
-        </div>
-
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
-          <Puzzle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-primary">Integrations launching in V1</p>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              These connectors are built and scheduled for the V1 release. Priority access available for early teams.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          {integrations.map(integration => (
-            <div
-              key={integration.name}
-              data-testid={`integration-card-${integration.name.toLowerCase().replace(/\s+/g, "-")}`}
-              className="rounded-xl border border-border bg-card p-5 flex items-start gap-4 hover:border-primary/20 transition-colors"
-            >
-              <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 font-bold text-lg ${integration.iconBg}`}>
-                {integration.letter}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">{integration.name}</p>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{integration.description}</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[integration.category]}`}>
-                    {integration.category}
-                  </span>
-                  <Badge variant="outline" className="text-xs text-muted-foreground border-border">
-                    Coming Soon
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          ))}
+          <p className="text-sm font-medium text-primary">Integrations launching in V1</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            These connectors are built and scheduled for the V1 release. Priority access available for early teams.
+          </p>
         </div>
       </div>
-    </AppLayout>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {integrations.map((integration, i) => (
+          <motion.div
+            key={integration.name}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.04 }}
+            data-testid={`integration-card-${integration.name.toLowerCase().replace(/\s+/g, "-")}`}
+            className="rounded-xl border border-border bg-card p-5 flex items-start gap-4 hover:border-primary/20 transition-colors"
+          >
+            <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 font-bold text-lg ${integration.iconBg}`}>
+              {integration.letter}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">{integration.name}</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{integration.description}</p>
+              <div className="flex items-center gap-2 mt-3">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[integration.category]}`}>
+                  {integration.category}
+                </span>
+                <Badge variant="outline" className="text-xs text-muted-foreground border-border">
+                  Coming Soon
+                </Badge>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
   );
 }

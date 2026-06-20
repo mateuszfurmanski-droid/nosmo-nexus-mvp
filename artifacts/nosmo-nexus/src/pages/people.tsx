@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Users, Search, Plus, Phone, Mail, MapPin } from "lucide-react";
-import { PEOPLE, PersonStatus } from "@/demo/data";
+import { Users, Search, Plus, Phone, Mail, MapPin, FolderKanban } from "lucide-react";
+import { PEOPLE, PersonStatus, getPersonProjects } from "@/demo/data";
 
 const statusColor: Record<PersonStatus, string> = {
   Active: "bg-green-500/10 text-green-400 border-green-500/20",
@@ -12,11 +12,19 @@ const statusColor: Record<PersonStatus, string> = {
   Client: "bg-primary/10 text-primary border-primary/20",
 };
 
+const projectStatusDot: Record<string, string> = {
+  Active: "bg-green-400",
+  Planning: "bg-purple-400",
+  "On Hold": "bg-yellow-400",
+  Completed: "bg-blue-400",
+};
+
 export default function People() {
   const [search, setSearch] = useState("");
-  
-  const filteredPeople = PEOPLE.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
+  const [, navigate] = useLocation();
+
+  const filteredPeople = PEOPLE.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.company.toLowerCase().includes(search.toLowerCase()) ||
     p.tags.some(t => t.toLowerCase().includes(search.toLowerCase()))
   );
@@ -28,14 +36,14 @@ export default function People() {
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Users className="w-6 h-6 text-primary" /> People
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Manage contacts, clients, and partners across the workspace.</p>
+          <p className="text-muted-foreground mt-1 text-sm">Manage contacts, clients, and partners — connected to the projects they work on.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input 
-              type="text" 
-              placeholder="Search people..." 
+            <input
+              type="text"
+              placeholder="Search people..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all w-full sm:w-64"
@@ -48,15 +56,28 @@ export default function People() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredPeople.map((person, i) => (
-          <motion.div 
-            key={person.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Link href={`/people/${person.id}`}>
-              <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all group h-full flex flex-col cursor-pointer">
+        {filteredPeople.map((person, i) => {
+          const projects = getPersonProjects(person.id);
+          return (
+            <motion.div
+              key={person.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/people/${person.id}`)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/people/${person.id}`);
+                  }
+                }}
+                data-testid={`card-person-${person.id}`}
+                className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all group h-full flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg border border-primary/20 group-hover:border-primary/50 transition-colors">
@@ -71,8 +92,8 @@ export default function People() {
                     {person.status}
                   </span>
                 </div>
-                
-                <div className="space-y-2 mt-auto text-sm text-muted-foreground">
+
+                <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5" />
                     <span className="truncate">{person.email}</span>
@@ -86,7 +107,32 @@ export default function People() {
                     <span>{person.location}</span>
                   </div>
                 </div>
-                
+
+                {projects.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2 flex items-center gap-1">
+                      <FolderKanban className="w-3 h-3" /> On {projects.length} project{projects.length === 1 ? "" : "s"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {projects.map(pr => (
+                        <button
+                          key={pr.id}
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            navigate(`/projects/${pr.id}`);
+                          }}
+                          data-testid={`chip-project-${pr.id}`}
+                          className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-secondary/70 border border-border hover:border-primary/40 hover:text-primary transition-colors max-w-full"
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${projectStatusDot[pr.status]}`} />
+                          <span className="truncate max-w-[140px]">{pr.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-1.5 mt-4 pt-4 border-t border-border">
                   {person.tags.map(tag => (
                     <span key={tag} className="text-[10px] px-2 py-0.5 bg-secondary text-secondary-foreground rounded-md border border-border">
@@ -95,11 +141,11 @@ export default function People() {
                   ))}
                 </div>
               </div>
-            </Link>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
-      
+
       {filteredPeople.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <p>No people found matching your search.</p>

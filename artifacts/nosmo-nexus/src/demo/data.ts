@@ -112,6 +112,13 @@ export const DOCUMENTS: Document[] = [
   { id: "doc11", title: "Cap Table", kind: "Spreadsheet", sizeLabel: "95 KB", updatedAt: subDays(now, 5).toISOString(), ownerPersonId: "p1", projectId: "prj3", tags: ["Finance", "Cap Table"] },
   { id: "doc12", title: "Site Assistant R&D Brief", kind: "Doc", sizeLabel: "410 KB", updatedAt: subDays(now, 11).toISOString(), ownerPersonId: "p2", projectId: "prj4", tags: ["R&D", "Brief"] },
   { id: "doc13", title: "UNICON Concept", kind: "Slide", sizeLabel: "5.6 MB", updatedAt: subDays(now, 12).toISOString(), ownerPersonId: "p2", projectId: "prj4", tags: ["Concept", "R&D"] },
+  { id: "doc14", title: "First Floor Plans", kind: "PDF", sizeLabel: "5.2 MB", updatedAt: subDays(now, 4).toISOString(), ownerPersonId: "p5", projectId: "prj1", tags: ["Plans", "PDF"] },
+  { id: "doc15", title: "Elevations & Sections", kind: "PDF", sizeLabel: "6.1 MB", updatedAt: subDays(now, 5).toISOString(), ownerPersonId: "p1", projectId: "prj1", tags: ["Plans", "Drawings"] },
+  { id: "doc16", title: "Fire Strategy Drawing", kind: "PDF", sizeLabel: "1.9 MB", updatedAt: subDays(now, 7).toISOString(), ownerPersonId: "p1", projectId: "prj1", tags: ["Compliance", "Fire"] },
+  { id: "doc17", title: "M&E Coordination Plan", kind: "PDF", sizeLabel: "3.4 MB", updatedAt: subDays(now, 2).toISOString(), ownerPersonId: "p4", projectId: "prj1", tags: ["M&E", "Coordination"] },
+  { id: "doc18", title: "Reflected Ceiling Plan", kind: "PDF", sizeLabel: "2.7 MB", updatedAt: subHours(now, 20).toISOString(), ownerPersonId: "p6", projectId: "prj1", tags: ["Plans", "RCP"] },
+  { id: "doc19", title: "Setting Out Plan", kind: "PDF", sizeLabel: "1.5 MB", updatedAt: subDays(now, 3).toISOString(), ownerPersonId: "p5", projectId: "prj1", tags: ["Plans", "Setting Out"] },
+  { id: "doc20", title: "UNICON Site Layout", kind: "PDF", sizeLabel: "2.1 MB", updatedAt: subDays(now, 10).toISOString(), ownerPersonId: "p2", projectId: "prj4", tags: ["R&D", "Layout"] },
 ];
 
 export const NOTES: Note[] = [

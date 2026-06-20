@@ -5,4 +5,5 @@
 - [Activity type enum](activity-type-enum.md) — activity.type is constrained by an OpenAPI enum; new event types need spec edit + codegen or GET activity 500s; client must invalidate the activity query to update Timeline live.
 - [nosmo-nexus frontend demo mode](nosmo-frontend-demo-mode.md) — the nosmo-nexus frontend is a deliberate frontend-only investor demo (local sample data, no auth/API); don't re-wire backend; old backend pages remain on disk but unrouted.
 - [App "UI missing / only landing"](auth-gating-vs-landing.md) — all pages live behind AppLayout auth; signed-out users only ever see `/`. "App vanished" = stale public CTAs bouncing to /login, not a routing/deploy break.
+- [Radial hub status deep-link](radial-hub-status-deeplink.md) — RadialHub Projects ring deep-links `/projects?status=<Status>`; status names + encoding must stay in sync across hub and projects page CATEGORIES or the bubble silently falls back.
 - [localStorage draft migration](localstorage-draft-migration.md) — normalize/migrate each parsed draft into the current shape before render; JSON.parse try/catch doesn't guard schema drift and old drafts white-screen the page.

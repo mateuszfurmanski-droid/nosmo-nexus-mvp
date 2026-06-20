@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { FolderKanban, Plus, Search, MapPin, Zap, Pause, Compass, Archive } from "lucide-react";
 import { PROJECTS, getProjectPeople, type Project, type ProjectStatus } from "@/demo/data";
@@ -97,8 +97,18 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
 }
 
 export default function Projects() {
+  const queryString = useSearch();
+  // Hub deep-links arrive as /projects?status=Active — open that group on mount.
+  const statusParam = useMemo<ProjectStatus>(() => {
+    const value = new URLSearchParams(queryString).get("status");
+    return CATEGORIES.some(c => c.key === value) ? (value as ProjectStatus) : "Active";
+  }, [queryString]);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<ProjectStatus>("Active");
+  const [selected, setSelected] = useState<ProjectStatus>(statusParam);
+
+  useEffect(() => {
+    setSelected(statusParam);
+  }, [statusParam]);
 
   const filtered = useMemo(
     () =>

@@ -15,6 +15,8 @@ import Timeline from "@/pages/timeline";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import CardMaker from "@/pages/card-maker";
+import Plans from "@/pages/plans";
+import Integrations from "@/pages/integrations";
 
 function Router() {
   return (
@@ -29,6 +31,8 @@ function Router() {
         <Route path="/knowledge" component={Knowledge} />
         <Route path="/tasks" component={Tasks} />
         <Route path="/timeline" component={Timeline} />
+        <Route path="/plans" component={Plans} />
+        <Route path="/integrations" component={Integrations} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
