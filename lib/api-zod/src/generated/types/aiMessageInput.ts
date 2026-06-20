@@ -7,7 +7,10 @@
  */
 
 export interface AiMessageInput {
-  /** @minLength 1 */
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
   message: string;
   /** @nullable */
   projectId?: number | null;

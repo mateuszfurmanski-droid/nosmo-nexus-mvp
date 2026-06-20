@@ -1101,6 +1101,7 @@ components:
         fileData:
           type: string
           description: Base64-encoded file contents (data URL stripped) stored in the database.
+          maxLength: 14000000
 
     # ── Comments ──────────────────────────────────────────────────────────
     Comment:
@@ -1266,6 +1267,7 @@ components:
         message:
           type: string
           minLength: 1
+          maxLength: 4000
         projectId:
           type: ["integer", "null"]
 

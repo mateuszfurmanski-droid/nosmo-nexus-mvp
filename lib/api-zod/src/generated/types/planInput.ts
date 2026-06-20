@@ -14,6 +14,9 @@ export interface PlanInput {
   originalName: string;
   fileSize?: number;
   mimeType?: string;
-  /** Base64-encoded file contents (data URL stripped) stored in the database. */
+  /**
+     * Base64-encoded file contents (data URL stripped) stored in the database.
+     * @maxLength 14000000
+     */
   fileData?: string;
 }

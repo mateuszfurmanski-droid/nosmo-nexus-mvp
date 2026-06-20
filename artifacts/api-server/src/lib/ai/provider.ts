@@ -28,10 +28,13 @@ const SYSTEM_PROMPT =
   "You have visibility into the user's projects, tasks, and uploaded plans (provided as context). " +
   "Be concise, practical, and grounded in the supplied data. If data is missing, say so.";
 
+const MAX_HISTORY_MESSAGES = 20;
+
 function buildMessages(opts: GenerateOptions): ChatMessage[] {
+  const history = (opts.history ?? []).slice(-MAX_HISTORY_MESSAGES);
   return [
     { role: "system", content: `${SYSTEM_PROMPT}\n\nCurrent workspace data:\n${opts.context}` },
-    ...(opts.history ?? []),
+    ...history,
     { role: "user", content: opts.message },
   ];
 }

@@ -368,6 +368,8 @@ export const ListPlansResponse = zod.array(ListPlansResponseItem)
  */
 
 
+export const createPlanBodyFileDataMax = 14000000;
+
 
 
 export const CreatePlanBody = zod.object({
@@ -376,7 +378,7 @@ export const CreatePlanBody = zod.object({
   "originalName": zod.string().min(1),
   "fileSize": zod.number().optional(),
   "mimeType": zod.string().optional(),
-  "fileData": zod.string().optional().describe('Base64-encoded file contents (data URL stripped) stored in the database.')
+  "fileData": zod.string().max(createPlanBodyFileDataMax).optional().describe('Base64-encoded file contents (data URL stripped) stored in the database.')
 })
 
 
@@ -461,11 +463,12 @@ export const DeleteCommentParams = zod.object({
 /**
  * @summary Send a message to the AI assistant
  */
+export const sendAiMessageBodyMessageMax = 4000;
 
 
 
 export const SendAiMessageBody = zod.object({
-  "message": zod.string().min(1),
+  "message": zod.string().min(1).max(sendAiMessageBodyMessageMax),
   "projectId": zod.number().nullish()
 })
 

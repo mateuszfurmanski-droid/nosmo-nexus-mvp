@@ -54,6 +54,12 @@ router.post("/ai/stream", async (req, res): Promise<void> => {
     return;
   }
 
+  const MAX_MESSAGE_LENGTH = 4000;
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    res.status(400).json({ error: `message must not exceed ${MAX_MESSAGE_LENGTH} characters` });
+    return;
+  }
+
   // If a conversation id was supplied, it must belong to this workspace.
   if (conversationId) {
     const existing = await findWorkspaceConversation(conversationId, workspaceId);
@@ -88,12 +94,16 @@ router.post("/ai/stream", async (req, res): Promise<void> => {
       send({ type: "conversation_id", conversationId: convId });
     }
 
-    // Load prior turns for conversational context.
+    // Load only the most recent 20 messages to bound token usage.
+    const MAX_HISTORY = 20;
     const priorMessages = await db
       .select()
       .from(chatMessagesTable)
       .where(eq(chatMessagesTable.conversationId, convId!))
-      .orderBy(chatMessagesTable.createdAt);
+      .orderBy(desc(chatMessagesTable.createdAt))
+      .limit(MAX_HISTORY);
+    // Reverse so the messages are in chronological order for the provider.
+    priorMessages.reverse();
     const history: ChatMessage[] = priorMessages.map((m) => ({
       role: m.role === "assistant" ? "assistant" : "user",
       content: m.content,

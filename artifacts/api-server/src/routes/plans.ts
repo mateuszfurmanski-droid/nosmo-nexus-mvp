@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
 import { db, plansTable, projectsTable, activityTable } from "@workspace/db";
 import {
   ListPlansQueryParams,
@@ -11,6 +11,32 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+// ── Upload limits ─────────────────────────────────────────────────────────────
+/** Maximum decoded PDF size in bytes (10 MB). */
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
+/** Maximum number of plans a workspace may store. */
+const MAX_PLANS_PER_WORKSPACE = 100;
+
+/** Maximum plan uploads per workspace within the rate-limit window. */
+const RATE_LIMIT_MAX = 10;
+
+/** Rate-limit sliding-window duration in milliseconds (5 minutes). */
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+
+// In-memory sliding-window rate limiter keyed by workspaceId.
+const uploadTimestamps = new Map<number, number[]>();
+
+function checkRateLimit(workspaceId: number): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const timestamps = (uploadTimestamps.get(workspaceId) ?? []).filter((t) => t > cutoff);
+  if (timestamps.length >= RATE_LIMIT_MAX) return false;
+  timestamps.push(now);
+  uploadTimestamps.set(workspaceId, timestamps);
+  return true;
+}
 
 // Columns returned to clients — never include the heavy base64 fileData blob.
 const planColumns = {
@@ -42,12 +68,30 @@ router.get("/plans", async (req, res): Promise<void> => {
 
 router.post("/plans", async (req, res): Promise<void> => {
   const workspaceId = req.workspaceId!;
+
+  // Rate-limit plan uploads per workspace.
+  if (!checkRateLimit(workspaceId)) {
+    res.status(429).json({ error: "Too many plan uploads. Please wait before uploading again." });
+    return;
+  }
+
   const parsed = CreatePlanBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const { fileData, ...meta } = parsed.data;
+
+  // Enforce per-workspace plan count quota before touching the DB further.
+  const [{ value: planCount }] = await db
+    .select({ value: count() })
+    .from(plansTable)
+    .where(eq(plansTable.workspaceId, workspaceId));
+  if (planCount >= MAX_PLANS_PER_WORKSPACE) {
+    res.status(400).json({ error: `Workspace plan limit reached (max ${MAX_PLANS_PER_WORKSPACE}).` });
+    return;
+  }
+
   // Ensure the target project belongs to this workspace.
   const [project] = await db
     .select({ id: projectsTable.id })
@@ -58,10 +102,16 @@ router.post("/plans", async (req, res): Promise<void> => {
     return;
   }
   const hasFile = typeof fileData === "string" && fileData.length > 0;
-  // Only accept genuine PDFs: enforce MIME and verify the %PDF- file signature.
+  // Only accept genuine PDFs: enforce MIME, decoded byte-size cap, and %PDF- file signature.
   if (hasFile) {
     if (meta.mimeType && meta.mimeType !== "application/pdf") {
       res.status(400).json({ error: "Only PDF files are supported" });
+      return;
+    }
+    // Estimate decoded size from base64 length: base64 encodes 3 bytes → 4 chars.
+    const decodedBytes = Math.ceil((fileData.length * 3) / 4);
+    if (decodedBytes > MAX_PDF_BYTES) {
+      res.status(400).json({ error: `File exceeds the maximum allowed size of ${MAX_PDF_BYTES / (1024 * 1024)} MB.` });
       return;
     }
     const header = Buffer.from(fileData.slice(0, 16), "base64").toString("latin1");
