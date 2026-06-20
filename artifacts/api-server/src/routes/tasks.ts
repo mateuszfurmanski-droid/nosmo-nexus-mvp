@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, tasksTable, activityTable } from "@workspace/db";
+import { db, tasksTable, projectsTable, activityTable } from "@workspace/db";
 import {
   ListTasksQueryParams,
   ListTasksResponse,
@@ -16,29 +16,43 @@ import {
 const router: IRouter = Router();
 
 router.get("/tasks", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const parsed = ListTasksQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const tasks = parsed.data.projectId
-    ? await db.select().from(tasksTable).where(eq(tasksTable.projectId, parsed.data.projectId)).orderBy(tasksTable.createdAt)
-    : await db.select().from(tasksTable).orderBy(tasksTable.createdAt);
+  const where = parsed.data.projectId
+    ? and(eq(tasksTable.workspaceId, workspaceId), eq(tasksTable.projectId, parsed.data.projectId))
+    : eq(tasksTable.workspaceId, workspaceId);
+  const tasks = await db.select().from(tasksTable).where(where).orderBy(tasksTable.createdAt);
   res.json(ListTasksResponse.parse(tasks));
 });
 
 router.post("/tasks", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const parsed = CreateTaskBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const { dueDate: dueDateIn, ...restIn } = parsed.data;
+  // Ensure the target project belongs to this workspace.
+  const [project] = await db
+    .select({ id: projectsTable.id })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, restIn.projectId), eq(projectsTable.workspaceId, workspaceId)));
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
+    return;
+  }
   const [task] = await db.insert(tasksTable).values({
     ...restIn,
+    workspaceId,
     ...(dueDateIn ? { dueDate: dueDateIn.toISOString() } : {}),
   }).returning();
   await db.insert(activityTable).values({
+    workspaceId,
     type: "task_created",
     description: `Task created`,
     entityName: task.title,
@@ -48,12 +62,16 @@ router.post("/tasks", async (req, res): Promise<void> => {
 });
 
 router.get("/tasks/:id", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const params = GetTaskParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, params.data.id));
+  const [task] = await db
+    .select()
+    .from(tasksTable)
+    .where(and(eq(tasksTable.id, params.data.id), eq(tasksTable.workspaceId, workspaceId)));
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
@@ -62,6 +80,7 @@ router.get("/tasks/:id", async (req, res): Promise<void> => {
 });
 
 router.patch("/tasks/:id", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const params = UpdateTaskParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -77,12 +96,13 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
     ...restUp,
     ...(dueDateUp ? { dueDate: dueDateUp.toISOString() } : {}),
     updatedAt: new Date(),
-  }).where(eq(tasksTable.id, params.data.id)).returning();
+  }).where(and(eq(tasksTable.id, params.data.id), eq(tasksTable.workspaceId, workspaceId))).returning();
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
   }
   await db.insert(activityTable).values({
+    workspaceId,
     type: "task_moved",
     description: `Task moved to ${task.status.replace("_", " ")}`,
     entityName: task.title,
@@ -92,12 +112,16 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/tasks/:id", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const params = DeleteTaskParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [task] = await db.delete(tasksTable).where(eq(tasksTable.id, params.data.id)).returning();
+  const [task] = await db
+    .delete(tasksTable)
+    .where(and(eq(tasksTable.id, params.data.id), eq(tasksTable.workspaceId, workspaceId)))
+    .returning();
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;

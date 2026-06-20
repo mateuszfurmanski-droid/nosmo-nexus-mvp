@@ -7,6 +7,7 @@ import {
   LogoutMobileSessionResponse,
 } from "@workspace/api-zod";
 import { db, usersTable } from "@workspace/db";
+import { ensureWorkspace } from "../lib/workspace";
 import {
   clearSession,
   getOidcConfig,
@@ -79,6 +80,8 @@ async function upsertUser(claims: Record<string, unknown>) {
       },
     })
     .returning();
+  // Create the user's workspace (and starter project) on first login.
+  await ensureWorkspace(user.id, user.firstName);
   return user;
 }
 

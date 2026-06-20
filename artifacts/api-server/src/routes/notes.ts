@@ -1,11 +1,11 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { notesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, notesTable, projectsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
 router.get("/projects/:id/notes", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const projectId = parseInt(req.params.id);
   if (isNaN(projectId)) {
     res.status(400).json({ error: "Invalid project id" });
@@ -14,15 +14,25 @@ router.get("/projects/:id/notes", async (req, res): Promise<void> => {
   const notes = await db
     .select()
     .from(notesTable)
-    .where(eq(notesTable.projectId, projectId))
+    .where(and(eq(notesTable.projectId, projectId), eq(notesTable.workspaceId, workspaceId)))
     .orderBy(notesTable.updatedAt);
   res.json(notes);
 });
 
 router.post("/projects/:id/notes", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const projectId = parseInt(req.params.id);
   if (isNaN(projectId)) {
     res.status(400).json({ error: "Invalid project id" });
+    return;
+  }
+  // Ensure the target project belongs to this workspace.
+  const [project] = await db
+    .select({ id: projectsTable.id })
+    .from(projectsTable)
+    .where(and(eq(projectsTable.id, projectId), eq(projectsTable.workspaceId, workspaceId)));
+  if (!project) {
+    res.status(404).json({ error: "Project not found" });
     return;
   }
   const title = typeof req.body?.title === "string" && req.body.title.trim()
@@ -32,12 +42,13 @@ router.post("/projects/:id/notes", async (req, res): Promise<void> => {
 
   const [note] = await db
     .insert(notesTable)
-    .values({ projectId, title, content })
+    .values({ projectId, workspaceId, title, content })
     .returning();
   res.status(201).json(note);
 });
 
 router.patch("/notes/:id", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid note id" });
@@ -53,7 +64,7 @@ router.patch("/notes/:id", async (req, res): Promise<void> => {
   const [note] = await db
     .update(notesTable)
     .set(updates)
-    .where(eq(notesTable.id, id))
+    .where(and(eq(notesTable.id, id), eq(notesTable.workspaceId, workspaceId)))
     .returning();
   if (!note) {
     res.status(404).json({ error: "Note not found" });
@@ -63,6 +74,7 @@ router.patch("/notes/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/notes/:id", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid note id" });
@@ -70,7 +82,7 @@ router.delete("/notes/:id", async (req, res): Promise<void> => {
   }
   const [deleted] = await db
     .delete(notesTable)
-    .where(eq(notesTable.id, id))
+    .where(and(eq(notesTable.id, id), eq(notesTable.workspaceId, workspaceId)))
     .returning();
   if (!deleted) {
     res.status(404).json({ error: "Note not found" });

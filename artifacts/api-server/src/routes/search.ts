@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { projectsTable, tasksTable, plansTable, notesTable } from "@workspace/db";
-import { ilike, or, eq } from "drizzle-orm";
+import { ilike, or, and, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
 router.get("/search", async (req, res): Promise<void> => {
+  const workspaceId = req.workspaceId!;
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
   if (!q || q.length < 1) {
     res.status(400).json({ error: "Query parameter 'q' is required" });
@@ -17,41 +18,45 @@ router.get("/search", async (req, res): Promise<void> => {
     db
       .select()
       .from(projectsTable)
-      .where(or(ilike(projectsTable.name, pattern), ilike(projectsTable.description, pattern), ilike(projectsTable.location, pattern)))
+      .where(and(
+        eq(projectsTable.workspaceId, workspaceId),
+        or(ilike(projectsTable.name, pattern), ilike(projectsTable.description, pattern), ilike(projectsTable.location, pattern)),
+      ))
       .limit(10),
     db
       .select()
       .from(tasksTable)
-      .where(or(ilike(tasksTable.title, pattern), ilike(tasksTable.description, pattern), ilike(tasksTable.assignee, pattern)))
+      .where(and(
+        eq(tasksTable.workspaceId, workspaceId),
+        or(ilike(tasksTable.title, pattern), ilike(tasksTable.description, pattern), ilike(tasksTable.assignee, pattern)),
+      ))
       .limit(10),
     db
       .select()
       .from(plansTable)
-      .where(or(ilike(plansTable.originalName, pattern), ilike(plansTable.filename, pattern)))
+      .where(and(
+        eq(plansTable.workspaceId, workspaceId),
+        or(ilike(plansTable.originalName, pattern), ilike(plansTable.filename, pattern)),
+      ))
       .limit(10),
     db
       .select()
       .from(notesTable)
-      .where(or(ilike(notesTable.title, pattern), ilike(notesTable.content, pattern)))
+      .where(and(
+        eq(notesTable.workspaceId, workspaceId),
+        or(ilike(notesTable.title, pattern), ilike(notesTable.content, pattern)),
+      ))
       .limit(10),
   ]);
 
-  // Fetch project names for tasks/plans/notes
-  const projectIds = [
-    ...new Set([
-      ...tasks.map((t) => t.projectId),
-      ...plans.map((p) => p.projectId),
-      ...notes.map((n) => n.projectId),
-    ]),
-  ];
+  // Fetch project names (within this workspace) for tasks/plans/notes.
   const projectMap: Record<number, string> = {};
-  if (projectIds.length > 0) {
-    const relatedProjects = await db
-      .select({ id: projectsTable.id, name: projectsTable.name })
-      .from(projectsTable);
-    for (const p of relatedProjects) {
-      projectMap[p.id] = p.name;
-    }
+  const relatedProjects = await db
+    .select({ id: projectsTable.id, name: projectsTable.name })
+    .from(projectsTable)
+    .where(eq(projectsTable.workspaceId, workspaceId));
+  for (const p of relatedProjects) {
+    projectMap[p.id] = p.name;
   }
   for (const p of projects) {
     projectMap[p.id] = p.name;

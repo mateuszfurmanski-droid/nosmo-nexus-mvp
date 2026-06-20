@@ -1,3 +1,4 @@
 - [API server zod imports](api-server-zod.md) — api-server has no direct zod dep; use manual validation or @workspace/api-zod generated schemas in routes, never `import { z } from "zod/v4"` directly.
 - [SSE streaming pattern](sse-streaming.md) — Orval can't generate hooks for SSE endpoints; use raw fetch + ReadableStream on frontend, parse `data: {...}\n\n` lines manually.
 - [DB file storage](db-file-storage.md) — PDF plans stored as base64 in Postgres (no object storage); never return blob in list/get (use hasFile), validate %PDF- on upload, force application/pdf+nosniff on serve.
+- [Workspace isolation](workspace-isolation.md) — every data route filters by req.workspaceId; verify parent ownership for child records (comments→task, chat→conversation) to avoid IDOR; truncate domain tables before adding NOT NULL workspaceId + push.

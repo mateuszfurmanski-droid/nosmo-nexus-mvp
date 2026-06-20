@@ -10,11 +10,17 @@ import aiRouter from "./ai";
 import notesRouter from "./notes";
 import searchRouter from "./search";
 import conversationsRouter from "./conversations";
+import { requireWorkspace } from "../middlewares/requireWorkspace";
 
 const router: IRouter = Router();
 
+// Public routes — no authentication required.
 router.use(healthRouter);
 router.use(authRouter);
+
+// Everything below requires an authenticated user with a resolved workspace.
+// `requireWorkspace` returns 401 when unauthenticated and sets `req.workspaceId`.
+router.use(requireWorkspace);
 router.use(projectsRouter);
 router.use(tasksRouter);
 router.use(plansRouter);

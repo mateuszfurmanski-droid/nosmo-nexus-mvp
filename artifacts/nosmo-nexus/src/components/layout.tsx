@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@workspace/replit-auth-web";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, FolderKanban, FileText, CheckSquare,
-  Plug2, LogOut, LogIn, Menu, X, Zap, Sparkles,
+  Plug2, LogOut, Menu, X, Sparkles,
 } from "lucide-react";
-import { useEffect } from "react";
 import { SearchPalette } from "@/components/search-palette";
 
 const navItems = [
@@ -19,19 +18,15 @@ const navItems = [
 
 function SidebarContent({
   location,
-  isAuthenticated,
   user,
   logout,
   onNav,
 }: {
   location: string;
-  isAuthenticated: boolean;
   user: { firstName?: string | null; profileImageUrl?: string | null } | null;
   logout: () => void;
   onNav?: () => void;
 }) {
-  const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-
   return (
     <div className="flex flex-col h-full">
       {/* Brand */}
@@ -43,11 +38,6 @@ function SidebarContent({
           <span className="font-bold tracking-tight text-foreground text-sm leading-none block">
             NOSMO Nexus™
           </span>
-          {!isAuthenticated && (
-            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 leading-none">
-              <Zap className="w-2.5 h-2.5" /> DEMO
-            </span>
-          )}
         </div>
       </div>
 
@@ -81,41 +71,22 @@ function SidebarContent({
 
       {/* Footer */}
       <div className="p-4 border-t border-border shrink-0">
-        {isAuthenticated && user ? (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden shrink-0 flex items-center justify-center">
-              {user.profileImageUrl ? (
-                <img src={user.profileImageUrl} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xs font-bold text-foreground">{user.firstName?.[0] ?? "U"}</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-foreground">{user.firstName ?? "User"}</p>
-              <p className="text-xs text-muted-foreground">Authenticated</p>
-            </div>
-            <button onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
-              <LogOut className="w-4 h-4" />
-            </button>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden shrink-0 flex items-center justify-center">
+            {user?.profileImageUrl ? (
+              <img src={user.profileImageUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-bold text-foreground">{user?.firstName?.[0] ?? "U"}</span>
+            )}
           </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <Zap className="w-4 h-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">Demo Mode</p>
-              <p className="text-xs text-muted-foreground">Public preview</p>
-            </div>
-            <a
-              href={`${BASE}/login`}
-              title="Sign in"
-              className="text-muted-foreground hover:text-primary transition-colors p-1 rounded"
-            >
-              <LogIn className="w-4 h-4" />
-            </a>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate text-foreground">{user?.firstName ?? "User"}</p>
+            <p className="text-xs text-muted-foreground">Your workspace</p>
           </div>
-        )}
+          <button onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -123,7 +94,7 @@ function SidebarContent({
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -135,7 +106,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   }, [location]);
 
-  if (isLoading) {
+  // Require authentication: redirect signed-out users to the login page.
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setLocation("/login");
+    }
+  }, [isLoading, isAuthenticated, setLocation]);
+
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center dark bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -155,7 +133,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex w-60 border-r border-border bg-card flex-col shrink-0">
         <SidebarContent
           location={location}
-          isAuthenticated={isAuthenticated}
           user={user ?? null}
           logout={logout}
         />
@@ -175,7 +152,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       >
         <SidebarContent
           location={location}
-          isAuthenticated={isAuthenticated}
           user={user ?? null}
           logout={logout}
           onNav={() => setMobileOpen(false)}
@@ -198,28 +174,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="text-primary-foreground font-bold text-xs">N</span>
             </div>
             <span className="font-bold text-sm text-foreground">NOSMO Nexus™</span>
-            {!isAuthenticated && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 leading-none shrink-0">
-                <Zap className="w-2.5 h-2.5" /> DEMO
-              </span>
-            )}
           </div>
         </header>
-
-        {/* Demo mode banner — visible across all screen sizes inside the app */}
-        {!isAuthenticated && (
-          <div className="bg-primary/10 border-b border-primary/20 px-4 py-2 flex items-center gap-2 text-sm shrink-0">
-            <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className="text-primary font-medium">Demo Mode</span>
-            <span className="text-muted-foreground hidden sm:inline">— explore the platform freely. No login required.</span>
-            <a
-              href={(import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "") + "/login"}
-              className="ml-auto text-xs text-primary hover:underline shrink-0 font-medium"
-            >
-              Sign in →
-            </a>
-          </div>
-        )}
 
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           {children}
