@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOSMO Nexus – Person Cards Demo</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    header {
+      padding: 24px;
+      border-bottom: 1px solid #334155;
+      background: #020617;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: #94a3b8;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: calc(100vh - 96px);
+    }
+
+    .sidebar {
+      border-right: 1px solid #334155;
+      padding: 16px;
+      background: #111827;
+    }
+
+    .card-button {
+      width: 100%;
+      text-align: left;
+      padding: 14px;
+      margin-bottom: 10px;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      background: #1e293b;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+
+    .card-button:hover {
+      background: #334155;
+    }
+
+    .card-button strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .card-button span {
+      display: block;
+      margin-top: 4px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .main {
+      padding: 24px;
+    }
+
+    .panel {
+      border: 1px solid #334155;
+      border-radius: 18px;
+      padding: 22px;
+      background: #020617;
+      max-width: 900px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 9px;
+      margin: 4px 6px 4px 0;
+      border-radius: 999px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+
+    .section {
+      margin-top: 22px;
+    }
+
+    .section h3 {
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    li {
+      margin-bottom: 6px;
+      color: #cbd5e1;
+    }
+
+    .privacy {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #3f1d1d;
+      border: 1px solid #7f1d1d;
+      color: #fecaca;
+      font-size: 13px;
+    }
+
+    @media (max-width: 800px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid #334155;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NOSMO Nexus – Person Cards</h1>
+    <div class="subtitle">Halifax / Lloyds Bank demo: people, roles, documents, snags, photos and next actions.</div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div id="personList"></div>
+    </aside>
+
+    <main class="main">
+      <div id="personPanel" class="panel"></div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { personCards } from "./src/data/personCards.js";
+
+    const personList = document.getElementById("personList");
+    const personPanel = document.getElementById("personPanel");
+
+    function renderPersonList() {
+      personList.innerHTML = "";
+
+      personCards.forEach((person) => {
+        const button = document.createElement("button");
+        button.className = "card-button";
+        button.innerHTML = `
+          <strong>${person.displayName}</strong>
+          <span>${person.role}</span>
+          <span>${person.company}</span>
+        `;
+        button.onclick = () => renderPersonPanel(person);
+        personList.appendChild(button);
+      });
+    }
+
+    function renderPersonPanel(person) {
+      const responsibilities = person.responsibilities || [];
+      const questions = person.nexusQuestions || [];
+      const linkedPeople = person.relationship?.linkedPeople || [];
+      const manages = person.relationship?.manages || [];
+
+      personPanel.innerHTML = `
+        <h2>${person.displayName}</h2>
+
+        <div>
+          <span class="badge">${person.role}</span>
+          <span class="badge">${person.company}</span>
+          <span class="badge">${person.category}</span>
+          <span class="badge">${person.status}</span>
+        </div>
+
+        <div class="section">
+          <h3>Contact</h3>
+          <p>Phone: ${person.contact?.phoneMasked || "Not available"}</p>
+          <p>Facebook: ${person.contact?.facebook || "Not linked"}</p>
+        </div>
+
+        <div class="section">
+          <h3>Relationship</h3>
+          <p>Type: ${person.relationship?.type || "Not defined"}</p>
+          <p>Reports to: ${person.relationship?.reportsTo || "None"}</p>
+          <p>Manages: ${manages.length ? manages.join(", ") : "None"}</p>
+          <p>Linked people: ${linkedPeople.length ? linkedPeople.join(", ") : "None"}</p>
+        </div>
+
+        <div class="section">
+          <h3>Responsibilities</h3>
+          <ul>
+            ${responsibilities.map(item => `<li>${item}</li>`).join("")}
+          </ul>
+        </div>
+
+        <div class="section">
+          <h3>Nexus Questions</h3>
+          <ul>
+            ${questions.map(item => `<li>${item}</li>`).join("")}
+          </ul>
+        </div>
+
+        <div class="section">
+          <h3>Linked Project Logic</h3>
+          <p>Person → Project → Document → Door → Snag → Photo → Decision → Next action</p>
+        </div>
+
+        <div class="privacy">
+          Demo safety: contact data is masked. Full numbers should stay internal only, not in public Replit/GitHub.
+        </div>
+      `;
+    }
+
+    renderPersonList();
+    renderPersonPanel(personCards[0]);
+  </script>
+</body>
+</html>

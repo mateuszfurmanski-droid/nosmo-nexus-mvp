@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, FolderKanban, BookOpen, CheckSquare,
   Clock, Settings as SettingsIcon, Menu, X, Sparkles, Search, Bell
-, UserPlus } from "lucide-react";
+} from "lucide-react";
 import { AskNexus } from "@/components/ask-nexus";
 import { SearchPalette } from "@/components/search-palette";
 
