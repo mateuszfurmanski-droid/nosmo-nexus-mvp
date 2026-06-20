@@ -28,6 +28,8 @@ import {
   X,
   Lock,
   Database,
+  CheckCircle2,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +50,7 @@ type Availability = "available_now" | "available_soon" | "currently_booked" | "u
 type Confidence = "High" | "Medium" | "Low";
 type Decision = "confirmed" | "rejected" | "private";
 type View = "list" | "create";
+type ScanState = "idle" | "scanning" | "complete";
 
 interface Participation {
   id: string;
@@ -463,15 +466,23 @@ export default function CardMaker() {
 
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
-  const [scanning, setScanning] = useState(false);
+  const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanStep, setScanStep] = useState(0);
-  const [scanned, setScanned] = useState(false);
+  const [accepted, setAccepted] = useState(false);
 
   const [drafts, setDrafts] = useState<PersonCard[]>(() => loadDrafts());
 
   // Keep the latest card available to the scan timer without restarting it on every keystroke.
   const cardRef = useRef(card);
   cardRef.current = card;
+
+  // Snapshot taken before an AI pre-fill so the completion "Reject" can revert auto-filled fields.
+  const prePrefillRef = useRef<PersonCard | null>(null);
+  // Used by the completion "Edit" action to scroll back to the form.
+  const formRef = useRef<HTMLDivElement | null>(null);
+
+  const scanning = scanState === "scanning";
+  const scanned = scanState === "complete";
 
   const visibilityHint = useMemo(
     () => visibilityOptions.find((v) => v.value === card.visibility)?.hint ?? "",
@@ -487,10 +498,18 @@ export default function CardMaker() {
       step += 1;
       if (step >= SCAN_SOURCES.length) {
         clearInterval(interval);
-        setScanning(false);
-        setScanned(true);
-        setSuggestions(buildAiSuggestions(cardRef.current));
-        setDecisions({});
+        const built = buildAiSuggestions(cardRef.current);
+        const autoDecisions: Record<string, Decision> = {};
+        built.forEach((s) => {
+          // Auto-fill only safe matches: higher confidence, never a private / public-profile match.
+          if (s.confidence !== "Low" && s.category !== "Public profile") {
+            applyTarget(s);
+            autoDecisions[s.id] = "confirmed";
+          }
+        });
+        setSuggestions(built);
+        setDecisions(autoDecisions);
+        setScanState("complete");
       } else {
         setScanStep(step);
       }
@@ -499,11 +518,11 @@ export default function CardMaker() {
   }, [scanning]);
 
   const resetScan = () => {
-    setScanning(false);
+    setScanState("idle");
     setScanStep(0);
-    setScanned(false);
     setSuggestions([]);
     setDecisions({});
+    setAccepted(false);
   };
 
   const updateField = <K extends keyof PersonCard>(key: K, value: PersonCard[K]) => {
@@ -533,11 +552,12 @@ export default function CardMaker() {
   };
 
   const runPrefill = () => {
-    if (scanning) return;
-    setScanned(false);
+    if (scanState === "scanning") return;
+    prePrefillRef.current = card;
     setSuggestions([]);
     setDecisions({});
-    setScanning(true);
+    setAccepted(false);
+    setScanState("scanning");
   };
 
   const applyTarget = (s: AiSuggestion) => {
@@ -626,16 +646,42 @@ export default function CardMaker() {
     resetScan();
   };
 
-  const saveDraft = () => {
-    if (!confirmed) return;
+  const persistDraft = () => {
     const toSave: PersonCard = { ...card, savedAt: new Date().toISOString() };
     const next = [toSave, ...drafts];
     setDrafts(next);
     localStorage.setItem("nexus_card_maker_drafts", JSON.stringify(next));
     setSavedFlash(true);
     setConfirmed(false);
+    setAccepted(false);
+    resetScan();
     setView("list");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const saveDraft = () => {
+    if (!confirmed) return;
+    persistDraft();
+  };
+
+  // Completion-panel card-level actions.
+  const acceptCard = () => {
+    setConfirmed(true);
+    setAccepted(true);
+    setSavedFlash(false);
+  };
+  const editCard = () => {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const rejectPrefill = () => {
+    if (prePrefillRef.current) setCard(prePrefillRef.current);
+    resetScan();
+  };
+  const keepPrivateCard = () => {
+    updateField("visibility", "private_admin");
+  };
+  const saveDraftNow = () => {
+    persistDraft();
   };
 
   const deleteDraft = (id: string) => {
@@ -785,42 +831,110 @@ export default function CardMaker() {
       </div>
 
       {/* ===== AI PREFILL hero — most prominent control ===== */}
-      <section className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-6 md:p-8">
+      <section
+        data-testid="section-ai-prefill"
+        className={`relative overflow-hidden rounded-2xl border p-6 md:p-8 transition-colors duration-500 ${
+          scanned
+            ? "border-green-500/40 bg-gradient-to-br from-green-500/15 via-green-500/5 to-transparent"
+            : "border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent"
+        }`}
+      >
         <div className="absolute -top-10 -right-10 opacity-10 pointer-events-none">
-          <Radar className="w-44 h-44 text-primary" />
+          {scanned ? <CheckCircle2 className="w-44 h-44 text-green-400" /> : <Radar className="w-44 h-44 text-primary" />}
         </div>
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6">
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
-              <Radar className="w-5 h-5 text-primary" />
-              <Badge variant="outline" className="text-[10px]">Safe simulation</Badge>
+              {scanned ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <Radar className="w-5 h-5 text-primary" />}
+              <Badge variant="outline" className="text-[10px]">{scanned ? "Scan complete" : "Safe simulation"}</Badge>
             </div>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight">AI PREFILL</h2>
-            <p className="text-sm text-muted-foreground max-w-xl">
-              Scan connected sources to pre-fill this card with suggested identity, participation and links.{" "}
-              <span className="text-foreground font-semibold">AI pre-fills. Human confirms.</span>
-            </p>
-          </div>
-          <div className="w-full lg:w-auto">
-            <Button
-              size="lg"
-              onClick={runPrefill}
-              disabled={scanning}
-              data-testid="button-ai-prefill"
-              className="w-full lg:w-auto h-14 px-8 text-base font-semibold"
+            <h2
+              data-testid="text-prefill-heading"
+              className={`text-3xl md:text-4xl font-black tracking-tight ${scanned ? "text-green-400" : ""}`}
             >
+              {scanned ? "PREFILL COMPLETE" : "AI PREFILL"}
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-xl">
               {scanning ? (
+                "Scanning authorised sources…"
+              ) : scanned ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Scanning…
+                  Review generated card before saving.{" "}
+                  <span className="text-foreground font-semibold">AI fills and proposes. Human accepts.</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5" /> {scanned ? "Re-run AI Pre-fill" : "Run AI Pre-fill"}
+                  Ready to scan authorised sources.{" "}
+                  <span className="text-foreground font-semibold">AI pre-fills. Human confirms.</span>
                 </>
               )}
-            </Button>
+            </p>
+          </div>
+          <div className="w-full lg:w-auto">
+            {scanned ? (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={runPrefill}
+                data-testid="button-ai-prefill"
+                className="w-full lg:w-auto h-14 px-8 text-base font-semibold"
+              >
+                <RotateCcw className="w-5 h-5" /> Re-run AI Pre-fill
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                onClick={runPrefill}
+                disabled={scanning}
+                data-testid="button-ai-prefill"
+                className="w-full lg:w-auto h-14 px-8 text-base font-semibold"
+              >
+                {scanning ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Scanning…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" /> Run AI Pre-fill
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Completion action bar — AI fills and proposes; human accepts. */}
+        <AnimatePresence>
+          {scanned && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="relative z-10 mt-6 flex flex-wrap items-center gap-2"
+            >
+              <Button onClick={acceptCard} data-testid="button-accept-card">
+                <Check className="w-4 h-4" /> Accept Card
+              </Button>
+              <Button variant="outline" onClick={editCard} data-testid="button-edit-card">
+                <Pencil className="w-4 h-4" /> Edit
+              </Button>
+              <Button variant="outline" onClick={rejectPrefill} data-testid="button-reject-card">
+                <X className="w-4 h-4" /> Reject
+              </Button>
+              <Button variant="ghost" onClick={keepPrivateCard} data-testid="button-keep-private-card">
+                <Lock className="w-4 h-4" /> Keep Private
+              </Button>
+              <Button variant="secondary" onClick={saveDraftNow} data-testid="button-save-draft">
+                <Save className="w-4 h-4" /> Save Draft
+              </Button>
+              {accepted && (
+                <span className="text-xs text-green-400 flex items-center gap-1.5 ml-1" data-testid="text-card-accepted">
+                  <Check className="w-3.5 h-3.5" /> Card accepted — ready to save
+                </span>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Live scanning status */}
         <AnimatePresence>
@@ -885,8 +999,8 @@ export default function CardMaker() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Each suggestion shows its source and confidence. Confirm to attach, reject to discard, or keep
-            private so it is noted but never published.
+            Safe, higher-confidence matches were auto-filled for you. Lower-confidence or private matches are
+            left for your decision — each shows its source and confidence, with confirm, reject or keep private.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -960,7 +1074,7 @@ export default function CardMaker() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6 items-start">
         {/* ============ LEFT: FORM ============ */}
-        <div className="space-y-6">
+        <div className="space-y-6" ref={formRef}>
           {/* Identity */}
           <section className="bg-card border border-border rounded-xl p-5 md:p-6 space-y-5">
             <h2 className="text-lg font-semibold flex items-center gap-2">
