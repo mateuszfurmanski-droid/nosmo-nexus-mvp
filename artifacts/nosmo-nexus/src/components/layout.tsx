@@ -23,7 +23,7 @@ function SidebarContent({
   onNav,
 }: {
   location: string;
-  user: { firstName?: string | null; profileImageUrl?: string | null } | null;
+  user: { firstName?: string | null; email?: string | null; profileImageUrl?: string | null } | null;
   logout: () => void;
   onNav?: () => void;
 }) {
@@ -76,7 +76,9 @@ function SidebarContent({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate text-foreground">{user?.firstName ?? "User"}</p>
-            <p className="text-xs text-muted-foreground">Your workspace</p>
+            <p className="text-xs text-muted-foreground truncate" data-testid="text-user-email">
+              {user?.email ?? "Your workspace"}
+            </p>
           </div>
           <button onClick={logout} title="Sign out" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded">
             <LogOut className="w-4 h-4" />

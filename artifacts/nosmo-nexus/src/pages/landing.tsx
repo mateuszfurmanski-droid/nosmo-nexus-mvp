@@ -1,11 +1,17 @@
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { ArrowRight, Activity, Layers, ShieldCheck, Zap } from "lucide-react";
 import { useEffect } from "react";
+import { useAuth } from "@workspace/replit-auth-web";
 
 export default function Landing() {
+  const { isAuthenticated, isLoading } = useAuth();
+
   useEffect(() => {
     document.documentElement.classList.remove("dark");
   }, []);
+
+  // Authenticated users skip the marketing page and go straight to the app.
+  if (!isLoading && isAuthenticated) return <Redirect to="/dashboard" />;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
