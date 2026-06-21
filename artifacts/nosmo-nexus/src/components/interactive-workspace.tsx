@@ -11,6 +11,8 @@ import {
   ArrowLeftRight,
   Send,
   Activity,
+  ChevronUp,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -88,13 +90,22 @@ const SIZE: Record<TileSize, { box: string; chip: string; icon: string; label: s
   sm: { box: "h-[4.75rem] w-[4.75rem]", chip: "h-7 w-7", icon: "h-4 w-4", label: "text-[11px] font-medium", sub: "text-[10px]" },
 };
 
+type Tier = "now" | "next" | "later";
+const TIER_ORDER: Tier[] = ["now", "next", "later"];
+const TIER_RANK: Record<Tier, number> = { now: 0, next: 1, later: 2 };
+const TIER_META: Record<Tier, { label: string; badge: string; ring: string; row: string }> = {
+  now: { label: "NOW", badge: "bg-primary/20 text-primary", ring: "ring-2 ring-primary/70", row: "" },
+  next: { label: "NEXT", badge: "bg-amber-500/15 text-amber-400", ring: "ring-1 ring-border", row: "opacity-90" },
+  later: { label: "LATER", badge: "bg-muted-foreground/15 text-muted-foreground", ring: "ring-1 ring-border", row: "opacity-45" },
+};
+
 interface RawGroup {
   key: string;
   label?: string;
   nodes: WorkspaceNode[];
   layer: Layer;
   angle: number;
-  render: "tiles" | "stack" | "companies";
+  render: "tiles" | "stack" | "companies" | "taskflow";
   tileSize?: TileSize;
   faded?: boolean;
 }
