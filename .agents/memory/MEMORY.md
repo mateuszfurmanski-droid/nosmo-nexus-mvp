@@ -8,5 +8,6 @@
 - [NOSMO dashboard route](nosmo-dashboard-route.md) — demo Dashboard is at `/`, not `/dashboard`; a /dashboard 404 is expected (replit.md product list is stale), don't add the route.
 - [Radial hub status deep-link](radial-hub-status-deeplink.md) — RadialHub Projects ring deep-links `/projects?status=<Status>`; status names + encoding must stay in sync across hub and projects page CATEGORIES or the bubble silently falls back.
 - [localStorage draft migration](localstorage-draft-migration.md) — normalize/migrate each parsed draft into the current shape before render; JSON.parse try/catch doesn't guard schema drift and old drafts white-screen the page.
+- [Plan-review task derivation](plan-review-task-derivation.md) — /plan-review task types are keyword-derived client-side from door free text (no DB/OpenAPI task field); editing tasks is frontend-only, matchers must track seeded door vocabulary.
 - [NOSMO interaction layer](interaction-layer.md) — `/` keyboard/drag layer is UI-local: never logEvent a gesture (no new business logic); arrow nav needs every node to carry `data-testid="tile-<id>"`.
 - [Task execution gate](task-execution-gate.md) — tasks advance only through the gate ActionCard; every status change must sync stage+tier together; other surfaces (collab Update) must refocus to the gate, never flip status directly.
