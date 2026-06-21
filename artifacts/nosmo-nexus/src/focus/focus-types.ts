@@ -1,7 +1,8 @@
-export type FocusEntityType = "person" | "project" | "document" | "task" | "note";
+export type FocusEntityType = "person" | "project" | "document" | "task" | "note" | "company";
 
 export interface FocusTarget {
   type: FocusEntityType;
+  /** Entity id, or for `company` the company name (companies have no record). */
   id: string;
 }
 

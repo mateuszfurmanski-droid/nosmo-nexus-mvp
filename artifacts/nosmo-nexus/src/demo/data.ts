@@ -192,3 +192,8 @@ export const getPersonTasks = (personId: string) => TASKS.filter(t => t.assignee
 export const getProjectTasks = (projectId: string) => TASKS.filter(t => t.projectId === projectId);
 export const getPersonTimeline = (personId: string) => TIMELINE.filter(t => t.personId === personId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 export const getProjectTimeline = (projectId: string) => TIMELINE.filter(t => t.projectId === projectId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+// Company is a string field (person.company / project.client), not its own
+// record — but it groups real people and projects, so it can be a real node.
+export const getCompanyPeople = (company: string) => PEOPLE.filter(p => p.company === company);
+export const getCompanyProjects = (company: string) => PROJECTS.filter(p => p.client === company);
