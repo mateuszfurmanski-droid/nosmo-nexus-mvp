@@ -20,6 +20,7 @@ import {
   Camera,
   ArrowRight,
   ListChecks,
+  Footprints,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,12 +51,17 @@ function statusLabel(status: DoorReviewStatus): string {
 // free text of the schedule (type / status / materials). We derive task
 // membership client-side via keyword matchers. The catalog is deliberately
 // explicit and deterministic (no AI inference) for a predictable demo.
+// A task doubles as a "tool setup": every door matching the task needs the same
+// `tools`, so the whole task group can be completed in one run without switching
+// tools. The required action lives in `action`; `tools` drives the tool-load
+// display and tool-based grouping/optimisation.
 interface TaskDef {
   id: string;
   label: string;
   action: string;
   icon: LucideIcon;
   match: RegExp;
+  tools: string[];
 }
 
 const TASK_CATALOG: TaskDef[] = [
@@ -66,6 +72,7 @@ const TASK_CATALOG: TaskDef[] = [
     action:
       "Verify fire-door compliance: confirm the self-closing device pulls the door fully shut onto the frame and that the “Fire door — keep shut” signage is fitted.",
     match: /\bfd\d+\b|\bfire\b|intumescent/i,
+    tools: ["Closer adjustment key", "Screwdriver set", "Keep-shut signage", "Gap gauge"],
   },
   {
     id: "closer",
@@ -74,6 +81,7 @@ const TASK_CATALOG: TaskDef[] = [
     action:
       "Fit or adjust the overhead door closer. Check the controlled closing speed and that the latch fully engages.",
     match: /closer/i,
+    tools: ["Cordless drill", "Impact driver", "Driver bits", "Hex key set"],
   },
   {
     id: "locked",
@@ -81,6 +89,7 @@ const TASK_CATALOG: TaskDef[] = [
     icon: Lock,
     action: "Confirm the lock or access-control hardware is fitted and operating correctly.",
     match: /lock|access control/i,
+    tools: ["Cordless drill", "Hole saw set", "Screwdriver set", "Continuity tester"],
   },
   {
     id: "vision-panel",
@@ -88,6 +97,7 @@ const TASK_CATALOG: TaskDef[] = [
     icon: Eye,
     action: "Check the vision-panel glazing and beading are fitted, sealed and undamaged.",
     match: /vision panel/i,
+    tools: ["Glazing shovels", "Sealant gun", "Screwdriver set"],
   },
   {
     id: "panic",
@@ -95,6 +105,7 @@ const TASK_CATALOG: TaskDef[] = [
     icon: ShieldAlert,
     action: "Test the push-bar panic hardware and confirm the escape route is clear and signed.",
     match: /push bar|panic|fire exit/i,
+    tools: ["Cordless drill", "Impact driver", "Driver bits", "Hex key set"],
   },
   {
     id: "ironmongery",
@@ -102,6 +113,7 @@ const TASK_CATALOG: TaskDef[] = [
     icon: KeyRound,
     action: "Install handles and ironmongery; confirm smooth operation and correct alignment.",
     match: /ironmonger|handle|brass/i,
+    tools: ["Cordless drill", "Wood chisel set", "Driver bits", "Screwdriver set"],
   },
 ];
 
@@ -178,6 +190,39 @@ export default function PlanReview() {
   const activeIssues = activeTaskDoors.filter((d) => d.reviewStatus === "red").length;
   const allTaskDone = activeTaskDoors.length > 0 && activeTaskDoors.every((d) => d.reviewStatus === "green");
 
+  // Efficient walking order for the active task's doors: greedy nearest-neighbour
+  // starting from the top-left-most door. Doors share one toolset, so the route
+  // minimises walking within a single tool run. Order is position-only, so it
+  // stays stable as statuses change.
+  const routeOrder = useMemo(() => {
+    if (!activeTask || activeTaskDoors.length === 0) return [] as Door[];
+    const pts = activeTaskDoors.map((d) => ({ d, p: pinPos(d) }));
+    pts.sort((a, b) => a.p.x + a.p.y - (b.p.x + b.p.y) || a.d.id.localeCompare(b.d.id));
+    const route: Door[] = [pts[0].d];
+    const pool = pts.slice(1);
+    while (pool.length) {
+      const last = pinPos(route[route.length - 1]);
+      let best = 0;
+      let bestDist = Infinity;
+      pool.forEach((c, i) => {
+        const dist = (c.p.x - last.x) ** 2 + (c.p.y - last.y) ** 2;
+        if (dist < bestDist || (dist === bestDist && c.d.id < pool[best].d.id)) {
+          bestDist = dist;
+          best = i;
+        }
+      });
+      route.push(pool.splice(best, 1)[0].d);
+    }
+    return route;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTask, activeTaskDoors]);
+
+  const routeIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    routeOrder.forEach((d, i) => m.set(d.id, i));
+    return m;
+  }, [routeOrder]);
+
   // Select a door for the popover and clear any stale upload error from a prior door.
   function openDoor(id: string | null) {
     setSelectedId(id);
@@ -203,23 +248,20 @@ export default function PlanReview() {
     setStatus(doorId, status);
   }
 
-  // Nearest incomplete door that shares the active task, excluding the current one.
-  function nextDoorFrom(from: Door): { door: Door | null; remaining: number } {
-    if (!activeTask) return { door: null, remaining: 0 };
-    const candidates = (doors ?? []).filter(
-      (d) => d.id !== from.id && getDoorTaskIds(d).includes(activeTask.id) && d.reviewStatus !== "green",
-    );
-    if (candidates.length === 0) return { door: null, remaining: 0 };
-    const origin = pinPos(from);
-    const sorted = [...candidates].sort((a, b) => {
-      const pa = pinPos(a);
-      const pb = pinPos(b);
-      const da = (pa.x - origin.x) ** 2 + (pa.y - origin.y) ** 2;
-      const db = (pb.x - origin.x) ** 2 + (pb.y - origin.y) ** 2;
-      if (da !== db) return da - db;
-      return a.id.localeCompare(b.id);
-    });
-    return { door: sorted[0], remaining: candidates.length };
+  // Next door to visit on the route after `fromId`: continue forward to the next
+  // incomplete (non-green) door; if none lie ahead, wrap back to the earliest
+  // remaining one. Following the pre-computed route keeps walking to a minimum.
+  function nextOnRoute(fromId: string): { door: Door | null; remaining: number } {
+    const i = routeOrder.findIndex((d) => d.id === fromId);
+    if (i === -1) return { door: null, remaining: 0 };
+    const remaining = routeOrder.filter((d) => d.id !== fromId && d.reviewStatus !== "green").length;
+    for (let k = i + 1; k < routeOrder.length; k++) {
+      if (routeOrder[k].reviewStatus !== "green") return { door: routeOrder[k], remaining };
+    }
+    for (let k = 0; k < i; k++) {
+      if (routeOrder[k].reviewStatus !== "green") return { door: routeOrder[k], remaining };
+    }
+    return { door: null, remaining };
   }
 
   function jumpToFirstIssue() {
@@ -325,12 +367,39 @@ export default function PlanReview() {
                 className="absolute inset-0 h-full w-full rounded-lg border border-white/10 bg-white object-fill shadow-2xl"
                 draggable={false}
               />
+              {/* Route line — the efficient walking order through the task's doors */}
+              {activeTask && routeOrder.length > 1 ? (
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  <polyline
+                    points={routeOrder
+                      .map((d) => {
+                        const p = pinPos(d);
+                        return `${p.x * 100},${p.y * 100}`;
+                      })
+                      .join(" ")}
+                    fill="none"
+                    stroke="rgb(34 211 238)"
+                    strokeWidth="0.5"
+                    strokeOpacity="0.45"
+                    strokeDasharray="1.4 1.4"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              ) : null}
               {(doors ?? []).map((d) => {
                 const pos = pinPos(d);
                 const selected = d.id === selectedId;
                 const canOpen = !activeTask || (matchingIds?.has(d.id) ?? false);
                 const faded = !!activeTask && !canOpen;
-                const { door: next, remaining } = canOpen && activeTask ? nextDoorFrom(d) : { door: null, remaining: 0 };
+                const routeNo = activeTask ? routeIndexById.get(d.id) : undefined;
+                const { door: next, remaining } =
+                  canOpen && activeTask ? nextOnRoute(d.id) : { door: null, remaining: 0 };
                 return (
                   <Popover
                     key={d.id}
@@ -350,7 +419,7 @@ export default function PlanReview() {
                         } ${selected ? "scale-110 ring-2 ring-cyan-400 ring-offset-2 ring-offset-[#0a0d13]" : ""}`}
                         title={`${d.id} — ${d.type}`}
                       >
-                        {d.id}
+                        {activeTask && canOpen && routeNo != null ? routeNo + 1 : d.id}
                         {d.hasPhoto ? <span className="ml-1">📷</span> : null}
                       </button>
                     </PopoverTrigger>
@@ -380,6 +449,27 @@ export default function PlanReview() {
                                 <activeTask.icon className="h-3.5 w-3.5" /> {activeTask.label}
                               </div>
                               <p className="mt-1.5 text-xs leading-relaxed text-slate-300">{activeTask.action}</p>
+                            </div>
+
+                            {/* Route position + tool setup — same toolset across this run */}
+                            <div className="space-y-2">
+                              <p className="flex items-center gap-1 text-[11px] text-slate-400">
+                                <Footprints className="h-3 w-3 text-cyan-300" />
+                                {routeNo != null
+                                  ? `Stop ${routeNo + 1} of ${routeOrder.length} on this run`
+                                  : "On this run"}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1">
+                                <Wrench className="h-3 w-3 shrink-0 text-amber-300" />
+                                {activeTask.tools.map((t) => (
+                                  <span
+                                    key={t}
+                                    className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-slate-300"
+                                  >
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
 
                             <p className="text-xs text-slate-400">
@@ -438,7 +528,7 @@ export default function PlanReview() {
                                     className="flex w-full items-center justify-between rounded-md bg-white/5 px-3 py-2 text-left transition-colors hover:bg-white/10"
                                   >
                                     <span className="text-xs">
-                                      <span className="text-slate-400">Next nearest: </span>
+                                      <span className="text-slate-400">Next on route: </span>
                                       <span className="font-semibold text-cyan-300">{next.id}</span>
                                       <span className="text-slate-500"> · {remaining} left</span>
                                     </span>
@@ -549,6 +639,28 @@ export default function PlanReview() {
               </div>
 
               <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+                {/* Tool load — grab before you start */}
+                <div className="rounded-md border border-amber-400/20 bg-amber-400/5 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-200">
+                    <Wrench className="h-3.5 w-3.5" /> Tool load — grab before you start
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {activeTask.tools.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-slate-200"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-2 flex items-center gap-1 text-[11px] text-slate-400">
+                    <Footprints className="h-3 w-3 shrink-0" />
+                    {activeTaskDoors.length} door{activeTaskDoors.length === 1 ? "" : "s"} on this run · one toolset, no
+                    switching
+                  </p>
+                </div>
+
                 {/* Progress */}
                 <div>
                   <div className="mb-1.5 flex items-center justify-between text-xs">
@@ -587,8 +699,8 @@ export default function PlanReview() {
                 )}
 
                 <p className="text-xs leading-relaxed text-slate-500">
-                  Highlighted pins on the plan need this task. Click one to record the action, then jump to the
-                  next-nearest door — no lists or searching.
+                  Pins are numbered in the most efficient walking order. Work them in sequence — after each one the
+                  popup sends you to the next door on the route. Same tools throughout, minimal walking.
                 </p>
               </div>
             </div>

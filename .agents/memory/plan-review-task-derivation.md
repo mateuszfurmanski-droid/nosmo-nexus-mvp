@@ -15,3 +15,11 @@ The `/plan-review` page lets a user pick a *task type* (e.g. "Fire door keep shu
 - A door can match multiple tasks (intended). Multi-door tasks are what make the "next nearest" suggestion meaningful.
 - The "next nearest / all complete" suggestion is gated behind an action on the current door (tracked by `actedDoorId`), and "all complete" means *every* active-task door is green — not merely "no other non-green door remains" (otherwise reporting an issue on the last door wrongly reads as complete).
 - Doors themselves remain the one genuinely API-backed flow in this demo (`/api/demo-files/...` + persisted `reviewStatus`/photo); status/photo writes survive refresh.
+
+## Tool-based optimisation layer
+
+The page also carries a tool/route optimisation layer. **Model: a task IS a tool setup** — every door matching a task needs the same `tools` (a field on `TaskDef`, frontend-only like the rest), so a task group is "one run, no tool switching." There is intentionally no cross-task tool-merging; identical toolsets on different tasks stay separate because the required *action* is task-specific.
+
+**Route ordering:** `routeOrder` is a greedy nearest-neighbour walk over the active task's door pin positions, started from the top-left-most door, with a deterministic id tie-break. It is **position-only**, so the numbered order stays stable as statuses change (completing a door doesn't renumber the route). Matching pins show the route number instead of the door code, and an SVG `<polyline>` (viewBox 0..100, `preserveAspectRatio="none"`) draws the path — this maps correctly only because the plan image uses `object-fill` (stretched to the container), so normalised x/y map straight to container %.
+
+**Next suggestion is route-based, not nearest-from-click:** `nextOnRoute(fromId)` advances to the next non-green door *after* the current one in route order, wrapping to the earliest remaining non-green. **Why:** the UI tells the worker to follow the numbered route, so "next on route" is more coherent than recomputing nearest-from-an-arbitrary-clicked-door (and avoids backtracking). If product ever wants literal "nearest from wherever you are," that's a deliberate behaviour change, not a bug.
