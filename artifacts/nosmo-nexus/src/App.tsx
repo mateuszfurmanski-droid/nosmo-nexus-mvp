@@ -6,7 +6,7 @@ import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 
 // Pages
-import Workspace from "@/pages/workspace";
+import InteractiveWorkspace from "@/components/interactive-workspace";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
@@ -22,10 +22,21 @@ import Integrations from "@/pages/integrations";
 
 function Router() {
   return (
+    <Switch>
+      {/* Clean, full-screen interactive workspace — no app chrome */}
+      <Route path="/" component={InteractiveWorkspace} />
+      <Route>
+        <AppLayoutRoutes />
+      </Route>
+    </Switch>
+  );
+}
+
+function AppLayoutRoutes() {
+  return (
     <>
       <AppLayout>
         <Switch>
-          <Route path="/" component={Workspace} />
           <Route path="/people" component={People} />
           <Route path="/people/:id" component={PersonDetail} />
           <Route path="/projects" component={Projects} />
