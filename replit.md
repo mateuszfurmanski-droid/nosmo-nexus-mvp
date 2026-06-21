@@ -55,7 +55,7 @@ A construction-site intelligence platform. Dark professional web app with 9 page
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- **Scope = Doorflow core only.** Keep the demo to: plan view, door points, door popup, red/amber/green status, photo attachment, and task filtering (incl. the tool-load + efficient-route optimisation layer). **No** user/company/entity profiles, **no** CRUD screens, **no** forms. Keep it minimal and fast — don't add features beyond this core unless explicitly asked.
 
 ## Gotchas
 
