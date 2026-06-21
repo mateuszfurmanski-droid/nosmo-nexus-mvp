@@ -31,7 +31,9 @@ import type {
   ConversationInput,
   ConversationWithMessages,
   DashboardSummary,
+  Door,
   DoorRow,
+  DoorStatusInput,
   ErrorEnvelope,
   FileItem,
   GlobalSearchParams,
@@ -2044,7 +2046,7 @@ export const getListFilesUrl = () => {
 
 
 
-  return `/api/files`
+  return `/api/demo-files`
 }
 
 /**
@@ -2067,7 +2069,7 @@ export const listFiles = async ( options?: RequestInit): Promise<FileItem[]> => 
 
 export const getListFilesQueryKey = () => {
     return [
-    `/api/files`
+    `/api/demo-files`
     ] as const;
     }
 
@@ -2121,7 +2123,7 @@ export const getGetFileUrl = (id: string,) => {
 
 
 
-  return `/api/files/${id}`
+  return `/api/demo-files/${id}`
 }
 
 /**
@@ -2144,7 +2146,7 @@ export const getFile = async (id: string, options?: RequestInit): Promise<FileIt
 
 export const getGetFileQueryKey = (id: string,) => {
     return [
-    `/api/files/${id}`
+    `/api/demo-files/${id}`
     ] as const;
     }
 
@@ -2198,7 +2200,7 @@ export const getGetFileDataUrl = (id: string,) => {
 
 
 
-  return `/api/files/${id}/data`
+  return `/api/demo-files/${id}/data`
 }
 
 /**
@@ -2221,7 +2223,7 @@ export const getFileData = async (id: string, options?: RequestInit): Promise<Do
 
 export const getGetFileDataQueryKey = (id: string,) => {
     return [
-    `/api/files/${id}/data`
+    `/api/demo-files/${id}/data`
     ] as const;
     }
 
@@ -2275,7 +2277,7 @@ export const getGetFilePagesUrl = (id: string,) => {
 
 
 
-  return `/api/files/${id}/pages`
+  return `/api/demo-files/${id}/pages`
 }
 
 /**
@@ -2298,7 +2300,7 @@ export const getFilePages = async (id: string, options?: RequestInit): Promise<P
 
 export const getGetFilePagesQueryKey = (id: string,) => {
     return [
-    `/api/files/${id}/pages`
+    `/api/demo-files/${id}/pages`
     ] as const;
     }
 
@@ -2346,6 +2348,157 @@ export function useGetFilePages<TData = Awaited<ReturnType<typeof getFilePages>>
 
 
 
+
+export const getListDoorsUrl = (id: string,) => {
+
+
+
+
+  return `/api/demo-files/${id}/doors`
+}
+
+/**
+ * @summary List doors for a processed schedule, merged with review state
+ */
+export const listDoors = async (id: string, options?: RequestInit): Promise<Door[]> => {
+
+  return customFetch<Door[]>(getListDoorsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDoorsQueryKey = (id: string,) => {
+    return [
+    `/api/demo-files/${id}/doors`
+    ] as const;
+    }
+
+
+export const getListDoorsQueryOptions = <TData = Awaited<ReturnType<typeof listDoors>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDoors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDoorsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDoors>>> = ({ signal }) => listDoors(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDoors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDoorsQueryResult = NonNullable<Awaited<ReturnType<typeof listDoors>>>
+export type ListDoorsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List doors for a processed schedule, merged with review state
+ */
+
+export function useListDoors<TData = Awaited<ReturnType<typeof listDoors>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDoors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDoorsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateDoorStatusUrl = (id: string,
+    doorId: string,) => {
+
+
+
+
+  return `/api/demo-files/${id}/doors/${doorId}`
+}
+
+/**
+ * @summary Set the traffic-light review status for a single door
+ */
+export const updateDoorStatus = async (id: string,
+    doorId: string,
+    doorStatusInput: DoorStatusInput, options?: RequestInit): Promise<Door> => {
+
+  return customFetch<Door>(getUpdateDoorStatusUrl(id,doorId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      doorStatusInput,)
+  }
+);}
+
+
+
+
+export const getUpdateDoorStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDoorStatus>>, TError,{id: string;doorId: string;data: BodyType<DoorStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDoorStatus>>, TError,{id: string;doorId: string;data: BodyType<DoorStatusInput>}, TContext> => {
+
+const mutationKey = ['updateDoorStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDoorStatus>>, {id: string;doorId: string;data: BodyType<DoorStatusInput>}> = (props) => {
+          const {id,doorId,data} = props ?? {};
+
+          return  updateDoorStatus(id,doorId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDoorStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateDoorStatus>>>
+    export type UpdateDoorStatusMutationBody = BodyType<DoorStatusInput>
+    export type UpdateDoorStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Set the traffic-light review status for a single door
+ */
+export const useUpdateDoorStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDoorStatus>>, TError,{id: string;doorId: string;data: BodyType<DoorStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDoorStatus>>,
+        TError,
+        {id: string;doorId: string;data: BodyType<DoorStatusInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateDoorStatusMutationOptions(options));
+    }
 
 export const getListCommentsUrl = (taskId: number,) => {
 

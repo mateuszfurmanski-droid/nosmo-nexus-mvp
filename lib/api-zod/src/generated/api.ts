@@ -490,6 +490,50 @@ export const GetFilePagesResponse = zod.array(GetFilePagesResponseItem)
 
 
 /**
+ * @summary List doors for a processed schedule, merged with review state
+ */
+export const ListDoorsParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ListDoorsResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "materials": zod.string(),
+  "reviewStatus": zod.enum(['red', 'amber', 'green']).nullable(),
+  "hasPhoto": zod.boolean(),
+  "x": zod.number().nullable(),
+  "y": zod.number().nullable()
+})
+export const ListDoorsResponse = zod.array(ListDoorsResponseItem)
+
+
+/**
+ * @summary Set the traffic-light review status for a single door
+ */
+export const UpdateDoorStatusParams = zod.object({
+  "id": zod.coerce.string().uuid(),
+  "doorId": zod.coerce.string()
+})
+
+export const UpdateDoorStatusBody = zod.object({
+  "reviewStatus": zod.enum(['red', 'amber', 'green']).nullable()
+})
+
+export const UpdateDoorStatusResponse = zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "materials": zod.string(),
+  "reviewStatus": zod.enum(['red', 'amber', 'green']).nullable(),
+  "hasPhoto": zod.boolean(),
+  "x": zod.number().nullable(),
+  "y": zod.number().nullable()
+})
+
+
+/**
  * @summary List comments for a task
  */
 export const ListCommentsParams = zod.object({

@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout";
@@ -7,6 +8,7 @@ import { FocusOverlay } from "@/focus/focus-overlay";
 
 // Pages
 import InteractiveWorkspace from "@/components/interactive-workspace";
+import PlanReview from "@/pages/plan-review";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
@@ -25,6 +27,8 @@ function Router() {
     <Switch>
       {/* Clean, full-screen interactive workspace — no app chrome */}
       <Route path="/" component={InteractiveWorkspace} />
+      {/* Full-screen plan-review workflow — no app chrome */}
+      <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />
       </Route>
@@ -56,16 +60,20 @@ function AppLayoutRoutes() {
   );
 }
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <TooltipProvider>
-      <FocusProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-      </FocusProvider>
-      <Toaster />
-    </TooltipProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <FocusProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </FocusProvider>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

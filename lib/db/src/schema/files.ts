@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, jsonb, customType } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, real, timestamp, jsonb, unique, customType } from "drizzle-orm/pg-core";
 
 // Postgres bytea <-> Node Buffer. node-postgres returns/accepts Buffer for bytea.
 const bytea = customType<{ data: Buffer; driverData: Buffer; default: false }>({
@@ -50,7 +50,35 @@ export const filePagesTable = pgTable("demo_file_pages", {
   imageBytes: bytea("image_bytes").notNull(),
 });
 
+/**
+ * Mutable per-door REVIEW state for the plan-review workflow. Keyed by the door
+ * id from the Excel schedule (`demo_files.processedJson[].id`) within a file.
+ * Holds the traffic-light status and an optional site photo. Kept separate from
+ * the immutable extracted source rows in `processedJson`. `x`/`y` are optional
+ * fractional (0..1) pin positions over the plan image.
+ */
+export const doorStateTable = pgTable(
+  "demo_door_state",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fileId: uuid("file_id")
+      .notNull()
+      .references(() => filesTable.id, { onDelete: "cascade" }),
+    doorId: text("door_id").notNull(),
+    // "red" | "amber" | "green" | null
+    reviewStatus: text("review_status"),
+    photoBytes: bytea("photo_bytes"),
+    photoMimeType: text("photo_mime_type"),
+    x: real("x"),
+    y: real("y"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("demo_door_state_file_door_uq").on(t.fileId, t.doorId)],
+);
+
 export type FileRecord = typeof filesTable.$inferSelect;
 export type InsertFile = typeof filesTable.$inferInsert;
 export type FilePage = typeof filePagesTable.$inferSelect;
 export type InsertFilePage = typeof filePagesTable.$inferInsert;
+export type DoorState = typeof doorStateTable.$inferSelect;
+export type InsertDoorState = typeof doorStateTable.$inferInsert;

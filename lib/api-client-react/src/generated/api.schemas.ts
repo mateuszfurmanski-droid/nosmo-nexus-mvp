@@ -330,6 +330,39 @@ export interface PageMeta {
   height: number;
 }
 
+export type DoorReviewStatus = typeof DoorReviewStatus[keyof typeof DoorReviewStatus] | null;
+
+
+export const DoorReviewStatus = {
+  red: 'red',
+  amber: 'amber',
+  green: 'green',
+} as const;
+
+export interface Door {
+  id: string;
+  type: string;
+  status: string;
+  materials: string;
+  reviewStatus: DoorReviewStatus;
+  hasPhoto: boolean;
+  x: number | null;
+  y: number | null;
+}
+
+export type DoorStatusInputReviewStatus = typeof DoorStatusInputReviewStatus[keyof typeof DoorStatusInputReviewStatus] | null;
+
+
+export const DoorStatusInputReviewStatus = {
+  red: 'red',
+  amber: 'amber',
+  green: 'green',
+} as const;
+
+export interface DoorStatusInput {
+  reviewStatus: DoorStatusInputReviewStatus;
+}
+
 export interface Comment {
   id: number;
   taskId: number;

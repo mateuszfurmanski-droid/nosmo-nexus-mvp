@@ -622,6 +622,65 @@ paths:
         "404":
           description: Not found
 
+  /demo-files/{id}/doors:
+    get:
+      operationId: listDoors
+      tags: [files]
+      summary: List doors for a processed schedule, merged with review state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Doors with merged review status, photo flag and pin position
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Door"
+        "404":
+          description: Not found
+
+  /demo-files/{id}/doors/{doorId}:
+    patch:
+      operationId: updateDoorStatus
+      tags: [files]
+      summary: Set the traffic-light review status for a single door
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: doorId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoorStatusInput"
+      responses:
+        "200":
+          description: Updated door
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Door"
+        "400":
+          description: Invalid status or door not in schedule
+        "404":
+          description: Not found
+
   # ── Comments ───────────────────────────────────────────────────────────
   /tasks/{taskId}/comments:
     get:
@@ -1249,6 +1308,40 @@ components:
           type: integer
         height:
           type: integer
+
+    Door:
+      type: object
+      required: [id, type, status, materials, reviewStatus, hasPhoto, x, y]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        materials:
+          type: string
+        reviewStatus:
+          type: string
+          nullable: true
+          enum: [red, amber, green]
+        hasPhoto:
+          type: boolean
+        x:
+          type: number
+          nullable: true
+        y:
+          type: number
+          nullable: true
+
+    DoorStatusInput:
+      type: object
+      required: [reviewStatus]
+      properties:
+        reviewStatus:
+          type: string
+          nullable: true
+          enum: [red, amber, green]
 
     # ── Comments ──────────────────────────────────────────────────────────
     Comment:
