@@ -6,7 +6,7 @@ import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 
 // Pages
-import Dashboard from "@/pages/dashboard";
+import Workspace from "@/pages/workspace";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
@@ -25,7 +25,7 @@ function Router() {
     <>
       <AppLayout>
         <Switch>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={Workspace} />
           <Route path="/people" component={People} />
           <Route path="/people/:id" component={PersonDetail} />
           <Route path="/projects" component={Projects} />
