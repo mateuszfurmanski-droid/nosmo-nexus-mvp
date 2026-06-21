@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   User,
+  Users,
   HardHat,
   Ruler,
   Building2,
@@ -23,69 +24,65 @@ interface WorkspaceNode {
 }
 
 /* ------------------------------------------------------------------ */
+/* Single source of truth — every entity defined ONCE.                */
 /* Real project: Halifax / Lloyds Bank – 360 Interiors                */
 /* ------------------------------------------------------------------ */
+
+const PROJECT_ID = "proj";
 
 const NODES: WorkspaceNode[] = [
   // Project
   { id: "proj", label: "Halifax / Lloyds Bank – 360 Interiors", sublabel: "Active Project", type: "project", Icon: FolderKanban },
 
   // People
-  { id: "p-mateusz", label: "Mateusz Furmański", sublabel: "Joiner / Site", type: "person", Icon: HardHat },
+  { id: "p-mateusz", label: "Mateusz Furmański", sublabel: "Joiner", type: "person", Icon: HardHat },
   { id: "p-sitemgr", label: "Site Manager", sublabel: "Site Management", type: "person", Icon: User },
   { id: "p-architect", label: "Architect", sublabel: "Design", type: "person", Icon: Ruler },
-  { id: "p-client", label: "Client (Lloyds)", sublabel: "Lloyds Bank", type: "person", Icon: Building2 },
+  { id: "p-client", label: "Lloyds Client", sublabel: "Lloyds Bank", type: "person", Icon: Building2 },
+  { id: "p-team", label: "360 Interiors Team", sublabel: "Contractor", type: "person", Icon: Users },
 
   // Documents
   { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: FileText },
   { id: "d-doorschedule", label: "Door Schedule", sublabel: "Excel", type: "document", Icon: FileSpreadsheet },
-  { id: "d-siteinstructions", label: "Site Instructions", sublabel: "Document", type: "document", Icon: FileText },
-  { id: "d-snaglist", label: "Snag List", sublabel: "Document", type: "document", Icon: FileText },
-  { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "Certificates", type: "document", Icon: ShieldCheck },
+  { id: "d-siteinstructions", label: "Site Instructions", sublabel: "PDF", type: "document", Icon: FileText },
+  { id: "d-snaglist", label: "Snag List", sublabel: "Excel", type: "document", Icon: FileSpreadsheet },
+  { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "PDF", type: "document", Icon: ShieldCheck },
 
   // Tasks
   { id: "t-install", label: "Install Doors – Level 1", sublabel: "In Progress", type: "task", Icon: CheckSquare },
   { id: "t-snag", label: "Snag Fixes", sublabel: "To Do", type: "task", Icon: CheckSquare },
   { id: "t-fire", label: "Fire Door Adjustments", sublabel: "To Do", type: "task", Icon: CheckSquare },
+  { id: "t-walkthrough", label: "Site Walkthrough", sublabel: "Scheduled", type: "task", Icon: CheckSquare },
 ];
 
-// Relationships between entities (undirected — defined once, applied both ways).
-const EDGES: [string, string][] = [
-  ["proj", "p-mateusz"],
-  ["proj", "p-sitemgr"],
-  ["proj", "p-architect"],
-  ["proj", "p-client"],
-  ["proj", "t-install"],
-  ["proj", "t-snag"],
-  ["proj", "t-fire"],
+/* Task involvement is the single source of relationships. Connecting a
+   document to a task here automatically links that same document to the
+   project and to every person on the task — no duplicated entities. */
+const TASK_LINKS: Record<string, { people: string[]; docs: string[] }> = {
+  "t-install": {
+    people: ["p-mateusz"],
+    docs: ["d-doorschedule", "d-groundfloor"],
+  },
+  "t-snag": {
+    people: ["p-mateusz", "p-sitemgr"],
+    docs: ["d-snaglist"],
+  },
+  "t-fire": {
+    people: ["p-mateusz", "p-architect"],
+    docs: ["d-firecerts", "d-doorschedule"],
+  },
+  "t-walkthrough": {
+    people: ["p-sitemgr", "p-client", "p-architect"],
+    docs: ["d-snaglist", "d-siteinstructions", "d-groundfloor"],
+  },
+};
 
-  ["p-mateusz", "p-sitemgr"],
-  ["p-mateusz", "t-install"],
-  ["p-mateusz", "t-snag"],
-  ["p-mateusz", "t-fire"],
-  ["p-mateusz", "d-doorschedule"],
-
-  ["p-sitemgr", "p-architect"],
+/* Direct people relationships (team membership, client liaison). */
+const PERSON_LINKS: [string, string][] = [
+  ["p-team", "p-mateusz"],
+  ["p-team", "p-sitemgr"],
+  ["p-team", "p-architect"],
   ["p-sitemgr", "p-client"],
-  ["p-sitemgr", "t-snag"],
-  ["p-sitemgr", "d-siteinstructions"],
-  ["p-sitemgr", "d-snaglist"],
-
-  ["p-architect", "d-groundfloor"],
-  ["p-architect", "d-doorschedule"],
-  ["p-architect", "d-siteinstructions"],
-
-  ["p-client", "d-snaglist"],
-  ["p-client", "d-firecerts"],
-
-  ["t-install", "d-doorschedule"],
-  ["t-install", "d-groundfloor"],
-  ["t-install", "t-fire"],
-
-  ["t-snag", "d-snaglist"],
-  ["t-fire", "d-firecerts"],
-
-  ["d-groundfloor", "d-doorschedule"],
 ];
 
 const TYPE_STYLE: Record<NodeType, { chip: string; centerBorder: string }> = {
@@ -95,7 +92,7 @@ const TYPE_STYLE: Record<NodeType, { chip: string; centerBorder: string }> = {
   document: { chip: "bg-amber-500/15 text-amber-400", centerBorder: "border-amber-500" },
 };
 
-const RADIUS = 250;
+const TYPE_ORDER: Record<NodeType, number> = { person: 0, task: 1, document: 2, project: 3 };
 
 /* ------------------------------------------------------------------ */
 
@@ -118,7 +115,7 @@ function Tile({
       disabled={isCenter}
       data-testid={`tile-${node.id}`}
       className={[
-        "flex flex-col items-center justify-center gap-2 rounded-xl bg-card text-card-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "flex flex-col items-center justify-center gap-1.5 rounded-xl bg-card text-card-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
         isCenter
           ? `h-48 w-48 border-2 ${style.centerBorder} cursor-default`
           : "h-28 w-28 border border-border hover:border-foreground/30 hover:bg-secondary/40 cursor-pointer",
@@ -135,27 +132,17 @@ function Tile({
         <Icon className={isCenter ? "h-7 w-7" : "h-5 w-5"} />
       </span>
       <div className="px-2 text-center leading-tight">
-        <div className={isCenter ? "text-sm font-semibold" : "text-sm font-medium"}>
+        <div className={isCenter ? "text-sm font-semibold" : "text-xs font-medium"}>
           {node.label}
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">{node.sublabel}</div>
+        <div className="mt-0.5 text-[11px] text-muted-foreground">{node.sublabel}</div>
       </div>
     </button>
   );
 }
 
 export default function InteractiveWorkspace() {
-  const [centerId, setCenterId] = useState<string>("proj");
-
-  const adjacency = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const node of NODES) map[node.id] = [];
-    for (const [a, b] of EDGES) {
-      map[a].push(b);
-      map[b].push(a);
-    }
-    return map;
-  }, []);
+  const [centerId, setCenterId] = useState<string>(PROJECT_ID);
 
   const byId = useMemo(() => {
     const map: Record<string, WorkspaceNode> = {};
@@ -163,13 +150,53 @@ export default function InteractiveWorkspace() {
     return map;
   }, []);
 
+  // Build relationships from the single source: project hub + task involvement
+  // (with shared doc↔person derivation) + direct person links.
+  const adjacency = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    for (const node of NODES) map[node.id] = new Set();
+    const link = (a: string, b: string) => {
+      if (a === b) return;
+      map[a].add(b);
+      map[b].add(a);
+    };
+
+    // Everything relates to the Halifax project.
+    for (const node of NODES) if (node.id !== PROJECT_ID) link(PROJECT_ID, node.id);
+
+    // Task involvement drives people + document relationships, and shares
+    // each document with everyone involved in the task that uses it.
+    for (const [taskId, { people, docs }] of Object.entries(TASK_LINKS)) {
+      for (const personId of people) link(taskId, personId);
+      for (const docId of docs) link(taskId, docId);
+      for (const docId of docs) for (const personId of people) link(docId, personId);
+    }
+
+    for (const [a, b] of PERSON_LINKS) link(a, b);
+
+    const out: Record<string, string[]> = {};
+    for (const id in map) out[id] = [...map[id]];
+    return out;
+  }, []);
+
   const center = byId[centerId];
-  const surrounding = adjacency[centerId].map((id) => byId[id]);
+  const surrounding = useMemo(
+    () =>
+      adjacency[centerId]
+        .map((id) => byId[id])
+        .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]),
+    [adjacency, byId, centerId],
+  );
+
+  const radius = Math.min(290, 170 + surrounding.length * 9);
 
   return (
     <div className="dark min-h-screen w-full bg-background text-foreground">
-      <div className="absolute left-6 top-6 z-20 text-xs text-muted-foreground">
-        Click any tile to refocus — related items rearrange around it.
+      <div className="absolute left-6 top-6 z-20 max-w-xs">
+        <div className="text-sm font-semibold">Halifax / Lloyds Bank – 360 Interiors</div>
+        <div className="mt-0.5 text-xs text-muted-foreground">
+          Click any tile to refocus — related people, documents and tasks rearrange around it.
+        </div>
       </div>
 
       <div className="relative h-screen w-full overflow-hidden">
@@ -180,8 +207,8 @@ export default function InteractiveWorkspace() {
           return (
             <div
               key={`line-${node.id}`}
-              className="absolute left-1/2 top-1/2 z-0 h-px origin-left bg-border transition-transform duration-300 ease-out"
-              style={{ width: RADIUS, transform: `rotate(${deg}deg)` }}
+              className="absolute left-1/2 top-1/2 z-0 h-px origin-left bg-border transition-all duration-300 ease-out"
+              style={{ width: radius, transform: `rotate(${deg}deg)` }}
             />
           );
         })}
@@ -189,8 +216,8 @@ export default function InteractiveWorkspace() {
         {/* Surrounding tiles arranged on a circle */}
         {surrounding.map((node, i) => {
           const angle = (i / surrounding.length) * Math.PI * 2 - Math.PI / 2;
-          const x = Math.cos(angle) * RADIUS;
-          const y = Math.sin(angle) * RADIUS;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
           return (
             <div
               key={node.id}
