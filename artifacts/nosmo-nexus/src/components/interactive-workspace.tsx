@@ -79,21 +79,44 @@ function ActionCard({ title, children }: { title?: string; children: React.React
   );
 }
 
+type TileSize = "lg" | "md" | "sm";
+type Layer = "primary" | "secondary" | "micro";
+
+const SIZE: Record<TileSize, { box: string; chip: string; icon: string; label: string; sub: string }> = {
+  lg: { box: "h-48 w-48", chip: "h-14 w-14", icon: "h-7 w-7", label: "text-sm font-semibold", sub: "text-[11px]" },
+  md: { box: "h-28 w-28", chip: "h-9 w-9", icon: "h-5 w-5", label: "text-xs font-medium", sub: "text-[11px]" },
+  sm: { box: "h-[4.75rem] w-[4.75rem]", chip: "h-7 w-7", icon: "h-4 w-4", label: "text-[11px] font-medium", sub: "text-[10px]" },
+};
+
+interface RawGroup {
+  key: string;
+  label?: string;
+  nodes: WorkspaceNode[];
+  layer: Layer;
+  angle: number;
+  render: "tiles" | "stack" | "companies";
+  tileSize?: TileSize;
+  faded?: boolean;
+}
+
 function Tile({
   node,
   isCenter,
   onClick,
   sublabel,
   statusColor,
+  size,
 }: {
   node: WorkspaceNode;
   isCenter: boolean;
   onClick?: () => void;
   sublabel?: string;
   statusColor?: StatusColor;
+  size?: TileSize;
 }) {
   const { Icon } = node;
   const style = TYPE_STYLE[node.type];
+  const s = SIZE[isCenter ? "lg" : size ?? "md"];
 
   return (
     <button
@@ -103,31 +126,73 @@ function Tile({
       data-testid={`tile-${node.id}`}
       className={[
         "relative flex flex-col items-center justify-center gap-1.5 rounded-xl bg-card text-card-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        s.box,
         isCenter
-          ? `h-48 w-48 border-2 ${style.centerBorder} cursor-default`
-          : "h-28 w-28 border border-border hover:border-foreground/30 hover:bg-secondary/40 cursor-pointer",
+          ? `border-2 ${style.centerBorder} cursor-default`
+          : "border border-border hover:border-foreground/30 hover:bg-secondary/40 cursor-pointer",
       ].join(" ")}
       aria-label={`${node.type}: ${node.label}${isCenter ? " (focused)" : ""}`}
     >
       {statusColor && (
-        <span className="absolute left-2.5 top-2.5">
+        <span className="absolute left-2 top-2">
           <StatusDot color={statusColor} />
         </span>
       )}
-      <span
-        className={[
-          "flex items-center justify-center rounded-lg",
-          style.chip,
-          isCenter ? "h-14 w-14" : "h-9 w-9",
-        ].join(" ")}
-      >
-        <Icon className={isCenter ? "h-7 w-7" : "h-5 w-5"} />
+      <span className={["flex items-center justify-center rounded-lg", style.chip, s.chip].join(" ")}>
+        <Icon className={s.icon} />
       </span>
-      <div className="px-2 text-center leading-tight">
-        <div className={isCenter ? "text-sm font-semibold" : "text-xs font-medium"}>{node.label}</div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">{sublabel ?? node.sublabel}</div>
+      <div className="px-1.5 text-center leading-tight">
+        <div className={`${s.label} line-clamp-2`}>{node.label}</div>
+        <div className={`mt-0.5 text-muted-foreground ${s.sub}`}>{sublabel ?? node.sublabel}</div>
       </div>
     </button>
+  );
+}
+
+/* Icon-only node used for the document stacks (PDF / XLS). */
+function MicroNode({ node, onClick }: { node: WorkspaceNode; onClick: () => void }) {
+  const { Icon } = node;
+  const style = TYPE_STYLE[node.type];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={`tile-${node.id}`}
+      title={node.label}
+      aria-label={`${node.type}: ${node.label}`}
+      className="group flex w-14 flex-col items-center gap-1 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-lg ${style.chip} transition-transform group-hover:scale-105`}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="w-full truncate text-center text-[10px] text-muted-foreground">{node.label}</span>
+    </button>
+  );
+}
+
+/* A clustered tray of document icons. */
+function DocStack({
+  nodes,
+  label,
+  onPick,
+}: {
+  nodes: WorkspaceNode[];
+  label?: string;
+  onPick: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      {label && (
+        <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      )}
+      <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-card/40 p-2.5">
+        {nodes.map((n) => (
+          <MicroNode key={n.id} node={n} onClick={() => onPick(n.id)} />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -348,11 +413,6 @@ export default function InteractiveWorkspace() {
     return () => ro.disconnect();
   }, [collabPair]);
 
-  const radiusX = Math.max(180, size.w / 2 - 100);
-  const rawRadiusY = Math.max(120, size.h / 2 - 90);
-  const radiusY = Math.min(rawRadiusY, radiusX * 0.7);
-  const tileScale = Math.max(0.7, Math.min(1, size.h / 720, size.w / 1180));
-
   /* ---- collaboration (dual-center) mode ---------------------------- */
 
   if (collabPair) {
@@ -494,26 +554,167 @@ export default function InteractiveWorkspace() {
     }
   }
 
-  /* ---- single-center mode ------------------------------------------ */
+  /* ---- single-center mode: multi-layer adaptive layout ------------- */
 
   const centerNode = nodeById(centerId) ?? byId[PROJECT_ID]!;
   const surrounding = neighborsOf(centerId)
     .map(nodeById)
-    .filter((n): n is WorkspaceNode => !!n)
-    .sort((x, y) => TYPE_ORDER[x.type] - TYPE_ORDER[y.type]);
+    .filter((n): n is WorkspaceNode => !!n);
 
-  const positions = surrounding.map((node, i) => {
-    const angle = (i / surrounding.length) * Math.PI * 2 - Math.PI / 2;
-    const x = Math.cos(angle) * radiusX;
-    const y = Math.sin(angle) * radiusY;
-    return {
-      node,
-      x,
-      y,
-      len: Math.hypot(x, y),
-      deg: (Math.atan2(y, x) * 180) / Math.PI,
-    };
+  const peopleN = surrounding.filter((n) => n.type === "person");
+  const tasksN = surrounding.filter((n) => n.type === "task");
+  const docsN = surrounding.filter((n) => n.type === "document");
+  const projN = surrounding.filter((n) => n.type === "project");
+  const issuesN = surrounding.filter((n) => n.type === "issue");
+
+  const groupByCompany = (people: WorkspaceNode[]) => {
+    const order: string[] = [];
+    const m = new Map<string, WorkspaceNode[]>();
+    for (const p of people) {
+      const c = p.company ?? "Other";
+      if (!m.has(c)) {
+        m.set(c, []);
+        order.push(c);
+      }
+      m.get(c)!.push(p);
+    }
+    return order.map((company) => ({ company, nodes: m.get(company)! }));
+  };
+
+  // Compressed vertical ellipse — wide on X, short on Y. Layer factors push
+  // each ring out to a different distance so importance reads as size + depth.
+  const RX = Math.max(320, size.w * 0.4);
+  const RY = Math.max(180, size.h * 0.33);
+  const FX: Record<Layer, number> = { primary: 0.66, secondary: 1, micro: 0.86 };
+  const FY: Record<Layer, number> = { primary: 0.82, secondary: 1.04, micro: 1 };
+  const anchorAt = (angle: number, layer: Layer) => ({
+    x: Math.cos(angle) * RX * FX[layer],
+    y: Math.sin(angle) * RY * FY[layer],
   });
+
+  const ANG = {
+    top: -Math.PI / 2,
+    bottom: Math.PI / 2,
+    left: Math.PI,
+    right: 0,
+    botLeft: Math.PI * 0.74,
+    botRight: Math.PI * 0.26,
+  };
+
+  // Relevance-driven directional zones. Each center type pulls its related
+  // nodes into the spatial regions that make sense for it.
+  const groups: RawGroup[] = [];
+  const ct = centerNode.type;
+  if (ct === "project") {
+    if (peopleN.length)
+      groups.push({ key: "people", nodes: peopleN, layer: "primary", angle: ANG.top, render: "companies" });
+    if (tasksN.length)
+      groups.push({ key: "tasks", label: "Tasks", nodes: tasksN, layer: "primary", angle: ANG.bottom, render: "tiles" });
+    if (docsN.length)
+      groups.push({ key: "docs", label: "Documents", nodes: docsN, layer: "micro", angle: ANG.botLeft, render: "stack" });
+    if (issuesN.length)
+      groups.push({ key: "issues", label: "Issues", nodes: issuesN, layer: "primary", angle: ANG.right, render: "tiles" });
+  } else if (ct === "person") {
+    const myCo = centerNode.company;
+    const mine = peopleN.filter((p) => p.company === myCo);
+    const others = peopleN.filter((p) => p.company !== myCo);
+    if (mine.length)
+      groups.push({ key: "myco", label: myCo, nodes: mine, layer: "primary", angle: ANG.top, render: "tiles", tileSize: "md" });
+    if (tasksN.length)
+      groups.push({ key: "tasks", label: "Tasks", nodes: tasksN, layer: "primary", angle: ANG.botRight, render: "tiles" });
+    if (docsN.length)
+      groups.push({ key: "docs", label: "Documents", nodes: docsN, layer: "micro", angle: ANG.botLeft, render: "stack" });
+    if (others.length)
+      groups.push({ key: "others", nodes: others, layer: "secondary", angle: ANG.left, render: "companies", faded: true });
+    if (projN.length)
+      groups.push({ key: "proj", nodes: projN, layer: "secondary", angle: ANG.bottom, render: "tiles", faded: true });
+    if (issuesN.length)
+      groups.push({ key: "issues", label: "Issues", nodes: issuesN, layer: "primary", angle: ANG.right, render: "tiles" });
+  } else if (ct === "task") {
+    if (projN.length)
+      groups.push({ key: "proj", nodes: projN, layer: "secondary", angle: ANG.top, render: "tiles" });
+    if (peopleN.length)
+      groups.push({ key: "people", nodes: peopleN, layer: "primary", angle: ANG.left, render: "companies" });
+    if (docsN.length)
+      groups.push({ key: "docs", label: "Documents", nodes: docsN, layer: "micro", angle: ANG.botRight, render: "stack" });
+    if (issuesN.length)
+      groups.push({ key: "issues", label: "Issues", nodes: issuesN, layer: "primary", angle: ANG.right, render: "tiles" });
+  } else {
+    if (projN.length)
+      groups.push({ key: "proj", nodes: projN, layer: "secondary", angle: ANG.top, render: "tiles" });
+    if (peopleN.length)
+      groups.push({ key: "people", nodes: peopleN, layer: "primary", angle: ANG.right, render: "companies" });
+    if (tasksN.length)
+      groups.push({ key: "tasks", label: "Tasks", nodes: tasksN, layer: "primary", angle: ANG.left, render: "tiles" });
+    if (docsN.length)
+      groups.push({ key: "docs", label: "Documents", nodes: docsN, layer: "micro", angle: ANG.botLeft, render: "stack" });
+  }
+
+  const positioned = groups.map((grp) => {
+    const { x, y } = anchorAt(grp.angle, grp.layer);
+    return { grp, x, y, len: Math.hypot(x, y), deg: (Math.atan2(y, x) * 180) / Math.PI };
+  });
+
+  const renderNodeTile = (node: WorkspaceNode, tileSize: TileSize) => {
+    const showCompare = centerNode.type === "person" && node.type === "person";
+    return (
+      <div key={node.id} className="relative">
+        <Tile
+          node={node}
+          isCenter={false}
+          size={tileSize}
+          sublabel={displaySub(node)}
+          statusColor={dotFor(node)}
+          onClick={() => setCenterId(node.id)}
+        />
+        {showCompare && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCollabPair([centerId, node.id]);
+            }}
+            aria-label={`Compare ${centerNode.label} with ${node.label}`}
+            className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <ArrowLeftRight className="h-2.5 w-2.5" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderGroupBody = (grp: RawGroup) => {
+    if (grp.render === "stack") {
+      return <DocStack nodes={grp.nodes} label={grp.label} onPick={(id) => setCenterId(id)} />;
+    }
+    if (grp.render === "companies") {
+      const size = grp.tileSize ?? (grp.layer === "primary" ? "md" : "sm");
+      return (
+        <div className="flex max-w-[680px] flex-wrap items-start justify-center gap-x-5 gap-y-3">
+          {groupByCompany(grp.nodes).map((c) => (
+            <div key={c.company} className="flex flex-col items-center gap-1.5">
+              <div className="rounded-full bg-secondary/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {c.company}
+              </div>
+              <div className="flex items-start gap-2">{c.nodes.map((n) => renderNodeTile(n, size))}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    const size = grp.tileSize ?? (grp.layer === "secondary" ? "sm" : "md");
+    return (
+      <div className="flex flex-col items-center gap-1.5">
+        {grp.label && (
+          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{grp.label}</div>
+        )}
+        <div className="flex max-w-[600px] flex-wrap items-start justify-center gap-2.5">
+          {grp.nodes.map((n) => renderNodeTile(n, size))}
+        </div>
+      </div>
+    );
+  };
 
   const renderCenterActions = () => {
     if (centerNode.type === "issue") {

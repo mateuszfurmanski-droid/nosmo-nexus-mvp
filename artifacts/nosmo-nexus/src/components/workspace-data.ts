@@ -21,6 +21,8 @@ export interface WorkspaceNode {
   sublabel: string;
   type: NodeType;
   Icon: LucideIcon;
+  /** Organisation a person belongs to — drives company grouping in the layout. */
+  company?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -36,11 +38,11 @@ export const NODES: WorkspaceNode[] = [
   { id: "proj", label: "Halifax / Lloyds Bank – 360 Interiors", sublabel: "Active Project", type: "project", Icon: FolderKanban },
 
   // People
-  { id: "p-mateusz", label: "Mateusz Furmański", sublabel: "Joiner", type: "person", Icon: HardHat },
-  { id: "p-sitemgr", label: "Site Manager", sublabel: "Site Management", type: "person", Icon: User },
-  { id: "p-architect", label: "Architect", sublabel: "Design", type: "person", Icon: Ruler },
-  { id: "p-client", label: "Lloyds Client", sublabel: "Lloyds Bank", type: "person", Icon: Building2 },
-  { id: "p-team", label: "360 Interiors Team", sublabel: "Contractor", type: "person", Icon: Users },
+  { id: "p-mateusz", label: "Mateusz Furmański", sublabel: "Joiner", type: "person", Icon: HardHat, company: "360 Interiors" },
+  { id: "p-sitemgr", label: "Site Manager", sublabel: "Site Management", type: "person", Icon: User, company: "360 Interiors" },
+  { id: "p-architect", label: "Architect", sublabel: "Design", type: "person", Icon: Ruler, company: "Design Team" },
+  { id: "p-client", label: "Lloyds Client", sublabel: "Lloyds Bank", type: "person", Icon: Building2, company: "Lloyds Bank" },
+  { id: "p-team", label: "360 Interiors Team", sublabel: "Contractor", type: "person", Icon: Users, company: "360 Interiors" },
 
   // Documents
   { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: FileText },
