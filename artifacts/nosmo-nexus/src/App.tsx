@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout";
 import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
+import { AvailabilityProvider } from "@/availability/availability-context";
 
 // Pages
 import InteractiveWorkspace from "@/components/interactive-workspace";
@@ -68,7 +69,9 @@ function App() {
       <TooltipProvider>
         <FocusProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
+            <AvailabilityProvider>
+              <Router />
+            </AvailabilityProvider>
           </WouterRouter>
         </FocusProvider>
         <Toaster />
