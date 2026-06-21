@@ -30,6 +30,8 @@ tags:
     description: AI chat conversations
   - name: search
     description: Global search
+  - name: files
+    description: Unauthenticated MVP file storage and auto-processing
 
 paths:
   /healthz:
@@ -528,6 +530,97 @@ paths:
                 format: binary
         "404":
           description: File not found
+
+  # ── Files (unauthenticated MVP storage) ────────────────────────────────
+  # NOTE: Upload (POST /files, multipart/form-data) and binary downloads
+  # (GET /files/{id}/original, GET /files/{id}/pages/{page}/image) are served
+  # directly by the API and accessed via raw fetch on the client. They are
+  # intentionally NOT modelled here because multipart/binary endpoints do not
+  # generate useful typed hooks. The JSON metadata endpoints below are codegen'd.
+  /demo-files:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List all uploaded files (newest first)
+      responses:
+        "200":
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileItem"
+
+  /demo-files/{id}:
+    get:
+      operationId: getFile
+      tags: [files]
+      summary: Get a single file's metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileItem"
+        "404":
+          description: Not found
+
+  /demo-files/{id}/data:
+    get:
+      operationId: getFileData
+      tags: [files]
+      summary: Get extracted door rows for a processed spreadsheet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Extracted door rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DoorRow"
+        "404":
+          description: Not found
+
+  /demo-files/{id}/pages:
+    get:
+      operationId: getFilePages
+      tags: [files]
+      summary: Get page metadata for a processed PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Page metadata (one entry per rendered page)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PageMeta"
+        "404":
+          description: Not found
 
   # ── Comments ───────────────────────────────────────────────────────────
   /tasks/{taskId}/comments:
@@ -1102,6 +1195,60 @@ components:
           type: string
           description: Base64-encoded file contents (data URL stripped) stored in the database.
           maxLength: 14000000
+
+    # ── Files ─────────────────────────────────────────────────────────────
+    FileItem:
+      type: object
+      required: [id, originalName, mimeType, size, kind, status, pageCount, hasData, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        kind:
+          type: string
+          enum: [pdf, excel]
+        status:
+          type: string
+          enum: [processing, ready, failed]
+        error:
+          type: [string, "null"]
+        pageCount:
+          type: integer
+        hasData:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    DoorRow:
+      type: object
+      required: [id, type, status, materials]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        materials:
+          type: string
+
+    PageMeta:
+      type: object
+      required: [pageNumber, width, height]
+      properties:
+        pageNumber:
+          type: integer
+        width:
+          type: integer
+        height:
+          type: integer
 
     # ── Comments ──────────────────────────────────────────────────────────
     Comment:

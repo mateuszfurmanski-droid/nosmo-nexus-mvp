@@ -420,6 +420,76 @@ export const GetPlanFileParams = zod.object({
 
 
 /**
+ * @summary List all uploaded files (newest first)
+ */
+export const ListFilesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "originalName": zod.string(),
+  "mimeType": zod.string(),
+  "size": zod.number(),
+  "kind": zod.enum(['pdf', 'excel']),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "error": zod.string().nullish(),
+  "pageCount": zod.number(),
+  "hasData": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListFilesResponse = zod.array(ListFilesResponseItem)
+
+
+/**
+ * @summary Get a single file's metadata
+ */
+export const GetFileParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetFileResponse = zod.object({
+  "id": zod.string().uuid(),
+  "originalName": zod.string(),
+  "mimeType": zod.string(),
+  "size": zod.number(),
+  "kind": zod.enum(['pdf', 'excel']),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "error": zod.string().nullish(),
+  "pageCount": zod.number(),
+  "hasData": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get extracted door rows for a processed spreadsheet
+ */
+export const GetFileDataParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetFileDataResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "materials": zod.string()
+})
+export const GetFileDataResponse = zod.array(GetFileDataResponseItem)
+
+
+/**
+ * @summary Get page metadata for a processed PDF
+ */
+export const GetFilePagesParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetFilePagesResponseItem = zod.object({
+  "pageNumber": zod.number(),
+  "width": zod.number(),
+  "height": zod.number()
+})
+export const GetFilePagesResponse = zod.array(GetFilePagesResponseItem)
+
+
+/**
  * @summary List comments for a task
  */
 export const ListCommentsParams = zod.object({

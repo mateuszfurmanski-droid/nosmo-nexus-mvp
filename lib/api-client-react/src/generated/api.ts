@@ -31,7 +31,9 @@ import type {
   ConversationInput,
   ConversationWithMessages,
   DashboardSummary,
+  DoorRow,
   ErrorEnvelope,
+  FileItem,
   GlobalSearchParams,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
@@ -43,6 +45,7 @@ import type {
   Note,
   NoteInput,
   NotePatch,
+  PageMeta,
   Plan,
   PlanInput,
   Project,
@@ -2024,6 +2027,314 @@ export function useGetPlanFile<TData = Awaited<ReturnType<typeof getPlanFile>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetPlanFileQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListFilesUrl = () => {
+
+
+
+
+  return `/api/files`
+}
+
+/**
+ * @summary List all uploaded files (newest first)
+ */
+export const listFiles = async ( options?: RequestInit): Promise<FileItem[]> => {
+
+  return customFetch<FileItem[]>(getListFilesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFilesQueryKey = () => {
+    return [
+    `/api/files`
+    ] as const;
+    }
+
+
+export const getListFilesQueryOptions = <TData = Awaited<ReturnType<typeof listFiles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFilesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFiles>>> = ({ signal }) => listFiles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listFiles>>>
+export type ListFilesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all uploaded files (newest first)
+ */
+
+export function useListFiles<TData = Awaited<ReturnType<typeof listFiles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFilesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetFileUrl = (id: string,) => {
+
+
+
+
+  return `/api/files/${id}`
+}
+
+/**
+ * @summary Get a single file's metadata
+ */
+export const getFile = async (id: string, options?: RequestInit): Promise<FileItem> => {
+
+  return customFetch<FileItem>(getGetFileUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFileQueryKey = (id: string,) => {
+    return [
+    `/api/files/${id}`
+    ] as const;
+    }
+
+
+export const getGetFileQueryOptions = <TData = Awaited<ReturnType<typeof getFile>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFileQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFile>>> = ({ signal }) => getFile(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFileQueryResult = NonNullable<Awaited<ReturnType<typeof getFile>>>
+export type GetFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a single file's metadata
+ */
+
+export function useGetFile<TData = Awaited<ReturnType<typeof getFile>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFileQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetFileDataUrl = (id: string,) => {
+
+
+
+
+  return `/api/files/${id}/data`
+}
+
+/**
+ * @summary Get extracted door rows for a processed spreadsheet
+ */
+export const getFileData = async (id: string, options?: RequestInit): Promise<DoorRow[]> => {
+
+  return customFetch<DoorRow[]>(getGetFileDataUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFileDataQueryKey = (id: string,) => {
+    return [
+    `/api/files/${id}/data`
+    ] as const;
+    }
+
+
+export const getGetFileDataQueryOptions = <TData = Awaited<ReturnType<typeof getFileData>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFileData>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFileDataQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFileData>>> = ({ signal }) => getFileData(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFileData>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFileDataQueryResult = NonNullable<Awaited<ReturnType<typeof getFileData>>>
+export type GetFileDataQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get extracted door rows for a processed spreadsheet
+ */
+
+export function useGetFileData<TData = Awaited<ReturnType<typeof getFileData>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFileData>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFileDataQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetFilePagesUrl = (id: string,) => {
+
+
+
+
+  return `/api/files/${id}/pages`
+}
+
+/**
+ * @summary Get page metadata for a processed PDF
+ */
+export const getFilePages = async (id: string, options?: RequestInit): Promise<PageMeta[]> => {
+
+  return customFetch<PageMeta[]>(getGetFilePagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFilePagesQueryKey = (id: string,) => {
+    return [
+    `/api/files/${id}/pages`
+    ] as const;
+    }
+
+
+export const getGetFilePagesQueryOptions = <TData = Awaited<ReturnType<typeof getFilePages>>, TError = ErrorType<void>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFilePages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFilePagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFilePages>>> = ({ signal }) => getFilePages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFilePages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFilePagesQueryResult = NonNullable<Awaited<ReturnType<typeof getFilePages>>>
+export type GetFilePagesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get page metadata for a processed PDF
+ */
+
+export function useGetFilePages<TData = Awaited<ReturnType<typeof getFilePages>>, TError = ErrorType<void>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFilePages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFilePagesQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

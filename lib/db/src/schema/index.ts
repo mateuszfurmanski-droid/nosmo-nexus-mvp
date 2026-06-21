@@ -7,3 +7,4 @@ export * from "./comments";
 export * from "./activity";
 export * from "./notes";
 export * from "./conversations";
+export * from "./files";

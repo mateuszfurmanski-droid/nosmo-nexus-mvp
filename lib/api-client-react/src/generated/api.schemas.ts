@@ -286,6 +286,50 @@ export interface PlanInput {
   fileData?: string;
 }
 
+export type FileItemKind = typeof FileItemKind[keyof typeof FileItemKind];
+
+
+export const FileItemKind = {
+  pdf: 'pdf',
+  excel: 'excel',
+} as const;
+
+export type FileItemStatus = typeof FileItemStatus[keyof typeof FileItemStatus];
+
+
+export const FileItemStatus = {
+  processing: 'processing',
+  ready: 'ready',
+  failed: 'failed',
+} as const;
+
+export interface FileItem {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  kind: FileItemKind;
+  status: FileItemStatus;
+  /** @nullable */
+  error?: string | null;
+  pageCount: number;
+  hasData: boolean;
+  createdAt: string;
+}
+
+export interface DoorRow {
+  id: string;
+  type: string;
+  status: string;
+  materials: string;
+}
+
+export interface PageMeta {
+  pageNumber: number;
+  width: number;
+  height: number;
+}
+
 export interface Comment {
   id: number;
   taskId: number;

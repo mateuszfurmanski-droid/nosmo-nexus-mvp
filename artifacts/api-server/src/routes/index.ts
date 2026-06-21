@@ -10,6 +10,7 @@ import aiRouter from "./ai";
 import notesRouter from "./notes";
 import searchRouter from "./search";
 import conversationsRouter from "./conversations";
+import filesRouter from "./files";
 import { requireWorkspace } from "../middlewares/requireWorkspace";
 
 const router: IRouter = Router();
@@ -17,6 +18,8 @@ const router: IRouter = Router();
 // Public routes — no authentication required.
 router.use(healthRouter);
 router.use(authRouter);
+// Unauthenticated MVP file storage (upload + auto-processing). Public by design.
+router.use(filesRouter);
 
 // Everything below requires an authenticated user with a resolved workspace.
 // `requireWorkspace` returns 401 when unauthenticated and sets `req.workspaceId`.
