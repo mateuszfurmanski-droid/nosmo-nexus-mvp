@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   User,
   Users,
@@ -188,7 +188,47 @@ export default function InteractiveWorkspace() {
     [adjacency, byId, centerId],
   );
 
-  const radius = Math.min(290, 170 + surrounding.length * 9);
+  // Measure the live container so the layout adapts to the actual viewport.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState(() => ({
+    w: typeof window !== "undefined" ? window.innerWidth : 1280,
+    h: typeof window !== "undefined" ? window.innerHeight : 720,
+  }));
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      setSize({ w: rect.width, h: rect.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Adaptive ellipse: radiusX follows width, radiusY follows height and is
+  // always flatter than radiusX so short screens compress vertically and all
+  // nodes stay inside the viewport without scrolling.
+  const radiusX = Math.max(180, size.w / 2 - 100);
+  const rawRadiusY = Math.max(120, size.h / 2 - 90);
+  const radiusY = Math.min(rawRadiusY, radiusX * 0.7);
+
+  // On constrained viewports, shrink the surrounding tiles just enough to stop
+  // them overlapping (1 on normal screens, smaller on short/narrow ones).
+  const tileScale = Math.max(0.7, Math.min(1, size.h / 720, size.w / 1180));
+
+  const positions = surrounding.map((node, i) => {
+    const angle = (i / surrounding.length) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(angle) * radiusX;
+    const y = Math.sin(angle) * radiusY;
+    return {
+      node,
+      x,
+      y,
+      len: Math.hypot(x, y),
+      deg: (Math.atan2(y, x) * 180) / Math.PI,
+    };
+  });
 
   return (
     <div className="dark min-h-screen w-full bg-background text-foreground">
@@ -199,35 +239,28 @@ export default function InteractiveWorkspace() {
         </div>
       </div>
 
-      <div className="relative h-screen w-full overflow-hidden">
+      <div ref={containerRef} className="relative h-screen w-full overflow-hidden">
         {/* Connector lines from center to each related tile */}
-        {surrounding.map((node, i) => {
-          const angle = (i / surrounding.length) * Math.PI * 2 - Math.PI / 2;
-          const deg = (angle * 180) / Math.PI;
-          return (
-            <div
-              key={`line-${node.id}`}
-              className="absolute left-1/2 top-1/2 z-0 h-px origin-left bg-border transition-all duration-300 ease-out"
-              style={{ width: radius, transform: `rotate(${deg}deg)` }}
-            />
-          );
-        })}
+        {positions.map(({ node, len, deg }) => (
+          <div
+            key={`line-${node.id}`}
+            className="absolute left-1/2 top-1/2 z-0 h-px origin-left bg-border transition-all duration-300 ease-out"
+            style={{ width: len, transform: `rotate(${deg}deg)` }}
+          />
+        ))}
 
-        {/* Surrounding tiles arranged on a circle */}
-        {surrounding.map((node, i) => {
-          const angle = (i / surrounding.length) * Math.PI * 2 - Math.PI / 2;
-          const x = Math.cos(angle) * radius;
-          const y = Math.sin(angle) * radius;
-          return (
-            <div
-              key={node.id}
-              className="absolute left-1/2 top-1/2 z-10 transition-transform duration-300 ease-out"
-              style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
-            >
+        {/* Surrounding tiles arranged on the adaptive ellipse */}
+        {positions.map(({ node, x, y }) => (
+          <div
+            key={node.id}
+            className="absolute left-1/2 top-1/2 z-10 transition-transform duration-300 ease-out"
+            style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+          >
+            <div style={{ transform: `scale(${tileScale})` }}>
               <Tile node={node} isCenter={false} onClick={() => setCenterId(node.id)} />
             </div>
-          );
-        })}
+          </div>
+        ))}
 
         {/* Center tile */}
         <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
