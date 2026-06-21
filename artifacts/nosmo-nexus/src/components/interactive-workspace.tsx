@@ -13,6 +13,10 @@ import {
   Activity,
   ChevronUp,
   ChevronDown,
+  Package,
+  UserPlus,
+  ShoppingCart,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -24,13 +28,18 @@ import {
   TYPE_ORDER,
   ISSUE_ICON,
   ISSUE_PRESETS,
-  PRE_TASK_CHECKS,
   STATUS_LABEL,
+  SUPPLIER,
+  TASK_REQUIREMENTS,
+  PERSON_INVENTORY,
+  PROJECT_INVENTORY,
+  NODES as ALL_NODES,
   seedTaskStatus,
   taskWorker,
   buildAdjacency,
   type WorkspaceNode,
   type TaskStatus,
+  type MaterialReq,
   type Issue,
   type IssuePreset,
   type WorkflowEvent,
@@ -97,6 +106,21 @@ const TIER_META: Record<Tier, { label: string; badge: string; ring: string; row:
   now: { label: "NOW", badge: "bg-primary/20 text-primary", ring: "ring-2 ring-primary/70", row: "" },
   next: { label: "NEXT", badge: "bg-amber-500/15 text-amber-400", ring: "ring-1 ring-border", row: "opacity-90" },
   later: { label: "LATER", badge: "bg-muted-foreground/15 text-muted-foreground", ring: "ring-1 ring-border", row: "opacity-45" },
+};
+
+/* Execution-gate lifecycle. `stage` is the authoritative readiness state;
+   task status (todo/in-progress/done) and tier (now/next/later) are kept in
+   sync with it through the transition helpers. No task can execute until it
+   has passed the gate (stage === "ready"). */
+type Stage = "unassigned" | "assigned" | "ordering" | "ready" | "active" | "done";
+
+const STAGE_META: Record<Stage, { label: string; chip: string }> = {
+  unassigned: { label: "UNASSIGNED", chip: "bg-muted-foreground/15 text-muted-foreground" },
+  assigned: { label: "CHECK", chip: "bg-amber-500/15 text-amber-400" },
+  ordering: { label: "ORDER", chip: "bg-red-500/15 text-red-400" },
+  ready: { label: "READY", chip: "bg-blue-500/15 text-blue-400" },
+  active: { label: "ACTIVE", chip: "bg-primary/20 text-primary" },
+  done: { label: "DONE", chip: "bg-emerald-500/15 text-emerald-400" },
 };
 
 interface RawGroup {
@@ -216,9 +240,14 @@ export default function InteractiveWorkspace() {
   const [taskOverrides, setTaskOverrides] = useState<Record<string, TaskStatus>>({});
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const [comments, setComments] = useState<Record<string, { text: string; at: number }[]>>({});
+  // Task priority — session-only. now / next / later drives the layout gravity.
+  const [taskTier, setTaskTier] = useState<Record<string, Tier>>({});
+  // Execution gate — session-only. Readiness lifecycle + who is assigned.
+  const [taskStage, setTaskStage] = useState<Record<string, Stage>>({});
+  const [taskAssignee, setTaskAssignee] = useState<Record<string, string[]>>({});
 
   // Transient UI sub-state.
-  const [centerAction, setCenterAction] = useState<"none" | "validate" | "report">("none");
+  const [centerAction, setCenterAction] = useState<"none" | "report">("none");
   const [commentFor, setCommentFor] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const seq = useRef(0);
@@ -266,6 +295,88 @@ export default function InteractiveWorkspace() {
   const getTaskStatus = (taskId: string): TaskStatus =>
     taskOverrides[taskId] ?? seedTaskStatus(byId[taskId]?.sublabel ?? "");
 
+  const seedTier = (taskId: string): Tier => {
+    const status = getTaskStatus(taskId);
+    if (status === "in-progress") return "now";
+    if (status === "done") return "later";
+    return (byId[taskId]?.sublabel ?? "") === "Scheduled" ? "later" : "next";
+  };
+  const getTier = (taskId: string): Tier => taskTier[taskId] ?? seedTier(taskId);
+  const bumpTier = (taskId: string, dir: -1 | 1) => {
+    const idx = Math.min(2, Math.max(0, TIER_RANK[getTier(taskId)] + dir));
+    setTaskTier((prev) => ({ ...prev, [taskId]: TIER_ORDER[idx]! }));
+  };
+
+  /* ---- execution gate --------------------------------------------- */
+
+  // Who is on a task — a live session assignment overrides the static link.
+  const peopleForTask = (taskId: string): string[] =>
+    taskAssignee[taskId] ?? TASK_LINKS[taskId]?.people ?? [];
+
+  // Default stage before the user drives any transition.
+  const seedStage = (taskId: string): Stage => {
+    if (peopleForTask(taskId).length === 0) return "unassigned";
+    const status = getTaskStatus(taskId);
+    if (status === "done") return "done";
+    if (status === "in-progress") return "active";
+    return "assigned";
+  };
+  const getStage = (taskId: string): Stage => taskStage[taskId] ?? seedStage(taskId);
+
+  // Candidate workers: those matching a required role, plus the in-house team.
+  const assignCandidates = (taskId: string): WorkspaceNode[] => {
+    const roles = TASK_REQUIREMENTS[taskId]?.roles ?? [];
+    return ALL_NODES.filter(
+      (n) =>
+        n.type === "person" &&
+        (roles.includes(n.sublabel) || (n.company === "360 Interiors" && n.sublabel === "Contractor")),
+    );
+  };
+
+  // Supply check — everything in the site store plus what the assignee carries.
+  const availableFor = (personId: string | undefined): Set<string> =>
+    new Set([...PROJECT_INVENTORY, ...(personId ? PERSON_INVENTORY[personId] ?? [] : [])]);
+  const getMissing = (taskId: string, personId: string | undefined): MaterialReq[] => {
+    const have = availableFor(personId);
+    return (TASK_REQUIREMENTS[taskId]?.materials ?? []).filter((m) => !have.has(m.name));
+  };
+
+  // Transitions — each keeps stage / status / tier in sync. No bypass: a task
+  // only reaches "active" via "ready", and only "ready" exposes "Set active".
+  const assignPerson = (taskId: string, personId: string) => {
+    setTaskAssignee((prev) => ({ ...prev, [taskId]: [personId] }));
+    setTaskStage((prev) => ({ ...prev, [taskId]: "assigned" }));
+    logEvent(`${byId[personId]?.label} assigned to ${byId[taskId]?.label}`, [taskId, personId, MANAGER_ID]);
+  };
+  const gateConfirmReady = (taskId: string) => {
+    setTaskStage((prev) => ({ ...prev, [taskId]: "ready" }));
+    logEvent(`Supplies confirmed — ${byId[taskId]?.label} cleared the gate`, [taskId, MANAGER_ID]);
+  };
+  const gateReportMissing = (taskId: string) => {
+    setTaskStage((prev) => ({ ...prev, [taskId]: "ordering" }));
+    logEvent(`Missing items flagged on ${byId[taskId]?.label}`, [taskId, MANAGER_ID]);
+  };
+  const confirmOrder = (taskId: string) => {
+    setTaskStage((prev) => ({ ...prev, [taskId]: "ready" }));
+    logEvent(`${SUPPLIER} order confirmed for ${byId[taskId]?.label}`, [taskId, MANAGER_ID]);
+  };
+  const setTaskActive = (taskId: string) => {
+    if (getStage(taskId) !== "ready") return; // gate: cannot bypass
+    setTaskStage((prev) => ({ ...prev, [taskId]: "active" }));
+    setTaskOverrides((prev) => ({ ...prev, [taskId]: "in-progress" }));
+    setTaskTier((prev) => {
+      const next = { ...prev };
+      for (const n of NODES) {
+        if (n.type === "task" && n.id !== taskId && (next[n.id] ?? seedTier(n.id)) === "now") {
+          next[n.id] = "next";
+        }
+      }
+      next[taskId] = "now";
+      return next;
+    });
+    logEvent(`${byId[taskId]?.label} is now ACTIVE — primary focus`, [taskId, ...peopleForTask(taskId)]);
+  };
+
   const displaySub = (node: WorkspaceNode): string => {
     if (node.type === "task") {
       const ov = taskOverrides[node.id];
@@ -309,6 +420,12 @@ export default function InteractiveWorkspace() {
         base.add(i.id);
       }
     }
+    // Live assignments made at the gate reshape relationships both ways, so a
+    // freshly assigned worker appears around the task (and vice versa).
+    for (const [taskId, people] of Object.entries(taskAssignee)) {
+      if (taskId === id) for (const p of people) base.add(p);
+      if (people.includes(id)) base.add(taskId);
+    }
     return [...base];
   };
 
@@ -329,7 +446,7 @@ export default function InteractiveWorkspace() {
   };
 
   const reportIssue = (taskId: string, preset: IssuePreset) => {
-    const reporterId = taskWorker(taskId);
+    const reporterId = peopleForTask(taskId)[0] ?? taskWorker(taskId);
     const id = nextId("issue");
     setIssues((prev) => [
       ...prev,
@@ -367,26 +484,21 @@ export default function InteractiveWorkspace() {
     setCenterId(issue.taskId);
   };
 
-  const startTaskConfirmed = (taskId: string) => {
-    setTaskOverrides((prev) => ({ ...prev, [taskId]: "in-progress" }));
-    logEvent(`${byId[taskId]?.label} started — readiness confirmed`, [
-      taskId,
-      ...(TASK_LINKS[taskId]?.people ?? []),
-    ]);
-    setCenterAction("none");
-  };
-
   const completeTask = (taskId: string) => {
     setTaskOverrides((prev) => ({ ...prev, [taskId]: "done" }));
-    logEvent(`${byId[taskId]?.label} marked complete`, [taskId, ...(TASK_LINKS[taskId]?.people ?? [])]);
+    setTaskStage((prev) => ({ ...prev, [taskId]: "done" }));
+    setTaskTier((prev) => ({ ...prev, [taskId]: "later" }));
+    logEvent(`${byId[taskId]?.label} marked complete`, [taskId, ...peopleForTask(taskId)]);
   };
 
   const updateItem = (itemId: string) => {
     const node = nodeById(itemId);
     if (node?.type === "task") {
-      const s = getTaskStatus(itemId);
-      const next: TaskStatus = s === "todo" ? "in-progress" : "done";
-      setTaskOverrides((prev) => ({ ...prev, [itemId]: next }));
+      // Tasks progress only through the execution gate — open the task so the
+      // user goes through assignment / supply check rather than shortcutting it.
+      setCollabPair(null);
+      setCenterId(itemId);
+      return;
     }
     const refs = collabPair ? [itemId, ...collabPair] : [itemId];
     logEvent(`${node?.label} updated`, refs);
@@ -612,6 +724,30 @@ export default function InteractiveWorkspace() {
     botRight: Math.PI * 0.26,
   };
 
+  // Task-priority gravity: at the project overview the NOW task lights up its
+  // people + documents, NEXT stays neutral, and everything else recedes.
+  const relevance = new Map<string, Tier>();
+  if (centerNode.type === "project") {
+    for (const node of [...peopleN, ...docsN]) relevance.set(node.id, "later");
+    for (const t of tasksN) {
+      const tier = getTier(t.id);
+      const link = TASK_LINKS[t.id];
+      if (!link) continue;
+      for (const id of [...peopleForTask(t.id), ...link.docs]) {
+        const cur = relevance.get(id);
+        if (cur === undefined || TIER_RANK[tier] < TIER_RANK[cur]) relevance.set(id, tier);
+      }
+    }
+  }
+  const emphasisFor = (node: WorkspaceNode): Tier | null => {
+    if (centerNode.type !== "project") return null;
+    if (node.type !== "person" && node.type !== "document") return null;
+    return relevance.get(node.id) ?? "later";
+  };
+
+  // Tasks ordered by priority — NOW closest to the centre, LATER furthest.
+  const taskFlow = [...tasksN].sort((a, b) => TIER_RANK[getTier(a.id)] - TIER_RANK[getTier(b.id)]);
+
   // Relevance-driven directional zones. Each center type pulls its related
   // nodes into the spatial regions that make sense for it.
   const groups: RawGroup[] = [];
@@ -619,8 +755,8 @@ export default function InteractiveWorkspace() {
   if (ct === "project") {
     if (peopleN.length)
       groups.push({ key: "people", nodes: peopleN, layer: "primary", angle: ANG.top, render: "companies" });
-    if (tasksN.length)
-      groups.push({ key: "tasks", label: "Tasks", nodes: tasksN, layer: "primary", angle: ANG.bottom, render: "tiles" });
+    if (taskFlow.length)
+      groups.push({ key: "tasks", nodes: taskFlow, layer: "primary", angle: ANG.bottom, render: "taskflow" });
     if (docsN.length)
       groups.push({ key: "docs", label: "Documents", nodes: docsN, layer: "micro", angle: ANG.botLeft, render: "stack" });
     if (issuesN.length)
@@ -668,8 +804,11 @@ export default function InteractiveWorkspace() {
 
   const renderNodeTile = (node: WorkspaceNode, tileSize: TileSize) => {
     const showCompare = centerNode.type === "person" && node.type === "person";
+    const emph = emphasisFor(node);
+    const emphClass =
+      emph === "now" ? "scale-[1.06]" : emph === "next" ? "opacity-80" : emph === "later" ? "opacity-40" : "";
     return (
-      <div key={node.id} className="relative">
+      <div key={node.id} className={`relative transition-all duration-300 ${emphClass}`}>
         <Tile
           node={node}
           isCenter={false}
@@ -698,6 +837,74 @@ export default function InteractiveWorkspace() {
   const renderGroupBody = (grp: RawGroup) => {
     if (grp.render === "stack") {
       return <DocStack nodes={grp.nodes} label={grp.label} onPick={(id) => setCenterId(id)} />;
+    }
+    if (grp.render === "taskflow") {
+      return (
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Tasks · priority
+          </div>
+          <div className="flex flex-col items-stretch gap-1">
+            {grp.nodes.map((t) => {
+              const tier = getTier(t.id);
+              const meta = TIER_META[tier];
+              const stageMeta = STAGE_META[getStage(t.id)];
+              return (
+                <div
+                  key={t.id}
+                  className={`flex items-center gap-1.5 transition-all duration-300 ${meta.row}`}
+                >
+                  <span
+                    className={`w-11 shrink-0 rounded px-1 py-0.5 text-center text-[9px] font-bold ${meta.badge}`}
+                  >
+                    {meta.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCenterId(t.id)}
+                    data-testid={`tile-${t.id}`}
+                    aria-label={`task: ${t.label}`}
+                    className={`flex w-56 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-colors hover:border-foreground/30 hover:bg-secondary/40 ${meta.ring}`}
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-400">
+                      <t.Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{t.label}</span>
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className={`shrink-0 rounded px-1 text-[8px] font-bold leading-tight ${stageMeta.chip}`}>
+                          {stageMeta.label}
+                        </span>
+                        <span className="truncate">{displaySub(t)}</span>
+                      </span>
+                    </span>
+                  </button>
+                  <div className="flex shrink-0 flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => bumpTier(t.id, -1)}
+                      disabled={tier === "now"}
+                      aria-label={`Raise priority of ${t.label}`}
+                      className="inline-flex h-4 w-5 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => bumpTier(t.id, 1)}
+                      disabled={tier === "later"}
+                      aria-label={`Lower priority of ${t.label}`}
+                      className="inline-flex h-4 w-5 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
     }
     if (grp.render === "companies") {
       const size = grp.tileSize ?? (grp.layer === "primary" ? "md" : "sm");
@@ -756,39 +963,14 @@ export default function InteractiveWorkspace() {
     }
 
     if (centerNode.type === "task") {
-      const status = getTaskStatus(centerNode.id);
+      const taskId = centerNode.id;
+      const status = getTaskStatus(taskId);
+      const stage = getStage(taskId);
+      const req = TASK_REQUIREMENTS[taskId];
+      const assignee = peopleForTask(taskId)[0];
+      const assigneeNode = assignee ? byId[assignee] : undefined;
 
-      if (centerAction === "validate") {
-        return (
-          <ActionCard title="Pre-task check">
-            <div className="flex flex-col gap-1.5">
-              {PRE_TASK_CHECKS.map((c) => (
-                <div key={c} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  {c} checked
-                </div>
-              ))}
-            </div>
-            <div className="mt-2.5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => startTaskConfirmed(centerNode.id)}
-                className="flex-1 rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
-              >
-                I have everything
-              </button>
-              <button
-                type="button"
-                onClick={() => setCenterAction("report")}
-                className="flex-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-secondary"
-              >
-                Missing items
-              </button>
-            </div>
-          </ActionCard>
-        );
-      }
-
+      // Report-a-problem overlay, available while a task is being executed.
       if (centerAction === "report") {
         return (
           <ActionCard title="Report a problem">
@@ -797,7 +979,7 @@ export default function InteractiveWorkspace() {
                 <button
                   key={p.kind}
                   type="button"
-                  onClick={() => reportIssue(centerNode.id, p)}
+                  onClick={() => reportIssue(taskId, p)}
                   className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-secondary"
                 >
                   <Flag className="h-3.5 w-3.5 text-red-400" />
@@ -816,23 +998,150 @@ export default function InteractiveWorkspace() {
         );
       }
 
+      // 1 · PRE-TASK — created but not yet assigned.
+      if (stage === "unassigned") {
+        return (
+          <ActionCard title="Pre-task · not assigned">
+            <div className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Package className="h-3.5 w-3.5" /> System-prepared requirements
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {(req?.materials ?? []).map((m) => (
+                <div key={m.name} className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">{m.name}</span>
+                  <span className="text-foreground">×{m.qty}</span>
+                </div>
+              ))}
+              {!req?.materials.length && (
+                <div className="text-[11px] text-muted-foreground">Inspection — no materials</div>
+              )}
+            </div>
+            <div className="mb-1 mt-2.5 text-[11px] font-medium">Assign a worker</div>
+            <div className="flex flex-col gap-1.5">
+              {assignCandidates(taskId).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => assignPerson(taskId, p.id)}
+                  className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-secondary"
+                >
+                  <UserPlus className="h-3.5 w-3.5 text-primary" />
+                  <span className="flex-1 text-left">{p.label}</span>
+                  <span className="text-[10px] text-muted-foreground">{p.sublabel}</span>
+                </button>
+              ))}
+            </div>
+          </ActionCard>
+        );
+      }
+
+      // 2 · EXECUTION GATE — supply check + mandatory confirmation.
+      if (stage === "assigned") {
+        const have = availableFor(assignee);
+        return (
+          <ActionCard title="Execution gate · supply check">
+            <div className="mb-1.5 text-[11px] text-muted-foreground">
+              Assigned to <span className="text-foreground">{assigneeNode?.label}</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {(req?.materials ?? []).map((m) => {
+                const ok = have.has(m.name);
+                return (
+                  <div key={m.name} className="flex items-center gap-1.5 text-[11px]">
+                    {ok ? (
+                      <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                    ) : (
+                      <X className="h-3 w-3 shrink-0 text-red-400" />
+                    )}
+                    <span className={`flex-1 ${ok ? "text-muted-foreground" : "text-foreground"}`}>{m.name}</span>
+                    <span className="text-muted-foreground">×{m.qty}</span>
+                  </div>
+                );
+              })}
+              {!req?.materials.length && (
+                <div className="text-[11px] text-muted-foreground">Inspection — no materials needed</div>
+              )}
+            </div>
+            <div className="mb-1.5 mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Lock className="h-3 w-3" /> Worker must confirm before work can start
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => gateConfirmReady(taskId)}
+                className="flex-1 rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+              >
+                I have everything
+              </button>
+              <button
+                type="button"
+                onClick={() => gateReportMissing(taskId)}
+                className="flex-1 rounded-md border border-border px-2 py-1.5 text-xs hover:bg-secondary"
+              >
+                I'm missing items
+              </button>
+            </div>
+          </ActionCard>
+        );
+      }
+
+      // 3 · MISSING — draft supplier order, manager confirms.
+      if (stage === "ordering") {
+        const missing = getMissing(taskId, assignee);
+        return (
+          <ActionCard title={`Missing items · draft ${SUPPLIER} order`}>
+            <div className="flex flex-col gap-0.5">
+              {missing.map((m) => (
+                <div key={m.name} className="flex items-center gap-1.5 text-[11px]">
+                  <ShoppingCart className="h-3 w-3 shrink-0 text-amber-400" />
+                  <span className="flex-1 text-foreground">{m.name}</span>
+                  <span className="text-muted-foreground">×{m.qty}</span>
+                </div>
+              ))}
+              {missing.length === 0 && (
+                <div className="text-[11px] text-muted-foreground">No outstanding items.</div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => confirmOrder(taskId)}
+              className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              <Check className="h-3.5 w-3.5" />
+              Confirm {SUPPLIER} order
+            </button>
+            <div className="mt-1 text-center text-[10px] text-muted-foreground">Manager approves the order</div>
+          </ActionCard>
+        );
+      }
+
+      // 4 · READY — gate passed, can be set active.
+      if (stage === "ready") {
+        return (
+          <ActionCard title="Gate passed · ready">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-emerald-500">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Supplies confirmed{assigneeNode ? ` for ${assigneeNode.label}` : ""}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTaskActive(taskId)}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Set active — primary focus
+            </button>
+          </ActionCard>
+        );
+      }
+
+      // 5 · ACTIVE — execution + completion.
       return (
         <ActionCard>
           <div className="flex flex-col gap-1.5">
-            {status === "todo" && (
-              <button
-                type="button"
-                onClick={() => setCenterAction("validate")}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-              >
-                <Play className="h-3.5 w-3.5" />
-                Start task
-              </button>
-            )}
             {status === "in-progress" && (
               <button
                 type="button"
-                onClick={() => completeTask(centerNode.id)}
+                onClick={() => completeTask(taskId)}
                 className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -863,67 +1172,42 @@ export default function InteractiveWorkspace() {
 
   return (
     <div className="dark min-h-screen w-full bg-background text-foreground">
-      <div className="absolute left-6 top-6 z-20 max-w-xs">
+      <div className="absolute left-6 top-6 z-30 max-w-xs">
         <div className="text-sm font-semibold">Halifax / Lloyds Bank – 360 Interiors</div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          Click a tile to refocus. On a person, use Compare to open a shared view. Tasks can start, report
-          problems and route issues to the manager.
+          Click any node to refocus — related nodes rearrange around it. On a person, use Compare for a
+          shared view. On the project, reprioritise tasks (NOW / NEXT / LATER) to light up their network.
         </div>
       </div>
 
       <div ref={containerRef} className="relative h-screen w-full overflow-hidden">
-        {/* Connector lines from center to each related tile */}
-        {positions.map(({ node, len, deg }) => (
+        {/* Connector lines from center to each cluster */}
+        {positioned.map(({ grp, len, deg }) => (
           <div
-            key={`line-${node.id}`}
-            className="absolute left-1/2 top-1/2 z-0 h-px origin-left bg-border transition-all duration-300 ease-out"
+            key={`line-${grp.key}`}
+            className={`absolute left-1/2 top-1/2 z-0 h-px origin-left transition-all duration-300 ease-out ${
+              grp.faded ? "bg-border/40" : "bg-border/70"
+            }`}
             style={{ width: len, transform: `rotate(${deg}deg)` }}
           />
         ))}
 
-        {/* Surrounding tiles arranged on the adaptive ellipse */}
-        {positions.map(({ node, x, y }) => {
-          const showCompare = centerNode.type === "person" && node.type === "person";
-          return (
-            <div
-              key={node.id}
-              className="absolute left-1/2 top-1/2 z-10 transition-transform duration-300 ease-out"
-              style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
-            >
-              <div className="relative" style={{ transform: `scale(${tileScale})` }}>
-                <Tile
-                  node={node}
-                  isCenter={false}
-                  sublabel={displaySub(node)}
-                  statusColor={dotFor(node)}
-                  onClick={() => setCenterId(node.id)}
-                />
-                {showCompare && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCollabPair([centerId, node.id]);
-                    }}
-                    aria-label={`Compare ${centerNode.label} with ${node.label}`}
-                    className="absolute -right-1.5 -top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground"
-                  >
-                    <ArrowLeftRight className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {/* Layered, grouped clusters */}
+        {positioned.map(({ grp, x, y }) => (
+          <div
+            key={grp.key}
+            className={`absolute left-1/2 top-1/2 z-10 transition-all duration-300 ease-out ${
+              grp.faded ? "opacity-50" : ""
+            }`}
+            style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+          >
+            {renderGroupBody(grp)}
+          </div>
+        ))}
 
         {/* Center tile */}
-        <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
-          <Tile
-            node={centerNode}
-            isCenter
-            sublabel={displaySub(centerNode)}
-            statusColor={dotFor(centerNode)}
-          />
+        <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+          <Tile node={centerNode} isCenter sublabel={displaySub(centerNode)} statusColor={dotFor(centerNode)} />
         </div>
 
         {renderCenterActions()}

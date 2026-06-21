@@ -56,6 +56,8 @@ export const NODES: WorkspaceNode[] = [
   { id: "t-snag", label: "Snag Fixes", sublabel: "To Do", type: "task", Icon: CheckSquare },
   { id: "t-fire", label: "Fire Door Adjustments", sublabel: "To Do", type: "task", Icon: CheckSquare },
   { id: "t-walkthrough", label: "Site Walkthrough", sublabel: "Scheduled", type: "task", Icon: CheckSquare },
+  // Created by the manager but not yet assigned — demonstrates the PRE-TASK state.
+  { id: "t-doorkits", label: "Prepare Level 1 Door Kits", sublabel: "Awaiting assignment", type: "task", Icon: CheckSquare },
 ];
 
 /* Task involvement is the single source of relationships. Connecting a
@@ -77,6 +79,10 @@ export const TASK_LINKS: Record<string, { people: string[]; docs: string[] }> = 
   "t-walkthrough": {
     people: ["p-sitemgr", "p-client", "p-architect"],
     docs: ["d-snaglist", "d-siteinstructions", "d-groundfloor"],
+  },
+  "t-doorkits": {
+    people: [], // unassigned — the manager assigns a worker at the gate
+    docs: ["d-doorschedule", "d-groundfloor"],
   },
 };
 
@@ -140,6 +146,86 @@ export const ISSUE_PRESETS: IssuePreset[] = [
 
 /* Pre-task readiness checks the system runs before a task starts. */
 export const PRE_TASK_CHECKS = ["Materials", "Tools", "Dependencies"];
+
+/* ------------------------------------------------------------------ */
+/* Execution-gate model — task requirements vs available inventory.    */
+/* Preset data for the door fit-out, requested as part of the gate.    */
+/* ------------------------------------------------------------------ */
+
+export const SUPPLIER = "Screwfix";
+
+export interface MaterialReq {
+  name: string;
+  qty: number;
+  unit?: string;
+}
+
+export interface TaskRequirement {
+  materials: MaterialReq[];
+  roles: string[];
+}
+
+/* What each task needs before it can be executed. */
+export const TASK_REQUIREMENTS: Record<string, TaskRequirement> = {
+  "t-doorkits": {
+    roles: ["Joiner"],
+    materials: [
+      { name: "Door blanks", qty: 12 },
+      { name: "Hinge sets", qty: 12 },
+      { name: "Handle sets", qty: 12 },
+      { name: "Intumescent strips", qty: 12 },
+      { name: "Wood screws", qty: 200 },
+    ],
+  },
+  "t-install": {
+    roles: ["Joiner"],
+    materials: [
+      { name: "Fire-rated door blanks", qty: 12 },
+      { name: "Butt hinges", qty: 36 },
+      { name: "Door closers", qty: 12 },
+      { name: "Wood screws", qty: 200 },
+    ],
+  },
+  "t-fire": {
+    roles: ["Joiner"],
+    materials: [
+      { name: "Intumescent strips", qty: 8 },
+      { name: "Fire-rated hinges", qty: 12 },
+      { name: "Gap gauge", qty: 1 },
+    ],
+  },
+  "t-snag": {
+    roles: ["Joiner"],
+    materials: [
+      { name: "Wood filler", qty: 4 },
+      { name: "Touch-up paint", qty: 2 },
+      { name: "Sandpaper", qty: 10 },
+    ],
+  },
+  "t-walkthrough": {
+    roles: ["Site Management", "Design"],
+    materials: [],
+  },
+};
+
+/* Materials a person carries on their van/card. */
+export const PERSON_INVENTORY: Record<string, string[]> = {
+  "p-mateusz": ["Butt hinges", "Hinge sets", "Wood screws", "Cordless drill", "Hand tools"],
+  "p-team": ["Wood screws", "Sandpaper", "Hand tools"],
+  "p-sitemgr": [],
+  "p-architect": [],
+  "p-client": [],
+};
+
+/* Materials held in the on-site store. */
+export const PROJECT_INVENTORY: string[] = [
+  "Fire-rated door blanks",
+  "Door blanks",
+  "Door closers",
+  "Handle sets",
+  "Wood filler",
+  "Touch-up paint",
+];
 
 export interface Issue {
   id: string;
