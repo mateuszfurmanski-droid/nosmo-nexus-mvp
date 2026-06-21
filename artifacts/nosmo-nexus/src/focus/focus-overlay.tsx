@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, X, ChevronRight, User, FolderKanban, FileText, CheckSquare, StickyNote } from "lucide-react";
+import { ArrowLeft, X, ChevronRight, User, FolderKanban, FileText, CheckSquare, StickyNote, Building2 } from "lucide-react";
 import { getPerson, getProject, getDocument, getTask, getNote } from "@/demo/data";
 import { useFocus } from "./focus-context";
 import { focusKey, type FocusEntityType, type FocusTarget } from "./focus-types";
@@ -9,6 +9,7 @@ import { ProjectView } from "./views/project-view";
 import { DocumentView } from "./views/document-view";
 import { TaskView } from "./views/task-view";
 import { NoteView } from "./views/note-view";
+import { CompanyView } from "./views/company-view";
 
 const typeMeta: Record<FocusEntityType, { label: string; icon: typeof User }> = {
   person: { label: "Person", icon: User },
@@ -16,6 +17,7 @@ const typeMeta: Record<FocusEntityType, { label: string; icon: typeof User }> = 
   document: { label: "Document", icon: FileText },
   task: { label: "Task", icon: CheckSquare },
   note: { label: "Note", icon: StickyNote },
+  company: { label: "Company", icon: Building2 },
 };
 
 function targetLabel(target: FocusTarget): string {
@@ -25,6 +27,7 @@ function targetLabel(target: FocusTarget): string {
     case "document": return getDocument(target.id)?.title ?? "Document";
     case "task": return getTask(target.id)?.title ?? "Task";
     case "note": return getNote(target.id)?.title ?? "Note";
+    case "company": return target.id || "Company";
   }
 }
 
@@ -35,6 +38,7 @@ function FocusContent({ target }: { target: FocusTarget }) {
     case "document": return <DocumentView documentId={target.id} />;
     case "task": return <TaskView taskId={target.id} />;
     case "note": return <NoteView noteId={target.id} />;
+    case "company": return <CompanyView company={target.id} />;
   }
 }
 
