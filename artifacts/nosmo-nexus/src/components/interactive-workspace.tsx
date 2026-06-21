@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
   Eye,
   MessageSquare,
@@ -56,6 +56,40 @@ const DOT_CLASS: Record<StatusColor, string> = {
 
 function StatusDot({ color }: { color: StatusColor }) {
   return <span className={`inline-block h-2.5 w-2.5 rounded-full ${DOT_CLASS[color]}`} />;
+}
+
+/* ---- interaction primitives (selection + drag-to-connect) -------- */
+
+type DragHandlers = {
+  draggable: boolean;
+  onDragStart: (e: DragEvent) => void;
+  onDragEnd: (e: DragEvent) => void;
+  onDragOver: (e: DragEvent) => void;
+  onDragLeave: (e: DragEvent) => void;
+  onDrop: (e: DragEvent) => void;
+};
+
+interface TileFlags {
+  selected?: boolean;
+  inContext?: boolean;
+  dragOver?: boolean;
+  droppable?: boolean;
+}
+
+// One ring expresses every interaction state, so a node never grows chrome —
+// it just lights up. Priority: drop target > keyboard selection > in context.
+function tileRing(f: TileFlags): string {
+  if (f.dragOver) return "ring-2 ring-emerald-400 ring-offset-2 ring-offset-background";
+  if (f.selected) return "ring-2 ring-primary ring-offset-2 ring-offset-background";
+  if (f.inContext) return "ring-2 ring-emerald-400/70";
+  if (f.droppable) return "ring-1 ring-foreground/20";
+  return "";
+}
+
+function ContextDot() {
+  return (
+    <span className="absolute -right-1.5 -top-1.5 z-10 inline-flex h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-background" />
+  );
 }
 
 function MiniBtn({
@@ -141,6 +175,10 @@ function Tile({
   sublabel,
   statusColor,
   size,
+  selected,
+  inContext,
+  dragOver,
+  droppable,
 }: {
   node: WorkspaceNode;
   isCenter: boolean;
@@ -148,10 +186,11 @@ function Tile({
   sublabel?: string;
   statusColor?: StatusColor;
   size?: TileSize;
-}) {
+} & TileFlags) {
   const { Icon } = node;
   const style = TYPE_STYLE[node.type];
   const s = SIZE[isCenter ? "lg" : size ?? "md"];
+  const ring = tileRing({ selected, inContext, dragOver, droppable });
 
   return (
     <button
@@ -160,14 +199,16 @@ function Tile({
       disabled={isCenter}
       data-testid={`tile-${node.id}`}
       className={[
-        "relative flex flex-col items-center justify-center gap-1.5 rounded-xl bg-card text-card-foreground shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "relative flex flex-col items-center justify-center gap-1.5 rounded-xl bg-card text-card-foreground shadow-sm outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring",
         s.box,
+        ring,
         isCenter
           ? `border-2 ${style.centerBorder} cursor-default`
           : "border border-border hover:border-foreground/30 hover:bg-secondary/40 cursor-pointer",
       ].join(" ")}
       aria-label={`${node.type}: ${node.label}${isCenter ? " (focused)" : ""}`}
     >
+      {inContext && <ContextDot />}
       {statusColor && (
         <span className="absolute left-2 top-2">
           <StatusDot color={statusColor} />
@@ -185,9 +226,20 @@ function Tile({
 }
 
 /* Icon-only node used for the document stacks (PDF / XLS). */
-function MicroNode({ node, onClick }: { node: WorkspaceNode; onClick: () => void }) {
+function MicroNode({
+  node,
+  onClick,
+  flags,
+  dragProps,
+}: {
+  node: WorkspaceNode;
+  onClick: () => void;
+  flags?: TileFlags;
+  dragProps?: DragHandlers;
+}) {
   const { Icon } = node;
   const style = TYPE_STYLE[node.type];
+  const ring = tileRing(flags ?? {});
   return (
     <button
       type="button"
@@ -195,8 +247,10 @@ function MicroNode({ node, onClick }: { node: WorkspaceNode; onClick: () => void
       data-testid={`tile-${node.id}`}
       title={node.label}
       aria-label={`${node.type}: ${node.label}`}
-      className="group flex w-14 flex-col items-center gap-1 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={`group relative flex w-14 flex-col items-center gap-1 rounded-md p-0.5 outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${ring}`}
+      {...dragProps}
     >
+      {flags?.inContext && <ContextDot />}
       <span
         className={`flex h-11 w-11 items-center justify-center rounded-lg ${style.chip} transition-transform group-hover:scale-105`}
       >
@@ -212,10 +266,14 @@ function DocStack({
   nodes,
   label,
   onPick,
+  getFlags,
+  getDragProps,
 }: {
   nodes: WorkspaceNode[];
   label?: string;
   onPick: (id: string) => void;
+  getFlags?: (id: string) => TileFlags;
+  getDragProps?: (id: string) => DragHandlers;
 }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -224,7 +282,13 @@ function DocStack({
       )}
       <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-card/40 p-2.5">
         {nodes.map((n) => (
-          <MicroNode key={n.id} node={n} onClick={() => onPick(n.id)} />
+          <MicroNode
+            key={n.id}
+            node={n}
+            onClick={() => onPick(n.id)}
+            flags={getFlags?.(n.id)}
+            dragProps={getDragProps?.(n.id)}
+          />
         ))}
       </div>
     </div>
@@ -245,6 +309,21 @@ export default function InteractiveWorkspace() {
   // Execution gate — session-only. Readiness lifecycle + who is assigned.
   const [taskStage, setTaskStage] = useState<Record<string, Stage>>({});
   const [taskAssignee, setTaskAssignee] = useState<Record<string, string[]>>({});
+
+  // Interaction control — desktop-like selection, context, and history.
+  // Pure interaction state: no backend, no business logic.
+  const [selectedId, setSelectedId] = useState<string | null>(PROJECT_ID);
+  const [contextIds, setContextIds] = useState<string[]>([]);
+  const [contextLinks, setContextLinks] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const draggingRef = useRef<string | null>(null);
+
+  // Latest interaction state, read by the window keydown listener without
+  // re-subscribing (avoids stale closures while keeping deps empty).
+  const sel = useRef({ selectedId, contextIds, centerId, collabPair, history });
+  sel.current = { selectedId, contextIds, centerId, collabPair, history };
 
   // Transient UI sub-state.
   const [centerAction, setCenterAction] = useState<"none" | "report">("none");
@@ -426,6 +505,13 @@ export default function InteractiveWorkspace() {
       if (taskId === id) for (const p of people) base.add(p);
       if (people.includes(id)) base.add(taskId);
     }
+    // User-made connections (drag node onto node) become live relationships,
+    // so connecting two nodes makes them orbit each other — the layout reacts.
+    for (const key of contextLinks) {
+      const [a, b] = key.split("|");
+      if (a === id && b) base.add(b);
+      if (b === id && a) base.add(a);
+    }
     return [...base];
   };
 
@@ -535,6 +621,210 @@ export default function InteractiveWorkspace() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [collabPair]);
+
+  /* ---- interaction: selection, context, drag-to-connect ----------- */
+
+  const linkKey = (a: string, b: string) => [a, b].sort().join("|");
+
+  // Enter / click: dive into a node. Remember where we came from for "back".
+  const focusNode = (id: string) => {
+    if (sel.current.centerId !== id) setHistory((h) => [...h, sel.current.centerId]);
+    setCenterId(id);
+    setSelectedId(id);
+  };
+
+  const goBack = () => {
+    const h = sel.current.history;
+    if (!h.length) return;
+    const prev = h[h.length - 1]!;
+    setHistory(h.slice(0, -1));
+    setCenterId(prev);
+    setSelectedId(prev);
+  };
+
+  const toggleContext = (id: string) =>
+    setContextIds((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+
+  const removeFromContext = (id: string) => {
+    setContextIds((c) => c.filter((x) => x !== id));
+    setContextLinks((l) =>
+      l.filter((k) => {
+        const [a, b] = k.split("|");
+        return a !== id && b !== id;
+      }),
+    );
+  };
+
+  // Connecting two nodes is a purely visual context gesture — it does NOT write
+  // into the business/activity stream (no new business logic).
+  const connectNodes = (a: string, b: string) => {
+    if (a === b) return;
+    setContextLinks((l) => (l.includes(linkKey(a, b)) ? l : [...l, linkKey(a, b)]));
+    setContextIds((c) => {
+      const add = [a, b].filter((x) => !c.includes(x));
+      return add.length ? [...c, ...add] : c;
+    });
+  };
+
+  const clearContext = () => {
+    setContextIds([]);
+    setContextLinks([]);
+  };
+
+  // Spatial keyboard nav: read the actually-rendered tile rects (auto-layout is
+  // never overridden) and pick the nearest node in the pressed direction.
+  const moveSelection = (dir: "up" | "down" | "left" | "right") => {
+    const container = containerRef.current;
+    if (!container) return;
+    const tiles = Array.from(container.querySelectorAll<HTMLElement>("[data-testid^='tile-']"));
+    const pts = tiles
+      .map((el) => {
+        const tid = el.dataset.testid;
+        if (!tid) return null;
+        const r = el.getBoundingClientRect();
+        return { id: tid.slice(5), x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      })
+      .filter((p): p is { id: string; x: number; y: number } => p !== null);
+    if (!pts.length) return;
+    const curId = sel.current.selectedId ?? sel.current.centerId;
+    const cur =
+      pts.find((p) => p.id === curId) ?? pts.find((p) => p.id === sel.current.centerId) ?? pts[0]!;
+    let best: { id: string; score: number } | null = null;
+    for (const p of pts) {
+      if (p.id === cur.id) continue;
+      const dx = p.x - cur.x;
+      const dy = p.y - cur.y;
+      let along = 0;
+      let across = 0;
+      if (dir === "right") {
+        if (dx <= 1) continue;
+        along = dx;
+        across = Math.abs(dy);
+      } else if (dir === "left") {
+        if (dx >= -1) continue;
+        along = -dx;
+        across = Math.abs(dy);
+      } else if (dir === "down") {
+        if (dy <= 1) continue;
+        along = dy;
+        across = Math.abs(dx);
+      } else {
+        if (dy >= -1) continue;
+        along = -dy;
+        across = Math.abs(dx);
+      }
+      const score = along + across * 2;
+      if (!best || score < best.score) best = { id: p.id, score };
+    }
+    if (best) setSelectedId(best.id);
+  };
+
+  // Drag node onto node = connect (context). Drag to empty space = release.
+  const dragProps = (id: string): DragHandlers => ({
+    draggable: true,
+    onDragStart: (e) => {
+      draggingRef.current = id;
+      setDraggingId(id);
+      e.dataTransfer.effectAllowed = "link";
+      try {
+        e.dataTransfer.setData("text/plain", id);
+      } catch {
+        /* some browsers restrict setData */
+      }
+    },
+    onDragEnd: () => {
+      draggingRef.current = null;
+      setDraggingId(null);
+      setDragOverId(null);
+    },
+    onDragOver: (e) => {
+      const src = draggingRef.current;
+      if (src && src !== id) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "link";
+        if (dragOverId !== id) setDragOverId(id);
+      }
+    },
+    onDragLeave: () => setDragOverId((o) => (o === id ? null : o)),
+    onDrop: (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = draggingRef.current;
+      draggingRef.current = null;
+      setDraggingId(null);
+      setDragOverId(null);
+      if (src && src !== id) connectNodes(src, id);
+    },
+  });
+
+  const tileFlags = (id: string): TileFlags => ({
+    selected: selectedId === id,
+    inContext: contextIds.includes(id),
+    dragOver: dragOverId === id,
+    droppable: draggingId !== null && draggingId !== id,
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const { collabPair: pair, selectedId: selId, contextIds: ctx } = sel.current;
+      if (pair) {
+        if (e.key === "Backspace" || e.key === "Escape") {
+          e.preventDefault();
+          setCollabPair(null);
+        }
+        return;
+      }
+      switch (e.key) {
+        case "ArrowUp":
+          e.preventDefault();
+          moveSelection("up");
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          moveSelection("down");
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          moveSelection("left");
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          moveSelection("right");
+          break;
+        case "Enter":
+          if (selId) {
+            e.preventDefault();
+            focusNode(selId);
+          }
+          break;
+        case " ":
+        case "Spacebar":
+          if (selId) {
+            e.preventDefault();
+            toggleContext(selId);
+          }
+          break;
+        case "Backspace":
+          e.preventDefault();
+          if (selId && ctx.includes(selId)) removeFromContext(selId);
+          else goBack();
+          break;
+        case "Escape":
+          if (ctx.length) {
+            e.preventDefault();
+            clearContext();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ---- collaboration (dual-center) mode ---------------------------- */
 
@@ -807,15 +1097,24 @@ export default function InteractiveWorkspace() {
     const emph = emphasisFor(node);
     const emphClass =
       emph === "now" ? "scale-[1.06]" : emph === "next" ? "opacity-80" : emph === "later" ? "opacity-40" : "";
+    const flags = tileFlags(node.id);
     return (
-      <div key={node.id} className={`relative transition-all duration-300 ${emphClass}`}>
+      <div
+        key={node.id}
+        className={`relative transition-all duration-300 ${emphClass} ${flags.dragOver ? "scale-105" : ""}`}
+        {...dragProps(node.id)}
+      >
         <Tile
           node={node}
           isCenter={false}
           size={tileSize}
           sublabel={displaySub(node)}
           statusColor={dotFor(node)}
-          onClick={() => setCenterId(node.id)}
+          onClick={() => focusNode(node.id)}
+          selected={flags.selected}
+          inContext={flags.inContext}
+          dragOver={flags.dragOver}
+          droppable={flags.droppable}
         />
         {showCompare && (
           <button
@@ -836,7 +1135,15 @@ export default function InteractiveWorkspace() {
 
   const renderGroupBody = (grp: RawGroup) => {
     if (grp.render === "stack") {
-      return <DocStack nodes={grp.nodes} label={grp.label} onPick={(id) => setCenterId(id)} />;
+      return (
+        <DocStack
+          nodes={grp.nodes}
+          label={grp.label}
+          onPick={(id) => focusNode(id)}
+          getFlags={tileFlags}
+          getDragProps={dragProps}
+        />
+      );
     }
     if (grp.render === "taskflow") {
       return (
@@ -849,6 +1156,7 @@ export default function InteractiveWorkspace() {
               const tier = getTier(t.id);
               const meta = TIER_META[tier];
               const stageMeta = STAGE_META[getStage(t.id)];
+              const ts = tileFlags(t.id);
               return (
                 <div
                   key={t.id}
@@ -861,11 +1169,13 @@ export default function InteractiveWorkspace() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setCenterId(t.id)}
+                    onClick={() => focusNode(t.id)}
                     data-testid={`tile-${t.id}`}
                     aria-label={`task: ${t.label}`}
-                    className={`flex w-56 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-colors hover:border-foreground/30 hover:bg-secondary/40 ${meta.ring}`}
+                    className={`relative flex w-56 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-all hover:border-foreground/30 hover:bg-secondary/40 ${ts.selected || ts.inContext || ts.dragOver ? tileRing(ts) : meta.ring}`}
+                    {...dragProps(t.id)}
                   >
+                    {ts.inContext && <ContextDot />}
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-400">
                       <t.Icon className="h-3.5 w-3.5" />
                     </span>
@@ -1175,12 +1485,27 @@ export default function InteractiveWorkspace() {
       <div className="absolute left-6 top-6 z-30 max-w-xs">
         <div className="text-sm font-semibold">Halifax / Lloyds Bank – 360 Interiors</div>
         <div className="mt-0.5 text-xs text-muted-foreground">
-          Click any node to refocus — related nodes rearrange around it. On a person, use Compare for a
-          shared view. On the project, reprioritise tasks (NOW / NEXT / LATER) to light up their network.
+          Click or <span className="text-foreground">arrow-key</span> to a node ·{" "}
+          <span className="text-foreground">Enter</span> focuses · <span className="text-foreground">Space</span> adds to
+          context · drag one node onto another to connect, or onto empty space to release ·{" "}
+          <span className="text-foreground">Backspace</span> steps back.
         </div>
       </div>
 
-      <div ref={containerRef} className="relative h-screen w-full overflow-hidden">
+      <div
+        ref={containerRef}
+        className="relative h-screen w-full overflow-hidden"
+        onDragOver={(e) => {
+          if (draggingRef.current) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          const src = draggingRef.current;
+          draggingRef.current = null;
+          setDraggingId(null);
+          setDragOverId(null);
+          if (src) removeFromContext(src);
+        }}
+      >
         {/* Connector lines from center to each cluster */}
         {positioned.map(({ grp, len, deg }) => (
           <div
@@ -1206,11 +1531,65 @@ export default function InteractiveWorkspace() {
         ))}
 
         {/* Center tile */}
-        <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
-          <Tile node={centerNode} isCenter sublabel={displaySub(centerNode)} statusColor={dotFor(centerNode)} />
+        <div
+          className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+          {...dragProps(centerNode.id)}
+        >
+          <Tile
+            node={centerNode}
+            isCenter
+            sublabel={displaySub(centerNode)}
+            statusColor={dotFor(centerNode)}
+            inContext={contextIds.includes(centerNode.id)}
+            dragOver={dragOverId === centerNode.id}
+          />
         </div>
 
         {renderCenterActions()}
+
+        {/* Active context tray — a desktop-style selection, not a panel. */}
+        {contextIds.length > 0 && (
+          <div className="absolute bottom-5 left-1/2 z-30 flex max-w-[90vw] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs shadow-lg backdrop-blur">
+            <span className="font-medium">Context</span>
+            <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+              {contextIds.length}
+            </span>
+            <div className="flex items-center gap-1">
+              {contextIds.slice(0, 5).map((id) => (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 py-0.5 pl-2 pr-1 text-[11px]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => focusNode(id)}
+                    className="max-w-[100px] truncate hover:text-foreground"
+                  >
+                    {nodeById(id)?.label ?? id}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeFromContext(id)}
+                    aria-label="Remove from context"
+                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ))}
+              {contextIds.length > 5 && (
+                <span className="text-[10px] text-muted-foreground">+{contextIds.length - 5}</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={clearContext}
+              className="ml-1 rounded-full px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              Clear
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
