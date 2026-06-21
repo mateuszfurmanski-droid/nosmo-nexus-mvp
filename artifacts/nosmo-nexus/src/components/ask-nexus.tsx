@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Sparkles, Send, Bot, User, Search, ArrowRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "wouter";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 export function AskNexus({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [query, setQuery] = useState("");
@@ -101,12 +101,16 @@ export function AskNexus({ open, onOpenChange }: { open: boolean; onOpenChange: 
                       {msg.citations && (
                         <div className="flex flex-wrap gap-2 mt-1">
                           {msg.citations.map((cit, j) => (
-                            <Link key={j} href={cit.type === "person" ? `/people/${cit.id}` : `/projects/${cit.id}`} onClick={() => onOpenChange(false)}>
-                              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary border border-border hover:border-primary/50 cursor-pointer transition-colors text-xs text-muted-foreground hover:text-primary">
-                                {cit.type === "person" ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                                {cit.name}
-                              </div>
-                            </Link>
+                            <FocusableEntity
+                              key={j}
+                              target={{ type: cit.type, id: cit.id }}
+                              ariaLabel={`Open ${cit.name}`}
+                              onActivate={() => onOpenChange(false)}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-secondary border border-border hover:border-primary/50 transition-colors text-xs text-muted-foreground hover:text-primary"
+                            >
+                              {cit.type === "person" ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
+                              {cit.name}
+                            </FocusableEntity>
                           ))}
                         </div>
                       )}

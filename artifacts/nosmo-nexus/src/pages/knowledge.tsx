@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { BookOpen, Search, FileText, StickyNote, Filter } from "lucide-react";
+import { BookOpen, Search, FileText, StickyNote } from "lucide-react";
 import { DOCUMENTS, NOTES, getPerson, getProject } from "@/demo/data";
 import { formatDistanceToNow } from "date-fns";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 export default function Knowledge() {
   const [search, setSearch] = useState("");
@@ -63,12 +63,18 @@ export default function Knowledge() {
           const person = getPerson(doc.ownerPersonId);
           const project = doc.projectId ? getProject(doc.projectId) : null;
           return (
-            <motion.div 
+            <FocusableEntity
               key={doc.id}
+              target={{ type: "document", id: doc.id }}
+              ariaLabel={`Open ${doc.title}`}
+              testId={`card-doc-${doc.id}`}
+              className="block"
+            >
+            <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="bg-card border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-[0_0_15px_rgba(0,255,255,0.03)] transition-all group flex flex-col cursor-pointer"
+              className="bg-card border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-[0_0_15px_rgba(0,255,255,0.03)] transition-all group flex flex-col h-full"
             >
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
@@ -90,15 +96,15 @@ export default function Knowledge() {
 
               <div className="mt-auto pt-4 border-t border-border space-y-2 text-xs">
                 {project && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">Project</span>
-                    <Link href={`/projects/${project.id}`}><span className="hover:text-primary transition-colors cursor-pointer font-medium truncate max-w-[150px] block">{project.name}</span></Link>
+                    <FocusableEntity target={{ type: "project", id: project.id }} ariaLabel={`Open ${project.name}`} className="hover:text-primary transition-colors font-medium truncate max-w-[150px]">{project.name}</FocusableEntity>
                   </div>
                 )}
                 {person && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">Owner</span>
-                    <Link href={`/people/${person.id}`}><span className="hover:text-primary transition-colors cursor-pointer">{person.name}</span></Link>
+                    <FocusableEntity target={{ type: "person", id: person.id }} ariaLabel={`Open ${person.name}`} className="hover:text-primary transition-colors">{person.name}</FocusableEntity>
                   </div>
                 )}
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-muted-foreground">
@@ -107,6 +113,7 @@ export default function Knowledge() {
                 </div>
               </div>
             </motion.div>
+            </FocusableEntity>
           )
         })}
 
@@ -115,12 +122,18 @@ export default function Knowledge() {
           const person = note.personId ? getPerson(note.personId) : null;
           const project = note.projectId ? getProject(note.projectId) : null;
           return (
-            <motion.div 
+            <FocusableEntity
               key={note.id}
+              target={{ type: "note", id: note.id }}
+              ariaLabel={`Open ${note.title}`}
+              testId={`card-note-${note.id}`}
+              className="block"
+            >
+            <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: (filteredDocs.length + i) * 0.05 }}
-              className="bg-card border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-[0_0_15px_rgba(0,255,255,0.03)] transition-all group flex flex-col cursor-pointer bg-gradient-to-br from-card to-secondary/20"
+              className="bg-card border border-border rounded-xl p-5 hover:border-primary/40 hover:shadow-[0_0_15px_rgba(0,255,255,0.03)] transition-all group flex flex-col h-full bg-gradient-to-br from-card to-secondary/20"
             >
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-yellow-500/10 text-yellow-500 flex items-center justify-center shrink-0">
@@ -143,15 +156,15 @@ export default function Knowledge() {
 
               <div className="mt-auto pt-4 border-t border-border space-y-2 text-xs">
                 {project && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">Project</span>
-                    <Link href={`/projects/${project.id}`}><span className="hover:text-primary transition-colors cursor-pointer font-medium truncate max-w-[150px] block">{project.name}</span></Link>
+                    <FocusableEntity target={{ type: "project", id: project.id }} ariaLabel={`Open ${project.name}`} className="hover:text-primary transition-colors font-medium truncate max-w-[150px]">{project.name}</FocusableEntity>
                   </div>
                 )}
                 {person && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">Contact</span>
-                    <Link href={`/people/${person.id}`}><span className="hover:text-primary transition-colors cursor-pointer">{person.name}</span></Link>
+                    <FocusableEntity target={{ type: "person", id: person.id }} ariaLabel={`Open ${person.name}`} className="hover:text-primary transition-colors">{person.name}</FocusableEntity>
                   </div>
                 )}
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-muted-foreground">
@@ -160,6 +173,7 @@ export default function Knowledge() {
                 </div>
               </div>
             </motion.div>
+            </FocusableEntity>
           )
         })}
       </div>

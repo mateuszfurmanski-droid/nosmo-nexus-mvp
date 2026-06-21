@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Users, Search, Plus, Phone, Mail, MapPin, FolderKanban } from "lucide-react";
 import { PEOPLE, PersonStatus, getPersonProjects } from "@/demo/data";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 const statusColor: Record<PersonStatus, string> = {
   Active: "bg-green-500/10 text-green-400 border-green-500/20",
@@ -21,7 +22,6 @@ const projectStatusDot: Record<string, string> = {
 
 export default function People() {
   const [search, setSearch] = useState("");
-  const [, navigate] = useLocation();
 
   const filteredPeople = PEOPLE.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -65,18 +65,11 @@ export default function People() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(`/people/${person.id}`)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    navigate(`/people/${person.id}`);
-                  }
-                }}
-                data-testid={`card-person-${person.id}`}
-                className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all group h-full flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+              <FocusableEntity
+                target={{ type: "person", id: person.id }}
+                ariaLabel={`Open ${person.name}`}
+                testId={`card-person-${person.id}`}
+                className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all group h-full flex flex-col focus:ring-2 focus:ring-primary/50"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -115,19 +108,16 @@ export default function People() {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {projects.map(pr => (
-                        <button
+                        <FocusableEntity
                           key={pr.id}
-                          type="button"
-                          onClick={e => {
-                            e.stopPropagation();
-                            navigate(`/projects/${pr.id}`);
-                          }}
-                          data-testid={`chip-project-${pr.id}`}
-                          className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-secondary/70 border border-border hover:border-primary/40 hover:text-primary transition-colors max-w-full"
+                          target={{ type: "project", id: pr.id }}
+                          ariaLabel={`Open ${pr.name}`}
+                          testId={`chip-project-${pr.id}`}
+                          className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-secondary/70 border border-border hover:border-primary/40 hover:text-primary transition-colors max-w-full"
                         >
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${projectStatusDot[pr.status]}`} />
                           <span className="truncate max-w-[140px]">{pr.name}</span>
-                        </button>
+                        </FocusableEntity>
                       ))}
                     </div>
                   </div>
@@ -140,7 +130,7 @@ export default function People() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </FocusableEntity>
             </motion.div>
           );
         })}

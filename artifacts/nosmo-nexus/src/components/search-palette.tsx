@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
 import { Search, FolderKanban, FileText, StickyNote, X, Users } from "lucide-react";
 import { PEOPLE, PROJECTS, DOCUMENTS, NOTES } from "@/demo/data";
+import { useFocus } from "@/focus/focus-context";
 
 type ResultItem = {
   key: string;
   type: "person" | "project" | "document" | "note";
+  id: string;
   title: string;
   subtitle: string;
-  href: string;
 };
 
 const typeIcon = {
@@ -46,9 +46,9 @@ function search(q: string): ResultItem[] {
       results.push({
         key: `person-${p.id}`,
         type: "person",
+        id: p.id,
         title: p.name,
         subtitle: `${p.title} · ${p.company}`,
-        href: `/people/${p.id}`,
       });
     }
   }
@@ -62,9 +62,9 @@ function search(q: string): ResultItem[] {
       results.push({
         key: `project-${pr.id}`,
         type: "project",
+        id: pr.id,
         title: pr.name,
         subtitle: pr.client,
-        href: `/projects/${pr.id}`,
       });
     }
   }
@@ -77,9 +77,9 @@ function search(q: string): ResultItem[] {
       results.push({
         key: `document-${d.id}`,
         type: "document",
+        id: d.id,
         title: d.title,
         subtitle: `${d.kind} · ${d.sizeLabel}`,
-        href: d.projectId ? `/projects/${d.projectId}` : "/knowledge",
       });
     }
   }
@@ -93,13 +93,9 @@ function search(q: string): ResultItem[] {
       results.push({
         key: `note-${n.id}`,
         type: "note",
+        id: n.id,
         title: n.title,
         subtitle: `Note by ${n.author}`,
-        href: n.projectId
-          ? `/projects/${n.projectId}`
-          : n.personId
-            ? `/people/${n.personId}`
-            : "/knowledge",
       });
     }
   }
@@ -115,7 +111,7 @@ export function SearchPalette({
   onOpenChange: (open: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [, navigate] = useLocation();
+  const { openFocus } = useFocus();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,7 +135,7 @@ export function SearchPalette({
   const results = search(query);
 
   function handleSelect(item: ResultItem) {
-    navigate(item.href);
+    openFocus({ type: item.type, id: item.id });
     onOpenChange(false);
   }
 

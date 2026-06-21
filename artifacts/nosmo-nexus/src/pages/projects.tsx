@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearch } from "wouter";
+import { useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { FolderKanban, Plus, Search, MapPin, Zap, Pause, Compass, Archive } from "lucide-react";
 import { PROJECTS, getProjectPeople, type Project, type ProjectStatus } from "@/demo/data";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 const statusColor: Record<string, string> = {
   "Active": "bg-green-500/10 text-green-400 border-green-500/20",
@@ -42,7 +43,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
       transition={{ delay: index * 0.05 }}
       data-testid={`card-project-${project.id}`}
     >
-      <Link href={`/projects/${project.id}`}>
+      <FocusableEntity target={{ type: "project", id: project.id }} ariaLabel={`Open ${project.name}`}>
         <div className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all group h-full flex flex-col cursor-pointer">
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1 pr-4">
@@ -91,7 +92,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
             </div>
           </div>
         </div>
-      </Link>
+      </FocusableEntity>
     </motion.div>
   );
 }

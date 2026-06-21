@@ -30,6 +30,7 @@ import {
   Database,
   CheckCircle2,
   Pencil,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -312,6 +313,35 @@ interface AiSuggestion {
   target: SuggestionTarget;
 }
 
+/** Human-readable preview of which card fields a suggestion would fill in. */
+function describeTarget(target: SuggestionTarget): { label: string; value: string }[] {
+  switch (target.kind) {
+    case "identity":
+      return [
+        { label: "Main role", value: target.mainRole },
+        { label: "Company", value: target.company },
+      ];
+    case "participation":
+      return [
+        { label: "Project", value: target.participation.projectName || "—" },
+        { label: "Role", value: target.participation.role || "—" },
+        { label: "Responsibilities", value: target.participation.responsibilities || "—" },
+      ];
+    case "linkedPeople":
+      return [
+        ...(target.projectName ? [{ label: "Project", value: target.projectName }] : []),
+        { label: "People", value: target.people },
+      ];
+    case "linkedData":
+      return [
+        ...(target.projectName ? [{ label: "Project", value: target.projectName }] : []),
+        { label: "Documents", value: target.documents },
+        { label: "Tasks", value: target.tasks },
+        { label: "Photos", value: target.photos },
+      ];
+  }
+}
+
 function buildAiSuggestions(card: PersonCard): AiSuggestion[] {
   const haystack = `${card.fullName} ${card.company} ${card.notes} ${card.participations
     .map((p) => `${p.projectName} ${p.companyContext}`)
@@ -466,6 +496,7 @@ export default function CardMaker() {
 
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Record<string, boolean>>({});
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanStep, setScanStep] = useState(0);
   const [accepted, setAccepted] = useState(false);
@@ -618,6 +649,8 @@ export default function CardMaker() {
   const privateSuggestion = (s: AiSuggestion) => {
     setDecisions((prev) => ({ ...prev, [s.id]: "private" }));
   };
+  const toggleSuggestion = (id: string) =>
+    setExpandedSuggestions((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const goCreate = (next: PersonCard) => {
     setCard(next);
@@ -1006,56 +1039,119 @@ export default function CardMaker() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {suggestions.map((s) => {
               const decision = decisions[s.id];
+              const isOpen = !!expandedSuggestions[s.id];
+              const fields = describeTarget(s.target);
               return (
-                <div key={s.id} className="rounded-lg border border-border bg-background/40 p-4 space-y-3 flex flex-col">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold">{s.category}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${confidenceStyle[s.confidence]}`}>
-                      {s.confidence}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <Database className="w-3.5 h-3.5" /> Source: <span className="text-foreground/80 font-medium">{s.source}</span>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground flex-1">{s.summary}</p>
-
-                  {s.confidence === "Low" && !decision && (
-                    <p className="text-[11px] text-red-400 flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5" /> Low confidence — review carefully before attaching.
-                    </p>
-                  )}
-
-                  {decision === "confirmed" && (
-                    <span className="text-xs text-green-400 flex items-center gap-1.5" data-testid={`status-${s.id}`}>
-                      <Check className="w-3.5 h-3.5" /> Confirmed &amp; applied
-                    </span>
-                  )}
-                  {decision === "rejected" && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid={`status-${s.id}`}>
-                      <X className="w-3.5 h-3.5" /> Rejected
-                    </span>
-                  )}
-                  {decision === "private" && (
-                    <span className="text-xs text-blue-400 flex items-center gap-1.5" data-testid={`status-${s.id}`}>
-                      <Lock className="w-3.5 h-3.5" /> Kept private — not attached
-                    </span>
-                  )}
-
-                  {!decision && (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <Button size="sm" onClick={() => confirmSuggestion(s)} data-testid={`button-confirm-${s.id}`}>
-                        <Check className="w-3.5 h-3.5" /> Confirm
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => rejectSuggestion(s)} data-testid={`button-reject-${s.id}`}>
-                        <X className="w-3.5 h-3.5" /> Reject
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => privateSuggestion(s)} data-testid={`button-private-${s.id}`}>
-                        <Lock className="w-3.5 h-3.5" /> Keep private
-                      </Button>
+                <div
+                  key={s.id}
+                  className="rounded-lg border border-border bg-background/40 overflow-hidden flex flex-col"
+                  data-testid={`suggestion-${s.id}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSuggestion(s.id)}
+                    aria-expanded={isOpen}
+                    data-testid={`button-expand-${s.id}`}
+                    className="w-full text-left p-4 flex items-start justify-between gap-3 hover:bg-secondary/30 transition-colors"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{s.category}</span>
+                        {decision === "confirmed" && (
+                          <span className="text-[10px] text-green-400 flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Confirmed
+                          </span>
+                        )}
+                        {decision === "rejected" && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <X className="w-3 h-3" /> Rejected
+                          </span>
+                        )}
+                        {decision === "private" && (
+                          <span className="text-[10px] text-blue-400 flex items-center gap-1">
+                            <Lock className="w-3 h-3" /> Private
+                          </span>
+                        )}
+                      </div>
+                      {!isOpen && <p className="text-xs text-muted-foreground line-clamp-1">{s.summary}</p>}
                     </div>
-                  )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${confidenceStyle[s.confidence]}`}>
+                        {s.confidence}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    </div>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        key="body"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-4 pb-4 space-y-3 border-t border-border/60 pt-3">
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Database className="w-3.5 h-3.5" /> Source:{" "}
+                            <span className="text-foreground/80 font-medium">{s.source}</span>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground">{s.summary}</p>
+
+                          <div className="rounded-md border border-border/60 bg-background/40 p-3 space-y-1.5">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+                              If confirmed, this fills in
+                            </p>
+                            {fields.map((f) => (
+                              <div key={f.label} className="flex gap-2 text-xs">
+                                <span className="text-muted-foreground shrink-0 w-28">{f.label}</span>
+                                <span className="text-foreground/90 min-w-0 break-words">{f.value}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          {s.confidence === "Low" && !decision && (
+                            <p className="text-[11px] text-red-400 flex items-center gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5" /> Low confidence — review carefully before attaching.
+                            </p>
+                          )}
+
+                          {decision === "confirmed" && (
+                            <span className="text-xs text-green-400 flex items-center gap-1.5" data-testid={`status-${s.id}`}>
+                              <Check className="w-3.5 h-3.5" /> Confirmed &amp; applied
+                            </span>
+                          )}
+                          {decision === "rejected" && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid={`status-${s.id}`}>
+                              <X className="w-3.5 h-3.5" /> Rejected
+                            </span>
+                          )}
+                          {decision === "private" && (
+                            <span className="text-xs text-blue-400 flex items-center gap-1.5" data-testid={`status-${s.id}`}>
+                              <Lock className="w-3.5 h-3.5" /> Kept private — not attached
+                            </span>
+                          )}
+
+                          {!decision && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                              <Button size="sm" onClick={() => confirmSuggestion(s)} data-testid={`button-confirm-${s.id}`}>
+                                <Check className="w-3.5 h-3.5" /> Confirm
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => rejectSuggestion(s)} data-testid={`button-reject-${s.id}`}>
+                                <X className="w-3.5 h-3.5" /> Reject
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => privateSuggestion(s)} data-testid={`button-private-${s.id}`}>
+                                <Lock className="w-3.5 h-3.5" /> Keep private
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}

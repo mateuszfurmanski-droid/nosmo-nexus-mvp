@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Clock, Filter, User, FolderKanban, FileText, CheckSquare, Phone, StickyNote } from "lucide-react";
 import { TIMELINE, getPerson, getProject, TimelineEventType } from "@/demo/data";
 import { formatDistanceToNow, format } from "date-fns";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 const iconMap: Record<TimelineEventType, React.ElementType> = {
   person: User,
@@ -100,14 +100,14 @@ export default function Timeline() {
                     {person && (
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <span className="px-1.5 py-0.5 rounded bg-secondary text-xs">Person</span>
-                        <Link href={`/people/${person.id}`} className="hover:text-primary transition-colors cursor-pointer">{person.name}</Link>
+                        <FocusableEntity target={{ type: "person", id: person.id }} ariaLabel={`Open ${person.name}`} className="hover:text-primary transition-colors">{person.name}</FocusableEntity>
                       </div>
                     )}
                     
                     {project && (
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <span className="px-1.5 py-0.5 rounded bg-secondary text-xs">Project</span>
-                        <Link href={`/projects/${project.id}`} className="hover:text-primary transition-colors cursor-pointer font-medium">{project.name}</Link>
+                        <FocusableEntity target={{ type: "project", id: project.id }} ariaLabel={`Open ${project.name}`} className="hover:text-primary transition-colors font-medium">{project.name}</FocusableEntity>
                       </div>
                     )}
                   </div>

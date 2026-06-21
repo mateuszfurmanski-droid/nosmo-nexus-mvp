@@ -175,6 +175,9 @@ export const TIMELINE: TimelineEvent[] = [
 
 export const getPerson = (id: string) => PEOPLE.find(p => p.id === id);
 export const getProject = (id: string) => PROJECTS.find(p => p.id === id);
+export const getDocument = (id: string) => DOCUMENTS.find(d => d.id === id);
+export const getTask = (id: string) => TASKS.find(t => t.id === id);
+export const getNote = (id: string) => NOTES.find(n => n.id === id);
 export const getPersonProjects = (personId: string) => PROJECTS.filter(p => p.peopleIds.includes(personId));
 export const getProjectPeople = (projectId: string) => {
   const proj = getProject(projectId);

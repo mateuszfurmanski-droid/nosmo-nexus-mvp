@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { CheckSquare, Search, Plus, Calendar, Clock } from "lucide-react";
+import { CheckSquare, Search, Plus, Clock } from "lucide-react";
 import { TASKS, getPerson, getProject, TaskStatus } from "@/demo/data";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 const columns: { id: TaskStatus; label: string }[] = [
   { id: "To Do", label: "To Do" },
@@ -67,10 +67,16 @@ export default function Tasks() {
                   const isLate = new Date(task.dueDate) < new Date() && task.status !== "Done";
                   
                   return (
-                    <motion.div 
+                    <FocusableEntity
                       key={task.id}
+                      target={{ type: "task", id: task.id }}
+                      ariaLabel={`Open ${task.title}`}
+                      testId={`card-task-${task.id}`}
+                      className="block"
+                    >
+                    <motion.div 
                       layoutId={task.id}
-                      className="bg-card border border-border rounded-lg p-3.5 shadow-sm hover:border-primary/40 hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
+                      className="bg-card border border-border rounded-lg p-3.5 shadow-sm hover:border-primary/40 hover:shadow-md transition-all group"
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${priorityColor[task.priority]}`}>
@@ -103,6 +109,7 @@ export default function Tasks() {
                         </div>
                       </div>
                     </motion.div>
+                    </FocusableEntity>
                   )
                 })}
               </div>

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { Layers, FileText, Search, Eye, Download, CheckCircle2, Loader2, UploadCloud, FolderKanban } from "lucide-react";
 import { DOCUMENTS, PROJECTS, getPerson } from "@/demo/data";
 import { formatDistanceToNow } from "date-fns";
+import { FocusableEntity } from "@/focus/focusable-entity";
 
 type PlanStatus = "Ready" | "Processing" | "Uploaded";
 
@@ -23,7 +23,6 @@ function planStatus(id: string): PlanStatus {
 
 export default function Plans() {
   const [search, setSearch] = useState("");
-  const [, navigate] = useLocation();
 
   const plans = useMemo(
     () =>
@@ -95,15 +94,16 @@ export default function Plans() {
 
       {groups.map((group, gi) => (
         <div key={group.project.id} className="space-y-3">
-          <button
-            onClick={() => navigate(`/projects/${group.project.id}`)}
-            data-testid={`plan-group-${group.project.id}`}
-            className="group flex items-center gap-2 text-left"
+          <FocusableEntity
+            target={{ type: "project", id: group.project.id }}
+            ariaLabel={`Open ${group.project.name}`}
+            testId={`plan-group-${group.project.id}`}
+            className="group inline-flex items-center gap-2 text-left w-fit"
           >
             <FolderKanban className="w-4 h-4 text-primary" />
             <h2 className="text-lg font-semibold group-hover:text-primary transition-colors">{group.project.name}</h2>
             <span className="text-sm text-muted-foreground">· {group.items.length}</span>
-          </button>
+          </FocusableEntity>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {group.items.map((doc, i) => {
@@ -111,12 +111,17 @@ export default function Plans() {
               const S = STATUS[st];
               const owner = getPerson(doc.ownerPersonId);
               return (
-                <motion.div
+                <FocusableEntity
                   key={doc.id}
+                  target={{ type: "document", id: doc.id }}
+                  ariaLabel={`Open ${doc.title}`}
+                  testId={`card-plan-${doc.id}`}
+                  className="block"
+                >
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: gi * 0.04 + i * 0.04 }}
-                  data-testid={`card-plan-${doc.id}`}
                   className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-[0_0_15px_rgba(0,255,255,0.05)] transition-all flex flex-col"
                 >
                   <div className="flex items-start gap-3">
@@ -146,11 +151,12 @@ export default function Plans() {
                       <span className="text-xs text-muted-foreground truncate">{formatDistanceToNow(new Date(doc.updatedAt), { addSuffix: true })}</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button title="Preview (V1)" data-testid={`button-plan-view-${doc.id}`} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"><Eye className="w-4 h-4" /></button>
-                      <button title="Download (V1)" data-testid={`button-plan-download-${doc.id}`} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"><Download className="w-4 h-4" /></button>
+                      <button onClick={(e) => e.stopPropagation()} title="Preview (V1)" data-testid={`button-plan-view-${doc.id}`} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"><Eye className="w-4 h-4" /></button>
+                      <button onClick={(e) => e.stopPropagation()} title="Download (V1)" data-testid={`button-plan-download-${doc.id}`} className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"><Download className="w-4 h-4" /></button>
                     </div>
                   </div>
                 </motion.div>
+                </FocusableEntity>
               );
             })}
           </div>
