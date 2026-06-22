@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
   Eye,
   MessageSquare,
@@ -114,9 +114,11 @@ function MiniBtn({
 }
 
 function ActionCard({ title, children }: { title?: string; children: React.ReactNode }) {
+  // Mobile: a floating bottom sheet that overlays the graph (never pushes it
+  // off-screen) and scrolls internally. Desktop: attached just below the centre.
   return (
-    <div className="absolute left-1/2 top-1/2 z-30" style={{ transform: "translate(-50%, 118px)" }}>
-      <div className="w-72 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
+    <div className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-sm sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:mx-0 sm:max-w-none sm:-translate-x-1/2 sm:translate-y-[118px]">
+      <div className="max-h-[46vh] overflow-y-auto rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur sm:max-h-[64vh] sm:w-72">
         {title && <div className="mb-2 text-xs font-semibold">{title}</div>}
         {children}
       </div>
@@ -127,10 +129,30 @@ function ActionCard({ title, children }: { title?: string; children: React.React
 type TileSize = "lg" | "md" | "sm";
 type Layer = "primary" | "secondary" | "micro";
 
+// Each size carries a small-screen value plus an `md:` step-up, so nodes,
+// chips, icons and labels are genuinely tighter on phones (not just scaled).
 const SIZE: Record<TileSize, { box: string; chip: string; icon: string; label: string; sub: string }> = {
-  lg: { box: "h-48 w-48", chip: "h-14 w-14", icon: "h-7 w-7", label: "text-sm font-semibold", sub: "text-[11px]" },
-  md: { box: "h-28 w-28", chip: "h-9 w-9", icon: "h-5 w-5", label: "text-xs font-medium", sub: "text-[11px]" },
-  sm: { box: "h-[4.75rem] w-[4.75rem]", chip: "h-7 w-7", icon: "h-4 w-4", label: "text-[11px] font-medium", sub: "text-[10px]" },
+  lg: {
+    box: "h-32 w-32 md:h-48 md:w-48",
+    chip: "h-10 w-10 md:h-14 md:w-14",
+    icon: "h-6 w-6 md:h-7 md:w-7",
+    label: "text-xs font-semibold md:text-sm",
+    sub: "text-[10px] md:text-[11px]",
+  },
+  md: {
+    box: "h-[4.75rem] w-[4.75rem] md:h-28 md:w-28",
+    chip: "h-7 w-7 md:h-9 md:w-9",
+    icon: "h-4 w-4 md:h-5 md:w-5",
+    label: "text-[11px] font-medium md:text-xs",
+    sub: "text-[10px] md:text-[11px]",
+  },
+  sm: {
+    box: "h-[3.75rem] w-[3.75rem] md:h-[4.75rem] md:w-[4.75rem]",
+    chip: "h-6 w-6 md:h-7 md:w-7",
+    icon: "h-3.5 w-3.5 md:h-4 md:w-4",
+    label: "text-[10px] font-medium md:text-[11px]",
+    sub: "text-[9px] md:text-[10px]",
+  },
 };
 
 type Tier = "now" | "next" | "later";
@@ -622,6 +644,61 @@ export default function InteractiveWorkspace() {
     return () => ro.disconnect();
   }, [collabPair]);
 
+  // Re-read viewport on resize / orientation change (covers mobile URL-bar
+  // show/hide, which the ResizeObserver also catches but this guarantees it).
+  useEffect(() => {
+    const sync = () => {
+      const el = containerRef.current;
+      if (el) setSize({ w: el.clientWidth, h: el.clientHeight });
+    };
+    window.addEventListener("resize", sync);
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+    };
+  }, []);
+
+  /* ---- auto-fit: scale the whole graph so every node stays on screen ----
+     offsetWidth/offsetHeight are transform- and transition-independent, and
+     each cluster carries its target offset in data-x / data-y, so the bounding
+     box is exact on the first frame — no feedback loop, no measure-at-scale-1
+     flash, and it stays correct mid cluster-transition. */
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState(1);
+  const compact = size.w < 768;
+  // Tablets and below: keep the docs stack out of the bottom-centre task lane.
+  const narrow = size.w < 1024;
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const nodes = stage.querySelectorAll<HTMLElement>("[data-fit]");
+    if (!nodes.length) return;
+    let halfW = 1;
+    let halfH = 1;
+    nodes.forEach((el) => {
+      const x = parseFloat(el.dataset.x || "0");
+      const y = parseFloat(el.dataset.y || "0");
+      halfW = Math.max(halfW, Math.abs(x) + el.offsetWidth / 2);
+      halfH = Math.max(halfH, Math.abs(y) + el.offsetHeight / 2);
+    });
+    const padX = compact ? 10 : 28;
+    const padY = compact ? 12 : 28;
+    // Measure the live graph container (not the initial window guess) so the
+    // first paint fits exactly instead of over-fitting for one frame.
+    const box = containerRef.current;
+    const availW = box ? box.clientWidth : size.w;
+    const availH = box ? box.clientHeight : size.h;
+    const availHalfW = Math.max(40, availW / 2 - padX);
+    const availHalfH = Math.max(40, availH / 2 - padY);
+    const next = Math.min(1, availHalfW / halfW, availHalfH / halfH);
+    setFitScale((cur) => (Math.abs(cur - next) > 0.004 ? next : cur));
+    // issues.length / contextIds.length are included because they add or remove
+    // clusters around the same centre, which changes the bounding box even when
+    // the centre, size and collab state are unchanged.
+  }, [centerId, size.w, size.h, collabPair, compact, issues.length, contextIds.length]);
+
   /* ---- interaction: selection, context, drag-to-connect ----------- */
 
   const linkKey = (a: string, b: string) => [a, b].sort().join("|");
@@ -848,10 +925,10 @@ export default function InteractiveWorkspace() {
       const empty = sharedWork.length === 0 && activity.length === 0;
 
       return (
-        <div className="dark min-h-screen w-full bg-background text-foreground">
-          <div className="absolute left-6 top-6 z-20 max-w-xs">
-            <div className="text-sm font-semibold">Shared view</div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
+        <div className="dark h-[100dvh] w-full overflow-y-auto bg-background text-foreground">
+          <div className="absolute left-3 top-3 z-20 max-w-[min(20rem,calc(100vw-6rem))] sm:left-6 sm:top-6">
+            <div className="text-xs font-semibold sm:text-sm">Shared view</div>
+            <div className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
               Shared knowledge access between two people — the same document instances, no messaging.
             </div>
           </div>
@@ -864,7 +941,7 @@ export default function InteractiveWorkspace() {
             Exit
           </button>
 
-          <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 px-6 py-24">
+          <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center gap-6 px-4 py-16 sm:gap-8 sm:px-6 sm:py-24">
             <div className="flex items-center gap-5">
               <Tile node={a} isCenter statusColor={personColor(aId)} />
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -996,8 +1073,11 @@ export default function InteractiveWorkspace() {
 
   // Compressed vertical ellipse — wide on X, short on Y. Layer factors push
   // each ring out to a different distance so importance reads as size + depth.
-  const RX = Math.max(320, size.w * 0.4);
-  const RY = Math.max(180, size.h * 0.33);
+  // Floors guarantee clusters clear the centre tile even on short viewports
+  // (fit-scale only fits the bounding box — it can't undo internal overlap, so
+  // separation must come from the radii, not from scaling).
+  const RX = Math.max(compact ? 220 : 330, size.w * 0.4);
+  const RY = Math.max(compact ? 190 : 240, size.h * 0.33);
   const FX: Record<Layer, number> = { primary: 0.66, secondary: 1, micro: 0.86 };
   const FY: Record<Layer, number> = { primary: 0.82, secondary: 1.04, micro: 1 };
   const anchorAt = (angle: number, layer: Layer) => ({
@@ -1048,7 +1128,16 @@ export default function InteractiveWorkspace() {
     if (taskFlow.length)
       groups.push({ key: "tasks", nodes: taskFlow, layer: "primary", angle: ANG.bottom, render: "taskflow" });
     if (docsN.length)
-      groups.push({ key: "docs", label: "Documents", nodes: docsN, layer: "micro", angle: ANG.botLeft, render: "stack" });
+      groups.push({
+        key: "docs",
+        label: "Documents",
+        nodes: docsN,
+        layer: "micro",
+        // On tablets/phones, move docs to the free left zone (mid-height) so the
+        // stack can't collide with the bottom-centre task column.
+        angle: narrow ? ANG.left : ANG.botLeft,
+        render: "stack",
+      });
     if (issuesN.length)
       groups.push({ key: "issues", label: "Issues", nodes: issuesN, layer: "primary", angle: ANG.right, render: "tiles" });
   } else if (ct === "person") {
@@ -1163,7 +1252,7 @@ export default function InteractiveWorkspace() {
                   className={`flex items-center gap-1.5 transition-all duration-300 ${meta.row}`}
                 >
                   <span
-                    className={`w-11 shrink-0 rounded px-1 py-0.5 text-center text-[9px] font-bold ${meta.badge}`}
+                    className={`w-9 shrink-0 rounded px-1 py-0.5 text-center text-[9px] font-bold md:w-11 ${meta.badge}`}
                   >
                     {meta.label}
                   </span>
@@ -1172,7 +1261,7 @@ export default function InteractiveWorkspace() {
                     onClick={() => focusNode(t.id)}
                     data-testid={`tile-${t.id}`}
                     aria-label={`task: ${t.label}`}
-                    className={`relative flex w-56 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-all hover:border-foreground/30 hover:bg-secondary/40 ${ts.selected || ts.inContext || ts.dragOver ? tileRing(ts) : meta.ring}`}
+                    className={`relative flex w-44 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-all hover:border-foreground/30 hover:bg-secondary/40 md:w-56 ${ts.selected || ts.inContext || ts.dragOver ? tileRing(ts) : meta.ring}`}
                     {...dragProps(t.id)}
                   >
                     {ts.inContext && <ContextDot />}
@@ -1219,7 +1308,7 @@ export default function InteractiveWorkspace() {
     if (grp.render === "companies") {
       const size = grp.tileSize ?? (grp.layer === "primary" ? "md" : "sm");
       return (
-        <div className="flex max-w-[680px] flex-wrap items-start justify-center gap-x-5 gap-y-3">
+        <div className="flex max-w-[78vw] flex-wrap items-start justify-center gap-x-5 gap-y-3 sm:max-w-[680px]">
           {groupByCompany(grp.nodes).map((c) => (
             <div key={c.company} className="flex flex-col items-center gap-1.5">
               <div className="rounded-full bg-secondary/50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -1237,7 +1326,7 @@ export default function InteractiveWorkspace() {
         {grp.label && (
           <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{grp.label}</div>
         )}
-        <div className="flex max-w-[600px] flex-wrap items-start justify-center gap-2.5">
+        <div className="flex max-w-[78vw] flex-wrap items-start justify-center gap-2.5 sm:max-w-[600px]">
           {grp.nodes.map((n) => renderNodeTile(n, size))}
         </div>
       </div>
@@ -1481,20 +1570,20 @@ export default function InteractiveWorkspace() {
   };
 
   return (
-    <div className="dark min-h-screen w-full bg-background text-foreground">
-      <div className="absolute left-6 top-6 z-30 max-w-xs">
-        <div className="text-sm font-semibold">Halifax / Lloyds Bank – 360 Interiors</div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
-          Click or <span className="text-foreground">arrow-key</span> to a node ·{" "}
-          <span className="text-foreground">Enter</span> focuses · <span className="text-foreground">Space</span> adds to
-          context · drag one node onto another to connect, or onto empty space to release ·{" "}
-          <span className="text-foreground">Backspace</span> steps back.
-        </div>
-      </div>
+    <div className="dark flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
+      {/* Compact header bar — graph area below is exactly 100dvh minus this. */}
+      <header className="flex shrink-0 items-center gap-2 px-3 py-2 sm:px-6 sm:py-3">
+        <span className="truncate text-xs font-semibold sm:text-sm">Halifax / Lloyds Bank – 360 Interiors</span>
+        <span className="ml-auto hidden shrink-0 text-xs text-muted-foreground lg:inline">
+          Click or <span className="text-foreground">arrow-key</span> ·{" "}
+          <span className="text-foreground">Enter</span> focuses · <span className="text-foreground">Space</span> context ·
+          drag to connect · <span className="text-foreground">Backspace</span> back
+        </span>
+      </header>
 
       <div
         ref={containerRef}
-        className="relative h-screen w-full overflow-hidden"
+        className="relative w-full flex-1 overflow-hidden"
         onDragOver={(e) => {
           if (draggingRef.current) e.preventDefault();
         }}
@@ -1506,50 +1595,64 @@ export default function InteractiveWorkspace() {
           if (src) removeFromContext(src);
         }}
       >
-        {/* Connector lines from center to each cluster */}
-        {positioned.map(({ grp, len, deg }) => (
-          <div
-            key={`line-${grp.key}`}
-            className={`absolute left-1/2 top-1/2 z-0 h-px origin-left transition-all duration-300 ease-out ${
-              grp.faded ? "bg-border/40" : "bg-border/70"
-            }`}
-            style={{ width: len, transform: `rotate(${deg}deg)` }}
-          />
-        ))}
-
-        {/* Layered, grouped clusters */}
-        {positioned.map(({ grp, x, y }) => (
-          <div
-            key={grp.key}
-            className={`absolute left-1/2 top-1/2 z-10 transition-all duration-300 ease-out ${
-              grp.faded ? "opacity-50" : ""
-            }`}
-            style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
-          >
-            {renderGroupBody(grp)}
-          </div>
-        ))}
-
-        {/* Center tile */}
+        {/* Auto-fitted stage — the whole graph scales as one so nothing clips. */}
         <div
-          className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
-          {...dragProps(centerNode.id)}
+          ref={stageRef}
+          className="absolute inset-0 origin-center transition-transform duration-200 ease-out"
+          style={{ transform: `scale(${fitScale})` }}
         >
-          <Tile
-            node={centerNode}
-            isCenter
-            sublabel={displaySub(centerNode)}
-            statusColor={dotFor(centerNode)}
-            inContext={contextIds.includes(centerNode.id)}
-            dragOver={dragOverId === centerNode.id}
-          />
+          {/* Connector lines from center to each cluster */}
+          {positioned.map(({ grp, len, deg }) => (
+            <div
+              key={`line-${grp.key}`}
+              className={`absolute left-1/2 top-1/2 z-0 h-px origin-left transition-all duration-300 ease-out ${
+                grp.faded ? "bg-border/40" : "bg-border/70"
+              }`}
+              style={{ width: len, transform: `rotate(${deg}deg)` }}
+            />
+          ))}
+
+          {/* Layered, grouped clusters */}
+          {positioned.map(({ grp, x, y }) => (
+            <div
+              key={grp.key}
+              data-fit
+              data-x={x}
+              data-y={y}
+              className={`absolute left-1/2 top-1/2 z-10 transition-all duration-300 ease-out ${
+                grp.faded ? "opacity-50" : ""
+              }`}
+              style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }}
+            >
+              {renderGroupBody(grp)}
+            </div>
+          ))}
+
+          {/* Center tile */}
+          <div
+            data-fit
+            data-x={0}
+            data-y={0}
+            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+            {...dragProps(centerNode.id)}
+          >
+            <Tile
+              node={centerNode}
+              isCenter
+              sublabel={displaySub(centerNode)}
+              statusColor={dotFor(centerNode)}
+              inContext={contextIds.includes(centerNode.id)}
+              dragOver={dragOverId === centerNode.id}
+            />
+          </div>
         </div>
 
         {renderCenterActions()}
 
-        {/* Active context tray — a desktop-style selection, not a panel. */}
+        {/* Active context tray — floats top on mobile, bottom on desktop, so it
+            never collides with the bottom-sheet action panel. */}
         {contextIds.length > 0 && (
-          <div className="absolute bottom-5 left-1/2 z-30 flex max-w-[90vw] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs shadow-lg backdrop-blur">
+          <div className="absolute left-1/2 top-2 z-30 flex max-w-[92vw] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs shadow-lg backdrop-blur sm:bottom-5 sm:top-auto">
             <span className="font-medium">Context</span>
             <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
               {contextIds.length}
