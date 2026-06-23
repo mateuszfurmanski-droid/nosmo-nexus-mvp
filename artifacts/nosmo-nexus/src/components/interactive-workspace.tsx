@@ -287,16 +287,60 @@ function MicroNode({
 function DocStack({
   nodes,
   label,
+  vertical,
   onPick,
   getFlags,
   getDragProps,
 }: {
   nodes: WorkspaceNode[];
   label?: string;
+  vertical?: boolean;
   onPick: (id: string) => void;
   getFlags?: (id: string) => TileFlags;
   getDragProps?: (id: string) => DragHandlers;
 }) {
+  // Portrait: a single readable column (icon + full label rows), so docs stay
+  // narrow and tall. Landscape: the compact 3-up icon grid.
+  if (vertical) {
+    return (
+      <div className="flex flex-col items-stretch gap-1.5">
+        {label && (
+          <div className="text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </div>
+        )}
+        <div className="flex w-44 flex-col gap-1 rounded-xl border border-border/60 bg-card/40 p-1.5">
+          {nodes.map((n) => {
+            const flags = getFlags?.(n.id);
+            const style = TYPE_STYLE[n.type];
+            const Icon = n.Icon;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => onPick(n.id)}
+                data-testid={`tile-${n.id}`}
+                title={n.label}
+                aria-label={`${n.type}: ${n.label}`}
+                className={`group relative flex items-center gap-2 rounded-md px-1.5 py-1 text-left outline-none transition-all hover:bg-secondary/40 focus-visible:ring-2 focus-visible:ring-ring ${tileRing(
+                  flags ?? {},
+                )}`}
+                {...(getDragProps?.(n.id) ?? {})}
+              >
+                {flags?.inContext && <ContextDot />}
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${style.chip} transition-transform group-hover:scale-105`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/90">{n.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-1.5">
       {label && (
@@ -667,8 +711,13 @@ export default function InteractiveWorkspace() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(1);
   const compact = size.w < 768;
-  // Tablets and below: keep the docs stack out of the bottom-centre task lane.
-  const narrow = size.w < 1024;
+  // Three layout modes chosen by viewport aspect so the graph fills each shape:
+  //  • portrait  → tall diamond, single-column doc/task stacks (fills height)
+  //  • wideShort → flat left/right spread, minimal height (phone landscape)
+  //  • balanced  → wide diamond that also fills height (tablet / desktop)
+  const aspect = size.w / Math.max(1, size.h);
+  const portrait = aspect < 1;
+  const wideShort = aspect >= 1.7;
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -692,7 +741,13 @@ export default function InteractiveWorkspace() {
     const availH = box ? box.clientHeight : size.h;
     const availHalfW = Math.max(40, availW / 2 - padX);
     const availHalfH = Math.max(40, availH / 2 - padY);
-    const next = Math.min(1, availHalfW / halfW, availHalfH / halfH);
+    // Allow scaling UP (not only down) so wide/short viewports fill instead of
+    // leaving the graph marooned in the centre with big empty bands. The min()
+    // keeps the *measured* bounding box inside the container (the static pad
+    // absorbs transient hover/drag/ring transforms, which offsetWidth ignores);
+    // the cap only limits how far we zoom.
+    const maxScale = compact ? 1.12 : 1.3;
+    const next = Math.min(maxScale, availHalfW / halfW, availHalfH / halfH);
     setFitScale((cur) => (Math.abs(cur - next) > 0.004 ? next : cur));
     // issues.length / contextIds.length are included because they add or remove
     // clusters around the same centre, which changes the bounding box even when
@@ -1071,13 +1126,20 @@ export default function InteractiveWorkspace() {
     return order.map((company) => ({ company, nodes: m.get(company)! }));
   };
 
-  // Compressed vertical ellipse — wide on X, short on Y. Layer factors push
-  // each ring out to a different distance so importance reads as size + depth.
-  // Floors guarantee clusters clear the centre tile even on short viewports
-  // (fit-scale only fits the bounding box — it can't undo internal overlap, so
-  // separation must come from the radii, not from scaling).
-  const RX = Math.max(compact ? 220 : 330, size.w * 0.4);
-  const RY = Math.max(compact ? 190 : 240, size.h * 0.33);
+  // Radii tuned per mode (see above). Floors guarantee clusters clear the centre
+  // tile even on short viewports — fit-scale fits the bounding box but can't undo
+  // internal overlap, so separation must come from the radii, not from scaling.
+  // Layer factors push each ring to a different distance (importance = depth).
+  const RX = portrait
+    ? Math.max(compact ? 200 : 300, size.w * 0.46)
+    : wideShort
+      ? Math.max(330, size.w * 0.7)
+      : Math.max(330, size.w * 0.6);
+  const RY = portrait
+    ? Math.max(compact ? 230 : 250, size.h * 0.4)
+    : wideShort
+      ? Math.max(210, size.h * 0.34)
+      : Math.max(250, size.h * 0.41);
   const FX: Record<Layer, number> = { primary: 0.66, secondary: 1, micro: 0.86 };
   const FY: Record<Layer, number> = { primary: 0.82, secondary: 1.04, micro: 1 };
   const anchorAt = (angle: number, layer: Layer) => ({
@@ -1125,18 +1187,27 @@ export default function InteractiveWorkspace() {
   if (ct === "project") {
     if (peopleN.length)
       groups.push({ key: "people", nodes: peopleN, layer: "primary", angle: ANG.top, render: "companies" });
-    if (taskFlow.length)
-      groups.push({ key: "tasks", nodes: taskFlow, layer: "primary", angle: ANG.bottom, render: "taskflow" });
     if (docsN.length)
       groups.push({
         key: "docs",
         label: "Documents",
         nodes: docsN,
         layer: "micro",
-        // On tablets/phones, move docs to the free left zone (mid-height) so the
-        // stack can't collide with the bottom-centre task column.
-        angle: narrow ? ANG.left : ANG.botLeft,
+        // Docs to the left — bottom-left in the diamond modes, pure-left (mid
+        // height) only in wide-short so the layout stays flat and short.
+        angle: wideShort ? ANG.left : ANG.botLeft,
         render: "stack",
+      });
+    if (taskFlow.length)
+      groups.push({
+        key: "tasks",
+        nodes: taskFlow,
+        layer: "primary",
+        // Tasks mirror docs on the right (bottom-right in the diamond modes).
+        // Pure-right only in wide-short, and only when no Issues cluster is
+        // present there (Issues take pure-right, so tasks drop to bottom-right).
+        angle: wideShort && !issuesN.length ? ANG.right : ANG.botRight,
+        render: "taskflow",
       });
     if (issuesN.length)
       groups.push({ key: "issues", label: "Issues", nodes: issuesN, layer: "primary", angle: ANG.right, render: "tiles" });
@@ -1228,6 +1299,7 @@ export default function InteractiveWorkspace() {
         <DocStack
           nodes={grp.nodes}
           label={grp.label}
+          vertical={portrait}
           onPick={(id) => focusNode(id)}
           getFlags={tileFlags}
           getDragProps={dragProps}
@@ -1261,7 +1333,7 @@ export default function InteractiveWorkspace() {
                     onClick={() => focusNode(t.id)}
                     data-testid={`tile-${t.id}`}
                     aria-label={`task: ${t.label}`}
-                    className={`relative flex w-44 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-all hover:border-foreground/30 hover:bg-secondary/40 md:w-56 ${ts.selected || ts.inContext || ts.dragOver ? tileRing(ts) : meta.ring}`}
+                    className={`relative flex w-40 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 text-left transition-all hover:border-foreground/30 hover:bg-secondary/40 md:w-56 ${ts.selected || ts.inContext || ts.dragOver ? tileRing(ts) : meta.ring}`}
                     {...dragProps(t.id)}
                   >
                     {ts.inContext && <ContextDot />}
