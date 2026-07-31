@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Home,
   LayoutGrid,
+  MessageCircle,
   Network,
   PlugZap,
   Search,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { AskNexus } from "@/components/ask-nexus";
 import { SearchPalette } from "@/components/search-palette";
+import { CommunicationStrip } from "@/components/communication-strip";
 import { FocusableEntity } from "@/focus/focusable-entity";
 
 interface ShellContextValue {
@@ -39,6 +41,7 @@ const navigation: NavigationItem[] = [
   { label: "People", href: "/people", icon: Users },
   { label: "Tasks", href: "/tasks", icon: CheckSquare },
   { label: "Documents", href: "/plans", icon: Files },
+  { label: "Communication", href: "/communication-hub", icon: MessageCircle },
   { label: "System Map", href: "/system-map", icon: Network },
   { label: "Integrations", href: "/integrations", icon: PlugZap },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -56,7 +59,7 @@ export function useShell() {
 
 function isActiveRoute(current: string, href: string) {
   if (href === "/") return current === "/" || current === "/modules";
-  return current === href || current.startsWith(`${href}/`);
+  return current === href || current.startsWith(`${href}/`) || current.startsWith(`${href}?`);
 }
 
 function NavigationLink({ item, current, compact = false }: { item: NavigationItem; current: string; compact?: boolean }) {
@@ -156,6 +159,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
 
+          <div className="hidden xl:block">
+            <CommunicationStrip />
+          </div>
+
           <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
             <button
               onClick={() => setAskNexusOpen(true)}
@@ -190,9 +197,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </aside>
 
-          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">
+          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-36 md:p-8 md:pb-8">
             <div className="mx-auto max-w-7xl">{children}</div>
           </main>
+        </div>
+
+        <div className="fixed bottom-[4.75rem] left-1/2 z-40 -translate-x-1/2 md:hidden">
+          <CommunicationStrip floating />
         </div>
 
         <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/92 px-2 py-1.5 backdrop-blur-xl md:hidden">
