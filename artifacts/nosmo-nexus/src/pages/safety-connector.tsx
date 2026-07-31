@@ -1,140 +1,47 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import {
+  Activity,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Building2,
   CheckCircle2,
   Clock3,
+  Database,
   DoorOpen,
   ExternalLink,
+  FileJson,
   FileWarning,
   HelpCircle,
-  RotateCcw,
+  History,
+  PlayCircle,
+  RefreshCw,
+  Send,
   ShieldAlert,
   ShieldCheck,
+  Trash2,
   UserRound,
   Users,
   XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  applyIntegrationEvent,
+  createSimulatorEvent,
+  initialWorkers,
+  normaliseWebhookPayload,
+  sampleWebhookPayload,
+  simulatorScenarios,
+  type DemoWorker,
+  type GateStatus,
+  type IntegrationEvent,
+  type RequirementStatus,
+  type WorkWalletEventType,
+} from "@/integrations/work-wallet-demo";
 
-type RequirementStatus = "PASS" | "WARNING" | "FAIL" | "UNKNOWN";
-type GateStatus = "READY" | "WARNING" | "BLOCKED" | "UNKNOWN";
-
-type ComplianceRequirement = {
-  name: string;
-  status: RequirementStatus;
-  detail: string;
-  expiry?: string;
-  sourceRecord: string;
-};
-
-type DemoWorker = {
-  id: string;
-  initials: string;
-  name: string;
-  role: string;
-  company: string;
-  gate: GateStatus;
-  gateReason: string;
-  lastChecked: string;
-  requirements: ComplianceRequirement[];
-};
-
-const workers: DemoWorker[] = [
-  {
-    id: "p1",
-    initials: "MF",
-    name: "Mateusz Furmanski",
-    role: "Fire Door Installer",
-    company: "NOSMO Demo Contractor",
-    gate: "READY",
-    gateReason: "All blocking requirements are verified.",
-    lastChecked: "31 Jul 2026, 20:59 BST",
-    requirements: [
-      { name: "Site induction", status: "PASS", detail: "Halifax induction completed", sourceRecord: "WW-IND-1042" },
-      { name: "RAMS acknowledgement", status: "PASS", detail: "Fire-door installation RAMS signed", sourceRecord: "WW-RAMS-2218" },
-      { name: "Fire-door competence", status: "PASS", detail: "Installer competence valid", expiry: "18 Mar 2027", sourceRecord: "WW-TRN-0917" },
-      { name: "CSCS / identity", status: "PASS", detail: "Identity and trade record verified", expiry: "02 Nov 2028", sourceRecord: "WW-ID-0412" },
-      { name: "Permit to work", status: "PASS", detail: "Not required for selected task", sourceRecord: "NEXUS-RULE-PTW-01" },
-      { name: "Work restrictions", status: "PASS", detail: "No active restrictions", sourceRecord: "WW-RES-0000" },
-    ],
-  },
-  {
-    id: "p2",
-    initials: "DP",
-    name: "Daniel Price",
-    role: "Carpenter",
-    company: "Northfield Interiors",
-    gate: "BLOCKED",
-    gateReason: "Project induction has not been completed.",
-    lastChecked: "31 Jul 2026, 20:57 BST",
-    requirements: [
-      { name: "Site induction", status: "FAIL", detail: "No completed Halifax induction found", sourceRecord: "WW-IND-MISSING" },
-      { name: "RAMS acknowledgement", status: "PASS", detail: "Fire-door installation RAMS signed", sourceRecord: "WW-RAMS-2241" },
-      { name: "Fire-door competence", status: "PASS", detail: "Installer competence valid", expiry: "11 Jan 2027", sourceRecord: "WW-TRN-1014" },
-      { name: "CSCS / identity", status: "PASS", detail: "Identity and trade record verified", expiry: "09 Jun 2028", sourceRecord: "WW-ID-0511" },
-      { name: "Permit to work", status: "PASS", detail: "Not required for selected task", sourceRecord: "NEXUS-RULE-PTW-01" },
-      { name: "Work restrictions", status: "PASS", detail: "No active restrictions", sourceRecord: "WW-RES-0000" },
-    ],
-  },
-  {
-    id: "p3",
-    initials: "JK",
-    name: "Joanna Klosek",
-    role: "Project Systems Lead",
-    company: "NOSMO",
-    gate: "WARNING",
-    gateReason: "Required qualification expires within 30 days.",
-    lastChecked: "31 Jul 2026, 20:58 BST",
-    requirements: [
-      { name: "Site induction", status: "PASS", detail: "Halifax induction completed", sourceRecord: "WW-IND-1077" },
-      { name: "RAMS acknowledgement", status: "PASS", detail: "Inspection RAMS signed", sourceRecord: "WW-RAMS-2290" },
-      { name: "Fire-door inspection awareness", status: "WARNING", detail: "Qualification expires soon", expiry: "19 Aug 2026", sourceRecord: "WW-TRN-1098" },
-      { name: "CSCS / identity", status: "PASS", detail: "Identity record verified", expiry: "24 Apr 2028", sourceRecord: "WW-ID-0554" },
-      { name: "Permit to work", status: "PASS", detail: "Not required for selected task", sourceRecord: "NEXUS-RULE-PTW-01" },
-      { name: "Work restrictions", status: "PASS", detail: "No active restrictions", sourceRecord: "WW-RES-0000" },
-    ],
-  },
-  {
-    id: "p4",
-    initials: "KN",
-    name: "Kamil Nowak",
-    role: "Installer",
-    company: "Steel & Site Services",
-    gate: "BLOCKED",
-    gateReason: "The required hot-works permit has expired.",
-    lastChecked: "31 Jul 2026, 20:56 BST",
-    requirements: [
-      { name: "Site induction", status: "PASS", detail: "Halifax induction completed", sourceRecord: "WW-IND-0998" },
-      { name: "RAMS acknowledgement", status: "PASS", detail: "Installation RAMS signed", sourceRecord: "WW-RAMS-2150" },
-      { name: "Installation competence", status: "PASS", detail: "Competence record valid", expiry: "05 May 2027", sourceRecord: "WW-TRN-0870" },
-      { name: "CSCS / identity", status: "PASS", detail: "Identity and trade record verified", expiry: "14 Feb 2028", sourceRecord: "WW-ID-0392" },
-      { name: "Hot-works permit", status: "FAIL", detail: "Permit expired and requires renewal", expiry: "30 Jul 2026", sourceRecord: "WW-PTW-1842" },
-      { name: "Work restrictions", status: "PASS", detail: "No active restrictions", sourceRecord: "WW-RES-0000" },
-    ],
-  },
-  {
-    id: "p5",
-    initials: "BM",
-    name: "Bartlomiej Mejer",
-    role: "Operations Lead",
-    company: "NOSMO GreenLoop",
-    gate: "UNKNOWN",
-    gateReason: "The safety source is unavailable, so compliance cannot be verified.",
-    lastChecked: "31 Jul 2026, 20:41 BST",
-    requirements: [
-      { name: "Site induction", status: "UNKNOWN", detail: "Last confirmed status unavailable", sourceRecord: "WW-SOURCE-OFFLINE" },
-      { name: "RAMS acknowledgement", status: "UNKNOWN", detail: "Unable to verify current acknowledgement", sourceRecord: "WW-SOURCE-OFFLINE" },
-      { name: "Role competence", status: "PASS", detail: "Last confirmed competence remains in date", expiry: "12 Dec 2026", sourceRecord: "WW-TRN-1180" },
-      { name: "CSCS / identity", status: "PASS", detail: "Last confirmed identity record remains in date", expiry: "22 Sep 2027", sourceRecord: "WW-ID-0610" },
-      { name: "Permit to work", status: "UNKNOWN", detail: "Live permit state cannot be verified", sourceRecord: "WW-SOURCE-OFFLINE" },
-      { name: "Work restrictions", status: "UNKNOWN", detail: "Live restriction state cannot be verified", sourceRecord: "WW-SOURCE-OFFLINE" },
-    ],
-  },
-];
+const WORKERS_STORAGE_KEY = "nosmo-work-wallet-demo-workers-v1";
+const EVENTS_STORAGE_KEY = "nosmo-work-wallet-demo-events-v1";
 
 const gateStyles: Record<GateStatus | "OVERRIDE", string> = {
   READY: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300",
@@ -149,6 +56,15 @@ const requirementStyles: Record<RequirementStatus, string> = {
   WARNING: "text-amber-300 bg-amber-400/10 border-amber-400/25",
   FAIL: "text-red-300 bg-red-400/10 border-red-400/25",
   UNKNOWN: "text-slate-300 bg-slate-400/10 border-slate-400/25",
+};
+
+const eventLabels: Record<WorkWalletEventType, string> = {
+  AUDIT_COMPLETED: "Audit completed",
+  RISK_ASSESSMENT_COMPLETED: "Risk assessment completed",
+  ASSET_INSPECTION_COMPLETED: "Asset inspection completed",
+  INDUCTION_COMPLETED: "Induction completed",
+  PERMIT_RENEWED: "Permit renewed",
+  SOURCE_RESTORED: "Source restored",
 };
 
 function RequirementIcon({ status }: { status: RequirementStatus }) {
@@ -166,14 +82,50 @@ function GateIcon({ status }: { status: GateStatus | "OVERRIDE" }) {
   return <HelpCircle className="h-6 w-6" />;
 }
 
+function loadWorkers(): DemoWorker[] {
+  if (typeof window === "undefined") return initialWorkers;
+  try {
+    const raw = window.localStorage.getItem(WORKERS_STORAGE_KEY);
+    if (!raw) return initialWorkers;
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as DemoWorker[]) : initialWorkers;
+  } catch {
+    return initialWorkers;
+  }
+}
+
+function loadEvents(): IntegrationEvent[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(EVENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as IntegrationEvent[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function SafetyConnector() {
-  const [selectedId, setSelectedId] = useState(workers[0].id);
+  const [workers, setWorkers] = useState<DemoWorker[]>(loadWorkers);
+  const [events, setEvents] = useState<IntegrationEvent[]>(loadEvents);
+  const [selectedId, setSelectedId] = useState(workers[0]?.id ?? "p1");
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideApproved, setOverrideApproved] = useState(false);
   const [auditEntries, setAuditEntries] = useState<string[]>([]);
+  const [payloadText, setPayloadText] = useState(sampleWebhookPayload);
+  const [payloadResult, setPayloadResult] = useState<string>("");
 
-  const selected = workers.find((worker) => worker.id === selectedId) ?? workers[0];
+  useEffect(() => {
+    window.localStorage.setItem(WORKERS_STORAGE_KEY, JSON.stringify(workers));
+  }, [workers]);
+
+  useEffect(() => {
+    window.localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
+  }, [events]);
+
+  const selected = workers.find((worker) => worker.id === selectedId) ?? workers[0] ?? initialWorkers[0];
   const displayedGate: GateStatus | "OVERRIDE" = overrideApproved ? "OVERRIDE" : selected.gate;
   const canStart = displayedGate === "READY" || displayedGate === "WARNING" || displayedGate === "OVERRIDE";
 
@@ -185,7 +137,12 @@ export default function SafetyConnector() {
       blocked: workers.filter((worker) => worker.gate === "BLOCKED").length,
       unknown: workers.filter((worker) => worker.gate === "UNKNOWN").length,
     }),
-    [],
+    [workers],
+  );
+
+  const selectedEvents = useMemo(
+    () => events.filter((event) => !event.personId || event.personId === selected.id).slice(0, 6),
+    [events, selected.id],
   );
 
   function selectWorker(id: string) {
@@ -196,15 +153,61 @@ export default function SafetyConnector() {
     setAuditEntries([]);
   }
 
+  function receiveEvent(event: IntegrationEvent) {
+    if (events.some((existing) => existing.id === event.id)) {
+      setPayloadResult(`Duplicate event ignored: ${event.id}`);
+      return;
+    }
+
+    setEvents((current) => [event, ...current].slice(0, 50));
+    setWorkers((current) => applyIntegrationEvent(current, event));
+    if (event.personId) setSelectedId(event.personId);
+    setOverrideOpen(false);
+    setOverrideApproved(false);
+    setOverrideReason("");
+    setAuditEntries((current) => [
+      `${event.receivedAt} — ${eventLabels[event.eventType]} processed from ${event.sourceRecord}.`,
+      ...current,
+    ]);
+    setPayloadResult(`Processed ${event.eventType}: ${event.sourceRecord}`);
+  }
+
+  function runScenario(eventType: WorkWalletEventType) {
+    receiveEvent(createSimulatorEvent(eventType));
+  }
+
+  function processPayload() {
+    try {
+      const parsed = JSON.parse(payloadText) as unknown;
+      receiveEvent(normaliseWebhookPayload(parsed));
+    } catch (error) {
+      setPayloadResult(error instanceof Error ? `Rejected: ${error.message}` : "Rejected: invalid payload.");
+    }
+  }
+
   function approveOverride() {
     const reason = overrideReason.trim();
     if (reason.length < 8) return;
     setOverrideApproved(true);
     setOverrideOpen(false);
     setAuditEntries((entries) => [
-      `31 Jul 2026, 21:00 BST — Manager override approved by Demo Safety Manager. Reason: ${reason}`,
+      `${new Date().toLocaleString("en-GB")} — Manager override approved by Demo Safety Manager. Reason: ${reason}`,
       ...entries,
     ]);
+  }
+
+  function resetDemo() {
+    setWorkers(initialWorkers);
+    setEvents([]);
+    setSelectedId(initialWorkers[0].id);
+    setOverrideOpen(false);
+    setOverrideReason("");
+    setOverrideApproved(false);
+    setAuditEntries([]);
+    setPayloadText(sampleWebhookPayload);
+    setPayloadResult("Demo reset.");
+    window.localStorage.removeItem(WORKERS_STORAGE_KEY);
+    window.localStorage.removeItem(EVENTS_STORAGE_KEY);
   }
 
   const base = import.meta.env.BASE_URL;
@@ -220,21 +223,30 @@ export default function SafetyConnector() {
             <ShieldCheck className="h-7 w-7 text-cyan-300" /> Work Wallet Safety Connector
           </h1>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Nexus uses safety and compliance status at the point where a person starts controlled work. Work Wallet remains the formal source of record.
+            Nexus receives safety events, updates Person and Project Cards, creates operational actions and re-evaluates the DoorFlow start gate.
           </p>
         </div>
-        <Badge className="border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-amber-200 hover:bg-amber-400/10">
-          DEMO DATA — NO LIVE CONNECTION
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className="border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-amber-200 hover:bg-amber-400/10">
+            DEMO DATA — NO LIVE ACCOUNT
+          </Badge>
+          <button
+            type="button"
+            onClick={resetDemo}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-xs font-medium hover:border-primary/30"
+          >
+            <Trash2 className="h-4 w-4" /> Reset demo
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-100">
         <div className="flex items-start gap-3">
           <FileWarning className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
           <div>
-            <p className="font-semibold">Controlled demonstrator</p>
+            <p className="font-semibold">Controlled demonstrator with a real gateway contract</p>
             <p className="mt-1 text-cyan-100/70">
-              All people, records and decisions below are synthetic. No Work Wallet credentials or customer data are stored in this application.
+              The event simulator runs in this browser. A secured TypeScript webhook gateway is included in the repository but must be started on a server before Zapier can call it.
             </p>
           </div>
         </div>
@@ -269,9 +281,9 @@ export default function SafetyConnector() {
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> 5 workers evaluated</span>
-            <span className="flex items-center gap-1.5"><Clock3 className="h-4 w-4" /> Snapshot: 31 Jul 2026, 20:59 BST</span>
-            <span className="flex items-center gap-1.5"><ExternalLink className="h-4 w-4" /> Synthetic source tenant: WW-DEMO-01</span>
+            <span className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {workers.length} workers evaluated</span>
+            <span className="flex items-center gap-1.5"><Activity className="h-4 w-4" /> {events.length} integration events</span>
+            <span className="flex items-center gap-1.5"><ExternalLink className="h-4 w-4" /> Synthetic tenant: WW-DEMO-01</span>
           </div>
         </div>
 
@@ -300,6 +312,39 @@ export default function SafetyConnector() {
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              <PlayCircle className="h-4 w-4" /> Event Simulator
+            </p>
+            <h2 className="mt-2 text-xl font-semibold">Simulate events arriving from Work Wallet</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Events update compliance, create Nexus actions and are retained in the Integration Log.
+            </p>
+          </div>
+          <Badge variant="outline" className="border-primary/30 text-primary">Interactive Demo</Badge>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {simulatorScenarios.map((scenario) => (
+            <button
+              key={scenario.eventType}
+              type="button"
+              onClick={() => runScenario(scenario.eventType)}
+              className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/45 hover:bg-primary/5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold">{scenario.label}</span>
+                <Send className="h-4 w-4 text-primary" />
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{scenario.description}</p>
+              <p className="mt-3 text-[10px] font-semibold tracking-wide text-primary">{scenario.eventType}</p>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -424,11 +469,11 @@ export default function SafetyConnector() {
                 onClick={() => {
                   setOverrideApproved(false);
                   setOverrideReason("");
-                  setAuditEntries((entries) => ["31 Jul 2026, 21:01 BST — Demonstrator override cancelled.", ...entries]);
+                  setAuditEntries((entries) => [`${new Date().toLocaleString("en-GB")} — Demonstrator override cancelled.`, ...entries]);
                 }}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm font-medium hover:border-primary/30"
               >
-                <RotateCcw className="h-4 w-4" /> Cancel override
+                <RefreshCw className="h-4 w-4" /> Cancel override
               </button>
             )}
           </div>
@@ -459,7 +504,9 @@ export default function SafetyConnector() {
           )}
 
           <div className="rounded-xl border border-border bg-card p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Decision audit</p>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              <History className="h-4 w-4" /> Decision audit
+            </p>
             <div className="mt-3 space-y-2 text-xs text-muted-foreground">
               <p className="rounded-md bg-background/35 p-3">
                 {selected.lastChecked} — Gate evaluated for {selected.name}: {selected.gate}. Source snapshot retained.
@@ -467,9 +514,121 @@ export default function SafetyConnector() {
               {auditEntries.map((entry) => (
                 <p key={entry} className="rounded-md bg-background/35 p-3">{entry}</p>
               ))}
+              {selectedEvents.map((event) => (
+                <p key={`audit-${event.id}`} className="rounded-md bg-background/35 p-3">
+                  {event.receivedAt} — {event.title}. {event.actionCreated}
+                </p>
+              ))}
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                <Database className="h-4 w-4" /> Zapier Bridge
+              </p>
+              <h2 className="mt-2 text-xl font-semibold">Webhook contract</h2>
+            </div>
+            <Badge variant="outline" className="border-amber-400/30 text-amber-300">SERVER START REQUIRED</Badge>
+          </div>
+
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="rounded-lg border border-border bg-background/35 p-3">
+              <p className="text-xs text-muted-foreground">Endpoint</p>
+              <code className="mt-1 block break-all text-xs text-cyan-300">POST /api/integrations/work-wallet/events</code>
+            </div>
+            <div className="rounded-lg border border-border bg-background/35 p-3">
+              <p className="text-xs text-muted-foreground">Authentication</p>
+              <code className="mt-1 block break-all text-xs text-cyan-300">X-Nexus-Integration-Key: server secret</code>
+            </div>
+            <div className="rounded-lg border border-border bg-background/35 p-3">
+              <p className="text-xs text-muted-foreground">Run command</p>
+              <code className="mt-1 block break-all text-xs text-cyan-300">pnpm --filter @workspace/scripts work-wallet-gateway</code>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            The key is read only from the server environment variable <code>NEXUS_INTEGRATION_KEY</code>. It is not stored in the browser or repository.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                <FileJson className="h-4 w-4" /> Payload Tester
+              </p>
+              <h2 className="mt-2 text-xl font-semibold">Test the normalized webhook payload</h2>
+            </div>
+            <Badge variant="outline" className="border-primary/30 text-primary">Local Processing</Badge>
+          </div>
+
+          <textarea
+            value={payloadText}
+            onChange={(event) => setPayloadText(event.target.value)}
+            spellCheck={false}
+            className="mt-4 min-h-64 w-full rounded-lg border border-border bg-background/70 p-3 font-mono text-xs outline-none focus:border-primary/50"
+          />
+          <button
+            type="button"
+            onClick={processPayload}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground hover:opacity-90"
+          >
+            <Send className="h-4 w-4" /> Process test payload
+          </button>
+          {payloadResult && (
+            <p className="mt-3 rounded-md border border-border bg-background/35 p-3 text-xs text-muted-foreground">{payloadResult}</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              <Activity className="h-4 w-4" /> Integration Log
+            </p>
+            <h2 className="mt-2 text-xl font-semibold">Received events and Nexus actions</h2>
+          </div>
+          <Badge variant="outline" className="border-cyan-400/25 text-cyan-300">{events.length} EVENTS</Badge>
+        </div>
+
+        {events.length === 0 ? (
+          <div className="mt-5 rounded-xl border border-dashed border-border bg-background/25 p-8 text-center">
+            <Activity className="mx-auto h-7 w-7 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium">No events received yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">Run a simulator scenario or process the sample JSON payload.</p>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {events.map((event) => (
+              <div key={event.id} className="rounded-xl border border-border bg-background/35 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{event.title}</p>
+                      <Badge variant="outline" className="border-emerald-400/25 text-emerald-300">{event.status}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{event.detail}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{event.receivedAt}</p>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+                  <span>Type: {event.eventType}</span>
+                  <span>Source: {event.sourceRecord}</span>
+                  <span>Project: {event.projectId}</span>
+                </div>
+                <div className="mt-3 rounded-md border border-primary/15 bg-primary/5 p-3 text-xs text-primary">
+                  Nexus result: {event.actionCreated}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
