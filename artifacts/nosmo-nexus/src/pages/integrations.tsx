@@ -1,6 +1,23 @@
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Puzzle } from "lucide-react";
+import { DoorOpen, ExternalLink, Puzzle, Zap } from "lucide-react";
+
+const nativeModules = [
+  {
+    name: "DoorFlow",
+    description: "Plan-led door identification, door schedules, installation status and fire-door inspection workflows.",
+    href: `${import.meta.env.BASE_URL}plan-review`,
+    status: "Active Prototype",
+    icon: DoorOpen,
+  },
+  {
+    name: "Electrical Commissioning",
+    description: "An anonymised electrical project demo for cable tracking, apartment certificates, communal systems and snags.",
+    href: `${import.meta.env.BASE_URL}electrical-commissioning/`,
+    status: "Anonymised Prototype",
+    icon: Zap,
+  },
+];
 
 const integrations = [
   {
@@ -64,52 +81,99 @@ const categoryColor: Record<string, string> = {
 
 export default function Integrations() {
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Puzzle className="w-6 h-6 text-primary" /> Integrations
+          <Puzzle className="w-6 h-6 text-primary" /> Modules & Integrations
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">Connect NOSMO Nexus with your existing construction tools.</p>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Open native NOSMO prototypes and connect Nexus with existing construction tools.
+        </p>
       </div>
 
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
-        <Puzzle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+      <section className="space-y-4">
         <div>
-          <p className="text-sm font-medium text-primary">Integrations launching in V1</p>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            These connectors are built and scheduled for the V1 release. Priority access available for early teams.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Native NOSMO Modules</p>
+          <h2 className="text-xl font-semibold mt-1">Working prototypes</h2>
         </div>
-      </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {integrations.map((integration, i) => (
-          <motion.div
-            key={integration.name}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            data-testid={`integration-card-${integration.name.toLowerCase().replace(/\s+/g, "-")}`}
-            className="rounded-xl border border-border bg-card p-5 flex items-start gap-4 hover:border-primary/20 transition-colors"
-          >
-            <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 font-bold text-lg ${integration.iconBg}`}>
-              {integration.letter}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm">{integration.name}</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{integration.description}</p>
-              <div className="flex items-center gap-2 mt-3">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[integration.category]}`}>
-                  {integration.category}
-                </span>
-                <Badge variant="outline" className="text-xs text-muted-foreground border-border">
-                  Coming Soon
-                </Badge>
+        <div className="grid md:grid-cols-2 gap-4">
+          {nativeModules.map((module, index) => {
+            const Icon = module.icon;
+            return (
+              <motion.a
+                key={module.name}
+                href={module.href}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="group rounded-xl border border-primary/25 bg-primary/5 p-5 flex items-start gap-4 hover:border-primary/60 hover:bg-primary/10 transition-colors"
+                data-testid={`native-module-${module.name.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                <div className="w-11 h-11 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-semibold">NOSMO {module.name}</p>
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{module.description}</p>
+                  <Badge variant="outline" className="mt-3 text-xs border-primary/30 text-primary">
+                    {module.status}
+                  </Badge>
+                </div>
+              </motion.a>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">External Integrations</p>
+          <h2 className="text-xl font-semibold mt-1">Planned connectors</h2>
+        </div>
+
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
+          <Puzzle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-primary">Integrations planned for later releases</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              These cards describe intended connectors. They are not part of the current Spark prototype scope.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          {integrations.map((integration, i) => (
+            <motion.div
+              key={integration.name}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              data-testid={`integration-card-${integration.name.toLowerCase().replace(/\s+/g, "-")}`}
+              className="rounded-xl border border-border bg-card p-5 flex items-start gap-4 hover:border-primary/20 transition-colors"
+            >
+              <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 font-bold text-lg ${integration.iconBg}`}>
+                {integration.letter}
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm">{integration.name}</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{integration.description}</p>
+                <div className="flex items-center gap-2 mt-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[integration.category]}`}>
+                    {integration.category}
+                  </span>
+                  <Badge variant="outline" className="text-xs text-muted-foreground border-border">
+                    Coming Soon
+                  </Badge>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
