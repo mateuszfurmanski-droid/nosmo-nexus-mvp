@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08111f">
+  <title>NOSMO Electrical Commissioning</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --panel: #101d30;
+      --panel2: #162740;
+      --line: #29415e;
+      --text: #eaf5ff;
+      --muted: #91a5bc;
+      --cyan: #45d7ff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 100% 0, #12304c 0, transparent 38%),
+        var(--bg);
+    }
+    button { font: inherit; }
+    .home {
+      min-height: 100vh;
+      padding: 24px 18px;
+      display: grid;
+      place-items: center;
+    }
+    .wrap { width: min(900px, 100%); }
+    .brand { font-weight: 900; letter-spacing: .18em; font-size: 20px; }
+    .product {
+      color: var(--cyan);
+      margin-top: 4px;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 34px 0 8px; font-size: clamp(30px, 7vw, 54px); line-height: 1; }
+    .lead { color: var(--muted); line-height: 1.55; margin: 0 0 24px; max-width: 650px; }
+    .menu {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .tile {
+      min-height: 138px;
+      padding: 18px;
+      text-align: left;
+      color: var(--text);
+      background: linear-gradient(145deg, var(--panel), #0d192a);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      cursor: pointer;
+    }
+    .tile:hover, .tile:focus-visible {
+      border-color: var(--cyan);
+      outline: none;
+    }
+    .tile b { display: block; font-size: 18px; }
+    .tile span { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 7px; }
+    .tile strong { display: block; color: var(--cyan); font-size: 12px; margin-top: 16px; }
+    .viewer { display: none; height: 100vh; }
+    .viewer.open { display: flex; flex-direction: column; }
+    .viewer-bar {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      background: rgba(8, 17, 31, .96);
+      border-bottom: 1px solid var(--line);
+    }
+    .viewer-bar button {
+      border: 1px solid var(--line);
+      background: var(--panel2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+    .viewer-title { font-size: 13px; color: var(--muted); }
+    iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+    .privacy {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 18px;
+    }
+    @media (max-width: 640px) {
+      .menu { grid-template-columns: 1fr; }
+      .tile { min-height: 112px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="home" class="home">
+    <div class="wrap">
+      <div class="brand">NOSMO</div>
+      <div class="product">Electrical Commissioning</div>
+
+      <h1>Project Menu</h1>
+      <p class="lead">
+        Simple private start page for the existing electrical commissioning prototype.
+        The original functions remain unchanged and are bundled inside this private prototype.
+      </p>
+
+      <div class="menu">
+        <button class="tile" data-view="hub">
+          <b>Command Centre</b>
+          <span>Project overview, progress figures and main work areas.</span>
+          <strong>Open</strong>
+        </button>
+
+        <button class="tile" data-view="block">
+          <b>Block View</b>
+          <span>Building levels, apartments and visual progress status.</span>
+          <strong>Open</strong>
+        </button>
+
+        <button class="tile" data-view="sch">
+          <b>Schematic &amp; Cables</b>
+          <span>Distribution, cable installation, testing and energisation.</span>
+          <strong>Open</strong>
+        </button>
+
+        <button class="tile" data-view="cert">
+          <b>Apartment Certificates</b>
+          <span>Electrical test schedules, circuit data and apartment snags.</span>
+          <strong>Open</strong>
+        </button>
+
+        <button class="tile" data-view="communal">
+          <b>Communal Areas</b>
+          <span>Landlord, access, life-safety and shared electrical systems.</span>
+          <strong>Open</strong>
+        </button>
+      </div>
+
+      <div class="privacy">PRIVATE PROTOTYPE — contains project demonstration data.</div>
+    </div>
+  </section>
+
+  <section id="viewer" class="viewer">
+    <div class="viewer-bar">
+      <button id="back" type="button">← Menu</button>
+      <div id="viewerTitle" class="viewer-title">Electrical Commissioning</div>
+    </div>
+    <iframe id="appFrame" title="NOSMO Electrical Commissioning prototype"></iframe>
+  </section>
+
+  <script>
+
+    async function loadLegacy() {
+      const encoded = (await fetch("./legacy.html.gz.b64")).text();
+      const raw = atob((await encoded).trim());
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      if (!("DecompressionStream" in window)) throw new Error("gzip decompression unsupported");
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const html = await new Response(stream).text();
+      return URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    }
+
+    const names = {
+      hub: "Command Centre",
+      block: "Block View",
+      sch: "Schematic & Cables",
+      cert: "Apartment Certificates",
+      communal: "Communal Areas"
+    };
+
+    const home = document.getElementById("home");
+    const viewer = document.getElementById("viewer");
+    const frame = document.getElementById("appFrame");
+    const viewerTitle = document.getElementById("viewerTitle");
+
+    function openView(view) {
+      home.style.display = "none";
+      viewer.classList.add("open");
+      viewerTitle.textContent = names[view] || "Electrical Commissioning";
+
+      const activate = () => {
+        try {
+          if (typeof frame.contentWindow.go === "function") {
+            frame.contentWindow.go(view);
+          }
+        } catch (_) {}
+      };
+
+      if (!frame.src) {
+        frame.addEventListener("load", activate, { once: true });
+        loadLegacy().then((url) => { frame.src = url; }).catch(() => {
+          frame.srcdoc = "<div style='font-family:system-ui;padding:24px;color:white;background:#08111f;min-height:100vh'>Unable to open the prototype on this browser.</div>";
+        });
+      } else {
+        activate();
+      }
+    }
+
+    document.querySelectorAll("[data-view]").forEach(button => {
+      button.addEventListener("click", () => openView(button.dataset.view));
+    });
+
+    document.getElementById("back").addEventListener("click", () => {
+      viewer.classList.remove("open");
+      home.style.display = "grid";
+    });
+  </script>
+</body>
+</html>
