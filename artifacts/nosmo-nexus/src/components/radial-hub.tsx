@@ -2,17 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  X, FolderKanban, Users, UserPlus, CheckSquare, Layers, Sparkles, Puzzle,
-  Zap, Pause, Compass, Archive, ArrowLeft,
+  X,
+  FolderKanban,
+  Users,
+  BriefcaseBusiness,
+  CheckSquare,
+  Layers,
+  Sparkles,
+  Puzzle,
+  Zap,
+  Pause,
+  Compass,
+  Archive,
+  ArrowLeft,
 } from "lucide-react";
 
 /**
- * RadialHub — the graphical, expandable "Sims-style" workspace menu.
+ * RadialHub — the graphical, expandable workspace menu.
  *
- * Geometry is fully data-driven (see `radialPosition` + the node config arrays),
- * so Phase 2 can add deeper nested rings purely by adding child configs —
- * no layout refactor required. The Projects node already demonstrates this by
- * expanding into a second ring of status circles.
+ * Geometry is fully data-driven, so further profession and project rings can
+ * be introduced without changing the core interaction model.
  */
 
 type Tint = { text: string; glow: string; from: string; dot: string };
@@ -28,7 +37,6 @@ type HubNode = {
   expand?: "projects";
 };
 
-// Literal class strings (kept whole so Tailwind's scanner emits them).
 const TINTS = {
   cyan: { text: "text-primary", glow: "shadow-[0_0_30px_rgba(0,255,255,0.25)]", from: "from-primary/25", dot: "bg-primary" },
   violet: { text: "text-purple-300", glow: "shadow-[0_0_30px_rgba(192,132,252,0.28)]", from: "from-purple-500/25", dot: "bg-purple-400" },
@@ -40,12 +48,12 @@ const TINTS = {
 
 const HUB_NODES: HubNode[] = [
   { key: "projects", label: "Projects", hint: "Grouped by status", icon: FolderKanban, tint: TINTS.cyan, kind: "expand", expand: "projects" },
+  { key: "trades", label: "Trades", hint: "Professions & tools", icon: BriefcaseBusiness, tint: TINTS.pink, kind: "route", to: "/trades" },
   { key: "people", label: "People", hint: "Cards & contacts", icon: Users, tint: TINTS.violet, kind: "route", to: "/people" },
-  { key: "card-maker", label: "Card Maker", hint: "AI prefill", icon: UserPlus, tint: TINTS.pink, kind: "route", to: "/card-maker" },
   { key: "tasks", label: "Tasks", hint: "Kanban board", icon: CheckSquare, tint: TINTS.green, kind: "route", to: "/tasks" },
   { key: "plans", label: "Plans", hint: "Drawings & PDFs", icon: Layers, tint: TINTS.blue, kind: "route", to: "/plans" },
   { key: "ask", label: "Ask Nexus", hint: "AI assistant", icon: Sparkles, tint: TINTS.cyan, kind: "ask" },
-  { key: "integrations", label: "Integrations", hint: "Connectors", icon: Puzzle, tint: TINTS.amber, kind: "route", to: "/integrations" },
+  { key: "integrations", label: "Integrations", hint: "Shared connectors", icon: Puzzle, tint: TINTS.amber, kind: "route", to: "/integrations" },
 ];
 
 const PROJECT_NODES: HubNode[] = [
@@ -66,7 +74,7 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
     container.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     ),
-  ).filter(el => el.offsetParent !== null);
+  ).filter((el) => el.offsetParent !== null);
 }
 
 export function RadialHub({
@@ -125,10 +133,10 @@ export function RadialHub({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
-        setRing(r => {
-          if (r === "projects") return "main";
+        setRing((currentRing) => {
+          if (currentRing === "projects") return "main";
           onOpenChange(false);
-          return r;
+          return currentRing;
         });
         return;
       }
@@ -189,37 +197,33 @@ export function RadialHub({
           transition={{ duration: 0.2 }}
           role="dialog"
           aria-modal="true"
-          aria-label="NOSMO workspace hub"
+          aria-label="NOSMO workspace menu"
           data-testid="radial-hub"
         >
+          <div className="absolute inset-0 bg-background/85 backdrop-blur-xl" onClick={() => onOpenChange(false)} />
           <div
-            className="absolute inset-0 bg-background/85 backdrop-blur-xl"
-            onClick={() => onOpenChange(false)}
-          />
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.08]"
+            className="pointer-events-none absolute inset-0 opacity-[0.08]"
             style={{ backgroundImage: "radial-gradient(circle at 50% 50%, var(--primary, #22d3ee) 0, transparent 55%)" }}
           />
 
-          <div className="absolute top-0 inset-x-0 h-16 flex items-center justify-between px-5 md:px-8 z-10">
+          <div className="absolute inset-x-0 top-0 z-10 flex h-16 items-center justify-between px-5 md:px-8">
             <div className="flex items-center gap-2 text-sm">
               <span className="font-semibold tracking-tight text-foreground">NOSMO Nexus™</span>
-              <span className="text-muted-foreground hidden sm:inline">· Workspace Hub</span>
+              <span className="hidden text-muted-foreground sm:inline">· Workspace Menu</span>
             </div>
             <button
               onClick={() => onOpenChange(false)}
-              aria-label="Close hub"
+              aria-label="Close menu"
               data-testid="button-close-hub"
-              className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Radial stage — a 1px anchor point centred on screen. */}
           <div className="relative z-[1]" style={{ width: 1, height: 1 }}>
             <motion.div
-              key={ring + "-orbit"}
+              key={`${ring}-orbit`}
               className="absolute rounded-full border border-dashed border-primary/15"
               style={{ width: geo.radius * 2, height: geo.radius * 2, left: -geo.radius, top: -geo.radius }}
               initial={{ opacity: 0, scale: 0.85, rotate: -15 }}
@@ -227,16 +231,16 @@ export function RadialHub({
               transition={{ type: "spring", stiffness: 120, damping: 18 }}
             />
 
-            {nodes.map((n, i) => {
-              const { deg } = radialPosition(i, nodes.length, geo.radius);
+            {nodes.map((node, index) => {
+              const { deg } = radialPosition(index, nodes.length, geo.radius);
               return (
                 <motion.div
-                  key={ring + "-" + n.key + "-line"}
+                  key={`${ring}-${node.key}-line`}
                   className="absolute h-px origin-left bg-gradient-to-r from-primary/0 via-primary/25 to-primary/0"
                   style={{ width: geo.radius, left: 0, top: 0, rotate: `${deg}deg` }}
                   initial={{ opacity: 0, scaleX: 0 }}
                   animate={{ opacity: 1, scaleX: 1 }}
-                  transition={{ delay: 0.05 + i * 0.04, duration: 0.3 }}
+                  transition={{ delay: 0.05 + index * 0.04, duration: 0.3 }}
                 />
               );
             })}
@@ -244,9 +248,9 @@ export function RadialHub({
             <motion.button
               type="button"
               onClick={() => (ring === "projects" ? setRing("main") : onOpenChange(false))}
-              aria-label={ring === "projects" ? "Back to hub" : "Close hub"}
+              aria-label={ring === "projects" ? "Back to menu" : "Close menu"}
               data-testid="button-hub-core"
-              className="absolute flex flex-col items-center justify-center rounded-full bg-card border border-primary/30 text-center shadow-[0_0_40px_rgba(0,255,255,0.18)]"
+              className="absolute flex flex-col items-center justify-center rounded-full border border-primary/30 bg-card text-center shadow-[0_0_40px_rgba(0,255,255,0.18)]"
               style={{ width: NODE + 8, height: NODE + 8, left: -(NODE + 8) / 2, top: -(NODE + 8) / 2 }}
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -260,28 +264,28 @@ export function RadialHub({
                 transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
               />
               {ring === "projects" ? (
-                <ArrowLeft className="w-5 h-5 text-primary relative z-10" />
+                <ArrowLeft className="relative z-10 h-5 w-5 text-primary" />
               ) : (
-                <span className="text-primary font-extrabold text-xl relative z-10">N</span>
+                <span className="relative z-10 text-xl font-extrabold text-primary">N</span>
               )}
-              <span className="text-[10px] text-muted-foreground mt-0.5 relative z-10">
+              <span className="relative z-10 mt-0.5 text-[10px] text-muted-foreground">
                 {ring === "projects" ? "Back" : "Nexus"}
               </span>
             </motion.button>
 
             <AnimatePresence>
-              {nodes.map((node, i) => {
-                const { x, y } = radialPosition(i, nodes.length, geo.radius);
+              {nodes.map((node, index) => {
+                const { x, y } = radialPosition(index, nodes.length, geo.radius);
                 const Icon = node.icon;
                 return (
                   <motion.div
-                    key={ring + "-" + node.key}
+                    key={`${ring}-${node.key}`}
                     className="absolute"
                     style={{ left: 0, top: 0, marginLeft: -NODE / 2, marginTop: -NODE / 2 }}
                     initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
                     animate={{ x, y, scale: 1, opacity: 1 }}
                     exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 160, damping: 18, delay: 0.04 * i }}
+                    transition={{ type: "spring", stiffness: 160, damping: 18, delay: 0.04 * index }}
                   >
                     <motion.button
                       type="button"
@@ -293,14 +297,14 @@ export function RadialHub({
                       whileTap={{ scale: 0.94 }}
                     >
                       <span
-                        className={`relative flex items-center justify-center rounded-full bg-card border border-border transition-colors group-hover:border-primary/50 ${node.tint.glow}`}
+                        className={`relative flex items-center justify-center rounded-full border border-border bg-card transition-colors group-hover:border-primary/50 ${node.tint.glow}`}
                         style={{ width: NODE, height: NODE }}
                       >
                         <span className={`absolute inset-0 rounded-full bg-gradient-to-b ${node.tint.from} to-transparent opacity-70`} />
                         <Icon className={`relative z-10 ${node.tint.text}`} style={{ width: NODE * 0.36, height: NODE * 0.36 }} />
                       </span>
-                      <span className="mt-2 text-xs font-semibold text-foreground whitespace-nowrap">{node.label}</span>
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:block">{node.hint}</span>
+                      <span className="mt-2 whitespace-nowrap text-xs font-semibold text-foreground">{node.label}</span>
+                      <span className="hidden whitespace-nowrap text-[10px] text-muted-foreground sm:block">{node.hint}</span>
                     </motion.button>
                   </motion.div>
                 );
@@ -308,8 +312,8 @@ export function RadialHub({
             </AnimatePresence>
           </div>
 
-          <div className="absolute bottom-5 inset-x-0 text-center text-[11px] text-muted-foreground z-10">
-            {ring === "projects" ? "Pick a status group · Esc to go back" : "Tap a node to jump in · Esc to close"}
+          <div className="absolute inset-x-0 bottom-5 z-10 text-center text-[11px] text-muted-foreground">
+            {ring === "projects" ? "Pick a status group · Esc to go back" : "Tap a node to open · Esc to close"}
           </div>
         </motion.div>
       )}
