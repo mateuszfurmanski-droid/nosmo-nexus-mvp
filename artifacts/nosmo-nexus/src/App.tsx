@@ -25,6 +25,7 @@ import CardMaker from "@/pages/card-maker";
 import Plans from "@/pages/plans";
 import Integrations from "@/pages/integrations";
 import SafetyConnector from "@/pages/safety-connector";
+import Trades from "@/pages/trades";
 
 function WorkspaceRoute() {
   return (
@@ -45,7 +46,7 @@ function Router() {
     <Switch>
       {/* Connected overview — the primary Nexus entry point */}
       <Route path="/" component={SystemMap} />
-      {/* Complete module catalogue retained as a secondary launchpad */}
+      {/* Complete technical catalogue retained as a secondary launchpad */}
       <Route path="/modules" component={NexusLaunchpad} />
       {/* Existing person-centred workspace retained as a separate full-screen module */}
       <Route path="/workspace" component={WorkspaceRoute} />
@@ -63,15 +64,16 @@ function AppLayoutRoutes() {
     <>
       <AppLayout>
         <Switch>
+          <Route path="/projects" component={Projects} />
+          <Route path="/projects/:id" component={ProjectDetail} />
+          <Route path="/trades" component={Trades} />
           <Route path="/people" component={People} />
           <Route path="/people/:id" component={PersonDetail} />
-          <Route path="/projects" component={Projects} />
           <Route path="/card-maker" component={CardMaker} />
-          <Route path="/projects/:id" component={ProjectDetail} />
-          <Route path="/knowledge" component={Knowledge} />
           <Route path="/tasks" component={Tasks} />
-          <Route path="/timeline" component={Timeline} />
           <Route path="/plans" component={Plans} />
+          <Route path="/knowledge" component={Knowledge} />
+          <Route path="/timeline" component={Timeline} />
           <Route path="/integrations" component={Integrations} />
           <Route path="/safety-connector" component={SafetyConnector} />
           <Route path="/settings" component={Settings} />
