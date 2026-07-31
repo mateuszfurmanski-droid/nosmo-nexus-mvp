@@ -104,8 +104,8 @@
 
       <h1>Project Menu</h1>
       <p class="lead">
-        Simple private start page for the existing electrical commissioning prototype.
-        The original functions remain unchanged and are bundled inside this private prototype.
+        Simple start page for the anonymised electrical commissioning demonstration.
+        All company, project, personnel and inspection data shown here is synthetic.
       </p>
 
       <div class="menu">
@@ -140,7 +140,7 @@
         </button>
       </div>
 
-      <div class="privacy">PRIVATE PROTOTYPE — contains project demonstration data.</div>
+      <div class="privacy">ANONYMISED DEMO — synthetic project and commissioning data.</div>
     </div>
   </section>
 
@@ -200,7 +200,7 @@
       if (!frame.src) {
         frame.addEventListener("load", activate, { once: true });
         loadLegacy().then((url) => { frame.src = url; }).catch(() => {
-          frame.srcdoc = "<div style='font-family:system-ui;padding:24px;color:white;background:#08111f;min-height:100vh'>Unable to open the prototype on this browser.</div>";
+          frame.srcdoc = "<div style='font-family:system-ui;padding:24px;color:white;background:#08111f;min-height:100vh'>Unable to open the anonymised demo on this browser.</div>";
         });
       } else {
         activate();
