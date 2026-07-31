@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NOSMO Nexus — Person Card Communication Hub Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071014;
+      --panel: rgba(14, 29, 35, 0.82);
+      --panel-strong: rgba(18, 38, 45, 0.96);
+      --line: rgba(147, 184, 196, 0.22);
+      --line-strong: rgba(147, 184, 196, 0.42);
+      --text: #edf6f7;
+      --muted: #9eb2b8;
+      --accent: #76e0be;
+      --accent-soft: rgba(118, 224, 190, 0.13);
+      --warning: #f8cf74;
+      --danger: #ff8b8b;
+      --radius: 18px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(47, 126, 115, 0.22), transparent 32%),
+        radial-gradient(circle at 88% 18%, rgba(45, 83, 116, 0.24), transparent 34%),
+        linear-gradient(160deg, #061014, #0a171c 55%, #071014);
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    button, a.action {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(18px, 2.4vw, 24px);
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status-badge {
+      border: 1px solid rgba(248, 207, 116, 0.38);
+      background: rgba(248, 207, 116, 0.1);
+      color: var(--warning);
+      padding: 8px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .notice {
+      margin-bottom: 18px;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .notice strong { color: var(--text); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .panel-header p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .panel-body { padding: 18px; }
+
+    .person {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 19px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, rgba(118, 224, 190, 0.25), rgba(67, 114, 135, 0.2));
+      border: 1px solid rgba(118, 224, 190, 0.28);
+      font-size: 21px;
+      font-weight: 800;
+    }
+
+    .person h3 { margin: 0; font-size: 20px; }
+    .person p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.025);
+      font-size: 11px;
+    }
+
+    .chip.available {
+      color: var(--accent);
+      border-color: rgba(118, 224, 190, 0.3);
+      background: var(--accent-soft);
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 18px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(147, 184, 196, 0.12);
+      font-size: 13px;
+    }
+
+    .summary-row span:first-child { color: var(--muted); }
+    .summary-row strong { text-align: right; }
+
+    .privacy-control {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 13px;
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .privacy-control span { font-size: 13px; }
+    .privacy-control small { display: block; color: var(--muted); margin-top: 3px; }
+
+    .switch {
+      position: relative;
+      width: 46px;
+      height: 26px;
+      flex: 0 0 auto;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: #29393f;
+      transition: 0.18s ease;
+    }
+
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: #d9e5e7;
+      transition: 0.18s ease;
+    }
+
+    .switch input:checked + .slider { background: rgba(118, 224, 190, 0.55); }
+    .switch input:checked + .slider::before { transform: translateX(20px); background: white; }
+
+    .channels {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .channel {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 66px;
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+      color: var(--text);
+      text-align: left;
+      transition: 0.16s ease;
+    }
+
+    .channel:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(118, 224, 190, 0.45);
+      background: var(--accent-soft);
+    }
+
+    .channel:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+
+    .channel-icon {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.055);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .channel strong { display: block; font-size: 13px; }
+    .channel small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    label.field {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.035em;
+      text-transform: uppercase;
+    }
+
+    label.field.full { grid-column: 1 / -1; }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(3, 10, 13, 0.58);
+      color: var(--text);
+      padding: 11px 12px;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+      text-transform: none;
+      letter-spacing: normal;
+      font-weight: 500;
+    }
+
+    textarea { resize: vertical; min-height: 78px; }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(118, 224, 190, 0.58);
+      box-shadow: 0 0 0 3px rgba(118, 224, 190, 0.09);
+    }
+
+    .preview {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(3, 10, 13, 0.48);
+    }
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .preview-header strong { font-size: 13px; }
+    .preview-header span { color: var(--warning); font-size: 10px; font-weight: 800; }
+
+    .preview textarea {
+      min-height: 170px;
+      line-height: 1.48;
+      color: #d8e5e7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .primary, .secondary, .danger-button {
+      min-height: 43px;
+      padding: 0 15px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #092019;
+    }
+
+    .secondary {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--text);
+    }
+
+    .danger-button {
+      border: 1px solid rgba(255, 139, 139, 0.26);
+      background: rgba(255, 139, 139, 0.07);
+      color: var(--danger);
+    }
+
+    .integrity-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .timeline-panel { margin-top: 18px; }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    .event {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(147, 184, 196, 0.12);
+    }
+
+    .event-dot {
+      width: 8px;
+      height: 8px;
+      margin-top: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(118, 224, 190, 0.08);
+    }
+
+    .event strong { display: block; font-size: 12px; }
+    .event p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .event time { color: var(--muted); font-size: 10px; white-space: nowrap; }
+
+    .empty {
+      color: var(--muted);
+      padding: 15px 0;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: min(380px, calc(100% - 36px));
+      padding: 13px 15px;
+      border: 1px solid var(--line-strong);
+      border-radius: 13px;
+      background: var(--panel-strong);
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: 0.18s ease;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: min(100% - 18px, 1180px); padding-top: 14px; }
+      .topbar { display: grid; }
+      .status-badge { justify-self: start; }
+      .channels, .form-grid { grid-template-columns: 1fr; }
+      .panel-header, .panel-body { padding-left: 14px; padding-right: 14px; }
+      .summary-row { align-items: flex-start; }
+      .actions > button { flex: 1 1 100%; }
+      .event { grid-template-columns: 10px 1fr; }
+      .event time { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">N</div>
+        <div>
+          <h1>NOSMO Nexus — Communication Hub</h1>
+          <p>Standalone Person Card module aligned with ADDON_052</p>
+        </div>
+      </div>
+      <div class="status-badge">DEMO / SYNTHETIC DATA</div>
+    </header>
+
+    <section class="notice">
+      <strong>Integrity boundary:</strong> this demo launches external communication apps and records <code>ACTION_OPENED</code> locally. It does not claim that a message was sent, delivered or read.
+    </section>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="person-card-heading">
+        <div class="panel-header">
+          <div>
+            <h2 id="person-card-heading">Person Card</h2>
+            <p>Authorised contact endpoints and communication preferences.</p>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="person">
+            <div class="avatar" aria-hidden="true">AM</div>
+            <div>
+              <h3>Alex Morgan</h3>
+              <p>Site Supervisor · Northstar Build Ltd</p>
+              <div class="chips">
+                <span class="chip available">On site · available</span>
+                <span class="chip">Synthetic profile</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="summary-list">
+            <div class="summary-row"><span>Normal contact</span><strong>WhatsApp</strong></div>
+            <div class="summary-row"><span>Urgent contact</span><strong>Phone call</strong></div>
+            <div class="summary-row"><span>Documents</span><strong>Work email</strong></div>
+            <div class="summary-row"><span>Next status review</span><strong>Today, 17:30</strong></div>
+          </div>
+
+          <div class="privacy-control">
+            <div>
+              <span>Show private mobile endpoint</span>
+              <small>Demo of permission-controlled visibility.</small>
+            </div>
+            <label class="switch" aria-label="Show private mobile endpoint">
+              <input id="privateToggle" type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="channels" id="channels">
+            <button class="channel" data-channel="call" type="button">
+              <span class="channel-icon">TEL</span>
+              <span><strong>Call</strong><small data-phone-label>Work: +44 7700 900321</small></span>
+            </button>
+
+            <button class="channel" data-channel="sms" type="button">
+              <span class="channel-icon">SMS</span>
+              <span><strong>SMS</strong><small data-phone-label>Work: +44 7700 900321</small></span>
+            </button>
+
+            <button class="channel" data-channel="whatsapp" type="button">
+              <span class="channel-icon">WA</span>
+              <span><strong>WhatsApp</strong><small>Preferred normal channel</small></span>
+            </button>
+
+            <button class="channel" data-channel="email" type="button">
+              <span class="channel-icon">MAIL</span>
+              <span><strong>Email</strong><small>alex.morgan@example.test</small></span>
+            </button>
+
+            <button class="channel" data-channel="teams" type="button">
+              <span class="channel-icon">TM</span>
+              <span><strong>Teams</strong><small>Open external chat composer</small></span>
+            </button>
+
+            <button class="channel" type="button" disabled>
+              <span class="channel-icon">SL</span>
+              <span><strong>Slack</strong><small>No authorised endpoint</small></span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="context-heading">
+        <div class="panel-header">
+          <div>
+            <h2 id="context-heading">Contact in context</h2>
+            <p>Generate an editable Context Packet from a Task Card, Door Card or other Nexus Object.</p>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="field">
+              Project
+              <input id="project" value="Halifax Pilot Demo" />
+            </label>
+
+            <label class="field">
+              Project ID
+              <input id="projectId" value="PRJ-HFX-001" />
+            </label>
+
+            <label class="field">
+              Object type
+              <select id="objectType">
+                <option>Door Card</option>
+                <option>Task Card</option>
+                <option>Issue Card</option>
+                <option>Room Card</option>
+                <option>Document Card</option>
+              </select>
+            </label>
+
+            <label class="field">
+              Object ID
+              <input id="objectId" value="ID.0.5.27" />
+            </label>
+
+            <label class="field full">
+              Issue or title
+              <input id="issue" value="Door closer confirmation required" />
+            </label>
+
+            <label class="field">
+              Location
+              <input id="location" value="Level 0 · Corridor 5" />
+            </label>
+
+            <label class="field">
+              Priority
+              <select id="priority">
+                <option>Normal</option>
+                <option selected>High</option>
+                <option>Urgent</option>
+              </select>
+            </label>
+
+            <label class="field full">
+              Requested action
+              <textarea id="requestedAction">Please confirm whether the specified closer is available and provide an expected installation time.</textarea>
+            </label>
+
+            <label class="field full">
+              Secure Nexus link
+              <input id="secureLink" value="https://nexus.example.test/o/door/ID.0.5.27" />
+            </label>
+
+            <label class="field full">
+              Selected channel
+              <select id="selectedChannel">
+                <option value="whatsapp" selected>WhatsApp</option>
+                <option value="call">Phone call</option>
+                <option value="sms">SMS</option>
+                <option value="email">Email</option>
+                <option value="teams">Microsoft Teams</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="preview">
+            <div class="preview-header">
+              <strong>Editable message preview</strong>
+              <span>NOT YET SENT</span>
+            </div>
+            <textarea id="messagePreview" aria-label="Editable message preview"></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="openChannel" type="button">Open selected channel</button>
+            <button class="secondary" id="regenerate" type="button">Regenerate context</button>
+            <button class="secondary" id="copyMessage" type="button">Copy message</button>
+          </div>
+
+          <div class="integrity-note">
+            Opening an external application writes an <strong>ACTION_OPENED</strong> event only. A production connector may later write SENT, DELIVERED or REPLIED events when the external system provides verified evidence.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel timeline-panel" aria-labelledby="timeline-heading">
+      <div class="panel-header">
+        <div>
+          <h2 id="timeline-heading">Communication timeline</h2>
+          <p>Local demo events stored in this browser only.</p>
+        </div>
+        <button class="danger-button" id="clearTimeline" type="button">Clear demo events</button>
+      </div>
+      <div class="panel-body">
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "nosmo.communicationHub.demo.events.v1";
+      const person = {
+        id: "PERSON-DEMO-001",
+        name: "Alex Morgan",
+        workPhone: "+447700900321",
+        privatePhone: "+447700900654",
+        workEmail: "alex.morgan@example.test",
+        teamsEmail: "alex.morgan@example.test"
+      };
+
+      const elements = {
+        privateToggle: document.getElementById("privateToggle"),
+        phoneLabels: document.querySelectorAll("[data-phone-label]"),
+        selectedChannel: document.getElementById("selectedChannel"),
+        messagePreview: document.getElementById("messagePreview"),
+        timeline: document.getElementById("timeline"),
+        toast: document.getElementById("toast"),
+        fields: {
+          project: document.getElementById("project"),
+          projectId: document.getElementById("projectId"),
+          objectType: document.getElementById("objectType"),
+          objectId: document.getElementById("objectId"),
+          issue: document.getElementById("issue"),
+          location: document.getElementById("location"),
+          priority: document.getElementById("priority"),
+          requestedAction: document.getElementById("requestedAction"),
+          secureLink: document.getElementById("secureLink")
+        }
+      };
+
+      function currentPhone() {
+        return elements.privateToggle.checked ? person.privatePhone : person.workPhone;
+      }
+
+      function visiblePhoneLabel() {
+        return elements.privateToggle.checked
+          ? `Private: ${person.privatePhone.replace("+44", "+44 ")}`
+          : `Work: ${person.workPhone.replace("+44", "+44 ")}`;
+      }
+
+      function getContext() {
+        const context = {};
+        Object.entries(elements.fields).forEach(([key, node]) => {
+          context[key] = node.value.trim();
+        });
+        return context;
+      }
+
+      function buildMessage() {
+        const c = getContext();
+        const parts = [
+          `NOSMO Nexus contact request`,
+          `Project: ${c.project} (${c.projectId})`,
+          `${c.objectType}: ${c.objectId}`,
+          `Issue: ${c.issue}`,
+          `Location: ${c.location}`,
+          `Priority: ${c.priority}`,
+          `Requested action: ${c.requestedAction}`
+        ];
+
+        if (c.secureLink) parts.push(`Nexus link: ${c.secureLink}`);
+        return parts.join("\n");
+      }
+
+      function regenerateMessage() {
+        elements.messagePreview.value = buildMessage();
+      }
+
+      function buildUrl(channel, message) {
+        const phone = currentPhone().replace(/[^+\d]/g, "");
+        const encodedMessage = encodeURIComponent(message);
+        const c = getContext();
+        const subject = encodeURIComponent(`[${c.projectId}] ${c.objectType} ${c.objectId} — ${c.issue}`);
+
+        switch (channel) {
+          case "call":
+            return `tel:${phone}`;
+          case "sms":
+            return `sms:${phone}?body=${encodedMessage}`;
+          case "whatsapp":
+            return `https://wa.me/${phone.replace("+", "")}?text=${encodedMessage}`;
+          case "email":
+            return `mailto:${person.workEmail}?subject=${subject}&body=${encodedMessage}`;
+          case "teams":
+            return `https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(person.teamsEmail)}&message=${encodedMessage}`;
+          default:
+            throw new Error(`Unsupported channel: ${channel}`);
+        }
+      }
+
+      function loadEvents() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveEvents(events) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events.slice(0, 30)));
+      }
+
+      function addEvent(channel, source = "Context Packet") {
+        const c = getContext();
+        const events = loadEvents();
+        events.unshift({
+          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          type: "ACTION_OPENED",
+          createdAt: new Date().toISOString(),
+          channel,
+          personId: person.id,
+          personName: person.name,
+          source,
+          projectId: c.projectId,
+          objectType: c.objectType,
+          objectId: c.objectId
+        });
+        saveEvents(events);
+        renderTimeline();
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function renderTimeline() {
+        const events = loadEvents();
+        if (!events.length) {
+          elements.timeline.innerHTML = '<div class="empty">No communication actions opened yet.</div>';
+          return;
+        }
+
+        elements.timeline.innerHTML = events.map((event) => {
+          const date = new Date(event.createdAt);
+          const channel = event.channel.charAt(0).toUpperCase() + event.channel.slice(1);
+          return `
+            <article class="event">
+              <span class="event-dot" aria-hidden="true"></span>
+              <div>
+                <strong>${escapeHtml(event.type)} · ${escapeHtml(channel)}</strong>
+                <p>${escapeHtml(event.personName)} · ${escapeHtml(event.projectId)} · ${escapeHtml(event.objectType)} ${escapeHtml(event.objectId)}. External channel opened; send status remains unverified.</p>
+              </div>
+              <time datetime="${escapeHtml(event.createdAt)}">${date.toLocaleString()}</time>
+            </article>`;
+        }).join("");
+      }
+
+      let toastTimer;
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        elements.toast.textContent = message;
+        elements.toast.classList.add("show");
+        toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2600);
+      }
+
+      function openChannel(channel, source) {
+        const message = elements.messagePreview.value.trim() || buildMessage();
+        let url;
+        try {
+          url = buildUrl(channel, message);
+        } catch (error) {
+          showToast(error.message);
+          return;
+        }
+
+        addEvent(channel, source);
+        showToast(`${channel.toUpperCase()} opened. Recorded as ACTION_OPENED, not SENT.`);
+        window.location.href = url;
+      }
+
+      elements.privateToggle.addEventListener("change", () => {
+        elements.phoneLabels.forEach((label) => { label.textContent = visiblePhoneLabel(); });
+        showToast(elements.privateToggle.checked
+          ? "Private endpoint visible for this demo session."
+          : "Private endpoint hidden. Work endpoint active.");
+      });
+
+      document.querySelectorAll("[data-channel]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const channel = button.dataset.channel;
+          elements.selectedChannel.value = channel;
+          regenerateMessage();
+          openChannel(channel, "Person Card quick action");
+        });
+      });
+
+      document.getElementById("openChannel").addEventListener("click", () => {
+        openChannel(elements.selectedChannel.value, "Context Packet");
+      });
+
+      document.getElementById("regenerate").addEventListener("click", () => {
+        regenerateMessage();
+        showToast("Context message regenerated from the current fields.");
+      });
+
+      document.getElementById("copyMessage").addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(elements.messagePreview.value);
+          showToast("Message copied. No communication event was recorded.");
+        } catch {
+          elements.messagePreview.select();
+          document.execCommand("copy");
+          showToast("Message copied using browser fallback.");
+        }
+      });
+
+      document.getElementById("clearTimeline").addEventListener("click", () => {
+        localStorage.removeItem(STORAGE_KEY);
+        renderTimeline();
+        showToast("Local demo timeline cleared.");
+      });
+
+      Object.values(elements.fields).forEach((field) => {
+        field.addEventListener("change", regenerateMessage);
+      });
+
+      regenerateMessage();
+      renderTimeline();
+    })();
+  </script>
+</body>
+</html>
