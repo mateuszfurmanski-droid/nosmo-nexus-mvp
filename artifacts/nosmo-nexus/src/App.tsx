@@ -33,7 +33,7 @@ function WorkspaceRoute() {
         href={import.meta.env.BASE_URL}
         className="fixed left-3 top-3 z-50 rounded-full border border-primary/30 bg-background/85 px-3 py-2 text-xs font-semibold text-primary shadow-lg backdrop-blur transition-colors hover:bg-primary/10 md:left-5 md:top-5"
       >
-        ← Module launchpad
+        ← System map
       </a>
       <InteractiveWorkspace />
     </div>
@@ -43,10 +43,10 @@ function WorkspaceRoute() {
 function Router() {
   return (
     <Switch>
-      {/* Full-screen module launchpad — the primary Nexus entry point */}
-      <Route path="/" component={NexusLaunchpad} />
-      {/* Connected overview of the complete current system */}
-      <Route path="/system-map" component={SystemMap} />
+      {/* Connected overview — the primary Nexus entry point */}
+      <Route path="/" component={SystemMap} />
+      {/* Complete module catalogue retained as a secondary launchpad */}
+      <Route path="/modules" component={NexusLaunchpad} />
       {/* Existing person-centred workspace retained as a separate full-screen module */}
       <Route path="/workspace" component={WorkspaceRoute} />
       {/* Full-screen plan-review workflow — no app chrome */}
