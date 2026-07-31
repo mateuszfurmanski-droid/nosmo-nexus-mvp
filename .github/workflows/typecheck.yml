@@ -41,9 +41,10 @@ jobs:
           BASE_PATH: /
         run: pnpm --filter @workspace/nosmo-nexus build
 
-      - name: Smoke test production server and routes
+      - name: Smoke test production server, routes and Work Wallet API
         env:
           PORT: 3000
+          WORK_WALLET_DEMO_MODE: "true"
         run: |
           pnpm --filter @workspace/scripts serve-nexus > /tmp/nexus-server.log 2>&1 &
           server_pid=$!
@@ -63,7 +64,42 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:3000/modules > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/workspace > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector-demo > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/electrical-commissioning/ > /dev/null
+
+          curl --fail --silent --show-error \
+            http://127.0.0.1:3000/api/integrations/work-wallet/status \
+            | grep '"demoMode":true' > /dev/null
+
+          cat > /tmp/work-wallet-event.json <<'JSON'
+          {
+            "id": "ci-work-wallet-event-001",
+            "eventType": "INDUCTION_COMPLETED",
+            "projectId": "HALIFAX-DEMO",
+            "personId": "p2",
+            "sourceRecord": "WW-IND-CI-001",
+            "title": "Site induction completed",
+            "detail": "Synthetic CI event"
+          }
+          JSON
+
+          first_status=$(curl --silent --show-error --output /tmp/first-event.json --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data @/tmp/work-wallet-event.json \
+            http://127.0.0.1:3000/api/integrations/work-wallet/demo-events)
+          test "$first_status" = "202"
+          grep '"status":"accepted"' /tmp/first-event.json > /dev/null
+
+          duplicate_status=$(curl --silent --show-error --output /tmp/duplicate-event.json --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data @/tmp/work-wallet-event.json \
+            http://127.0.0.1:3000/api/integrations/work-wallet/demo-events)
+          test "$duplicate_status" = "200"
+          grep '"status":"duplicate"' /tmp/duplicate-event.json > /dev/null
+
+          curl --fail --silent --show-error \
+            http://127.0.0.1:3000/api/integrations/work-wallet/demo-events \
+            | grep 'ci-work-wallet-event-001' > /dev/null
 
       - name: Upload Nexus build
         uses: actions/upload-artifact@v4
