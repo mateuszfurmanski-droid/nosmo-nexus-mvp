@@ -60,6 +60,7 @@ jobs:
 
           test "$ready" = "1"
           curl --fail --silent --show-error http://127.0.0.1:3000/ > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/modules > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/workspace > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/electrical-commissioning/ > /dev/null
