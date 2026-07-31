@@ -27,6 +27,7 @@ import Integrations from "@/pages/integrations";
 import SafetyConnector from "@/pages/safety-connector";
 import WorkWalletBridge from "@/pages/work-wallet-bridge";
 import Trades from "@/pages/trades";
+import CommunicationHub from "@/pages/communication-hub";
 
 function WorkspaceRoute() {
   return (
@@ -65,6 +66,7 @@ function AppLayoutRoutes() {
           <Route path="/modules" component={NexusLaunchpad} />
           <Route path="/trades" component={Trades} />
           <Route path="/system-map" component={SystemMap} />
+          <Route path="/communication-hub" component={CommunicationHub} />
 
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects" component={Projects} />
