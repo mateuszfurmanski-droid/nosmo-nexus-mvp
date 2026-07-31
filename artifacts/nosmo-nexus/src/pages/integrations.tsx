@@ -21,11 +21,20 @@ const nativeModules = [
 
 const integrations = [
   {
+    name: "Work Wallet Safety Connector",
+    description: "Bring verified induction, training, RAMS and permit status into Person Cards, Project Cards and task-start gates without replacing Work Wallet as the safety system of record.",
+    letter: "W",
+    iconBg: "bg-cyan-500/20 text-cyan-300",
+    category: "Safety",
+    status: "Specification Ready",
+  },
+  {
     name: "Procore",
     description: "Construction management — sync projects, RFIs, submittals, and daily logs.",
     letter: "P",
     iconBg: "bg-red-500/20 text-red-400",
     category: "Construction",
+    status: "Coming Soon",
   },
   {
     name: "Autodesk Construction Cloud",
@@ -33,6 +42,7 @@ const integrations = [
     letter: "A",
     iconBg: "bg-orange-500/20 text-orange-400",
     category: "Construction",
+    status: "Coming Soon",
   },
   {
     name: "Bluebeam Revu",
@@ -40,6 +50,7 @@ const integrations = [
     letter: "B",
     iconBg: "bg-blue-500/20 text-blue-400",
     category: "Plans",
+    status: "Coming Soon",
   },
   {
     name: "Fieldwire",
@@ -47,6 +58,7 @@ const integrations = [
     letter: "F",
     iconBg: "bg-yellow-500/20 text-yellow-400",
     category: "Field",
+    status: "Coming Soon",
   },
   {
     name: "Microsoft Excel",
@@ -54,6 +66,7 @@ const integrations = [
     letter: "X",
     iconBg: "bg-green-500/20 text-green-400",
     category: "Data",
+    status: "Coming Soon",
   },
   {
     name: "Google Drive",
@@ -61,6 +74,7 @@ const integrations = [
     letter: "G",
     iconBg: "bg-blue-400/20 text-blue-300",
     category: "Storage",
+    status: "Coming Soon",
   },
   {
     name: "Microsoft OneDrive",
@@ -68,10 +82,12 @@ const integrations = [
     letter: "O",
     iconBg: "bg-blue-600/20 text-blue-400",
     category: "Storage",
+    status: "Coming Soon",
   },
 ];
 
 const categoryColor: Record<string, string> = {
+  Safety: "bg-cyan-500/10 text-cyan-300",
   Construction: "bg-primary/10 text-primary",
   Plans: "bg-purple-500/10 text-purple-400",
   Field: "bg-yellow-500/10 text-yellow-400",
@@ -166,7 +182,7 @@ export default function Integrations() {
                     {integration.category}
                   </span>
                   <Badge variant="outline" className="text-xs text-muted-foreground border-border">
-                    Coming Soon
+                    {integration.status}
                   </Badge>
                 </div>
               </div>
