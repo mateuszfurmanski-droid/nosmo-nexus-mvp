@@ -155,7 +155,7 @@
   <script>
     async function loadLegacy() {
       const parts = await Promise.all(
-        Array.from({ length: 8 }, (_, index) =>
+        Array.from({ length: 7 }, (_, index) =>
           fetch(`./legacy.part${index}.txt`).then((response) => {
             if (!response.ok) throw new Error(`Missing payload part ${index}`);
             return response.text();
