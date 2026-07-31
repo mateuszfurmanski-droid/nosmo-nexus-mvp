@@ -1,6 +1,20 @@
 import { useState, useEffect, useMemo, createContext, useContext } from "react";
-import { Link } from "wouter";
-import { Sparkles, Search, Bell, Orbit } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import {
+  Bell,
+  BriefcaseBusiness,
+  CheckSquare,
+  Files,
+  FolderKanban,
+  Home,
+  Orbit,
+  PlugZap,
+  Search,
+  Settings,
+  Sparkles,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { AskNexus } from "@/components/ask-nexus";
 import { SearchPalette } from "@/components/search-palette";
 import { RadialHub } from "@/components/radial-hub";
@@ -12,6 +26,25 @@ interface ShellContextValue {
   openSearch: () => void;
 }
 
+type NavigationItem = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+};
+
+const navigation: NavigationItem[] = [
+  { label: "Home", href: "/", icon: Home },
+  { label: "Projects", href: "/projects", icon: FolderKanban },
+  { label: "Trades", href: "/trades", icon: BriefcaseBusiness },
+  { label: "People", href: "/people", icon: Users },
+  { label: "Tasks", href: "/tasks", icon: CheckSquare },
+  { label: "Documents", href: "/plans", icon: Files },
+  { label: "Integrations", href: "/integrations", icon: PlugZap },
+  { label: "Settings", href: "/settings", icon: Settings },
+];
+
+const mobileNavigation = navigation.slice(0, 5);
+
 const ShellContext = createContext<ShellContextValue | null>(null);
 
 export function useShell() {
@@ -20,10 +53,49 @@ export function useShell() {
   return ctx;
 }
 
+function isActiveRoute(current: string, href: string) {
+  if (href === "/") return current === "/";
+  return current === href || current.startsWith(`${href}/`);
+}
+
+function NavigationLink({ item, current, compact = false }: { item: NavigationItem; current: string; compact?: boolean }) {
+  const Icon = item.icon;
+  const active = isActiveRoute(current, item.href);
+
+  return (
+    <Link
+      href={item.href}
+      aria-label={item.label}
+      title={item.label}
+      data-testid={`nav-${item.label.toLowerCase()}`}
+      className={
+        compact
+          ? `flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition-colors ${
+              active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            }`
+          : `group flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
+              active
+                ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_rgba(0,255,255,0.12)]"
+                : "border-transparent text-muted-foreground hover:border-border hover:bg-secondary hover:text-foreground"
+            }`
+      }
+    >
+      <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
+      {compact && <span className="max-w-full truncate">{item.label}</span>}
+      {!compact && (
+        <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg group-hover:block">
+          {item.label}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [askNexusOpen, setAskNexusOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [hubOpen, setHubOpen] = useState(false);
+  const [location] = useLocation();
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -51,59 +123,51 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <ShellContext.Provider value={shell}>
-      <div className="min-h-[100dvh] flex flex-col bg-background text-foreground dark selection:bg-primary/30">
-        <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30 flex items-center px-4 md:px-8 gap-2 md:gap-4 shrink-0">
-          {/* Brand → home */}
-          <Link
-            href="/"
-            data-testid="link-home"
-            className="flex items-center gap-2.5 shrink-0"
-          >
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(0,255,255,0.3)]">
-              <span className="text-primary-foreground font-bold text-sm">N</span>
+      <div className="flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/30 dark">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md md:gap-4 md:px-6">
+          <Link href="/" data-testid="link-home" className="flex shrink-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary shadow-[0_0_15px_rgba(0,255,255,0.3)]">
+              <span className="text-sm font-bold text-primary-foreground">N</span>
             </div>
-            <span className="hidden sm:inline font-bold tracking-tight text-foreground text-sm leading-none">NOSMO Nexus™</span>
+            <span className="hidden text-sm font-bold leading-none tracking-tight text-foreground sm:inline">NOSMO Nexus™</span>
           </Link>
 
-          {/* Radial hub launcher — the persistent way to move around the workspace */}
           <button
             onClick={() => setHubOpen(true)}
             data-testid="button-header-hub"
-            className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors shrink-0"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 md:px-4"
           >
-            <Orbit className="w-4 h-4" />
-            <span className="hidden sm:inline">Hub</span>
+            <Orbit className="h-4 w-4" />
+            <span className="hidden sm:inline">Menu</span>
           </button>
 
-          {/* Search */}
-          <div className="flex-1 max-w-xl flex items-center min-w-0">
+          <div className="flex min-w-0 max-w-xl flex-1 items-center">
             <button
               onClick={() => setSearchOpen(true)}
               data-testid="button-open-search"
-              className="w-full flex items-center gap-3 px-4 py-2 bg-secondary/50 hover:bg-secondary border border-border rounded-full text-sm text-muted-foreground transition-all focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex w-full items-center gap-3 rounded-full border border-border bg-secondary/50 px-4 py-2 text-sm text-muted-foreground transition-all hover:bg-secondary focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <Search className="w-4 h-4 shrink-0" />
+              <Search className="h-4 w-4 shrink-0" />
               <span className="truncate">Search Nexus...</span>
-              <div className="ml-auto hidden md:flex items-center gap-1">
-                <kbd className="inline-flex h-5 items-center gap-1 rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">⌘</kbd>
-                <kbd className="inline-flex h-5 items-center gap-1 rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">K</kbd>
+              <div className="ml-auto hidden items-center gap-1 md:flex">
+                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">⌘</kbd>
+                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">K</kbd>
               </div>
             </button>
           </div>
 
-          {/* Right cluster */}
-          <div className="ml-auto flex items-center gap-2 md:gap-3 shrink-0">
+          <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
             <button
               onClick={() => setAskNexusOpen(true)}
               data-testid="button-ask-nexus"
-              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 rounded-full text-sm font-medium transition-colors"
+              className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 md:px-4"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="h-4 w-4" />
               <span className="hidden md:inline">Ask Nexus</span>
             </button>
-            <button className="hidden sm:block p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-background" />
+            <button className="relative hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:block">
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
             </button>
             <FocusableEntity
               target={{ type: "person", id: "p1" }}
@@ -112,18 +176,30 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               className="rounded-full"
             >
               <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-full bg-primary/10 text-primary border border-primary/30 flex items-center justify-center text-xs font-bold">
-                  MF
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-background" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-xs font-bold text-primary">MF</div>
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-400" />
               </div>
             </FocusableEntity>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-          <div className="mx-auto max-w-7xl">{children}</div>
-        </main>
+        <div className="flex min-h-0 flex-1">
+          <aside className="relative hidden w-16 shrink-0 flex-col items-center gap-1 border-r border-border bg-background/65 py-3 backdrop-blur md:flex">
+            {navigation.map((item) => (
+              <NavigationLink key={item.label} item={item} current={location} />
+            ))}
+          </aside>
+
+          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">
+            <div className="mx-auto max-w-7xl">{children}</div>
+          </main>
+        </div>
+
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/92 px-2 py-1.5 backdrop-blur-xl md:hidden">
+          {mobileNavigation.map((item) => (
+            <NavigationLink key={item.label} item={item} current={location} compact />
+          ))}
+        </nav>
 
         <RadialHub open={hubOpen} onOpenChange={setHubOpen} onOpenAskNexus={() => setAskNexusOpen(true)} />
         <AskNexus open={askNexusOpen} onOpenChange={setAskNexusOpen} />
