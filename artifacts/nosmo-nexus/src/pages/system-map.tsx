@@ -180,7 +180,7 @@ export default function SystemMap() {
         <header className="rounded-2xl border border-primary/20 bg-card/75 p-5 shadow-2xl backdrop-blur-xl md:p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
-              <a href={base} className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary">
+              <a href={`${base}modules`} className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary">
                 <ArrowLeft className="h-4 w-4" /> Module launchpad
               </a>
               <div className="mt-4 flex items-center gap-3">
