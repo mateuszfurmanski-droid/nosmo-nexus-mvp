@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "serve-nexus": "node ./src/serve-nexus.mjs",
     "work-wallet-gateway": "tsx ./src/work-wallet-gateway.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
