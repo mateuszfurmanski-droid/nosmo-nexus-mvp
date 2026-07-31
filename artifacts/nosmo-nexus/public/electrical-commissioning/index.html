@@ -153,10 +153,16 @@
   </section>
 
   <script>
-
     async function loadLegacy() {
-      const encoded = (await fetch("./legacy.html.gz.b64")).text();
-      const raw = atob((await encoded).trim());
+      const parts = await Promise.all(
+        Array.from({ length: 8 }, (_, index) =>
+          fetch(`./legacy.part${index}.txt`).then((response) => {
+            if (!response.ok) throw new Error(`Missing payload part ${index}`);
+            return response.text();
+          })
+        )
+      );
+      const raw = atob(parts.join("").trim());
       const bytes = new Uint8Array(raw.length);
       for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
       if (!("DecompressionStream" in window)) throw new Error("gzip decompression unsupported");
