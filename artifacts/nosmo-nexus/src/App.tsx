@@ -10,6 +10,7 @@ import { AvailabilityProvider } from "@/availability/availability-context";
 // Pages
 import InteractiveWorkspace from "@/components/interactive-workspace";
 import NexusLaunchpad from "@/pages/nexus-launchpad";
+import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
@@ -44,6 +45,8 @@ function Router() {
     <Switch>
       {/* Full-screen module launchpad — the primary Nexus entry point */}
       <Route path="/" component={NexusLaunchpad} />
+      {/* Connected overview of the complete current system */}
+      <Route path="/system-map" component={SystemMap} />
       {/* Existing person-centred workspace retained as a separate full-screen module */}
       <Route path="/workspace" component={WorkspaceRoute} />
       {/* Full-screen plan-review workflow — no app chrome */}
