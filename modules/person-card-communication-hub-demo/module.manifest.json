@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "moduleId": "nosmo.person-card.communication-hub.demo",
+  "name": "NOSMO Person Card Communication Hub",
+  "version": "0.1.0",
+  "status": "DEMO_READY_FOR_TECHNICAL_REVIEW",
+  "entrypoint": "index.html",
+  "sourceContract": {
+    "repository": "mateuszfurmanski-droid/nosmo-nexus",
+    "path": "docs/ADDON_052_Person_Card_Communication_Hub_and_Contextual_Contact_Routing.md"
+  },
+  "implementationIssue": {
+    "repository": "mateuszfurmanski-droid/nosmo-nexus-mvp",
+    "number": 4
+  },
+  "runtime": {
+    "type": "static-browser-module",
+    "buildRequired": false,
+    "externalDependencies": []
+  },
+  "dataClassification": "SYNTHETIC_ONLY",
+  "capabilities": [
+    "PERSON_CARD_ENDPOINT_DISPLAY",
+    "PRIVACY_VISIBILITY_DEMO",
+    "AVAILABILITY_DISPLAY",
+    "PREFERRED_CHANNEL_DISPLAY",
+    "PHONE_DEEP_LINK",
+    "SMS_DEEP_LINK",
+    "WHATSAPP_COMPOSE_LINK",
+    "EMAIL_COMPOSER_LINK",
+    "TEAMS_CHAT_LINK",
+    "CONTEXT_PACKET_EDITOR",
+    "ACTION_OPENED_LOCAL_TIMELINE"
+  ],
+  "emittedEvents": [
+    {
+      "type": "ACTION_OPENED",
+      "provenance": "CLIENT_DEEP_LINK",
+      "verifiedSendState": false
+    }
+  ],
+  "security": {
+    "containsSecrets": false,
+    "oauthEnabled": false,
+    "readsExternalMessages": false,
+    "tracksDelivery": false
+  },
+  "integrationStatus": {
+    "standaloneDemo": true,
+    "nexusCoreIntegrated": false,
+    "doorFlowDependency": false,
+    "productionReady": false
+  },
+  "reviewOwner": "Joanna Kosek-Mrugala",
+  "notes": "Review as an isolated module. Do not merge into the current DoorFlow priority without architecture approval."
+}
