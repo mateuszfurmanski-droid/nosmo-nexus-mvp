@@ -9,6 +9,7 @@ import { AvailabilityProvider } from "@/availability/availability-context";
 
 // Pages
 import InteractiveWorkspace from "@/components/interactive-workspace";
+import NexusDock from "@/pages/nexus-dock";
 import NexusLaunchpad from "@/pages/nexus-launchpad";
 import PlanReview from "@/pages/plan-review";
 import People from "@/pages/people";
@@ -32,7 +33,7 @@ function WorkspaceRoute() {
         href={import.meta.env.BASE_URL}
         className="fixed left-3 top-3 z-50 rounded-full border border-primary/30 bg-background/85 px-3 py-2 text-xs font-semibold text-primary shadow-lg backdrop-blur transition-colors hover:bg-primary/10 md:left-5 md:top-5"
       >
-        ← Module launchpad
+        ← Nexus Dock
       </a>
       <InteractiveWorkspace />
     </div>
@@ -42,8 +43,11 @@ function WorkspaceRoute() {
 function Router() {
   return (
     <Switch>
-      {/* Full-screen module launchpad — the primary Nexus entry point */}
-      <Route path="/" component={NexusLaunchpad} />
+      {/* One-screen icon dock — proposed primary Nexus entry point */}
+      <Route path="/" component={NexusDock} />
+      <Route path="/dock" component={NexusDock} />
+      {/* The previous card launchpad remains available for technical review */}
+      <Route path="/launchpad" component={NexusLaunchpad} />
       {/* Existing person-centred workspace retained as a separate full-screen module */}
       <Route path="/workspace" component={WorkspaceRoute} />
       {/* Full-screen plan-review workflow — no app chrome */}
