@@ -3,6 +3,7 @@ import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { handleWorkWalletApi, workWalletStatus } from "./work-wallet-api.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(
@@ -45,6 +46,14 @@ function setSecurityHeaders(response) {
   );
 }
 
+function json(response, status, body) {
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(JSON.stringify(body));
+}
+
 function isInsidePublicDirectory(filePath) {
   return (
     filePath === publicDirectory ||
@@ -77,8 +86,6 @@ async function resolveRequestFile(pathname) {
     return directoryIndex;
   }
 
-  // Client-side routes such as /workspace and /safety-connector must return
-  // the SPA shell. Missing files with an extension remain genuine 404s.
   if (!path.extname(pathname)) {
     const appShell = path.join(publicDirectory, "index.html");
     if (await existingFile(appShell)) {
@@ -92,12 +99,24 @@ async function resolveRequestFile(pathname) {
 const server = createServer(async (request, response) => {
   setSecurityHeaders(response);
 
-  if (request.url === "/health") {
-    response.writeHead(200, {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
+  let url;
+  try {
+    url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+  } catch {
+    json(response, 400, { error: "BAD_REQUEST" });
+    return;
+  }
+
+  if (url.pathname === "/health") {
+    json(response, 200, {
+      status: "ok",
+      service: "nosmo-nexus-web",
+      workWallet: workWalletStatus(),
     });
-    response.end(JSON.stringify({ status: "ok", service: "nosmo-nexus-web" }));
+    return;
+  }
+
+  if (await handleWorkWalletApi(request, response, url)) {
     return;
   }
 
@@ -109,7 +128,7 @@ const server = createServer(async (request, response) => {
 
   let pathname;
   try {
-    pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
+    pathname = decodeURIComponent(url.pathname);
   } catch {
     response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
     response.end("Bad Request");
@@ -151,6 +170,9 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
+  const status = workWalletStatus();
   console.log(`NOSMO Nexus web server listening on 0.0.0.0:${port}`);
   console.log(`Serving ${publicDirectory}`);
+  console.log(`Work Wallet gateway configured: ${status.gatewayConfigured}`);
+  console.log(`Work Wallet demo mode: ${status.demoMode}`);
 });
