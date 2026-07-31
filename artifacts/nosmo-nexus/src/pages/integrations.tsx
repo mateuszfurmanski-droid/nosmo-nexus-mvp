@@ -22,11 +22,12 @@ const nativeModules = [
 const integrations = [
   {
     name: "Work Wallet Safety Connector",
-    description: "Bring verified induction, training, RAMS and permit status into Person Cards, Project Cards and task-start gates without replacing Work Wallet as the safety system of record.",
+    description: "Open a working demonstrator showing Person Card compliance, project safety status and a DoorFlow pre-start gate.",
     letter: "W",
     iconBg: "bg-cyan-500/20 text-cyan-300",
     category: "Safety",
-    status: "Specification Ready",
+    status: "Demo Active",
+    href: `${import.meta.env.BASE_URL}safety-connector`,
   },
   {
     name: "Procore",
@@ -35,6 +36,7 @@ const integrations = [
     iconBg: "bg-red-500/20 text-red-400",
     category: "Construction",
     status: "Coming Soon",
+    href: undefined,
   },
   {
     name: "Autodesk Construction Cloud",
@@ -43,6 +45,7 @@ const integrations = [
     iconBg: "bg-orange-500/20 text-orange-400",
     category: "Construction",
     status: "Coming Soon",
+    href: undefined,
   },
   {
     name: "Bluebeam Revu",
@@ -51,6 +54,7 @@ const integrations = [
     iconBg: "bg-blue-500/20 text-blue-400",
     category: "Plans",
     status: "Coming Soon",
+    href: undefined,
   },
   {
     name: "Fieldwire",
@@ -59,6 +63,7 @@ const integrations = [
     iconBg: "bg-yellow-500/20 text-yellow-400",
     category: "Field",
     status: "Coming Soon",
+    href: undefined,
   },
   {
     name: "Microsoft Excel",
@@ -67,6 +72,7 @@ const integrations = [
     iconBg: "bg-green-500/20 text-green-400",
     category: "Data",
     status: "Coming Soon",
+    href: undefined,
   },
   {
     name: "Google Drive",
@@ -75,6 +81,7 @@ const integrations = [
     iconBg: "bg-blue-400/20 text-blue-300",
     category: "Storage",
     status: "Coming Soon",
+    href: undefined,
   },
   {
     name: "Microsoft OneDrive",
@@ -83,6 +90,7 @@ const integrations = [
     iconBg: "bg-blue-600/20 text-blue-400",
     category: "Storage",
     status: "Coming Soon",
+    href: undefined,
   },
 ];
 
@@ -148,45 +156,57 @@ export default function Integrations() {
       <section className="space-y-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">External Integrations</p>
-          <h2 className="text-xl font-semibold mt-1">Planned connectors</h2>
+          <h2 className="text-xl font-semibold mt-1">Connectors and demonstrators</h2>
         </div>
 
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
           <Puzzle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-primary">Integrations planned for later releases</p>
+            <p className="text-sm font-medium text-primary">Connector architecture</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              These cards describe intended connectors. They are not part of the current Spark prototype scope.
+              Active demonstrators use clearly labelled synthetic data. Other cards describe planned connectors and are not live integrations.
             </p>
           </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           {integrations.map((integration, i) => (
-            <motion.div
+            <motion.a
               key={integration.name}
+              href={integration.href}
+              aria-disabled={!integration.href}
+              onClick={(event) => {
+                if (!integration.href) event.preventDefault();
+              }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
               data-testid={`integration-card-${integration.name.toLowerCase().replace(/\s+/g, "-")}`}
-              className="rounded-xl border border-border bg-card p-5 flex items-start gap-4 hover:border-primary/20 transition-colors"
+              className={`group rounded-xl border bg-card p-5 flex items-start gap-4 transition-colors ${
+                integration.href
+                  ? "border-cyan-400/30 hover:border-cyan-300/70 hover:bg-cyan-400/5 cursor-pointer"
+                  : "border-border cursor-default"
+              }`}
             >
               <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 font-bold text-lg ${integration.iconBg}`}>
                 {integration.letter}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">{integration.name}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-semibold text-sm">{integration.name}</p>
+                  {integration.href && <ExternalLink className="w-4 h-4 text-cyan-300 shrink-0" />}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{integration.description}</p>
                 <div className="flex items-center gap-2 mt-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[integration.category]}`}>
                     {integration.category}
                   </span>
-                  <Badge variant="outline" className="text-xs text-muted-foreground border-border">
+                  <Badge variant="outline" className={`text-xs border-border ${integration.href ? "text-cyan-300" : "text-muted-foreground"}`}>
                     {integration.status}
                   </Badge>
                 </div>
               </div>
-            </motion.div>
+            </motion.a>
           ))}
         </div>
       </section>
