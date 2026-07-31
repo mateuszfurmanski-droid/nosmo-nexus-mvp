@@ -22,6 +22,7 @@ import NotFound from "@/pages/not-found";
 import CardMaker from "@/pages/card-maker";
 import Plans from "@/pages/plans";
 import Integrations from "@/pages/integrations";
+import SafetyConnector from "@/pages/safety-connector";
 
 function Router() {
   return (
@@ -52,6 +53,7 @@ function AppLayoutRoutes() {
           <Route path="/timeline" component={Timeline} />
           <Route path="/plans" component={Plans} />
           <Route path="/integrations" component={Integrations} />
+          <Route path="/safety-connector" component={SafetyConnector} />
           <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
