@@ -2,20 +2,20 @@ import { motion } from "framer-motion";
 import {
   Activity,
   ArrowDown,
-  ArrowLeft,
   ArrowRight,
   BookOpen,
+  BriefcaseBusiness,
   CheckCircle2,
   CheckSquare,
   CircuitBoard,
   DoorOpen,
   FileStack,
   FolderKanban,
+  MessageCircle,
   Network,
   PlugZap,
   Puzzle,
   ShieldCheck,
-  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -35,20 +35,20 @@ const base = import.meta.env.BASE_URL;
 
 const inputs: SystemNode[] = [
   {
-    name: "Plans",
-    description: "PDF drawings, schedules and source documents.",
+    name: "Plans & Documents",
+    description: "PDF drawings, schedules, checklists and controlled source information.",
     href: `${base}plans`,
     status: "CORE",
     icon: FileStack,
-    detail: "Feeds DoorFlow and project context",
+    detail: "Feeds every trade and project",
   },
   {
-    name: "Work Wallet Connector",
+    name: "Work Wallet Safety",
     description: "Compliance events, inductions, permits and readiness gates.",
     href: `${base}safety-connector`,
     status: "DEMO",
     icon: ShieldCheck,
-    detail: "Synthetic demo; live tenant pending",
+    detail: "Shared safety layer; synthetic demo",
   },
   {
     name: "Electrical Commissioning",
@@ -56,22 +56,30 @@ const inputs: SystemNode[] = [
     href: `${base}electrical-commissioning/`,
     status: "DEMO",
     icon: CircuitBoard,
-    detail: "Anonymised working demonstrator",
+    detail: "Anonymised trade demonstrator",
   },
 ];
 
 const operational: SystemNode[] = [
+  {
+    name: "Trades",
+    description: "Profession-first menu for construction and building-services work packages.",
+    href: `${base}trades`,
+    status: "ACTIVE",
+    icon: BriefcaseBusiness,
+    detail: "Primary field navigation",
+  },
   {
     name: "DoorFlow",
     description: "Door identification, installation and fire-door inspection.",
     href: `${base}plan-review`,
     status: "ACTIVE",
     icon: DoorOpen,
-    detail: "Primary specialist workflow",
+    detail: "Fire Doors & Joinery trade tool",
   },
   {
     name: "Projects",
-    description: "Project-level context, teams, status and work packages.",
+    description: "Project context, teams, status and work packages.",
     href: `${base}projects`,
     status: "CORE",
     icon: FolderKanban,
@@ -97,12 +105,12 @@ const sharedRecords: SystemNode[] = [
     detail: "Shared person identity",
   },
   {
-    name: "Card Maker",
-    description: "Structured creation and enrichment of Person Cards.",
-    href: `${base}card-maker`,
+    name: "Communication Hub",
+    description: "Phone, SMS, WhatsApp and email actions from the person context.",
+    href: `${base}people`,
     status: "CORE",
-    icon: UserPlus,
-    detail: "Person intake workflow",
+    icon: MessageCircle,
+    detail: "Shared contact and follow-up layer",
   },
   {
     name: "Knowledge",
@@ -180,10 +188,7 @@ export default function SystemMap() {
         <header className="rounded-2xl border border-primary/20 bg-card/75 p-5 shadow-2xl backdrop-blur-xl md:p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
-              <a href={`${base}modules`} className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary">
-                <ArrowLeft className="h-4 w-4" /> Module launchpad
-              </a>
-              <div className="mt-4 flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/35 bg-primary/15 text-primary shadow-[0_0_24px_rgba(0,255,255,0.18)]">
                   <Network className="h-6 w-6" />
                 </div>
@@ -193,15 +198,23 @@ export default function SystemMap() {
                 </div>
               </div>
               <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                One connected operating layer linking people, projects, plans, tasks, safety, specialist workflows and operational memory.
+                One operating layer linking professions, people, projects, plans, tasks, safety, specialist workflows and project memory.
               </p>
             </div>
 
-            <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 px-4 py-3">
-              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" /> Internal routes connected
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">4 presentation modules · 8 shared Nexus layers</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={`${base}trades`}
+                className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+              >
+                Open Trades <ArrowRight className="h-4 w-4" />
+              </a>
+              <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 px-4 py-3">
+                <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" /> Profession-first menu connected
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">10 trade groups · 4 shared cross-trade layers</p>
+              </div>
             </div>
           </div>
         </header>
@@ -209,7 +222,7 @@ export default function SystemMap() {
         <section className="mt-7 rounded-2xl border border-border bg-card/45 p-4 md:p-6">
           <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1.05fr_auto_1fr]">
             <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Sources and specialist inputs</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Sources and shared inputs</p>
               <div className="grid gap-3">
                 {inputs.map((node, index) => <SystemCard key={node.name} node={node} index={index} />)}
               </div>
@@ -235,12 +248,12 @@ export default function SystemMap() {
                   <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Operational core</p>
                   <h2 className="mt-2 text-2xl font-bold">Nexus Workspace</h2>
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    Connects the person, project, task, document, issue, material and decision context. Specialist modules read from and write back into this shared operating layer.
+                    Connects the profession, person, project, task, document, issue, object and decision context. Trade tools read from and write back into this shared operating layer.
                   </p>
                 </div>
 
                 <div className="mt-8 grid grid-cols-2 gap-2 text-xs">
-                  {["Person context", "Project context", "Task routing", "Evidence trail", "Readiness gates", "Operational memory"].map((item) => (
+                  {["Trade context", "Person context", "Project context", "Task routing", "Evidence trail", "Operational memory"].map((item) => (
                     <div key={item} className="flex items-center gap-2 rounded-lg border border-primary/15 bg-background/30 px-3 py-2">
                       <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> {item}
                     </div>
@@ -256,7 +269,7 @@ export default function SystemMap() {
             <Connector label="orchestrate" />
 
             <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Operational delivery</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Profession-led delivery</p>
               <div className="grid gap-3">
                 {operational.map((node, index) => <SystemCard key={node.name} node={node} index={index + 3} />)}
               </div>
@@ -268,7 +281,7 @@ export default function SystemMap() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Shared records and memory</p>
-              <h2 className="mt-1 text-xl font-semibold">The layers used by every module</h2>
+              <h2 className="mt-1 text-xl font-semibold">Layers used by every trade</h2>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <PlugZap className="h-4 w-4 text-primary" /> Connected through Nexus context
@@ -276,21 +289,34 @@ export default function SystemMap() {
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {sharedRecords.map((node, index) => <SystemCard key={node.name} node={node} index={index + 6} />)}
+            {sharedRecords.map((node, index) => <SystemCard key={node.name} node={node} index={index + 7} />)}
           </div>
         </section>
 
-        <section className="mt-7 grid gap-4 md:grid-cols-2">
-          <a href={`${base}integrations`} className="group rounded-2xl border border-border bg-card/55 p-5 transition-colors hover:border-primary/40 hover:bg-card">
+        <section className="mt-7 grid gap-4 md:grid-cols-3">
+          <a href={`${base}trades`} className="group rounded-2xl border border-primary/20 bg-primary/5 p-5 transition-colors hover:border-primary/40 hover:bg-primary/10">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <BriefcaseBusiness className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">Trades</p>
+                <p className="mt-1 text-sm text-muted-foreground">Construction professions and their specialist tools.</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+            </div>
+          </a>
+
+          <a href={`${base}integrations`} className="group rounded-2xl border border-border bg-card/55 p-5 transition-colors hover:border-purple-400/40 hover:bg-card">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-400/10 text-purple-300">
                 <Puzzle className="h-5 w-5" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold">Modules & Integrations</p>
-                <p className="mt-1 text-sm text-muted-foreground">Connector catalogue and future external system control surface.</p>
+                <p className="font-semibold">Integrations</p>
+                <p className="mt-1 text-sm text-muted-foreground">BIM, Work Wallet, FabStation and external connectors.</p>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-purple-300" />
             </div>
           </a>
 
@@ -299,10 +325,16 @@ export default function SystemMap() {
               <ShieldCheck className="h-5 w-5" /> Connection boundary
             </p>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Internal Nexus screens and routes are connected. Work Wallet and other third-party systems remain demo or planned until authorised API credentials and live data agreements are supplied.
+              Internal Nexus routes are connected. Third-party systems remain demo or planned until authorised capability, credentials and live data agreements are supplied.
             </p>
           </div>
         </section>
+
+        <div className="mt-5 text-center">
+          <a href={`${base}modules`} className="text-xs text-muted-foreground hover:text-primary">
+            Open technical module catalogue
+          </a>
+        </div>
       </main>
     </div>
   );
