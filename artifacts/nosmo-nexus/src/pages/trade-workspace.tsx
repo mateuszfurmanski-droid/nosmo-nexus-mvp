@@ -1,7 +1,7 @@
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, ArrowRight, BriefcaseBusiness, ExternalLink, Layers3 } from "lucide-react";
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Layers3 } from "lucide-react";
 import { CommunicationStrip } from "@/components/communication-strip";
-import { toolsForTrade } from "@/config/external-tools";
+import { ExternalToolStrip } from "@/components/external-tool-strip";
 import { getTradeDefinition, type TradeStatus, type TradeTool } from "@/config/trades";
 
 const statusStyle: Record<TradeStatus, string> = {
@@ -66,7 +66,6 @@ export default function TradeWorkspace() {
   }
 
   const TradeIcon = trade.icon;
-  const externalApps = toolsForTrade(tradeId);
 
   return (
     <div className="space-y-7 pb-8">
@@ -126,39 +125,14 @@ export default function TradeWorkspace() {
             <div>
               <h2 className="text-lg font-semibold">Existing external systems</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                These are launcher icons only. Nexus opens the existing system now and can add deeper project, asset and task integration later.
+                Compact launch icons for systems used by this profession. Nexus can replace each link with a deeper connector later without changing the menu position.
               </p>
             </div>
           </div>
-          <Link href={`/external-tools?trade=${tradeId}`} className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20">
-            View all relevant tools <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold text-cyan-300">LAUNCHER</span>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
-          {externalApps.map((tool) => {
-            const Icon = tool.icon;
-            return (
-              <a
-                key={tool.id}
-                href={tool.href}
-                target="_blank"
-                rel="noreferrer"
-                title={`Open ${tool.name}`}
-                className="group flex min-w-36 items-center gap-3 rounded-xl border border-border bg-background/40 p-3 transition-colors hover:border-primary/40 hover:bg-background/60"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold">{tool.name}</p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">Open system</p>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
-              </a>
-            );
-          })}
-        </div>
+        <ExternalToolStrip tradeId={tradeId} showNames className="mt-5" limit={8} />
       </section>
     </div>
   );
