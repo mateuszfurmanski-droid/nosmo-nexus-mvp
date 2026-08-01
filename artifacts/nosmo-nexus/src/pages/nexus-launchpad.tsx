@@ -18,6 +18,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { ExternalToolStrip } from "@/components/external-tool-strip";
 
 type LayerStatus = "ACTIVE" | "DEMO" | "IN DEVELOPMENT";
 
@@ -205,7 +206,7 @@ export default function NexusLaunchpad() {
               </div>
             </div>
             <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              The main menu shows system-wide Nexus layers. Specialist applications stay under their trade, while existing third-party systems remain available through a compact External Tools launcher.
+              The main menu shows system-wide Nexus layers. Specialist applications stay under their trade, while existing third-party systems remain available through a compact launcher strip.
             </p>
           </div>
 
@@ -216,12 +217,20 @@ export default function NexusLaunchpad() {
             <Link href="/people" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
               Personal InfoCard <UserPlus className="h-4 w-4" />
             </Link>
-            <Link href="/external-tools" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
-              External Tools <AppWindow className="h-4 w-4" />
-            </Link>
           </div>
         </div>
       </header>
+
+      <section className="rounded-2xl border border-border bg-card/55 p-4 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">External application dock</p>
+            <p className="mt-1 text-sm text-muted-foreground">Open existing systems now. Deeper Nexus integration can be added behind the same icons later.</p>
+          </div>
+          <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold text-cyan-300">LAUNCHER</span>
+        </div>
+        <ExternalToolStrip className="mt-4" limit={10} />
+      </section>
 
       <section>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Top-level Nexus layers</p>
