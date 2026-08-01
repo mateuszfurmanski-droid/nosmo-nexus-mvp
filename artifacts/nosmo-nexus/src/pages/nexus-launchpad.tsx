@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import {
   Activity,
+  AppWindow,
   ArrowRight,
   BookOpen,
   BriefcaseBusiness,
@@ -105,6 +106,12 @@ const primaryLayers: PrimaryLayer[] = [
 
 const quickLinks: QuickLink[] = [
   {
+    name: "External Tools",
+    description: "Open Hilti, Procore, ACC, Fieldwire, CompanyCam, Bluebeam and other existing systems.",
+    href: "/external-tools",
+    icon: AppWindow,
+  },
+  {
     name: "Tasks & Snags",
     description: "Shared actions, assignments, defects and completion state.",
     href: "/tasks",
@@ -198,7 +205,7 @@ export default function NexusLaunchpad() {
               </div>
             </div>
             <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              The main menu now shows only system-wide layers. Specialist applications are nested under the trade that needs them, while Personal InfoCard, Work Wallet and FabStation / BIM remain top-level shared layers.
+              The main menu shows system-wide Nexus layers. Specialist applications stay under their trade, while existing third-party systems remain available through a compact External Tools launcher.
             </p>
           </div>
 
@@ -208,6 +215,9 @@ export default function NexusLaunchpad() {
             </Link>
             <Link href="/people" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
               Personal InfoCard <UserPlus className="h-4 w-4" />
+            </Link>
+            <Link href="/external-tools" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
+              External Tools <AppWindow className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -224,7 +234,7 @@ export default function NexusLaunchpad() {
       <section className="rounded-2xl border border-border bg-card/55 p-5 md:p-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Quick access</p>
-          <p className="mt-1 text-sm text-muted-foreground">Smaller shared records and system screens remain available without competing with the principal layers.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Smaller shared records, launchers and system screens remain available without competing with the principal layers.</p>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
