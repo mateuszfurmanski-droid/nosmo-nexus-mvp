@@ -4,15 +4,15 @@ import {
   Bell,
   BriefcaseBusiness,
   CheckSquare,
+  Cuboid,
   Files,
   FolderKanban,
   Home,
   LayoutGrid,
-  MessageCircle,
   Network,
-  PlugZap,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Users,
   type LucideIcon,
@@ -38,16 +38,17 @@ const navigation: NavigationItem[] = [
   { label: "Home", href: "/", icon: Home },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Trades", href: "/trades", icon: BriefcaseBusiness },
-  { label: "People", href: "/people", icon: Users },
+  { label: "Personal InfoCard", href: "/people", icon: Users },
+  { label: "Work Wallet", href: "/safety-connector", icon: ShieldCheck },
+  { label: "FabStation / BIM", href: "/bim-overlay", icon: Cuboid },
   { label: "Tasks", href: "/tasks", icon: CheckSquare },
   { label: "Documents", href: "/plans", icon: Files },
-  { label: "Communication", href: "/communication-hub", icon: MessageCircle },
   { label: "System Map", href: "/system-map", icon: Network },
-  { label: "Integrations", href: "/integrations", icon: PlugZap },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
-const mobileNavigation = navigation.slice(0, 5);
+const mobileRoutes = new Set(["/", "/projects", "/trades", "/people", "/tasks"]);
+const mobileNavigation = navigation.filter((item) => mobileRoutes.has(item.href));
 
 const ShellContext = createContext<ShellContextValue | null>(null);
 
@@ -65,13 +66,14 @@ function isActiveRoute(current: string, href: string) {
 function NavigationLink({ item, current, compact = false }: { item: NavigationItem; current: string; compact?: boolean }) {
   const Icon = item.icon;
   const active = isActiveRoute(current, item.href);
+  const mobileLabel = item.label === "Personal InfoCard" ? "InfoCard" : item.label;
 
   return (
     <Link
       href={item.href}
       aria-label={item.label}
       title={item.label}
-      data-testid={`nav-${item.label.toLowerCase().replaceAll(" ", "-")}`}
+      data-testid={`nav-${item.label.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-")}`}
       className={
         compact
           ? `flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition-colors ${
@@ -85,7 +87,7 @@ function NavigationLink({ item, current, compact = false }: { item: NavigationIt
       }
     >
       <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
-      {compact && <span className="max-w-full truncate">{item.label}</span>}
+      {compact && <span className="max-w-full truncate">{mobileLabel}</span>}
       {!compact && (
         <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg group-hover:block">
           {item.label}
@@ -105,9 +107,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
         setSearchOpen((value) => !value);
       }
     }
