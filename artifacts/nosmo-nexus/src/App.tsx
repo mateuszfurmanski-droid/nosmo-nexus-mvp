@@ -27,7 +27,9 @@ import Integrations from "@/pages/integrations";
 import SafetyConnector from "@/pages/safety-connector";
 import WorkWalletBridge from "@/pages/work-wallet-bridge";
 import Trades from "@/pages/trades";
+import TradeWorkspace from "@/pages/trade-workspace";
 import CommunicationHub from "@/pages/communication-hub";
+import BimOverlay from "@/pages/bim-overlay";
 
 function WorkspaceRoute() {
   return (
@@ -64,9 +66,11 @@ function AppLayoutRoutes() {
           {/* One canonical menu. /modules is retained as a compatibility alias. */}
           <Route path="/" component={NexusLaunchpad} />
           <Route path="/modules" component={NexusLaunchpad} />
+          <Route path="/trades/:tradeId" component={TradeWorkspace} />
           <Route path="/trades" component={Trades} />
           <Route path="/system-map" component={SystemMap} />
           <Route path="/communication-hub" component={CommunicationHub} />
+          <Route path="/bim-overlay" component={BimOverlay} />
 
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects" component={Projects} />
