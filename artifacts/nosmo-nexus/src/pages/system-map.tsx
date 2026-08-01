@@ -7,11 +7,9 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   CheckSquare,
-  CircuitBoard,
-  DoorOpen,
+  Cuboid,
   FileStack,
   FolderKanban,
-  MessageCircle,
   Network,
   ShieldCheck,
   Users,
@@ -19,122 +17,91 @@ import {
 } from "lucide-react";
 
 type ConnectionStatus = "ACTIVE" | "DEMO" | "CORE";
-type LinkType = "internal" | "static";
 
 type SystemNode = {
   name: string;
   description: string;
   href: string;
-  linkType: LinkType;
   status: ConnectionStatus;
   icon: LucideIcon;
   detail: string;
 };
 
-const base = import.meta.env.BASE_URL;
-
-const inputs: SystemNode[] = [
+const projectInputs: SystemNode[] = [
   {
-    name: "Plans & Documents",
-    description: "PDF drawings, schedules, checklists and controlled source information.",
-    href: "/plans",
-    linkType: "internal",
+    name: "Projects",
+    description: "Project status, teams, packages and shared delivery context.",
+    href: "/projects",
     status: "CORE",
-    icon: FileStack,
-    detail: "Feeds each trade and project",
+    icon: FolderKanban,
+    detail: "Defines the operational container",
   },
   {
-    name: "Work Wallet Safety",
-    description: "Compliance events, inductions, permits and readiness gates.",
+    name: "Plans & Documents",
+    description: "Drawings, schedules, checklists, evidence and controlled revisions.",
+    href: "/plans",
+    status: "CORE",
+    icon: FileStack,
+    detail: "Feeds each project and trade",
+  },
+  {
+    name: "Tasks & Snags",
+    description: "Actions, assignments, defects, readiness and completion state.",
+    href: "/tasks",
+    status: "CORE",
+    icon: CheckSquare,
+    detail: "Shared delivery actions",
+  },
+];
+
+const topLevelLayers: SystemNode[] = [
+  {
+    name: "Trades",
+    description: "Profession-first menus that reveal only tools relevant to the selected trade.",
+    href: "/trades",
+    status: "ACTIVE",
+    icon: BriefcaseBusiness,
+    detail: "Trade-specific applications are nested here",
+  },
+  {
+    name: "Personal InfoCard",
+    description: "Person Cards, competence, assignments, Card Maker and contextual communication.",
+    href: "/people",
+    status: "CORE",
+    icon: Users,
+    detail: "Shared person and communication layer",
+  },
+  {
+    name: "Work Wallet",
+    description: "Safety, competence, inductions, RAMS, permits and compliance events.",
     href: "/safety-connector",
-    linkType: "internal",
     status: "DEMO",
     icon: ShieldCheck,
     detail: "Shared safety layer",
   },
   {
-    name: "Electrical Commissioning",
-    description: "Progress, certificates, communal systems and snags.",
-    href: `${base}electrical-commissioning/`,
-    linkType: "static",
+    name: "FabStation / BIM Overlay",
+    description: "Model objects, installation packages, readiness, evidence and as-built history.",
+    href: "/bim-overlay",
     status: "DEMO",
-    icon: CircuitBoard,
-    detail: "Anonymised demonstrator",
+    icon: Cuboid,
+    detail: "Shared multi-trade installation layer",
   },
 ];
 
-const delivery: SystemNode[] = [
-  {
-    name: "Trades",
-    description: "Profession-first menu for construction and building-services work packages.",
-    href: "/trades",
-    linkType: "internal",
-    status: "ACTIVE",
-    icon: BriefcaseBusiness,
-    detail: "Primary field navigation",
-  },
-  {
-    name: "DoorFlow",
-    description: "Door identification, installation and fire-door inspection.",
-    href: "/plan-review",
-    linkType: "internal",
-    status: "ACTIVE",
-    icon: DoorOpen,
-    detail: "Fire Doors & Joinery tool",
-  },
-  {
-    name: "Projects",
-    description: "Project context, teams, status and work packages.",
-    href: "/projects",
-    linkType: "internal",
-    status: "CORE",
-    icon: FolderKanban,
-    detail: "Shared project record",
-  },
-  {
-    name: "Tasks",
-    description: "Actions, assignments, readiness and completion state.",
-    href: "/tasks",
-    linkType: "internal",
-    status: "CORE",
-    icon: CheckSquare,
-    detail: "Shared action layer",
-  },
-];
-
-const records: SystemNode[] = [
-  {
-    name: "Person Cards",
-    description: "Roles, companies, competence, assignments and context.",
-    href: "/people",
-    linkType: "internal",
-    status: "CORE",
-    icon: Users,
-    detail: "Shared person identity",
-  },
-  {
-    name: "Communication Hub",
-    description: "Phone, WhatsApp, SMS and email actions from the person context.",
-    href: "/people",
-    linkType: "internal",
-    status: "DEMO",
-    icon: MessageCircle,
-    detail: "Contact and follow-up layer",
-  },
+const memoryLayers: SystemNode[] = [
   {
     name: "Knowledge",
     description: "Reusable project and company knowledge.",
     href: "/knowledge",
-    linkType: "internal",
     status: "CORE",
     icon: BookOpen,
     detail: "Operational memory",
   },
   {
-    name: "Timeline",
-    description: "Events, decisions, status changes and audit history.",
+    name: "Timeline & Audit",
+    description: "Events, decisions, status changes and evidence history.",
     href: "/timeline",
-    linkType: "internal",
     status: "CORE",
     icon: Activity,
     detail: "Chronological audit layer",
@@ -149,9 +116,9 @@ const statusStyle: Record<ConnectionStatus, string> = {
 
 function SystemCard({ node }: { node: SystemNode }) {
   const Icon = node.icon;
-  const className = "group block rounded-2xl border border-border bg-card/75 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-card";
-  const content = (
-    <>
+
+  return (
+    <Link href={node.href} className="group block rounded-2xl border border-border bg-card/75 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-card">
       <div className="flex items-start justify-between gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
@@ -164,13 +131,7 @@ function SystemCard({ node }: { node: SystemNode }) {
         <span className="text-[10px] text-muted-foreground">{node.detail}</span>
         <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
       </div>
-    </>
-  );
-
-  return node.linkType === "internal" ? (
-    <Link href={node.href} className={className}>{content}</Link>
-  ) : (
-    <a href={node.href} className={className}>{content}</a>
+    </Link>
   );
 }
 
@@ -202,7 +163,7 @@ export default function SystemMap() {
               </div>
             </div>
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              The system map explains how source information, Nexus orchestration, profession-led delivery and shared records connect. It is no longer the main menu.
+              Projects and controlled information feed the Nexus Workspace. Trades, Personal InfoCard, Work Wallet and FabStation / BIM sit around that core as the principal system layers.
             </p>
           </div>
           <Link href="/" className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20">
@@ -214,11 +175,11 @@ export default function SystemMap() {
       <section className="rounded-2xl border border-border bg-card/45 p-4 md:p-6">
         <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1.05fr_auto_1fr]">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Sources and shared inputs</p>
-            <div className="grid gap-3">{inputs.map((node) => <SystemCard key={node.name} node={node} />)}</div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">Project inputs</p>
+            <div className="grid gap-3">{projectInputs.map((node) => <SystemCard key={node.name} node={node} />)}</div>
           </div>
 
-          <Connector label="normalise" />
+          <Connector label="connect" />
 
           <div className="flex flex-col">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Nexus orchestration core</p>
@@ -233,7 +194,7 @@ export default function SystemMap() {
                 <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Operational core</p>
                 <h2 className="mt-2 text-2xl font-bold">Nexus Workspace</h2>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Connects profession, person, project, task, document, issue, object and decision context. Specialist tools read from and write back into this shared layer.
+                  Connects the profession, person, project, task, document, issue, object and decision context. Every specialist workflow returns its evidence and state to this shared layer.
                 </p>
               </div>
               <div className="mt-8 grid grid-cols-2 gap-2 text-xs">
@@ -249,20 +210,20 @@ export default function SystemMap() {
             </Link>
           </div>
 
-          <Connector label="orchestrate" />
+          <Connector label="serve" />
 
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Profession-led delivery</p>
-            <div className="grid gap-3">{delivery.map((node) => <SystemCard key={node.name} node={node} />)}</div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Top-level shared layers</p>
+            <div className="grid gap-3">{topLevelLayers.map((node) => <SystemCard key={node.name} node={node} />)}</div>
           </div>
         </div>
       </section>
 
       <section className="rounded-2xl border border-border bg-card/55 p-5 md:p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Shared records and memory</p>
-        <h2 className="mt-1 text-xl font-semibold">Layers used by every trade</h2>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {records.map((node) => <SystemCard key={node.name} node={node} />)}
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Memory and audit</p>
+        <h2 className="mt-1 text-xl font-semibold">Smaller shared system records</h2>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          {memoryLayers.map((node) => <SystemCard key={node.name} node={node} />)}
         </div>
       </section>
     </div>
