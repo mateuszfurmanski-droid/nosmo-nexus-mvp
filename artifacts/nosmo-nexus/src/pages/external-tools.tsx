@@ -49,21 +49,23 @@ const maturity = [
 ];
 
 export default function ExternalTools() {
+  const tradeId = new URLSearchParams(window.location.search).get("trade");
   const [category, setCategory] = useState<"All" | ExternalToolCategory>("All");
   const [query, setQuery] = useState("");
 
   const visibleTools = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return externalTools.filter((tool) => {
+      const tradeMatch = !tradeId || tool.relevantTrades.includes("all") || tool.relevantTrades.includes(tradeId);
       const categoryMatch = category === "All" || tool.category === category;
       const queryMatch =
         !normalized ||
         tool.name.toLowerCase().includes(normalized) ||
         tool.description.toLowerCase().includes(normalized) ||
         tool.futureIntegration.some((item) => item.toLowerCase().includes(normalized));
-      return categoryMatch && queryMatch;
+      return tradeMatch && categoryMatch && queryMatch;
     });
-  }, [category, query]);
+  }, [category, query, tradeId]);
 
   return (
     <div className="space-y-8 pb-8">
@@ -82,6 +84,11 @@ export default function ExternalTools() {
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground md:text-base">
               Existing construction and productivity systems stay available as simple launch icons. Nexus can later replace each basic link with project-aware deep links, read connectors and authorised two-way workflows.
             </p>
+            {tradeId && (
+              <p className="mt-3 inline-flex rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                Filtered for trade: {tradeId.replaceAll("-", " ")}
+              </p>
+            )}
           </div>
           <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300">LAUNCHER LAYER</span>
         </div>
