@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { DoorOpen, ExternalLink, Puzzle, Zap } from "lucide-react";
+import { AppWindow, ArrowRight, DoorOpen, ExternalLink, Puzzle, Zap } from "lucide-react";
 
 const nativeModules = [
   {
@@ -19,77 +20,69 @@ const nativeModules = [
   },
 ];
 
-const integrations = [
+const connectors = [
   {
     name: "Work Wallet Safety Connector",
-    description: "Open a working demonstrator showing Person Card compliance, project safety status and a DoorFlow pre-start gate.",
+    description: "Working gateway demonstrator for compliance, competence, RAMS, permits and event processing.",
     letter: "W",
-    iconBg: "bg-cyan-500/20 text-cyan-300",
     category: "Safety",
     status: "Demo Active",
     href: `${import.meta.env.BASE_URL}safety-connector`,
   },
   {
-    name: "Procore",
-    description: "Construction management — sync projects, RFIs, submittals, and daily logs.",
+    name: "Procore Connector",
+    description: "Future project, RFI, submittal and daily-log connection after launcher validation.",
     letter: "P",
-    iconBg: "bg-red-500/20 text-red-400",
     category: "Construction",
-    status: "Coming Soon",
+    status: "Planned",
     href: undefined,
   },
   {
-    name: "Autodesk Construction Cloud",
-    description: "Sync BIM models, issues, and drawing sheets from ACC/BIM 360.",
+    name: "Autodesk Construction Cloud Connector",
+    description: "Future authorised model, issue, drawing-sheet and project-folder connection.",
     letter: "A",
-    iconBg: "bg-orange-500/20 text-orange-400",
     category: "Construction",
-    status: "Coming Soon",
+    status: "Planned",
     href: undefined,
   },
   {
-    name: "Bluebeam Revu",
-    description: "Pull markup sessions and PDF annotations directly into NOSMO Nexus.",
+    name: "Bluebeam Connector",
+    description: "Future markup, review-session and drawing-reference connection.",
     letter: "B",
-    iconBg: "bg-blue-500/20 text-blue-400",
     category: "Plans",
-    status: "Coming Soon",
+    status: "Planned",
     href: undefined,
   },
   {
-    name: "Fieldwire",
-    description: "Sync field tasks, punch list items, and inspection records.",
+    name: "Fieldwire Connector",
+    description: "Future task, punch-list, plan-reference and inspection-record connection.",
     letter: "F",
-    iconBg: "bg-yellow-500/20 text-yellow-400",
     category: "Field",
-    status: "Coming Soon",
+    status: "Planned",
     href: undefined,
   },
   {
-    name: "Microsoft Excel",
-    description: "Import project schedules, cost sheets, and quantity take-offs from Excel.",
-    letter: "X",
-    iconBg: "bg-green-500/20 text-green-400",
-    category: "Data",
-    status: "Coming Soon",
+    name: "Hilti ON!Track Connector",
+    description: "Future asset availability, tool assignment, service-date and certificate connection.",
+    letter: "H",
+    category: "Assets",
+    status: "Planned",
     href: undefined,
   },
   {
-    name: "Google Drive",
-    description: "Connect Google Drive to automatically sync uploaded plans and documents.",
+    name: "Google Drive Connector",
+    description: "Future file picker, controlled folder sync and document metadata connection.",
     letter: "G",
-    iconBg: "bg-blue-400/20 text-blue-300",
     category: "Storage",
-    status: "Coming Soon",
+    status: "Planned",
     href: undefined,
   },
   {
-    name: "Microsoft OneDrive",
-    description: "Sync documents and drawings from OneDrive and SharePoint.",
+    name: "OneDrive / SharePoint Connector",
+    description: "Future project-library, revision, evidence-upload and permissions connection.",
     letter: "O",
-    iconBg: "bg-blue-600/20 text-blue-400",
     category: "Storage",
-    status: "Coming Soon",
+    status: "Planned",
     href: undefined,
   },
 ];
@@ -99,29 +92,50 @@ const categoryColor: Record<string, string> = {
   Construction: "bg-primary/10 text-primary",
   Plans: "bg-purple-500/10 text-purple-400",
   Field: "bg-yellow-500/10 text-yellow-400",
-  Data: "bg-green-500/10 text-green-400",
+  Assets: "bg-red-500/10 text-red-300",
   Storage: "bg-blue-500/10 text-blue-400",
 };
 
 export default function Integrations() {
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+    <div className="mx-auto max-w-6xl space-y-8 pb-12">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Puzzle className="w-6 h-6 text-primary" /> Modules & Integrations
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <Puzzle className="h-6 w-6 text-primary" /> Modules & Integrations
         </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Open native NOSMO prototypes and connect Nexus with existing construction tools.
+        <p className="mt-1 text-sm text-muted-foreground">
+          Native NOSMO modules, current demonstrators and the roadmap from external app launchers to deeper connectors.
         </p>
       </div>
 
+      <Link
+        href="/external-tools"
+        className="group flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/35 bg-primary/10 p-5 transition-colors hover:bg-primary/15"
+      >
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-background/35 text-primary">
+            <AppWindow className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Available now</p>
+            <h2 className="mt-1 text-lg font-semibold">External Tools launcher</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Open Hilti ON!Track, Procore, Autodesk Construction Cloud, Fieldwire, CompanyCam, Bluebeam, Google Drive, Microsoft 365 and other existing systems using compact icons.
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+          Open launcher <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+        </span>
+      </Link>
+
       <section className="space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Native NOSMO Modules</p>
-          <h2 className="text-xl font-semibold mt-1">Working prototypes</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Native NOSMO modules</p>
+          <h2 className="mt-1 text-xl font-semibold">Working prototypes</h2>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           {nativeModules.map((module, index) => {
             const Icon = module.icon;
             return (
@@ -131,19 +145,18 @@ export default function Integrations() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="group rounded-xl border border-primary/25 bg-primary/5 p-5 flex items-start gap-4 hover:border-primary/60 hover:bg-primary/10 transition-colors"
-                data-testid={`native-module-${module.name.toLowerCase().replace(/\s+/g, "-")}`}
+                className="group flex items-start gap-4 rounded-xl border border-primary/25 bg-primary/5 p-5 transition-colors hover:border-primary/60 hover:bg-primary/10"
               >
-                <div className="w-11 h-11 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                  <Icon className="w-5 h-5" />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  <Icon className="h-5 w-5" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-semibold">NOSMO {module.name}</p>
-                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
+                    <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{module.description}</p>
-                  <Badge variant="outline" className="mt-3 text-xs border-primary/30 text-primary">
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{module.description}</p>
+                  <Badge variant="outline" className="mt-3 border-primary/30 text-xs text-primary">
                     {module.status}
                   </Badge>
                 </div>
@@ -155,22 +168,22 @@ export default function Integrations() {
 
       <section className="space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">External Integrations</p>
-          <h2 className="text-xl font-semibold mt-1">Connectors and demonstrators</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Connector roadmap</p>
+          <h2 className="mt-1 text-xl font-semibold">Deeper integrations added progressively</h2>
         </div>
 
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3">
-          <Puzzle className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <Puzzle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div>
-            <p className="text-sm font-medium text-primary">Connector architecture</p>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Active demonstrators use clearly labelled synthetic data. Other cards describe planned connectors and are not live integrations.
+            <p className="text-sm font-medium text-primary">Clear maturity labels</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              A launcher means Nexus opens the existing product. It does not claim API access, synchronisation or embedded control until those capabilities are implemented and authorised.
             </p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          {integrations.map((integration, i) => (
+        <div className="grid gap-4 md:grid-cols-2">
+          {connectors.map((integration, index) => (
             <motion.a
               key={integration.name}
               href={integration.href}
@@ -180,28 +193,27 @@ export default function Integrations() {
               }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              data-testid={`integration-card-${integration.name.toLowerCase().replace(/\s+/g, "-")}`}
-              className={`group rounded-xl border bg-card p-5 flex items-start gap-4 transition-colors ${
+              transition={{ delay: index * 0.04 }}
+              className={`group flex items-start gap-4 rounded-xl border bg-card p-5 transition-colors ${
                 integration.href
-                  ? "border-cyan-400/30 hover:border-cyan-300/70 hover:bg-cyan-400/5 cursor-pointer"
-                  : "border-border cursor-default"
+                  ? "cursor-pointer border-cyan-400/30 hover:border-cyan-300/70 hover:bg-cyan-400/5"
+                  : "cursor-default border-border"
               }`}
             >
-              <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 font-bold text-lg ${integration.iconBg}`}>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary text-lg font-bold text-muted-foreground">
                 {integration.letter}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="font-semibold text-sm">{integration.name}</p>
-                  {integration.href && <ExternalLink className="w-4 h-4 text-cyan-300 shrink-0" />}
+                  <p className="text-sm font-semibold">{integration.name}</p>
+                  {integration.href && <ExternalLink className="h-4 w-4 shrink-0 text-cyan-300" />}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{integration.description}</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[integration.category]}`}>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{integration.description}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor[integration.category]}`}>
                     {integration.category}
                   </span>
-                  <Badge variant="outline" className={`text-xs border-border ${integration.href ? "text-cyan-300" : "text-muted-foreground"}`}>
+                  <Badge variant="outline" className={`border-border text-xs ${integration.href ? "text-cyan-300" : "text-muted-foreground"}`}>
                     {integration.status}
                   </Badge>
                 </div>

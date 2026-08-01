@@ -26,6 +26,11 @@ import Plans from "@/pages/plans";
 import Integrations from "@/pages/integrations";
 import SafetyConnector from "@/pages/safety-connector";
 import WorkWalletBridge from "@/pages/work-wallet-bridge";
+import Trades from "@/pages/trades";
+import TradeWorkspace from "@/pages/trade-workspace";
+import CommunicationHub from "@/pages/communication-hub";
+import BimOverlay from "@/pages/bim-overlay";
+import ExternalTools from "@/pages/external-tools";
 
 function WorkspaceRoute() {
   return (
@@ -34,7 +39,7 @@ function WorkspaceRoute() {
         href={import.meta.env.BASE_URL}
         className="fixed left-3 top-3 z-50 rounded-full border border-primary/30 bg-background/85 px-3 py-2 text-xs font-semibold text-primary shadow-lg backdrop-blur transition-colors hover:bg-primary/10 md:left-5 md:top-5"
       >
-        ← System map
+        ← Nexus menu
       </a>
       <InteractiveWorkspace />
     </div>
@@ -44,13 +49,8 @@ function WorkspaceRoute() {
 function Router() {
   return (
     <Switch>
-      {/* Connected overview — the primary Nexus entry point */}
-      <Route path="/" component={SystemMap} />
-      {/* Complete module catalogue retained as a secondary launchpad */}
-      <Route path="/modules" component={NexusLaunchpad} />
-      {/* Existing person-centred workspace retained as a separate full-screen module */}
+      {/* Specialist full-screen workflows intentionally run without the app shell. */}
       <Route path="/workspace" component={WorkspaceRoute} />
-      {/* Full-screen plan-review workflow — no app chrome */}
       <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />
@@ -64,15 +64,25 @@ function AppLayoutRoutes() {
     <>
       <AppLayout>
         <Switch>
-          <Route path="/people" component={People} />
-          <Route path="/people/:id" component={PersonDetail} />
-          <Route path="/projects" component={Projects} />
-          <Route path="/card-maker" component={CardMaker} />
+          {/* One canonical menu. /modules is retained as a compatibility alias. */}
+          <Route path="/" component={NexusLaunchpad} />
+          <Route path="/modules" component={NexusLaunchpad} />
+          <Route path="/trades/:tradeId" component={TradeWorkspace} />
+          <Route path="/trades" component={Trades} />
+          <Route path="/system-map" component={SystemMap} />
+          <Route path="/communication-hub" component={CommunicationHub} />
+          <Route path="/bim-overlay" component={BimOverlay} />
+          <Route path="/external-tools" component={ExternalTools} />
+
           <Route path="/projects/:id" component={ProjectDetail} />
-          <Route path="/knowledge" component={Knowledge} />
+          <Route path="/projects" component={Projects} />
+          <Route path="/people/:id" component={PersonDetail} />
+          <Route path="/people" component={People} />
+          <Route path="/card-maker" component={CardMaker} />
           <Route path="/tasks" component={Tasks} />
-          <Route path="/timeline" component={Timeline} />
           <Route path="/plans" component={Plans} />
+          <Route path="/knowledge" component={Knowledge} />
+          <Route path="/timeline" component={Timeline} />
           <Route path="/integrations" component={Integrations} />
           <Route path="/safety-connector" component={WorkWalletBridge} />
           <Route path="/safety-connector-demo" component={SafetyConnector} />

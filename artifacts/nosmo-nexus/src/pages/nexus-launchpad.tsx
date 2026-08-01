@@ -1,288 +1,269 @@
-import { motion } from "framer-motion";
+import { Link } from "wouter";
 import {
   Activity,
+  AppWindow,
   ArrowRight,
   BookOpen,
+  BriefcaseBusiness,
   CheckSquare,
-  CircuitBoard,
-  DoorOpen,
+  Cuboid,
   FileStack,
   FolderKanban,
   LayoutDashboard,
   Network,
-  Puzzle,
+  PlugZap,
+  Settings,
   ShieldCheck,
   UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { ExternalToolStrip } from "@/components/external-tool-strip";
 
-type ModuleStatus = "ACTIVE" | "DEMO" | "IN DEVELOPMENT";
+type LayerStatus = "ACTIVE" | "DEMO" | "IN DEVELOPMENT";
 
-type ModuleCard = {
+type LayerAction = {
+  label: string;
+  href: string;
+};
+
+type PrimaryLayer = {
   name: string;
-  family: string;
   description: string;
-  status: ModuleStatus;
+  status: LayerStatus;
   href: string;
   icon: LucideIcon;
   note: string;
+  actions?: LayerAction[];
 };
 
-const base = import.meta.env.BASE_URL;
+type QuickLink = {
+  name: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+};
 
-const modules: ModuleCard[] = [
-  {
-    name: "DoorFlow",
-    family: "Field Delivery",
-    description: "Plan-led door identification, schedules, installation progress and guided fire-door inspection.",
-    status: "ACTIVE",
-    href: `${base}plan-review`,
-    icon: DoorOpen,
-    note: "Primary current prototype",
-  },
-  {
-    name: "Electrical Commissioning",
-    family: "Commissioning",
-    description: "An anonymised project demonstrator for electrical progress, certificates, communal systems and snags.",
-    status: "DEMO",
-    href: `${base}electrical-commissioning/`,
-    icon: CircuitBoard,
-    note: "Anonymised prototype",
-  },
-  {
-    name: "Work Wallet Safety Connector",
-    family: "Safety & Compliance",
-    description: "Person compliance, project readiness, DoorFlow task gates, event simulator and Zapier-ready gateway contract.",
-    status: "DEMO",
-    href: `${base}safety-connector`,
-    icon: ShieldCheck,
-    note: "Synthetic data; live gateway not deployed",
-  },
+const primaryLayers: PrimaryLayer[] = [
   {
     name: "Nexus Workspace",
-    family: "Operational Core",
-    description: "Person-centred project workspace connecting people, tasks, documents, issues, materials and decisions.",
+    description: "Connected operational core for project, person, task, issue, material, document and decision context.",
     status: "ACTIVE",
-    href: `${base}workspace`,
+    href: "/workspace",
     icon: Network,
-    note: "Interactive session prototype",
-  },
-  {
-    name: "Person Cards",
-    family: "People",
-    description: "Operational profiles connecting roles, companies, assignments, documents and project context.",
-    status: "IN DEVELOPMENT",
-    href: `${base}people`,
-    icon: Users,
-    note: "Core Nexus layer",
-  },
-  {
-    name: "Card Maker",
-    family: "People",
-    description: "Structured creation of new Person Cards with an AI-prefill-ready workflow.",
-    status: "IN DEVELOPMENT",
-    href: `${base}card-maker`,
-    icon: UserPlus,
-    note: "Core Nexus layer",
+    note: "Shared operating layer",
   },
   {
     name: "Projects",
-    family: "Project Control",
-    description: "Project portfolio and project-level context for people, tasks, documents and operational status.",
+    description: "Project portfolio, teams, status and the context used by every specialist workflow.",
     status: "IN DEVELOPMENT",
-    href: `${base}projects`,
+    href: "/projects",
     icon: FolderKanban,
-    note: "Core Nexus layer",
+    note: "Project entry point",
+    actions: [
+      { label: "Tasks", href: "/tasks" },
+      { label: "Plans", href: "/plans" },
+    ],
   },
   {
-    name: "Tasks",
-    family: "Project Control",
-    description: "Central task and action management across the Nexus workspace.",
+    name: "Personal InfoCard",
+    description: "Person Cards, roles, companies, competence, assignments and contextual communication in one layer.",
     status: "IN DEVELOPMENT",
-    href: `${base}tasks`,
+    href: "/people",
+    icon: Users,
+    note: "Same system level as Work Wallet and BIM",
+    actions: [
+      { label: "Card Maker", href: "/card-maker" },
+      { label: "Communication", href: "/communication-hub" },
+    ],
+  },
+  {
+    name: "Trades",
+    description: "Profession-first menus. Trade-specific applications appear only after the user selects the relevant profession.",
+    status: "ACTIVE",
+    href: "/trades",
+    icon: BriefcaseBusiness,
+    note: "DoorFlow and Electrical live inside Trades",
+  },
+  {
+    name: "Work Wallet",
+    description: "Safety, competence, inductions, RAMS, permits and compliance events shared across professions.",
+    status: "DEMO",
+    href: "/safety-connector",
+    icon: ShieldCheck,
+    note: "Gateway and safety connector",
+    actions: [{ label: "Safety demo", href: "/safety-connector-demo" }],
+  },
+  {
+    name: "FabStation / BIM Overlay",
+    description: "Cross-trade model objects, installation packages, readiness, evidence, inspection and as-built history.",
+    status: "DEMO",
+    href: "/bim-overlay",
+    icon: Cuboid,
+    note: "Partner and multi-trade installation layer",
+    actions: [{ label: "Integrations", href: "/integrations" }],
+  },
+];
+
+const quickLinks: QuickLink[] = [
+  {
+    name: "External Tools",
+    description: "Open Hilti, Procore, ACC, Fieldwire, CompanyCam, Bluebeam and other existing systems.",
+    href: "/external-tools",
+    icon: AppWindow,
+  },
+  {
+    name: "Tasks & Snags",
+    description: "Shared actions, assignments, defects and completion state.",
+    href: "/tasks",
     icon: CheckSquare,
-    note: "Core Nexus layer",
   },
   {
-    name: "Plans",
-    family: "Information",
-    description: "Drawing, PDF and plan access for project workflows and specialist modules.",
-    status: "IN DEVELOPMENT",
-    href: `${base}plans`,
+    name: "Plans & Documents",
+    description: "Drawings, PDFs, schedules, evidence and controlled revisions.",
+    href: "/plans",
     icon: FileStack,
-    note: "Core Nexus layer",
   },
   {
     name: "Knowledge",
-    family: "Information",
-    description: "Project and company knowledge layer for reusable context, records and operational memory.",
-    status: "IN DEVELOPMENT",
-    href: `${base}knowledge`,
+    description: "Reusable company and project memory.",
+    href: "/knowledge",
     icon: BookOpen,
-    note: "Core Nexus layer",
   },
   {
-    name: "Timeline",
-    family: "Audit & Memory",
-    description: "Chronological view of important events, changes, decisions and project activity.",
-    status: "IN DEVELOPMENT",
-    href: `${base}timeline`,
+    name: "Timeline & Audit",
+    description: "Events, decisions, changes and evidence history.",
+    href: "/timeline",
     icon: Activity,
-    note: "Core Nexus layer",
   },
   {
-    name: "Modules & Integrations",
-    family: "Platform",
-    description: "Catalogue of native NOSMO modules, active demonstrators and planned external connectors.",
-    status: "IN DEVELOPMENT",
-    href: `${base}integrations`,
-    icon: Puzzle,
-    note: "Connector control surface",
+    name: "System Map",
+    description: "Architecture and connected-layer view.",
+    href: "/system-map",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Integrations",
+    description: "Technical connector catalogue and controls.",
+    href: "/integrations",
+    icon: PlugZap,
+  },
+  {
+    name: "Settings",
+    description: "Preferences and future administration.",
+    href: "/settings",
+    icon: Settings,
   },
 ];
 
-const plannedConnectors = [
-  "Procore",
-  "Autodesk Construction Cloud",
-  "Bluebeam Revu",
-  "Fieldwire",
-  "Microsoft Excel",
-  "Google Drive",
-  "OneDrive / SharePoint",
-];
-
-const statusStyle: Record<ModuleStatus, string> = {
+const statusStyle: Record<LayerStatus, string> = {
   ACTIVE: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300",
   DEMO: "border-cyan-400/35 bg-cyan-400/10 text-cyan-300",
   "IN DEVELOPMENT": "border-amber-400/30 bg-amber-400/10 text-amber-300",
 };
 
-export default function NexusLaunchpad() {
-  const summary = {
-    active: modules.filter((module) => module.status === "ACTIVE").length,
-    demos: modules.filter((module) => module.status === "DEMO").length,
-    development: modules.filter((module) => module.status === "IN DEVELOPMENT").length,
-    planned: plannedConnectors.length,
-  };
+function PrimaryCard({ layer }: { layer: PrimaryLayer }) {
+  const Icon = layer.icon;
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground selection:bg-primary/30">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-18rem] h-[38rem] w-[38rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute bottom-[-18rem] right-[-10rem] h-[34rem] w-[34rem] rounded-full bg-purple-500/10 blur-3xl" />
+    <article className="flex min-h-64 flex-col rounded-2xl border border-border bg-card/75 p-5 transition-colors hover:border-primary/40 hover:bg-card">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+          <Icon className="h-6 w-6" />
+        </div>
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle[layer.status]}`}>{layer.status}</span>
       </div>
 
-      <main className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-10 lg:px-8">
-        <header className="rounded-2xl border border-primary/20 bg-card/75 p-5 shadow-2xl backdrop-blur-xl md:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/35 bg-primary/15 text-lg font-extrabold text-primary shadow-[0_0_24px_rgba(0,255,255,0.18)]">
-                  N
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">NOSMO Nexus</p>
-                  <h1 className="text-2xl font-bold tracking-tight md:text-4xl">System Launchpad</h1>
-                </div>
+      <h2 className="mt-5 text-lg font-semibold">{layer.name}</h2>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{layer.description}</p>
+      <p className="mt-4 text-xs text-muted-foreground">{layer.note}</p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        <Link href={layer.href} className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20">
+          Open <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+        {layer.actions?.map((action) => (
+          <Link key={action.label} href={action.href} className="rounded-full border border-border bg-background/40 px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground">
+            {action.label}
+          </Link>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+export default function NexusLaunchpad() {
+  return (
+    <div className="space-y-8 pb-8">
+      <header className="rounded-2xl border border-primary/20 bg-card/75 p-5 shadow-2xl backdrop-blur-xl md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/35 bg-primary/15 text-lg font-extrabold text-primary shadow-[0_0_24px_rgba(0,255,255,0.18)]">N</div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">NOSMO Nexus</p>
+                <h1 className="text-2xl font-bold tracking-tight md:text-4xl">Nexus Menu</h1>
               </div>
-              <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                One entry point for native NOSMO modules, the Nexus operational core and external connector development.
-              </p>
             </div>
-
-            <a
-              href={`${base}workspace`}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
-            >
-              Open live workspace <ArrowRight className="h-4 w-4" />
-            </a>
+            <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
+              The main menu shows system-wide Nexus layers. Specialist applications stay under their trade, while existing third-party systems remain available through a compact launcher strip.
+            </p>
           </div>
 
-          <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[
-              ["Active prototypes", summary.active, "text-emerald-300"],
-              ["Active demos", summary.demos, "text-cyan-300"],
-              ["Core layers", summary.development, "text-amber-300"],
-              ["Planned connectors", summary.planned, "text-purple-300"],
-            ].map(([label, value, colour]) => (
-              <div key={String(label)} className="rounded-xl border border-border bg-background/45 p-4">
-                <p className={`text-2xl font-bold ${colour}`}>{value}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-3">
+            <Link href="/trades" className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20">
+              Select Trade <BriefcaseBusiness className="h-4 w-4" />
+            </Link>
+            <Link href="/people" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
+              Personal InfoCard <UserPlus className="h-4 w-4" />
+            </Link>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <section className="mt-8">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Current system</p>
-              <h2 className="mt-1 text-xl font-semibold md:text-2xl">Modules and operational layers</h2>
-            </div>
-            <div className="flex flex-wrap gap-2 text-[10px] font-bold">
-              {(["ACTIVE", "DEMO", "IN DEVELOPMENT"] as ModuleStatus[]).map((status) => (
-                <span key={status} className={`rounded-full border px-2.5 py-1 ${statusStyle[status]}`}>
-                  {status}
-                </span>
-              ))}
-            </div>
+      <section className="rounded-2xl border border-border bg-card/55 p-4 md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">External application dock</p>
+            <p className="mt-1 text-sm text-muted-foreground">Open existing systems now. Deeper Nexus integration can be added behind the same icons later.</p>
           </div>
+          <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-bold text-cyan-300">LAUNCHER</span>
+        </div>
+        <ExternalToolStrip className="mt-4" limit={10} />
+      </section>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {modules.map((module, index) => {
-              const Icon = module.icon;
-              return (
-                <motion.a
-                  key={module.name}
-                  href={module.href}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index * 0.035, 0.28) }}
-                  className="group flex min-h-56 flex-col rounded-2xl border border-border bg-card/75 p-5 backdrop-blur transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-card"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${statusStyle[module.status]}`}>
-                      {module.status}
-                    </span>
-                  </div>
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Top-level Nexus layers</p>
+        <h2 className="mt-1 text-xl font-semibold md:text-2xl">Choose the operating context</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {primaryLayers.map((layer) => <PrimaryCard key={layer.name} layer={layer} />)}
+        </div>
+      </section>
 
-                  <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.17em] text-muted-foreground">{module.family}</p>
-                  <h3 className="mt-1 text-lg font-semibold">{module.name}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{module.description}</p>
+      <section className="rounded-2xl border border-border bg-card/55 p-5 md:p-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Quick access</p>
+          <p className="mt-1 text-sm text-muted-foreground">Smaller shared records, launchers and system screens remain available without competing with the principal layers.</p>
+        </div>
 
-                  <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
-                    <span className="text-xs text-muted-foreground">{module.note}</span>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
-                  </div>
-                </motion.a>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="mt-8 rounded-2xl border border-border bg-card/55 p-5 md:p-6">
-          <div className="flex items-start gap-3">
-            <LayoutDashboard className="mt-0.5 h-5 w-5 shrink-0 text-purple-300" />
-            <div>
-              <p className="font-semibold">Planned external connector layer</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                These names describe planned integration targets. They are not live connections.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {plannedConnectors.map((connector) => (
-              <span key={connector} className="rounded-full border border-purple-400/20 bg-purple-400/5 px-3 py-1.5 text-xs text-purple-200">
-                {connector} · PLANNED
-              </span>
-            ))}
-          </div>
-        </section>
-      </main>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {quickLinks.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.name} href={item.href} className="group flex items-start gap-3 rounded-xl border border-border bg-background/35 p-4 transition-colors hover:border-primary/35 hover:bg-background/55">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">{item.name}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+                </div>
+                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }
