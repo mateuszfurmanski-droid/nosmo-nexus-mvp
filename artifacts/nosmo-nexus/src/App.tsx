@@ -30,6 +30,7 @@ import Trades from "@/pages/trades";
 import TradeWorkspace from "@/pages/trade-workspace";
 import CommunicationHub from "@/pages/communication-hub";
 import BimOverlay from "@/pages/bim-overlay";
+import ExternalTools from "@/pages/external-tools";
 
 function WorkspaceRoute() {
   return (
@@ -71,6 +72,7 @@ function AppLayoutRoutes() {
           <Route path="/system-map" component={SystemMap} />
           <Route path="/communication-hub" component={CommunicationHub} />
           <Route path="/bim-overlay" component={BimOverlay} />
+          <Route path="/external-tools" component={ExternalTools} />
 
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects" component={Projects} />
