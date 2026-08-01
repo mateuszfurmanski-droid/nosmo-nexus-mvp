@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, createContext, useContext } from "react";
 import { Link, useLocation } from "wouter";
 import {
+  AppWindow,
   Bell,
   BriefcaseBusiness,
   CheckSquare,
@@ -41,6 +42,7 @@ const navigation: NavigationItem[] = [
   { label: "Personal InfoCard", href: "/people", icon: Users },
   { label: "Work Wallet", href: "/safety-connector", icon: ShieldCheck },
   { label: "FabStation / BIM", href: "/bim-overlay", icon: Cuboid },
+  { label: "External Tools", href: "/external-tools", icon: AppWindow },
   { label: "Tasks", href: "/tasks", icon: CheckSquare },
   { label: "Documents", href: "/plans", icon: Files },
   { label: "System Map", href: "/system-map", icon: Network },
