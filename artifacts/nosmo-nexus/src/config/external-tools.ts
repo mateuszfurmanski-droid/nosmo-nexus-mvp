@@ -8,8 +8,8 @@ import {
   HardHat,
   Mail,
   Sheet,
-  ToolCase,
   Video,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,7 +37,7 @@ export const externalTools: ExternalTool[] = [
     href: "https://ontrack3.hilti.com",
     category: "Assets",
     stage: "LAUNCHER",
-    icon: ToolCase,
+    icon: Wrench,
     shortLabel: "H",
     relevantTrades: ["all"],
     futureIntegration: ["asset availability", "tool assignments", "service dates", "certificate status"],
