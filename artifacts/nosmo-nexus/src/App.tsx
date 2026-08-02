@@ -12,6 +12,7 @@ import InteractiveWorkspace from "@/components/interactive-workspace";
 import NexusLaunchpad from "@/pages/nexus-launchpad";
 import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
+import FirstRun from "@/pages/first-run";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
@@ -50,6 +51,7 @@ function Router() {
   return (
     <Switch>
       {/* Specialist full-screen workflows intentionally run without the app shell. */}
+      <Route path="/first-run" component={FirstRun} />
       <Route path="/workspace" component={WorkspaceRoute} />
       <Route path="/plan-review" component={PlanReview} />
       <Route>
