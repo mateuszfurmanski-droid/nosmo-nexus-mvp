@@ -9,34 +9,61 @@ on:
 permissions:
   contents: read
 
+env:
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
 jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout full repository history
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Build portable source backup
+      - name: Build complete portable source backup
         shell: bash
         run: |
           set -euo pipefail
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           ROOT="backup/${REPO_NAME}"
-          mkdir -p "${ROOT}/source"
+          mkdir -p "${ROOT}/source-default" "${ROOT}/branch-snapshots"
 
-          git archive --format=tar HEAD | tar -xf - -C "${ROOT}/source"
-          git fetch --all --tags --prune
+          git fetch origin \
+            '+refs/heads/*:refs/remotes/origin/*' \
+            '+refs/tags/*:refs/tags/*' \
+            --prune --force
+
+          DEFAULT_REF="refs/remotes/origin/${DEFAULT_BRANCH}"
+          git archive --format=tar "${DEFAULT_REF}" | tar -xf - -C "${ROOT}/source-default"
+
+          while IFS= read -r ref; do
+            branch="${ref#refs/remotes/origin/}"
+            if [[ "${branch}" == "HEAD" || "${branch}" == "agent/source-backup-20260802" ]]; then
+              continue
+            fi
+            safe_name="$(printf '%s' "${branch}" | sed 's#[^A-Za-z0-9._-]#_#g')"
+            git archive \
+              --format=tar.gz \
+              --prefix="${REPO_NAME}-${safe_name}/" \
+              "${ref}" > "${ROOT}/branch-snapshots/${safe_name}.tar.gz"
+          done < <(git for-each-ref --format='%(refname)' refs/remotes/origin/)
+
           git bundle create "${ROOT}/${REPO_NAME}.bundle" --all
+          git for-each-ref \
+            --format='%(refname) %(objectname) %(committerdate:iso8601)' \
+            refs/heads refs/remotes/origin refs/tags > "${ROOT}/GIT_REFS.txt"
 
           {
             echo "repository=${GITHUB_REPOSITORY}"
-            echo "source_commit=$(git rev-parse HEAD)"
-            echo "source_branch=${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+            echo "default_branch=${DEFAULT_BRANCH}"
+            echo "default_commit=$(git rev-parse "${DEFAULT_REF}")"
+            echo "export_workflow_commit=$(git rev-parse HEAD)"
             echo "exported_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "restore_source=extract source directory"
+            echo "branch_snapshots=$(find "${ROOT}/branch-snapshots" -type f | wc -l | tr -d ' ')"
+            echo "restore_default=extract source-default directory"
+            echo "restore_branch=extract matching branch-snapshots tar.gz"
             echo "restore_history=git clone ${REPO_NAME}.bundle ${REPO_NAME}"
           } > "${ROOT}/BACKUP_METADATA.txt"
 
@@ -45,7 +72,7 @@ jobs:
       - name: Upload source backup
         uses: actions/upload-artifact@v4
         with:
-          name: source-backup-${{ github.event.repository.name }}-${{ github.run_number }}
+          name: source-backup-all-branches-${{ github.event.repository.name }}-${{ github.run_number }}
           path: backup
           if-no-files-found: error
           retention-days: 14
