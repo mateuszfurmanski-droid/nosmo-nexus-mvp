@@ -12,6 +12,7 @@ import InteractiveWorkspace from "@/components/interactive-workspace";
 import NexusLaunchpad from "@/pages/nexus-launchpad";
 import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
+import PersonCardDemo from "@/pages/person-card-demo";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
@@ -76,6 +77,7 @@ function AppLayoutRoutes() {
 
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects" component={Projects} />
+          <Route path="/person-card-demo" component={PersonCardDemo} />
           <Route path="/people/:id" component={PersonDetail} />
           <Route path="/people" component={People} />
           <Route path="/card-maker" component={CardMaker} />
