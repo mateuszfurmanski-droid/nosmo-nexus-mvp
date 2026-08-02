@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - .github/workflows/export-secure-backup.yml
+  pull_request:
   workflow_dispatch:
 
 permissions:
