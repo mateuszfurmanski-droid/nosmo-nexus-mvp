@@ -1,0 +1,62 @@
+name: Build Graph Preview
+
+on:
+  pull_request:
+    branches:
+      - agent/nexus-v1-project-shell
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Build graph preview
+        env:
+          PORT: 4173
+          BASE_PATH: /apps/nexus-graph-preview/
+        run: pnpm --filter @workspace/nosmo-nexus build
+
+      - name: Add stable relationship-tree entry
+        shell: bash
+        run: |
+          mkdir -p artifacts/nosmo-nexus/dist/public/relationship-tree
+          cp artifacts/nosmo-nexus/dist/public/index.html artifacts/nosmo-nexus/dist/public/relationship-tree/index.html
+          python - <<'PY'
+          from pathlib import Path
+          target = Path('artifacts/nosmo-nexus/dist/public/relationship-tree/index.html')
+          html = target.read_text(encoding='utf-8')
+          route = '<script>history.replaceState(null,"","/apps/nexus-graph-preview/relationship-tree");</script>'
+          target.write_text(html.replace('</head>', route + '\n</head>'), encoding='utf-8')
+          PY
+
+      - name: Upload graph preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-graph-preview
+          path: artifacts/nosmo-nexus/dist/public
+          if-no-files-found: error
+          retention-days: 14
