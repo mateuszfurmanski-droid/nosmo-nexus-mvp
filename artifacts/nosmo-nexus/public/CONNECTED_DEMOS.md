@@ -6,13 +6,28 @@ All user-facing demonstrations below are connected from the canonical Nexus Menu
 
 - `/doorflow-demo/` — self-contained synthetic DoorFlow workflow;
 - `/electrical-commissioning/` — complete anonymised Electrical Commissioning demonstrator;
-- `/workspace` — interactive Nexus relationship tree originally developed in Replit;
+- `/relationship-tree` — independently bundled Nexus Relationship Tree export;
+- `/workspace` — compatibility alias for the same exported Relationship Tree;
 - `/person-card-demo` — synthetic Personal InfoCard;
 - `/people` — broader People directory and availability demonstrator;
 - `/card-maker` — AI-assisted Card Maker demonstrator;
 - `/communication-hub` — contextual Person Card communication demonstrator.
 
-## Source boundaries
+## Relationship Tree export boundary
+
+The Relationship Tree was originally developed in a Replit workspace, but the user-facing version is now stored and built inside `nosmo-nexus-mvp`.
+
+Its production route does not load a Replit URL and does not require a running Replit deployment. Replit may remain an optional development workspace for future changes. Approved updates must be exported into the Nexus repository and validated before replacing the bundled snapshot.
+
+Current export manifest:
+
+- version: `2026.08.02-export-1`;
+- canonical route: `/relationship-tree`;
+- compatibility route: `/workspace`;
+- runtime: Nexus production bundle;
+- external runtime required: no.
+
+## DoorFlow source boundary
 
 The full production-oriented DoorFlow source remains in the private repository:
 
