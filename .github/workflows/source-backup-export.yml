@@ -1,0 +1,51 @@
+name: Source Backup Export
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/source-backup-export.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Build portable source backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          ROOT="backup/${REPO_NAME}"
+          mkdir -p "${ROOT}/source"
+
+          git archive --format=tar HEAD | tar -xf - -C "${ROOT}/source"
+          git fetch --all --tags --prune
+          git bundle create "${ROOT}/${REPO_NAME}.bundle" --all
+
+          {
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo "source_branch=${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+            echo "exported_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "restore_source=extract source directory"
+            echo "restore_history=git clone ${REPO_NAME}.bundle ${REPO_NAME}"
+          } > "${ROOT}/BACKUP_METADATA.txt"
+
+          find backup -type f -print0 | sort -z | xargs -0 sha256sum > backup/SHA256SUMS.txt
+
+      - name: Upload source backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-backup-${{ github.event.repository.name }}-${{ github.run_number }}
+          path: backup
+          if-no-files-found: error
+          retention-days: 14
