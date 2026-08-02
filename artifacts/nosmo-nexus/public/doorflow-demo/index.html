@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#08111f">
+  <title>NOSMO DoorFlow — Riverside Heights Demo</title>
+  <style>
+    :root {
+      --bg: #07101d;
+      --panel: #0d1929;
+      --panel-2: #122238;
+      --line: #253c57;
+      --text: #eef7ff;
+      --muted: #91a7be;
+      --cyan: #54d8ff;
+      --green: #51d69a;
+      --amber: #ffbf4b;
+      --orange: #ff8a47;
+      --red: #ff5f69;
+      --indigo: #8f9cff;
+      --approved: #1f9f6f;
+      --shadow: 0 20px 60px rgba(0,0,0,.34);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 92% 2%, rgba(44,119,170,.23), transparent 34%),
+        radial-gradient(circle at 10% 90%, rgba(30,93,130,.15), transparent 30%),
+        var(--bg);
+    }
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+    .shell { min-height: 100vh; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(7,16,29,.94);
+      backdrop-filter: blur(16px);
+    }
+    .brandline { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(84,216,255,.38);
+      border-radius: 13px;
+      color: var(--cyan);
+      background: rgba(84,216,255,.08);
+      font-weight: 900;
+      box-shadow: 0 0 26px rgba(84,216,255,.12);
+    }
+    .eyebrow { color: var(--cyan); font-size: 10px; letter-spacing: .2em; font-weight: 800; text-transform: uppercase; }
+    .title { margin-top: 2px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .back-link, .ghost-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 9px 12px;
+      color: var(--muted);
+      background: rgba(18,34,56,.66);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .back-link:hover, .ghost-btn:hover { border-color: rgba(84,216,255,.42); color: var(--text); }
+    .demo-tag {
+      border: 1px solid rgba(84,216,255,.3);
+      color: var(--cyan);
+      background: rgba(84,216,255,.09);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      white-space: nowrap;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      padding: 24px 20px 16px;
+      max-width: 1540px;
+      margin: auto;
+    }
+    .hero h1 { margin: 0; font-size: clamp(25px, 4vw, 42px); letter-spacing: -.035em; }
+    .hero p { margin: 8px 0 0; color: var(--muted); max-width: 760px; line-height: 1.55; font-size: 14px; }
+    .project-chip {
+      min-width: 240px;
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(18,34,56,.92), rgba(11,24,40,.9));
+    }
+    .project-chip small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+    .project-chip strong { display: block; margin-top: 5px; }
+    .stats {
+      max-width: 1540px;
+      margin: auto;
+      padding: 0 20px 16px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 9px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(13,25,41,.78);
+      padding: 11px 12px;
+    }
+    .stat b { display: block; font-size: 21px; }
+    .stat span { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; text-transform: uppercase; letter-spacing: .08em; }
+    .controls {
+      max-width: 1540px;
+      margin: auto;
+      padding: 0 20px 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+    .control {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 0 12px;
+      outline: none;
+    }
+    .search { flex: 1 1 230px; }
+    .control:focus { border-color: rgba(84,216,255,.55); }
+    .app-grid {
+      max-width: 1540px;
+      margin: auto;
+      padding: 0 20px 28px;
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr) 350px;
+      gap: 12px;
+      min-height: 610px;
+    }
+    .rail, .workspace, .detail {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(13,25,41,.83);
+      box-shadow: var(--shadow);
+    }
+    .rail { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .rail-btn {
+      min-height: 66px;
+      border: 1px solid transparent;
+      border-radius: 13px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .rail-btn .ico { font-size: 20px; }
+    .rail-btn.active { color: var(--cyan); border-color: rgba(84,216,255,.3); background: rgba(84,216,255,.08); }
+    .workspace { overflow: hidden; position: relative; }
+    .workspace-head, .detail-head {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+    .workspace-head h2, .detail-head h2 { margin: 0; font-size: 15px; }
+    .workspace-head p, .detail-head p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+    .workspace-body { min-height: 548px; }
+    .plan-wrap { position: relative; min-height: 548px; overflow: auto; padding: 20px; }
+    .plan {
+      position: relative;
+      min-width: 720px;
+      min-height: 500px;
+      border: 1px solid #355476;
+      border-radius: 12px;
+      background-color: #eaf1f5;
+      background-image:
+        linear-gradient(rgba(55,92,122,.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(55,92,122,.09) 1px, transparent 1px);
+      background-size: 22px 22px;
+      color: #102235;
+      overflow: hidden;
+    }
+    .plan::before {
+      content: "RIVERSIDE HEIGHTS DEMO · NOT FOR CONSTRUCTION";
+      position: absolute;
+      right: 14px;
+      bottom: 10px;
+      font-size: 10px;
+      letter-spacing: .13em;
+      color: rgba(16,34,53,.42);
+    }
+    .room {
+      position: absolute;
+      border: 2px solid rgba(16,34,53,.54);
+      background: rgba(255,255,255,.44);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 750;
+      color: rgba(16,34,53,.72);
+    }
+    .corridor {
+      position: absolute;
+      background: rgba(84,216,255,.08);
+      border: 1px dashed rgba(16,34,53,.3);
+    }
+    .door-marker {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      z-index: 4;
+    }
+    .door-marker .pin {
+      width: 25px;
+      height: 25px;
+      border-radius: 50% 50% 50% 4px;
+      transform: rotate(-45deg);
+      border: 2px solid white;
+      box-shadow: 0 3px 10px rgba(0,0,0,.35);
+    }
+    .door-marker .pin::after {
+      content: "";
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.8);
+      left: 7px;
+      top: 7px;
+    }
+    .door-marker .label {
+      transform: translateY(-2px);
+      padding: 4px 6px;
+      border-radius: 7px;
+      background: rgba(7,16,29,.9);
+      color: white;
+      font-size: 9px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .door-marker.selected .pin { outline: 4px solid rgba(84,216,255,.35); }
+    .empty { padding: 55px 24px; text-align: center; color: var(--muted); }
+    .schedule { padding: 12px; display: grid; gap: 8px; }
+    .door-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 55px minmax(130px, 1.3fr) minmax(110px, 1fr) 90px 90px;
+      gap: 9px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(18,34,56,.62);
+      padding: 11px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .door-row:hover, .door-row.selected { border-color: rgba(84,216,255,.45); background: rgba(84,216,255,.07); }
+    .door-row strong { font-size: 12px; }
+    .door-row span { color: var(--muted); font-size: 11px; }
+    .status-pill { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 5px 7px; color: white !important; font-size: 9px !important; font-weight: 800; white-space: nowrap; }
+    .stack { padding: 20px; display: grid; gap: 13px; align-content: start; }
+    .floor-card {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(18,34,56,.62);
+      padding: 15px;
+      cursor: pointer;
+    }
+    .floor-card:hover { border-color: rgba(84,216,255,.4); }
+    .floor-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .floor-card h3 { margin: 0; font-size: 15px; }
+    .floor-card p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .bar { height: 7px; margin-top: 12px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,.08); }
+    .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); border-radius: inherit; }
+    .detail { min-width: 0; overflow: hidden; }
+    .detail-scroll { max-height: 650px; overflow-y: auto; padding: 14px; }
+    .identity {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 13px;
+    }
+    .field {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: rgba(18,34,56,.56);
+      padding: 10px;
+    }
+    .field small { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .09em; }
+    .field b { display: block; font-size: 12px; margin-top: 4px; }
+    .section { padding-top: 13px; margin-top: 13px; border-top: 1px solid var(--line); }
+    .section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+    .section-title h3 { margin: 0; font-size: 12px; }
+    .section-title span { color: var(--muted); font-size: 10px; }
+    .status-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 7px; }
+    .status-btn {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(18,34,56,.7);
+      cursor: pointer;
+      text-align: left;
+      padding: 8px 9px;
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .status-btn.active { outline: 2px solid rgba(84,216,255,.35); border-color: rgba(84,216,255,.55); }
+    .checklist { display: grid; gap: 7px; }
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(18,34,56,.5);
+      cursor: pointer;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .check input { margin-top: 1px; accent-color: var(--green); }
+    textarea {
+      width: 100%;
+      min-height: 88px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #091523;
+      color: var(--text);
+      padding: 10px;
+      outline: none;
+    }
+    textarea:focus { border-color: rgba(84,216,255,.52); }
+    .photo-box {
+      display: grid;
+      place-items: center;
+      min-height: 86px;
+      border: 1px dashed #3a5b7d;
+      border-radius: 11px;
+      background: rgba(84,216,255,.035);
+      color: var(--muted);
+      cursor: pointer;
+      text-align: center;
+      padding: 11px;
+      font-size: 11px;
+    }
+    .photo-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+    .photo-chip { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 9px; color: var(--muted); background: rgba(18,34,56,.6); }
+    .action {
+      width: 100%;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 11px;
+      background: var(--cyan);
+      color: #05111d;
+      padding: 12px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+    .action:disabled { opacity: .38; cursor: not-allowed; }
+    .hint { color: var(--muted); font-size: 10px; line-height: 1.45; margin-top: 7px; }
+    .close-detail { display: none; }
+    .toast {
+      position: fixed;
+      z-index: 80;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      border: 1px solid rgba(84,216,255,.35);
+      border-radius: 999px;
+      background: rgba(7,16,29,.96);
+      padding: 10px 14px;
+      font-size: 11px;
+      color: var(--text);
+      transition: .22s ease;
+      pointer-events: none;
+      box-shadow: var(--shadow);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    @media (max-width: 1050px) {
+      .app-grid { grid-template-columns: 76px minmax(0,1fr); }
+      .detail {
+        position: fixed;
+        inset: auto 8px 8px 8px;
+        z-index: 50;
+        max-height: 78vh;
+        transform: translateY(110%);
+        transition: transform .24s ease;
+      }
+      .detail.open { transform: translateY(0); }
+      .detail-scroll { max-height: calc(78vh - 58px); }
+      .close-detail { display: inline-flex; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); border-radius: 9px; padding: 7px 9px; cursor: pointer; }
+    }
+    @media (max-width: 720px) {
+      .topbar { padding: 10px 12px; }
+      .demo-tag { display: none; }
+      .back-link { padding: 8px 10px; font-size: 0; }
+      .back-link::after { content: "←"; font-size: 16px; }
+      .hero { grid-template-columns: 1fr; padding: 18px 12px 13px; }
+      .project-chip { min-width: 0; }
+      .stats { padding: 0 12px 13px; grid-template-columns: repeat(3, 1fr); }
+      .controls { padding: 0 12px 12px; }
+      .app-grid { padding: 0 12px 20px; grid-template-columns: 1fr; min-height: 0; }
+      .rail {
+        order: 2;
+        position: fixed;
+        z-index: 35;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        display: grid;
+        grid-template-columns: repeat(3,1fr);
+        padding: 6px;
+        border-radius: 16px;
+      }
+      .rail-btn { min-height: 48px; flex-direction: row; font-size: 10px; }
+      .rail-btn .ico { font-size: 16px; }
+      .workspace { margin-bottom: 76px; }
+      .workspace-body, .plan-wrap { min-height: 485px; }
+      .plan-wrap { padding: 10px; }
+      .schedule { padding: 8px; }
+      .door-row { grid-template-columns: 48px minmax(0,1fr) 72px; }
+      .door-row .hide-mobile { display: none; }
+      .legend { display: none; }
+      .top-actions .ghost-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brandline">
+        <div class="logo">N</div>
+        <div style="min-width:0">
+          <div class="eyebrow">NOSMO DoorFlow</div>
+          <div class="title">Fire-door installation and inspection</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="demo-tag">WORKING SYNTHETIC DEMO</span>
+        <button id="resetBtn" class="ghost-btn" type="button">Reset demo</button>
+        <a class="back-link" href="../">Return to Nexus</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <h1>Riverside Heights Demo</h1>
+        <p>A self-contained fictional project showing plan-led door identification, schedule control, installation status, evidence capture and fire-door inspection. All changes autosave on this device.</p>
+      </div>
+      <div class="project-chip">
+        <small>Project delivery team</small>
+        <strong>Northbridge Construction Ltd</strong>
+        <small style="margin-top:5px">Demo Joinery Services · Riverside Estates</small>
+      </div>
+    </section>
+
+    <section id="stats" class="stats"></section>
+
+    <section class="controls">
+      <select id="floorSelect" class="control" aria-label="Select floor"></select>
+      <select id="statusFilter" class="control" aria-label="Filter status">
+        <option value="all">All statuses</option>
+        <option value="todo">To do</option>
+        <option value="in-progress">In progress</option>
+        <option value="done">Installed</option>
+        <option value="issue">Issue</option>
+        <option value="ready">Ready for fire inspection</option>
+        <option value="approved">Fire approved</option>
+      </select>
+      <input id="searchInput" class="control search" type="search" placeholder="Search door ID, room, type or rating">
+    </section>
+
+    <main class="app-grid">
+      <nav class="rail" aria-label="DoorFlow views">
+        <button class="rail-btn active" data-view="plan"><span class="ico">⌖</span><span>Plan</span></button>
+        <button class="rail-btn" data-view="schedule"><span class="ico">☷</span><span>Doors</span></button>
+        <button class="rail-btn" data-view="stack"><span class="ico">▱</span><span>Stack</span></button>
+      </nav>
+
+      <section class="workspace">
+        <div class="workspace-head">
+          <div>
+            <h2 id="viewTitle">Plan and door markers</h2>
+            <p id="viewSubtitle">Select a marker to continue installation or inspection.</p>
+          </div>
+          <div id="legend" class="legend"></div>
+        </div>
+        <div id="workspaceBody" class="workspace-body"></div>
+      </section>
+
+      <aside id="detail" class="detail">
+        <div class="detail-head">
+          <div>
+            <h2 id="detailTitle">Door details</h2>
+            <p id="detailSubtitle">Select a door from the plan or schedule.</p>
+          </div>
+          <button id="closeDetail" class="close-detail" type="button">Close</button>
+        </div>
+        <div id="detailBody" class="detail-scroll">
+          <div class="empty">No door selected.</div>
+        </div>
+      </aside>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const STATUS = {
+      "todo": { label: "To do", color: "#ffbf4b" },
+      "in-progress": { label: "In progress", color: "#ff8a47" },
+      "done": { label: "Installed", color: "#51d69a" },
+      "issue": { label: "Issue", color: "#ff5f69" },
+      "ready": { label: "Ready for inspection", color: "#8f9cff" },
+      "approved": { label: "Fire approved", color: "#1f9f6f" }
+    };
+
+    const CHECKS = [
+      "Frame fixed and packed correctly",
+      "Perimeter and leaf gaps within tolerance",
+      "Hinges and fixings match the schedule",
+      "Intumescent and smoke seals continuous",
+      "Closer shuts and latches the leaf",
+      "Ironmongery, signage and labels complete"
+    ];
+
+    const DOORS = [
+      { id:"D-G01", floor:"Ground Floor", room:"Reception", type:"Single timber", rating:"FD30S", x:15, y:31, status:"approved", package:"Joinery Package J-01" },
+      { id:"D-G02", floor:"Ground Floor", room:"Main Lobby", type:"Double timber", rating:"FD60S", x:38, y:48, status:"ready", package:"Joinery Package J-01" },
+      { id:"D-G03", floor:"Ground Floor", room:"Electrical Intake", type:"Single steel", rating:"FD60", x:67, y:27, status:"issue", package:"Doors Package D-02" },
+      { id:"D-G04", floor:"Ground Floor", room:"Accessible WC", type:"Single timber", rating:"FD30", x:79, y:68, status:"done", package:"Joinery Package J-01" },
+      { id:"D-G05", floor:"Ground Floor", room:"Back Office", type:"Single timber", rating:"FD30S", x:50, y:78, status:"in-progress", package:"Joinery Package J-01" },
+      { id:"D-G06", floor:"Ground Floor", room:"Stair Core", type:"Double steel", rating:"FD60S", x:88, y:34, status:"todo", package:"Doors Package D-02" },
+      { id:"D-101", floor:"Level 1", room:"Apartment 1.01", type:"Flat entrance", rating:"FD30S", x:17, y:30, status:"done", package:"Residential Doors R-01" },
+      { id:"D-102", floor:"Level 1", room:"Apartment 1.02", type:"Flat entrance", rating:"FD30S", x:43, y:31, status:"ready", package:"Residential Doors R-01" },
+      { id:"D-103", floor:"Level 1", room:"Corridor North", type:"Cross-corridor double", rating:"FD60S", x:55, y:56, status:"issue", package:"Core Doors C-01" },
+      { id:"D-104", floor:"Level 1", room:"Riser 1A", type:"Riser door", rating:"FD60", x:78, y:28, status:"approved", package:"Core Doors C-01" },
+      { id:"D-105", floor:"Level 1", room:"Apartment 1.05", type:"Flat entrance", rating:"FD30S", x:80, y:74, status:"in-progress", package:"Residential Doors R-01" },
+      { id:"D-201", floor:"Level 2", room:"Apartment 2.01", type:"Flat entrance", rating:"FD30S", x:18, y:31, status:"todo", package:"Residential Doors R-02" },
+      { id:"D-202", floor:"Level 2", room:"Apartment 2.02", type:"Flat entrance", rating:"FD30S", x:45, y:31, status:"todo", package:"Residential Doors R-02" },
+      { id:"D-203", floor:"Level 2", room:"Corridor South", type:"Cross-corridor double", rating:"FD60S", x:58, y:57, status:"in-progress", package:"Core Doors C-02" },
+      { id:"D-204", floor:"Level 2", room:"Stair Core", type:"Single steel", rating:"FD60S", x:83, y:69, status:"ready", package:"Core Doors C-02" }
+    ];
+
+    const FLOORS = [...new Set(DOORS.map(d => d.floor))];
+    const STORAGE_KEY = "nosmo.doorflow.demo.v2";
+    const app = {
+      floor: FLOORS[0],
+      view: "plan",
+      selectedId: DOORS[0].id,
+      filter: "all",
+      search: "",
+      edits: loadEdits()
+    };
+
+    function loadEdits() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_) { return {}; }
+    }
+    function saveEdits() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(app.edits)); } catch (_) {}
+    }
+    function mergedDoor(base) {
+      const edit = app.edits[base.id] || {};
+      return { ...base, ...edit, checklist: Array.isArray(edit.checklist) ? edit.checklist : CHECKS.map(() => false), photos: Array.isArray(edit.photos) ? edit.photos : [], notes: edit.notes || "" };
+    }
+    function doorById(id) { const base = DOORS.find(d => d.id === id); return base ? mergedDoor(base) : null; }
+    function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch])); }
+    function filteredDoors() {
+      const q = app.search.trim().toLowerCase();
+      return DOORS.map(mergedDoor).filter(d => d.floor === app.floor)
+        .filter(d => app.filter === "all" || d.status === app.filter)
+        .filter(d => !q || `${d.id} ${d.room} ${d.type} ${d.rating} ${d.package}`.toLowerCase().includes(q));
+    }
+    function updateDoor(id, patch) {
+      app.edits[id] = { ...(app.edits[id] || {}), ...patch };
+      saveEdits();
+      renderAll();
+    }
+    function showToast(text) {
+      const el = document.getElementById("toast");
+      el.textContent = text;
+      el.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => el.classList.remove("show"), 1700);
+    }
+
+    function renderStats() {
+      const all = DOORS.map(mergedDoor);
+      const entries = [
+        [all.length, "Total doors"],
+        [all.filter(d => d.status === "approved").length, "Fire approved"],
+        [all.filter(d => d.status === "ready").length, "Ready"],
+        [all.filter(d => d.status === "done").length, "Installed"],
+        [all.filter(d => d.status === "issue").length, "Issues"],
+        [Math.round((all.filter(d => d.status === "approved").length / all.length) * 100) + "%", "Approval progress"]
+      ];
+      document.getElementById("stats").innerHTML = entries.map(([v,l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+    }
+
+    function renderControls() {
+      const floorSelect = document.getElementById("floorSelect");
+      floorSelect.innerHTML = FLOORS.map(f => `<option ${f === app.floor ? "selected" : ""}>${f}</option>`).join("");
+      document.getElementById("statusFilter").value = app.filter;
+      document.getElementById("searchInput").value = app.search;
+    }
+
+    function renderLegend() {
+      document.getElementById("legend").innerHTML = Object.entries(STATUS).map(([key, meta]) => `<span><i class="dot" style="background:${meta.color}"></i>${meta.label}</span>`).join("");
+    }
+
+    function roomLayout() {
+      return `
+        <div class="room" style="left:4%;top:8%;width:27%;height:34%">Apartment / Office A</div>
+        <div class="room" style="left:34%;top:8%;width:27%;height:34%">Lobby / Corridor</div>
+        <div class="room" style="left:64%;top:8%;width:31%;height:34%">Service / Apartment B</div>
+        <div class="corridor" style="left:5%;top:46%;width:90%;height:14%"></div>
+        <div class="room" style="left:4%;top:64%;width:31%;height:26%">Reception / Apartment C</div>
+        <div class="room" style="left:38%;top:64%;width:27%;height:26%">Back Office / Core</div>
+        <div class="room" style="left:68%;top:64%;width:27%;height:26%">WC / Stair Core</div>`;
+    }
+
+    function renderPlan() {
+      const doors = filteredDoors();
+      document.getElementById("viewTitle").textContent = `${app.floor} plan`;
+      document.getElementById("viewSubtitle").textContent = `${doors.length} matching door${doors.length === 1 ? "" : "s"}. Markers are synthetic plan coordinates.`;
+      const markers = doors.map(d => {
+        const meta = STATUS[d.status];
+        return `<button class="door-marker ${app.selectedId === d.id ? "selected" : ""}" data-door="${d.id}" style="left:${d.x}%;top:${d.y}%" title="${escapeHtml(d.id + " · " + d.room)}"><i class="pin" style="background:${meta.color}"></i><span class="label">${escapeHtml(d.id)}</span></button>`;
+      }).join("");
+      document.getElementById("workspaceBody").innerHTML = `<div class="plan-wrap"><div class="plan">${roomLayout()}${markers}</div></div>`;
+      document.querySelectorAll("[data-door]").forEach(el => el.addEventListener("click", () => selectDoor(el.dataset.door)));
+    }
+
+    function renderSchedule() {
+      const doors = filteredDoors();
+      document.getElementById("viewTitle").textContent = `${app.floor} door schedule`;
+      document.getElementById("viewSubtitle").textContent = "Review identity, installation state and fire-rating readiness.";
+      if (!doors.length) {
+        document.getElementById("workspaceBody").innerHTML = `<div class="empty">No doors match the current filters.</div>`;
+        return;
+      }
+      document.getElementById("workspaceBody").innerHTML = `<div class="schedule">${doors.map(d => {
+        const meta = STATUS[d.status];
+        return `<button class="door-row ${app.selectedId === d.id ? "selected" : ""}" data-door="${d.id}"><strong>${escapeHtml(d.id)}</strong><div><strong>${escapeHtml(d.room)}</strong><span style="display:block;margin-top:3px">${escapeHtml(d.type)}</span></div><span class="hide-mobile">${escapeHtml(d.package)}</span><span class="hide-mobile">${escapeHtml(d.rating)}</span><span class="status-pill" style="background:${meta.color}">${meta.label}</span></button>`;
+      }).join("")}</div>`;
+      document.querySelectorAll("[data-door]").forEach(el => el.addEventListener("click", () => selectDoor(el.dataset.door)));
+    }
+
+    function renderStack() {
+      document.getElementById("viewTitle").textContent = "Building Stack";
+      document.getElementById("viewSubtitle").textContent = "Floor-level installation and authorised fire-approval progress.";
+      document.getElementById("workspaceBody").innerHTML = `<div class="stack">${[...FLOORS].reverse().map(f => {
+        const doors = DOORS.filter(d => d.floor === f).map(mergedDoor);
+        const complete = doors.filter(d => d.status === "approved").length;
+        const readiness = Math.round((doors.filter(d => ["approved","ready","done"].includes(d.status)).length / doors.length) * 100);
+        return `<button class="floor-card" data-floor="${escapeHtml(f)}"><div class="floor-card-head"><div><h3>${escapeHtml(f)}</h3><p>${doors.length} doors · ${complete} fire approved</p></div><strong>${readiness}% ready</strong></div><div class="bar"><i style="width:${readiness}%"></i></div></button>`;
+      }).join("")}</div>`;
+      document.querySelectorAll("[data-floor]").forEach(el => el.addEventListener("click", () => { app.floor = el.dataset.floor; app.view = "plan"; app.selectedId = DOORS.find(d => d.floor === app.floor)?.id || null; renderAll(); }));
+    }
+
+    function renderDetail() {
+      const door = doorById(app.selectedId);
+      const detail = document.getElementById("detail");
+      if (!door) {
+        document.getElementById("detailTitle").textContent = "Door details";
+        document.getElementById("detailSubtitle").textContent = "Select a door from the plan or schedule.";
+        document.getElementById("detailBody").innerHTML = `<div class="empty">No door selected.</div>`;
+        detail.classList.remove("open");
+        return;
+      }
+      detail.classList.add("open");
+      document.getElementById("detailTitle").textContent = door.id;
+      document.getElementById("detailSubtitle").textContent = `${door.room} · ${STATUS[door.status].label}`;
+      const completeCount = door.checklist.filter(Boolean).length;
+      const canApprove = completeCount === CHECKS.length && door.photos.length > 0;
+      document.getElementById("detailBody").innerHTML = `
+        <div class="identity">
+          <div class="field"><small>Room</small><b>${escapeHtml(door.room)}</b></div>
+          <div class="field"><small>Fire rating</small><b>${escapeHtml(door.rating)}</b></div>
+          <div class="field"><small>Door type</small><b>${escapeHtml(door.type)}</b></div>
+          <div class="field"><small>Package</small><b>${escapeHtml(door.package)}</b></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><h3>Workflow status</h3><span>${STATUS[door.status].label}</span></div>
+          <div class="status-grid">${Object.entries(STATUS).map(([key, meta]) => `<button class="status-btn ${door.status === key ? "active" : ""}" data-status="${key}" style="border-left:4px solid ${meta.color}">${meta.label}</button>`).join("")}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><h3>Fire-door inspection</h3><span>${completeCount}/${CHECKS.length} checks</span></div>
+          <div class="checklist">${CHECKS.map((label, index) => `<label class="check"><input type="checkbox" data-check="${index}" ${door.checklist[index] ? "checked" : ""}><span>${escapeHtml(label)}</span></label>`).join("")}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><h3>Notes</h3><span>Autosaved</span></div>
+          <textarea id="notesInput" placeholder="Record installation, inspection or issue details">${escapeHtml(door.notes)}</textarea>
+        </div>
+
+        <div class="section">
+          <div class="section-title"><h3>Photo evidence</h3><span>${door.photos.length} attached</span></div>
+          <label class="photo-box">Tap to attach evidence photos<input id="photoInput" type="file" accept="image/*" multiple hidden></label>
+          <div class="photo-list">${door.photos.map(name => `<span class="photo-chip">${escapeHtml(name)}</span>`).join("")}</div>
+        </div>
+
+        <button id="approveBtn" class="action" type="button" ${canApprove ? "" : "disabled"}>Complete authorised fire approval</button>
+        <p class="hint">Approval unlocks when all required checks are complete and at least one evidence photo is attached. Demo evidence stores filenames only.</p>`;
+
+      document.querySelectorAll("[data-status]").forEach(el => el.addEventListener("click", () => { updateDoor(door.id, { status: el.dataset.status }); showToast(`${door.id} · ${STATUS[el.dataset.status].label}`); }));
+      document.querySelectorAll("[data-check]").forEach(el => el.addEventListener("change", () => {
+        const next = [...door.checklist];
+        next[Number(el.dataset.check)] = el.checked;
+        updateDoor(door.id, { checklist: next, status: door.status === "todo" ? "in-progress" : door.status });
+      }));
+      document.getElementById("notesInput").addEventListener("input", event => {
+        app.edits[door.id] = { ...(app.edits[door.id] || {}), notes: event.target.value };
+        saveEdits();
+      });
+      document.getElementById("photoInput").addEventListener("change", event => {
+        const names = [...event.target.files].map(file => file.name);
+        updateDoor(door.id, { photos: [...door.photos, ...names], status: door.status === "todo" ? "in-progress" : door.status });
+        showToast(`${names.length} evidence photo${names.length === 1 ? "" : "s"} attached`);
+      });
+      document.getElementById("approveBtn").addEventListener("click", () => {
+        if (!canApprove) return;
+        updateDoor(door.id, { status: "approved", approvedAt: new Date().toISOString() });
+        showToast(`${door.id} fire approved`);
+      });
+    }
+
+    function selectDoor(id) {
+      app.selectedId = id;
+      const door = doorById(id);
+      if (door) app.floor = door.floor;
+      renderAll();
+    }
+
+    function renderAll() {
+      renderStats();
+      renderControls();
+      renderLegend();
+      document.querySelectorAll(".rail-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === app.view));
+      if (app.view === "plan") renderPlan();
+      if (app.view === "schedule") renderSchedule();
+      if (app.view === "stack") renderStack();
+      renderDetail();
+    }
+
+    document.querySelectorAll(".rail-btn").forEach(btn => btn.addEventListener("click", () => { app.view = btn.dataset.view; renderAll(); }));
+    document.getElementById("floorSelect").addEventListener("change", event => { app.floor = event.target.value; app.selectedId = DOORS.find(d => d.floor === app.floor)?.id || null; renderAll(); });
+    document.getElementById("statusFilter").addEventListener("change", event => { app.filter = event.target.value; renderAll(); });
+    document.getElementById("searchInput").addEventListener("input", event => { app.search = event.target.value; renderAll(); });
+    document.getElementById("closeDetail").addEventListener("click", () => document.getElementById("detail").classList.remove("open"));
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (!confirm("Reset all DoorFlow demo edits on this device?")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      app.edits = {};
+      app.selectedId = DOORS[0].id;
+      app.floor = FLOORS[0];
+      app.filter = "all";
+      app.search = "";
+      renderAll();
+      showToast("DoorFlow demo reset");
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
