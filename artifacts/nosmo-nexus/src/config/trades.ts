@@ -65,11 +65,11 @@ const shared = {
   people: {
     name: "Personal InfoCard",
     description: "People, roles, competence, assignments and communication context relevant to this trade.",
-    status: "IN DEVELOPMENT" as TradeStatus,
+    status: "DEMO" as TradeStatus,
     href: "/people",
     linkType: "internal" as TradeLinkType,
     icon: Users,
-    note: "Includes Person Cards and Card Maker",
+    note: "Working Person Cards and Card Maker",
   },
   communication: {
     name: "Communication Hub",
@@ -99,13 +99,13 @@ const shared = {
     note: "Cross-trade partner and BIM layer",
   },
   workspace: {
-    name: "Nexus Workspace",
+    name: "Nexus Relationship Tree",
     description: "Connected project, person, task, issue, material and decision context.",
     status: "ACTIVE" as TradeStatus,
     href: "/workspace",
     linkType: "internal" as TradeLinkType,
     icon: Network,
-    note: "Shared operational core",
+    note: "Interactive workspace originally developed in Replit",
   },
 };
 
@@ -120,12 +120,12 @@ export const tradeDefinitions: TradeDefinition[] = [
     tools: [
       {
         name: "NOSMO DoorFlow",
-        description: "Plan-led door identification, schedules, installation progress and guided fire-door inspection.",
-        status: "ACTIVE",
-        href: "/plan-review",
-        linkType: "internal",
+        description: "Plan-led door identification, schedule control, installation status, evidence and guided fire-door inspection.",
+        status: "DEMO",
+        href: `${base}doorflow-demo/`,
+        linkType: "static",
         icon: DoorOpen,
-        note: "Primary Fire Doors & Joinery application",
+        note: "Fully working Riverside Heights synthetic demo",
       },
       shared.tasks,
       shared.plans,
@@ -149,7 +149,7 @@ export const tradeDefinitions: TradeDefinition[] = [
         href: `${base}electrical-commissioning/`,
         linkType: "static",
         icon: CircuitBoard,
-        note: "Anonymised electrical demonstrator",
+        note: "Fully working Riverside Heights anonymised demo",
       },
       shared.tasks,
       shared.plans,
