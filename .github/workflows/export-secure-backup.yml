@@ -1,0 +1,43 @@
+name: Export secure backup
+
+on:
+  push:
+    paths:
+      - .github/workflows/export-secure-backup.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches and tags
+        shell: bash
+        run: |
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*' --prune
+
+      - name: Create complete Git bundle and working-tree snapshot
+        shell: bash
+        run: |
+          repo="${GITHUB_REPOSITORY#*/}"
+          git bundle create "${repo}.bundle" --all
+          tar --exclude=.git --exclude="${repo}.bundle" -czf "${repo}-main-snapshot.tar.gz" .
+          sha256sum "${repo}.bundle" "${repo}-main-snapshot.tar.gz" > SHA256SUMS.txt
+
+      - name: Upload secure backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-backup-${{ github.event.repository.name }}
+          path: |
+            *.bundle
+            *-main-snapshot.tar.gz
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
