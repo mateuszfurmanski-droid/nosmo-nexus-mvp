@@ -64,6 +64,16 @@ const base = import.meta.env.BASE_URL;
 
 const connectedDemos: ConnectedDemo[] = [
   {
+    name: "Nexus First Run & Discovery Cloud",
+    description: "Android-first Nexus Awakening, private source discovery, Work Mode and a reviewable Discovery Cloud in one guided entry flow.",
+    status: "ACTIVE",
+    href: "/first-run",
+    linkType: "internal",
+    icon: AppWindow,
+    context: "Android-first onboarding · synthetic discovery",
+    capabilities: ["Nexus Awakening", "Discovery Cloud", "Work Mode", "Private review"],
+  },
+  {
     name: "NOSMO DoorFlow",
     description: "Interactive plan-led fire-door installation and inspection workflow with a schedule, six workflow states, checklists, notes, evidence and local autosave.",
     status: "WORKING DEMO",
@@ -316,7 +326,7 @@ export default function NexusLaunchpad() {
               </div>
             </div>
             <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              One entry point for the working DoorFlow and Electrical demonstrations, the Replit relationship tree, Person Cards and the wider Nexus operating layers.
+              One entry point for First Run and Discovery Cloud, DoorFlow, Electrical, the Relationship Tree, Person Cards and the wider Nexus operating layers.
             </p>
           </div>
 

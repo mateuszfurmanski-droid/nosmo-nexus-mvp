@@ -4,6 +4,7 @@ All user-facing demonstrations below are connected from the canonical Nexus Menu
 
 ## Working entries
 
+- `/first-run` — Android-first Nexus Awakening, Work Mode and Discovery Cloud prototype;
 - `/doorflow-demo/` — self-contained synthetic DoorFlow workflow;
 - `/electrical-commissioning/` — complete anonymised Electrical Commissioning demonstrator;
 - `/relationship-tree` — independently bundled Nexus Relationship Tree export;
