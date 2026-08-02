@@ -1,0 +1,4 @@
+/doorflow-demo/
+/electrical-commissioning/
+/workspace
+/person-card-demo
