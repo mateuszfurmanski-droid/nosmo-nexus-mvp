@@ -95,14 +95,15 @@ const connectedDemos: ConnectedDemo[] = [
   },
   {
     name: "Personal InfoCard",
-    description: "Person Cards, project participation, competence, availability, AI-assisted Card Maker and contextual communication routes.",
+    description: "A complete fictional Person Card showing project participation, qualifications, current work, relationship confidence, privacy layers and communication routes.",
     status: "ACTIVE",
-    href: "/people",
+    href: "/person-card-demo",
     linkType: "internal",
     icon: Users,
-    context: "Person-centric Nexus layer",
-    capabilities: ["Person Cards", "Card Maker", "Availability", "Communication"],
+    context: "Riverside Heights Demo · personal work layer",
+    capabilities: ["Person Card", "Qualifications", "Work graph", "Privacy"],
     actions: [
+      { label: "People directory", href: "/people" },
       { label: "Card Maker", href: "/card-maker" },
       { label: "Communication", href: "/communication-hub" },
     ],
@@ -134,10 +135,11 @@ const primaryLayers: PrimaryLayer[] = [
     name: "Personal InfoCard",
     description: "Person Cards, roles, companies, competence, assignments and contextual communication in one layer.",
     status: "DEMO",
-    href: "/people",
+    href: "/person-card-demo",
     icon: Users,
-    note: "Working Person Card, Card Maker and Communication Hub",
+    note: "Working fictional Person Card, People directory, Card Maker and Communication Hub",
     actions: [
+      { label: "People", href: "/people" },
       { label: "Card Maker", href: "/card-maker" },
       { label: "Communication", href: "/communication-hub" },
     ],
@@ -322,7 +324,7 @@ export default function NexusLaunchpad() {
             <Link href="/trades" className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20">
               Select Trade <BriefcaseBusiness className="h-4 w-4" />
             </Link>
-            <Link href="/people" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
+            <Link href="/person-card-demo" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
               Personal InfoCard <UserPlus className="h-4 w-4" />
             </Link>
           </div>
@@ -334,7 +336,7 @@ export default function NexusLaunchpad() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Connected and usable now</p>
             <h2 className="mt-1 text-xl font-semibold md:text-2xl">Working Nexus demonstrations</h2>
-            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">DoorFlow, Electrical and the relationship tree use the same fictional Riverside Heights context. Person Card remains the shared people layer across the system.</p>
+            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">DoorFlow, Electrical, the relationship tree and Personal InfoCard use the same fictional Riverside Heights context.</p>
           </div>
           <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300">NO REPLIT REQUIRED</span>
         </div>
