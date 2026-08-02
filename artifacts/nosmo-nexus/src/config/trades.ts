@@ -113,11 +113,20 @@ export const tradeDefinitions: TradeDefinition[] = [
   {
     id: "fire-doors-joinery",
     name: "Fire Doors & Joinery",
-    description: "Door installation, inspection, replacement, ironmongery, evidence and authorised sign-off.",
+    description: "Door registration, installation, inspection, replacement, ironmongery, evidence and authorised sign-off.",
     status: "ACTIVE",
     icon: DoorOpen,
-    capabilities: ["Fire doors", "Joinery", "Inspection", "Evidence"],
+    capabilities: ["Fire door register", "Joinery", "Inspection", "Evidence"],
     tools: [
+      {
+        name: "Fire Door Register & Inspection",
+        description: "Standalone manual fire-door register with Door Cards, due dates, status control and a ten-sector inspection process. No PDF or Excel required.",
+        status: "DEMO",
+        href: `${base}fire-door-register-demo/`,
+        linkType: "static",
+        icon: Flame,
+        note: "Working local-first Riverside Heights synthetic demo",
+      },
       {
         name: "NOSMO DoorFlow",
         description: "Plan-led door identification, schedule control, installation status, evidence and guided fire-door inspection.",
