@@ -6,7 +6,9 @@ import {
   BookOpen,
   BriefcaseBusiness,
   CheckSquare,
+  CircuitBoard,
   Cuboid,
+  DoorOpen,
   FileStack,
   FolderKanban,
   LayoutDashboard,
@@ -21,6 +23,8 @@ import {
 import { ExternalToolStrip } from "@/components/external-tool-strip";
 
 type LayerStatus = "ACTIVE" | "DEMO" | "IN DEVELOPMENT";
+type DemoStatus = "WORKING DEMO" | "ACTIVE";
+type DemoLinkType = "internal" | "static";
 
 type LayerAction = {
   label: string;
@@ -44,6 +48,78 @@ type QuickLink = {
   icon: LucideIcon;
 };
 
+type ConnectedDemo = {
+  name: string;
+  description: string;
+  status: DemoStatus;
+  href: string;
+  linkType: DemoLinkType;
+  icon: LucideIcon;
+  context: string;
+  capabilities: string[];
+  actions?: LayerAction[];
+};
+
+const base = import.meta.env.BASE_URL;
+
+const connectedDemos: ConnectedDemo[] = [
+  {
+    name: "Nexus First Run & Discovery Cloud",
+    description: "Android-first Nexus Awakening, private source discovery, Work Mode and a reviewable Discovery Cloud in one guided entry flow.",
+    status: "ACTIVE",
+    href: "/first-run",
+    linkType: "internal",
+    icon: AppWindow,
+    context: "Android-first onboarding · synthetic discovery",
+    capabilities: ["Nexus Awakening", "Discovery Cloud", "Work Mode", "Private review"],
+  },
+  {
+    name: "NOSMO DoorFlow",
+    description: "Interactive plan-led fire-door installation and inspection workflow with a schedule, six workflow states, checklists, notes, evidence and local autosave.",
+    status: "WORKING DEMO",
+    href: `${base}doorflow-demo/`,
+    linkType: "static",
+    icon: DoorOpen,
+    context: "Riverside Heights Demo · fictional project",
+    capabilities: ["Plan markers", "Door schedule", "Fire inspection", "Evidence"],
+  },
+  {
+    name: "Electrical Commissioning",
+    description: "Complete anonymised electrical demonstrator with command centre, building blocks, schematics, cables, apartment certificates and communal systems.",
+    status: "WORKING DEMO",
+    href: `${base}electrical-commissioning/`,
+    linkType: "static",
+    icon: CircuitBoard,
+    context: "Riverside Heights Demo · fictional project",
+    capabilities: ["Command centre", "Block view", "Certificates", "Commissioning"],
+  },
+  {
+    name: "Nexus Relationship Tree",
+    description: "The original Replit relationship workspace connecting the project, people, tasks, documents, issues, materials and execution readiness in one interactive graph.",
+    status: "ACTIVE",
+    href: "/workspace",
+    linkType: "internal",
+    icon: Network,
+    context: "Riverside Heights Demo · connected work graph",
+    capabilities: ["People", "Tasks", "Documents", "Readiness"],
+  },
+  {
+    name: "Personal InfoCard",
+    description: "A complete fictional Person Card showing project participation, qualifications, current work, relationship confidence, privacy layers and communication routes.",
+    status: "ACTIVE",
+    href: "/person-card-demo",
+    linkType: "internal",
+    icon: Users,
+    context: "Riverside Heights Demo · personal work layer",
+    capabilities: ["Person Card", "Qualifications", "Work graph", "Privacy"],
+    actions: [
+      { label: "People directory", href: "/people" },
+      { label: "Card Maker", href: "/card-maker" },
+      { label: "Communication", href: "/communication-hub" },
+    ],
+  },
+];
+
 const primaryLayers: PrimaryLayer[] = [
   {
     name: "Nexus Workspace",
@@ -51,7 +127,7 @@ const primaryLayers: PrimaryLayer[] = [
     status: "ACTIVE",
     href: "/workspace",
     icon: Network,
-    note: "Shared operating layer",
+    note: "Interactive relationship tree originally developed in Replit",
   },
   {
     name: "Projects",
@@ -68,11 +144,12 @@ const primaryLayers: PrimaryLayer[] = [
   {
     name: "Personal InfoCard",
     description: "Person Cards, roles, companies, competence, assignments and contextual communication in one layer.",
-    status: "IN DEVELOPMENT",
-    href: "/people",
+    status: "DEMO",
+    href: "/person-card-demo",
     icon: Users,
-    note: "Same system level as Work Wallet and BIM",
+    note: "Working fictional Person Card, People directory, Card Maker and Communication Hub",
     actions: [
+      { label: "People", href: "/people" },
       { label: "Card Maker", href: "/card-maker" },
       { label: "Communication", href: "/communication-hub" },
     ],
@@ -83,7 +160,7 @@ const primaryLayers: PrimaryLayer[] = [
     status: "ACTIVE",
     href: "/trades",
     icon: BriefcaseBusiness,
-    note: "DoorFlow and Electrical live inside Trades",
+    note: "DoorFlow and Electrical are connected working demos",
   },
   {
     name: "Work Wallet",
@@ -162,6 +239,11 @@ const statusStyle: Record<LayerStatus, string> = {
   "IN DEVELOPMENT": "border-amber-400/30 bg-amber-400/10 text-amber-300",
 };
 
+const demoStatusStyle: Record<DemoStatus, string> = {
+  ACTIVE: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300",
+  "WORKING DEMO": "border-cyan-400/35 bg-cyan-400/10 text-cyan-300",
+};
+
 function PrimaryCard({ layer }: { layer: PrimaryLayer }) {
   const Icon = layer.icon;
 
@@ -192,6 +274,44 @@ function PrimaryCard({ layer }: { layer: PrimaryLayer }) {
   );
 }
 
+function ConnectedDemoCard({ demo }: { demo: ConnectedDemo }) {
+  const Icon = demo.icon;
+  const primaryClass = "inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20";
+  const primary = demo.linkType === "static"
+    ? <a href={demo.href} className={primaryClass}>Open app <ArrowRight className="h-3.5 w-3.5" /></a>
+    : <Link href={demo.href} className={primaryClass}>Open app <ArrowRight className="h-3.5 w-3.5" /></Link>;
+
+  return (
+    <article className="flex min-h-72 flex-col rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.08] via-card/85 to-card/70 p-5 shadow-xl transition-colors hover:border-primary/45">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary shadow-[0_0_22px_rgba(0,255,255,0.10)]">
+          <Icon className="h-6 w-6" />
+        </div>
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${demoStatusStyle[demo.status]}`}>{demo.status}</span>
+      </div>
+
+      <h3 className="mt-5 text-lg font-semibold">{demo.name}</h3>
+      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary/80">{demo.context}</p>
+      <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">{demo.description}</p>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {demo.capabilities.map((capability) => (
+          <span key={capability} className="rounded-full border border-border bg-background/35 px-2.5 py-1 text-[10px] font-medium text-muted-foreground">{capability}</span>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        {primary}
+        {demo.actions?.map((action) => (
+          <Link key={action.label} href={action.href} className="rounded-full border border-border bg-background/40 px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground">
+            {action.label}
+          </Link>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 export default function NexusLaunchpad() {
   return (
     <div className="space-y-8 pb-8">
@@ -206,7 +326,7 @@ export default function NexusLaunchpad() {
               </div>
             </div>
             <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              The main menu shows system-wide Nexus layers. Specialist applications stay under their trade, while existing third-party systems remain available through a compact launcher strip.
+              One entry point for First Run and Discovery Cloud, DoorFlow, Electrical, the Relationship Tree, Person Cards and the wider Nexus operating layers.
             </p>
           </div>
 
@@ -214,12 +334,26 @@ export default function NexusLaunchpad() {
             <Link href="/trades" className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20">
               Select Trade <BriefcaseBusiness className="h-4 w-4" />
             </Link>
-            <Link href="/people" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
+            <Link href="/person-card-demo" className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/45 px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary">
               Personal InfoCard <UserPlus className="h-4 w-4" />
             </Link>
           </div>
         </div>
       </header>
+
+      <section>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Connected and usable now</p>
+            <h2 className="mt-1 text-xl font-semibold md:text-2xl">Working Nexus demonstrations</h2>
+            <p className="mt-2 max-w-3xl text-sm text-muted-foreground">DoorFlow, Electrical, the relationship tree and Personal InfoCard use the same fictional Riverside Heights context.</p>
+          </div>
+          <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300">NO REPLIT REQUIRED</span>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {connectedDemos.map((demo) => <ConnectedDemoCard key={demo.name} demo={demo} />)}
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-border bg-card/55 p-4 md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

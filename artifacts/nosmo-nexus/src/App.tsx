@@ -8,10 +8,12 @@ import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
 
 // Pages
-import InteractiveWorkspace from "@/components/interactive-workspace";
 import NexusLaunchpad from "@/pages/nexus-launchpad";
 import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
+import FirstRun from "@/pages/first-run";
+import RelationshipTreeExport from "@/pages/relationship-tree-export";
+import PersonCardDemo from "@/pages/person-card-demo";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
@@ -32,25 +34,13 @@ import CommunicationHub from "@/pages/communication-hub";
 import BimOverlay from "@/pages/bim-overlay";
 import ExternalTools from "@/pages/external-tools";
 
-function WorkspaceRoute() {
-  return (
-    <div className="relative min-h-[100dvh]">
-      <a
-        href={import.meta.env.BASE_URL}
-        className="fixed left-3 top-3 z-50 rounded-full border border-primary/30 bg-background/85 px-3 py-2 text-xs font-semibold text-primary shadow-lg backdrop-blur transition-colors hover:bg-primary/10 md:left-5 md:top-5"
-      >
-        ← Nexus menu
-      </a>
-      <InteractiveWorkspace />
-    </div>
-  );
-}
-
 function Router() {
   return (
     <Switch>
       {/* Specialist full-screen workflows intentionally run without the app shell. */}
-      <Route path="/workspace" component={WorkspaceRoute} />
+      <Route path="/first-run" component={FirstRun} />
+      <Route path="/relationship-tree" component={RelationshipTreeExport} />
+      <Route path="/workspace" component={RelationshipTreeExport} />
       <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />
@@ -76,6 +66,7 @@ function AppLayoutRoutes() {
 
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects" component={Projects} />
+          <Route path="/person-card-demo" component={PersonCardDemo} />
           <Route path="/people/:id" component={PersonDetail} />
           <Route path="/people" component={People} />
           <Route path="/card-maker" component={CardMaker} />

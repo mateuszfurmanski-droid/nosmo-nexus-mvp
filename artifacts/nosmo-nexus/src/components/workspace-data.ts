@@ -27,7 +27,7 @@ export interface WorkspaceNode {
 
 /* ------------------------------------------------------------------ */
 /* Single source of truth — every entity defined ONCE.                */
-/* Real project: Halifax / Lloyds Bank – 360 Interiors                */
+/* Fictional project shared by the connected Nexus demonstrations.    */
 /* ------------------------------------------------------------------ */
 
 export const PROJECT_ID = "proj";
@@ -35,14 +35,14 @@ export const MANAGER_ID = "p-sitemgr"; // responsible role for routed issues
 
 export const NODES: WorkspaceNode[] = [
   // Project
-  { id: "proj", label: "Halifax / Lloyds Bank – 360 Interiors", sublabel: "Active Project", type: "project", Icon: FolderKanban },
+  { id: "proj", label: "Riverside Heights Demo", sublabel: "Active Synthetic Project", type: "project", Icon: FolderKanban },
 
   // People
-  { id: "p-mateusz", label: "Mateusz Furmański", sublabel: "Joiner", type: "person", Icon: HardHat, company: "360 Interiors" },
-  { id: "p-sitemgr", label: "Site Manager", sublabel: "Site Management", type: "person", Icon: User, company: "360 Interiors" },
-  { id: "p-architect", label: "Architect", sublabel: "Design", type: "person", Icon: Ruler, company: "Design Team" },
-  { id: "p-client", label: "Lloyds Client", sublabel: "Lloyds Bank", type: "person", Icon: Building2, company: "Lloyds Bank" },
-  { id: "p-team", label: "360 Interiors Team", sublabel: "Contractor", type: "person", Icon: Users, company: "360 Interiors" },
+  { id: "p-mateusz", label: "Alex Carter", sublabel: "Joiner", type: "person", Icon: HardHat, company: "Demo Joinery Services" },
+  { id: "p-sitemgr", label: "Sarah Wilson", sublabel: "Site Manager", type: "person", Icon: User, company: "Northbridge Construction Ltd" },
+  { id: "p-architect", label: "Priya Shah", sublabel: "Project Architect", type: "person", Icon: Ruler, company: "ArcLine Studio" },
+  { id: "p-client", label: "Daniel Brooks", sublabel: "Client Representative", type: "person", Icon: Building2, company: "Riverside Estates" },
+  { id: "p-team", label: "Northbridge Site Team", sublabel: "Main Contractor", type: "person", Icon: Users, company: "Northbridge Construction Ltd" },
 
   // Documents
   { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: FileText },
@@ -137,11 +137,11 @@ export interface IssuePreset {
 }
 
 /* Preset problems a worker can report. The pre-filled action is what the
-   manager confirms — the only one the user typed ("Order from Screwfix"). */
+   manager confirms — the only one the user typed ("Order from BuildSupply Demo"). */
 export const ISSUE_PRESETS: IssuePreset[] = [
-  { kind: "Missing material", suggestion: "Order material", action: "Order from Screwfix" },
+  { kind: "Missing material", suggestion: "Order material", action: "Order from BuildSupply Demo" },
   { kind: "Missing tool", suggestion: "Allocate tool", action: "Confirm tool allocated" },
-  { kind: "Task blocked", suggestion: "Reassign task", action: "Assign to 360 Interiors Team" },
+  { kind: "Task blocked", suggestion: "Reassign task", action: "Assign to Northbridge Site Team" },
 ];
 
 /* Pre-task readiness checks the system runs before a task starts. */
@@ -152,7 +152,7 @@ export const PRE_TASK_CHECKS = ["Materials", "Tools", "Dependencies"];
 /* Preset data for the door fit-out, requested as part of the gate.    */
 /* ------------------------------------------------------------------ */
 
-export const SUPPLIER = "Screwfix";
+export const SUPPLIER = "BuildSupply Demo";
 
 export interface MaterialReq {
   name: string;
@@ -263,7 +263,7 @@ export function buildAdjacency(): Record<string, string[]> {
     map[b]?.add(a);
   };
 
-  // Everything relates to the Halifax project.
+  // Everything relates to the fictional Riverside Heights project.
   for (const node of NODES) if (node.id !== PROJECT_ID) link(PROJECT_ID, node.id);
 
   // Task involvement drives people + document relationships, shares each
