@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#08111f">
-  <title>NOSMO Electrical Commissioning</title>
+  <title>NOSMO Electrical Commissioning — Riverside Heights Demo</title>
   <style>
     :root {
       --bg: #08111f;
@@ -24,6 +24,7 @@
         var(--bg);
     }
     button { font: inherit; }
+    a { color: inherit; }
     .home {
       min-height: 100vh;
       padding: 24px 18px;
@@ -31,6 +32,7 @@
       place-items: center;
     }
     .wrap { width: min(900px, 100%); }
+    .topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .brand { font-weight: 900; letter-spacing: .18em; font-size: 20px; }
     .product {
       color: var(--cyan);
@@ -39,8 +41,20 @@
       letter-spacing: .08em;
       text-transform: uppercase;
     }
+    .nexus-link {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 9px 12px;
+      text-decoration: none;
+      color: var(--muted);
+      background: rgba(16,29,48,.75);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .nexus-link:hover { border-color: var(--cyan); color: var(--text); }
     h1 { margin: 34px 0 8px; font-size: clamp(30px, 7vw, 54px); line-height: 1; }
     .lead { color: var(--muted); line-height: 1.55; margin: 0 0 24px; max-width: 650px; }
+    .project-label { display: inline-flex; border: 1px solid rgba(69,215,255,.28); background: rgba(69,215,255,.08); color: var(--cyan); border-radius: 999px; padding: 7px 10px; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
     .menu {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -75,14 +89,17 @@
       background: rgba(8, 17, 31, .96);
       border-bottom: 1px solid var(--line);
     }
-    .viewer-bar button {
+    .viewer-bar button, .viewer-bar a {
       border: 1px solid var(--line);
       background: var(--panel2);
       color: var(--text);
       border-radius: 10px;
       padding: 9px 12px;
       cursor: pointer;
+      text-decoration: none;
+      font-size: 13px;
     }
+    .viewer-controls { display: flex; gap: 8px; }
     .viewer-title { font-size: 13px; color: var(--muted); }
     iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
     .privacy {
@@ -93,22 +110,31 @@
     @media (max-width: 640px) {
       .menu { grid-template-columns: 1fr; }
       .tile { min-height: 112px; }
+      .topline { align-items: center; }
+      .nexus-link { font-size: 0; padding: 9px 11px; }
+      .nexus-link::after { content: "← Nexus"; font-size: 12px; }
+      .viewer-title { display: none; }
     }
   </style>
 </head>
 <body>
   <section id="home" class="home">
     <div class="wrap">
-      <div class="brand">NOSMO</div>
-      <div class="product">Electrical Commissioning</div>
+      <div class="topline">
+        <div>
+          <div class="brand">NOSMO</div>
+          <div class="product">Electrical Commissioning</div>
+        </div>
+        <a class="nexus-link" href="../">Return to Nexus</a>
+      </div>
 
-      <h1>Project Menu</h1>
+      <h1>Riverside Heights Demo</h1>
       <p class="lead">
-        Simple start page for the anonymised electrical commissioning demonstration.
-        All company, project, personnel and inspection data shown here is synthetic.
+        A complete anonymised electrical commissioning demonstration connected to the same fictional project context as DoorFlow and the Nexus relationship tree.
       </p>
+      <div class="project-label">WORKING SYNTHETIC DEMO · NORTHBRIDGE CONSTRUCTION LTD</div>
 
-      <div class="menu">
+      <div class="menu" style="margin-top:24px">
         <button class="tile" data-view="hub">
           <b>Command Centre</b>
           <span>Project overview, progress figures and main work areas.</span>
@@ -140,13 +166,16 @@
         </button>
       </div>
 
-      <div class="privacy">ANONYMISED DEMO — synthetic project and commissioning data.</div>
+      <div class="privacy">ANONYMISED DEMO — all company, project, personnel and commissioning data is synthetic.</div>
     </div>
   </section>
 
   <section id="viewer" class="viewer">
     <div class="viewer-bar">
-      <button id="back" type="button">← Menu</button>
+      <div class="viewer-controls">
+        <button id="back" type="button">← Project menu</button>
+        <a href="../">Nexus</a>
+      </div>
       <div id="viewerTitle" class="viewer-title">Electrical Commissioning</div>
     </div>
     <iframe id="appFrame" title="NOSMO Electrical Commissioning prototype"></iframe>
