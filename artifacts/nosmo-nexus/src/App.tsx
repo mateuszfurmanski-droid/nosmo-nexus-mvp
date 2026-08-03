@@ -12,6 +12,7 @@ import NexusLaunchpad from "@/pages/nexus-launchpad";
 import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
 import FirstRun from "@/pages/first-run";
+import GrantDemo from "@/pages/grant-demo";
 import RelationshipTreeExport from "@/pages/relationship-tree-export";
 import PersonCardDemo from "@/pages/person-card-demo";
 import People from "@/pages/people";
@@ -38,6 +39,7 @@ function Router() {
   return (
     <Switch>
       {/* Specialist full-screen workflows intentionally run without the app shell. */}
+      <Route path="/grant-demo" component={GrantDemo} />
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
