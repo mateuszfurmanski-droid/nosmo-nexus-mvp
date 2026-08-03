@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Network,
   PlugZap,
+  Presentation,
   Settings,
   ShieldCheck,
   UserPlus,
@@ -331,6 +332,9 @@ export default function NexusLaunchpad() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <Link href="/grant-demo" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-[0_0_22px_rgba(0,255,255,0.16)] transition-transform hover:scale-[1.02]">
+              Grant Demo <Presentation className="h-4 w-4" />
+            </Link>
             <Link href="/trades" className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20">
               Select Trade <BriefcaseBusiness className="h-4 w-4" />
             </Link>
