@@ -31,7 +31,7 @@ type Point = { x: number; y: number };
 type Edge = { id: string; source: string; target: string; manual?: boolean };
 type PanDrag = { clientX: number; clientY: number; x: number; y: number };
 
-const FLOW = { type: "spring" as const, stiffness: 82, damping: 24, mass: 0.85, restDelta: 0.45, restSpeed: 8 };
+const FLOW = { type: "tween" as const, duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
 
 function seededAngle(id: string) {
@@ -307,8 +307,8 @@ export default function PersistentWorkspace() {
               onDragEnd={(_, info) => {
       // Keep a small physical release glide, but cap it so a tile
       // settles quickly instead of floating across the workspace.
-      const slipX = Math.max(-72, Math.min(72, info.velocity.x * 0.06));
-      const slipY = Math.max(-72, Math.min(72, info.velocity.y * 0.06));
+      const slipX = Math.max(-36, Math.min(36, info.velocity.x * 0.035));
+      const slipY = Math.max(-36, Math.min(36, info.velocity.y * 0.035));
       const next = {
         ...pinned,
         [node.id]: {
