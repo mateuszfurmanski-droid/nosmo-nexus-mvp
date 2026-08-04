@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
   Building2,
   CheckSquare,
   FileText,
@@ -117,9 +115,16 @@ export default function FolderDock({
     }
   }, []);
 
-  const persist = (nextOrder = order, nextOpen = openFolders, scrollLeft = viewportRef.current?.scrollLeft ?? 0) => {
+  const persist = (
+    nextOrder = order,
+    nextOpen = openFolders,
+    scrollLeft = viewportRef.current?.scrollLeft ?? 0,
+  ) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ order: nextOrder, openFolders: nextOpen, scrollLeft }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ order: nextOrder, openFolders: nextOpen, scrollLeft }),
+      );
     } catch {
       // The dock stays usable when local browser storage is unavailable.
     }
@@ -127,20 +132,10 @@ export default function FolderDock({
 
   const toggleFolder = (id: FolderId) => {
     setOpenFolders((current) => {
-      const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id];
       persist(order, next);
-      return next;
-    });
-  };
-
-  const moveFolder = (id: FolderId, direction: -1 | 1) => {
-    setOrder((current) => {
-      const from = current.indexOf(id);
-      const to = from + direction;
-      if (from < 0 || to < 0 || to >= current.length) return current;
-      const next = [...current];
-      [next[from], next[to]] = [next[to], next[from]];
-      persist(next, openFolders);
       return next;
     });
   };
@@ -150,7 +145,9 @@ export default function FolderDock({
   return (
     <div
       data-control
-      className={`pointer-events-none fixed inset-x-0 bottom-0 z-[65] transition-[height] duration-300 ${anyOpen ? "h-[68dvh]" : "h-[86px]"}`}
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-[65] transition-[height] duration-300 ${
+        anyOpen ? "h-[72dvh]" : "h-[86px]"
+      }`}
       aria-label="Nexus folder dock"
     >
       <div
@@ -161,89 +158,67 @@ export default function FolderDock({
         }}
         className="pointer-events-auto absolute inset-0 overflow-x-auto overflow-y-hidden overscroll-x-contain px-2 pb-[max(8px,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="flex h-full min-w-max items-end gap-1.5">
+        <div className="flex h-full min-w-max items-end gap-2">
           {order.map((id) => {
             const folder = definitions.get(id);
             if (!folder) return null;
             const isOpen = openFolders.includes(id);
             const Icon = folder.Icon;
+
             return (
               <div
                 key={id}
-                className={`pointer-events-none flex h-full flex-none flex-col justify-end transition-[width] duration-300 ${isOpen ? "w-[112px]" : "w-[64px]"}`}
+                className={`pointer-events-none flex h-full flex-none flex-col items-center justify-end ${
+                  isOpen ? "w-[86px]" : "w-[64px]"
+                }`}
               >
                 {isOpen && (
-                  <section className="pointer-events-auto mb-2 flex max-h-[calc(68dvh-78px)] min-h-[210px] w-[112px] flex-col overflow-hidden rounded-2xl border border-border bg-background/94 shadow-[0_22px_70px_rgba(0,0,0,.55)] backdrop-blur-xl">
-                    <header className="flex shrink-0 flex-col gap-1.5 border-b border-border/80 px-2 py-2">
-            <div className="flex w-full items-center justify-between gap-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                <Icon className="h-4 w-4" />
-              </span>
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => moveFolder(id, -1)}
-                  disabled={order[0] === id}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary disabled:opacity-25"
-                  aria-label={`Move ${folder.label} left`}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveFolder(id, 1)}
-                  disabled={order[order.length - 1] === id}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary disabled:opacity-25"
-                  aria-label={`Move ${folder.label} right`}
-                >
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-            <p className="truncate text-center text-[10px] font-bold uppercase tracking-[.08em]">{folder.label}</p>
-          </header>
+                  <div className="pointer-events-auto mb-2 flex max-h-[calc(72dvh-78px)] w-[86px] flex-col items-center gap-2 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {id === "project" && selected && (
+                      <button
+                        type="button"
+                        onClick={onOpenWorkflow}
+                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center rounded-xl border border-primary/45 bg-primary/14 px-2 py-2 text-center text-primary shadow-lg backdrop-blur-md active:scale-[.97]"
+                      >
+                        <Building2 className="h-5 w-5" />
+                        <span className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.05]">
+                          {selected.label}
+                        </span>
+                        <span className="mt-1 text-[8px] font-bold uppercase tracking-[.08em]">
+                          {selectedLinks} links
+                        </span>
+                      </button>
+                    )}
 
-                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-2 [scrollbar-width:thin]">
-                      {id === "project" && selected && (
-                        <button
-                type="button"
-                onClick={onOpenWorkflow}
-                className="mx-auto mb-2 flex h-[72px] w-[86px] flex-col items-center justify-center rounded-xl border border-primary/30 bg-primary/10 px-2 py-2 text-center"
-              >
-                <p className="line-clamp-2 text-[10px] font-semibold leading-tight">{selected.label}</p>
-                <p className="mt-1 text-[8px] font-bold uppercase tracking-[.08em] text-primary">{selectedLinks} links</p>
-              </button>
-                      )}
-                      <div className="flex flex-col items-center gap-2">
-              {folder.items.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className="group flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card/78 px-2 py-2 text-center text-muted-foreground shadow-sm transition hover:border-primary/35 hover:bg-card hover:text-foreground active:scale-[.97]"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-secondary/75 text-primary transition group-hover:border-primary/25 group-hover:bg-primary/10">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="line-clamp-2 text-[10px] font-semibold leading-[1.05]">{item}</span>
-                </button>
-              ))}
-            </div>
-                    </div>
-                  </section>
+                    {folder.items.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-background/88 px-2 py-2 text-center text-muted-foreground shadow-lg backdrop-blur-md transition hover:border-primary/40 hover:text-foreground active:scale-[.97]"
+                      >
+                        <Icon className="h-5 w-5 text-primary" />
+                        <span className="line-clamp-2 text-[10px] font-semibold leading-[1.05]">
+                          {item}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 )}
 
                 <button
                   type="button"
                   onClick={() => toggleFolder(id)}
                   aria-expanded={isOpen}
-                  className={`pointer-events-auto mx-auto flex h-[64px] w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border shadow-xl backdrop-blur-xl transition ${
+                  className={`pointer-events-auto flex h-[64px] w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border shadow-xl backdrop-blur-xl transition ${
                     isOpen
                       ? "border-primary/60 bg-primary/18 text-primary ring-2 ring-primary/15"
                       : "border-border bg-background/92 text-muted-foreground hover:border-primary/35 hover:text-foreground"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
-                  <span className="max-w-[58px] truncate text-[8px] font-bold uppercase tracking-[.08em]">{folder.label}</span>
+                  <span className="max-w-[58px] truncate text-[8px] font-bold uppercase tracking-[.08em]">
+                    {folder.label}
+                  </span>
                 </button>
               </div>
             );
