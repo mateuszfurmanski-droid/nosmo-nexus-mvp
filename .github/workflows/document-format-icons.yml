@@ -1,23 +1,24 @@
 name: Document format icons
 
 on:
-  pull_request:
+  push:
     branches:
-      - agent/nexus-v1-project-shell
+      - agent/persistent-project-graph
+    paths:
+      - .github/workflows/document-format-icons.yml
 
 permissions:
   contents: write
 
 jobs:
   update-document-icons:
-    if: github.head_ref == 'agent/persistent-project-graph'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout graph branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: agent/persistent-project-graph
 
       - name: Add file-format document icons
         shell: bash
@@ -112,4 +113,4 @@ function DocumentFormatIcon({
           git config user.email "actions@users.noreply.github.com"
           git add artifacts/nosmo-nexus/src/components/persistent-workspace.tsx
           git commit -m "Use file-format icons for document nodes"
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin HEAD:agent/persistent-project-graph
