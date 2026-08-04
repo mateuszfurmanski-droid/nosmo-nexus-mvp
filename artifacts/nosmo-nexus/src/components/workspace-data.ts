@@ -1,3 +1,4 @@
+import type { ComponentType, SVGProps } from "react";
 import {
   User,
   Users,
@@ -5,22 +6,25 @@ import {
   Ruler,
   Building2,
   CheckSquare,
-  FileText,
-  FileSpreadsheet,
   ShieldCheck,
   FolderKanban,
   AlertTriangle,
-  type LucideIcon,
 } from "lucide-react";
+import {
+  PdfFileIcon,
+  XlsxFileIcon,
+} from "./file-icon-components";
 
 export type NodeType = "person" | "task" | "document" | "project" | "issue";
+
+type WorkspaceIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 export interface WorkspaceNode {
   id: string;
   label: string;
   sublabel: string;
   type: NodeType;
-  Icon: LucideIcon;
+  Icon: WorkspaceIcon;
   /** Organisation a person belongs to — drives company grouping in the layout. */
   company?: string;
 }
@@ -45,11 +49,11 @@ export const NODES: WorkspaceNode[] = [
   { id: "p-team", label: "Northbridge Site Team", sublabel: "Main Contractor", type: "person", Icon: Users, company: "Northbridge Construction Ltd" },
 
   // Documents
-  { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: FileText },
-  { id: "d-doorschedule", label: "Door Schedule", sublabel: "Excel", type: "document", Icon: FileSpreadsheet },
-  { id: "d-siteinstructions", label: "Site Instructions", sublabel: "PDF", type: "document", Icon: FileText },
-  { id: "d-snaglist", label: "Snag List", sublabel: "Excel", type: "document", Icon: FileSpreadsheet },
-  { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "PDF", type: "document", Icon: ShieldCheck },
+  { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: PdfFileIcon },
+  { id: "d-doorschedule", label: "Door Schedule", sublabel: "XLSX", type: "document", Icon: XlsxFileIcon },
+  { id: "d-siteinstructions", label: "Site Instructions", sublabel: "PDF", type: "document", Icon: PdfFileIcon },
+  { id: "d-snaglist", label: "Snag List", sublabel: "XLSX", type: "document", Icon: XlsxFileIcon },
+  { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "PDF", type: "document", Icon: PdfFileIcon },
 
   // Tasks
   { id: "t-install", label: "Install Doors – Level 1", sublabel: "In Progress", type: "task", Icon: CheckSquare },
