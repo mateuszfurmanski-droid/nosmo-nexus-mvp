@@ -35,6 +35,27 @@ import CommunicationHub from "@/pages/communication-hub";
 import BimOverlay from "@/pages/bim-overlay";
 import ExternalTools from "@/pages/external-tools";
 
+function restoreRouteFromQuery() {
+  if (typeof window === "undefined") return;
+
+  const requestedRoute = new URLSearchParams(window.location.search).get("route");
+  if (!requestedRoute || !/^[a-z0-9/_-]+$/i.test(requestedRoute)) return;
+
+  const safeRoute = requestedRoute.replace(/^\/+|\/+$/g, "");
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const currentPath = window.location.pathname.replace(/\/$/, "");
+
+  if (!safeRoute || currentPath !== basePath) return;
+
+  window.history.replaceState(
+    null,
+    "",
+    `${basePath}/${safeRoute}${window.location.hash || ""}`,
+  );
+}
+
+restoreRouteFromQuery();
+
 function Router() {
   return (
     <Switch>
