@@ -1,5 +1,6 @@
 name: Patch document format icons
 
+# Triggered once after workflow registration.
 on:
   push:
     branches:
