@@ -35,14 +35,6 @@ jobs:
           elif new_flow not in text:
               raise SystemExit('FLOW definition did not match expected source')
 
-          old_drag = '''              onDragEnd={(_, info) => {
-                const next = {
-                  ...pinned,
-                  [node.id]: { x: point.x + info.offset.x / zoom, y: point.y + info.offset.y / zoom },
-                };
-                setPinned(next);
-                persist(next, manualEdges);
-              }}'''
           new_drag = '''              onDragEnd={(_, info) => {
                 // Keep a small physical release glide, but cap it so a tile
                 // settles quickly instead of floating across the workspace.
@@ -58,10 +50,16 @@ jobs:
                 setPinned(next);
                 persist(next, manualEdges);
               }}'''
-          if old_drag in text:
-              text = text.replace(old_drag, new_drag, 1)
-          elif new_drag not in text:
-              raise SystemExit('onDragEnd block did not match expected source')
+
+          if new_drag not in text:
+              start_marker = '              onDragEnd={(_, info) => {'
+              end_marker = '                persist(next, manualEdges);\n              }}'
+              start = text.find(start_marker)
+              end = text.find(end_marker, start)
+              if start < 0 or end < 0:
+                  raise SystemExit('onDragEnd block did not match expected source')
+              end += len(end_marker)
+              text = text[:start] + new_drag + text[end:]
 
           path.write_text(text, encoding='utf-8')
           PY
