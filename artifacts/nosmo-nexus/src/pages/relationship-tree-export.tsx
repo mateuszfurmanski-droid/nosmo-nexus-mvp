@@ -1,3 +1,4 @@
+import FolderDock from "@/components/folder-dock";
 import PersistentWorkspace from "@/components/persistent-workspace";
 import { RELATIONSHIP_TREE_EXPORT } from "@/relationship-tree/export-manifest";
 import { Network, ShieldCheck } from "lucide-react";
@@ -5,6 +6,15 @@ import { Network, ShieldCheck } from "lucide-react";
 export default function RelationshipTreeExport() {
   return (
     <div className="relative min-h-[100dvh]">
+      <style>{`
+        [data-control][class*="bottom-3 left-3 right-3 z-50"] {
+          display: none !important;
+        }
+        [data-control][class*="bottom-3 left-3 z-40"] {
+          display: none !important;
+        }
+      `}</style>
+
       <div className="pointer-events-none fixed left-3 top-3 z-[80] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-2 md:left-5 md:top-5">
         <a
           href={import.meta.env.BASE_URL}
@@ -21,6 +31,7 @@ export default function RelationshipTreeExport() {
       </div>
 
       <PersistentWorkspace />
+      <FolderDock selectedLinks={0} onOpenWorkflow={() => undefined} />
     </div>
   );
 }
