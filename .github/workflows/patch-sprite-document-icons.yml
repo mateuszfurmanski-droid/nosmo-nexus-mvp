@@ -1,5 +1,6 @@
 name: Patch sprite document icons
 
+# Registered and triggered for the current graph branch.
 on:
   push:
     branches: [main]
@@ -32,25 +33,10 @@ jobs:
 
 const FILE_ICON_SPRITE = "/assets/file-icons/nosmo-file-icons-sprite.png";
 const FILE_ICON_POSITIONS: Record<string, string> = {
-  pdf: "0% 0%",
-  docx: "50% 0%",
-  doc: "50% 0%",
-  xlsx: "100% 0%",
-  xls: "100% 0%",
-  pptx: "0% 50%",
-  ppt: "0% 50%",
-  txt: "50% 50%",
-  zip: "100% 50%",
-  rar: "100% 50%",
-  "7z": "100% 50%",
-  jpg: "0% 100%",
-  jpeg: "0% 100%",
-  png: "0% 100%",
-  webp: "0% 100%",
-  mp4: "50% 100%",
-  mov: "50% 100%",
-  avi: "50% 100%",
-  csv: "100% 100%",
+  pdf: "0% 0%", docx: "50% 0%", doc: "50% 0%", xlsx: "100% 0%", xls: "100% 0%",
+  pptx: "0% 50%", ppt: "0% 50%", txt: "50% 50%", zip: "100% 50%", rar: "100% 50%", "7z": "100% 50%",
+  jpg: "0% 100%", jpeg: "0% 100%", png: "0% 100%", webp: "0% 100%",
+  mp4: "50% 100%", mov: "50% 100%", avi: "50% 100%", csv: "100% 100%",
 };
 
 function getDocumentExtension(node: WorkspaceNode) {
@@ -67,18 +53,13 @@ function FileFormatIcon({ node, large = false, compact = false }: { node: Worksp
     <span
       aria-label={`${extension.toUpperCase()} file`}
       className={`${sizeClass} block shrink-0 bg-no-repeat drop-shadow-[0_6px_12px_rgba(0,0,0,.35)]`}
-      style={{
-        backgroundImage: `url(${FILE_ICON_SPRITE})`,
-        backgroundPosition: position,
-        backgroundSize: "300% 300%",
-      }}
+      style={{ backgroundImage: `url(${FILE_ICON_SPRITE})`, backgroundPosition: position, backgroundSize: "300% 300%" }}
     />
   );
 }
 '''
           if 'function FileFormatIcon' not in text:
-              if marker not in text:
-                  raise SystemExit('edge marker not found')
+              if marker not in text: raise SystemExit('edge marker not found')
               text = text.replace(marker, helper, 1)
 
           old = '''                  <span className={`flex items-center justify-center rounded-xl ${style.chip} ${selectedNode ? "h-14 w-14" : "h-10 w-10"}`}>
@@ -91,19 +72,15 @@ function FileFormatIcon({ node, large = false, compact = false }: { node: Worksp
                       <Icon className={selectedNode ? "h-7 w-7" : "h-5 w-5"} />
                     </span>
                   )}'''
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif '<FileFormatIcon node={node}' not in text:
-              raise SystemExit('node icon block not found')
+          if old in text: text = text.replace(old, new, 1)
+          elif '<FileFormatIcon node={node}' not in text: raise SystemExit('node icon block not found')
 
           old_selected = '''            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${TYPE_STYLE[selected.type].chip}`}><selected.Icon className="h-5 w-5" /></div>'''
           new_selected = '''            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${selected.type === "document" ? "" : TYPE_STYLE[selected.type].chip}`}>
               {selected.type === "document" ? <FileFormatIcon node={selected} compact /> : <selected.Icon className="h-5 w-5" />}
             </div>'''
-          if old_selected in text:
-              text = text.replace(old_selected, new_selected, 1)
-          elif '<FileFormatIcon node={selected}' not in text:
-              raise SystemExit('selected icon block not found')
+          if old_selected in text: text = text.replace(old_selected, new_selected, 1)
+          elif '<FileFormatIcon node={selected}' not in text: raise SystemExit('selected icon block not found')
 
           path.write_text(text, encoding='utf-8')
           PY
