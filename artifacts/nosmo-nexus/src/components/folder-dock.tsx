@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Building2,
   CheckSquare,
+  ChevronRight,
   FileText,
   HardHat,
   Layers3,
@@ -214,14 +215,18 @@ export default function FolderDock({
                           <p className="mt-1 text-[10px] text-muted-foreground">{selectedLinks} linked objects · tap to open</p>
                         </button>
                       )}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-2">
                         {folder.items.map((item) => (
                           <button
                             key={item}
                             type="button"
-                            className="min-h-[62px] rounded-xl border border-border bg-card/75 px-2 py-2 text-left text-[10px] font-semibold leading-tight text-muted-foreground transition hover:border-primary/35 hover:text-foreground active:scale-[.98]"
+                            className="group flex min-h-[54px] w-full items-center gap-3 rounded-xl border border-border bg-card/78 px-3 py-2.5 text-left text-muted-foreground shadow-sm transition hover:border-primary/35 hover:bg-card hover:text-foreground active:scale-[.985]"
                           >
-                            {item}
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-secondary/75 text-primary transition group-hover:border-primary/25 group-hover:bg-primary/10">
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1 text-[11px] font-semibold leading-tight">{item}</span>
+                            <ChevronRight className="h-4 w-4 shrink-0 opacity-45 transition group-hover:translate-x-0.5 group-hover:opacity-80" />
                           </button>
                         ))}
                       </div>
