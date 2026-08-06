@@ -1,5 +1,6 @@
 name: Add pinch zoom to Nexus graph
 
+# Trigger registered workflow after creation.
 on:
   push:
     branches: [main]
