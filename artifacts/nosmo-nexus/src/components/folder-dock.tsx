@@ -197,7 +197,7 @@ export default function FolderDock({
           if (!restoredScroll.current) return;
           persist(order, openFolders, event.currentTarget.scrollLeft);
         }}
-        className="pointer-events-auto absolute inset-0 overflow-x-auto overflow-y-hidden overscroll-x-contain px-2 pb-[max(8px,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="pointer-events-none absolute inset-0 overflow-x-auto overflow-y-hidden overscroll-x-contain px-2 pb-[max(8px,env(safe-area-inset-bottom))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="flex h-full min-w-max items-end gap-2">
           {order.map((id) => {
