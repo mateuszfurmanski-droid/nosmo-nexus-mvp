@@ -1,23 +1,27 @@
 name: Build Graph Preview
 
 on:
+  push:
+    branches:
+      - agent/persistent-project-graph
   pull_request:
     branches:
       - agent/nexus-v1-project-shell
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build-preview:
-    if: github.head_ref == 'agent/persistent-project-graph'
+    if: github.event_name != 'pull_request' || github.head_ref == 'agent/persistent-project-graph'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
