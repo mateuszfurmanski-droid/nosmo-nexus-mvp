@@ -45,18 +45,22 @@ const MIME_FORMATS: Array<[string, FileFormat]> = [
 ];
 
 const NODE_ICON_CSS = `
-  [data-node] span:has(> svg[data-nosmo-file-icon]) {
-    width: 60px !important;
-    height: 60px !important;
+  [data-node] svg[data-nosmo-file-icon] {
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    display: block !important;
     overflow: visible !important;
-    background: transparent !important;
-    color: inherit !important;
-    box-shadow: none !important;
-  }
-  [data-node] span:has(> svg[data-nosmo-file-icon]) > svg[data-nosmo-file-icon] {
-    width: 60px !important;
-    height: 60px !important;
     filter: drop-shadow(0 8px 12px rgba(0,0,0,.48));
+  }
+
+  [data-node] span.h-28 svg[data-nosmo-file-icon] {
+    width: 90px !important;
+    height: 90px !important;
+    min-width: 90px !important;
+    min-height: 90px !important;
+    filter: drop-shadow(0 11px 16px rgba(0,0,0,.52));
   }
 `;
 
