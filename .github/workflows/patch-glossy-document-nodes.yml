@@ -1,5 +1,6 @@
 name: Patch glossy document nodes
 
+# Trigger registered workflow after initial creation.
 on:
   push:
     branches: [main]
