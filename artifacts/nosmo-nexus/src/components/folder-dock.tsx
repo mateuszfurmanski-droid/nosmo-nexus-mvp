@@ -219,7 +219,10 @@ export default function FolderDock({
                       <button
                         type="button"
                         onClick={onOpenWorkflow}
-                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center rounded-xl border border-cyan-300/55 bg-gradient-to-b from-[#0d4568]/95 to-[#071d31]/95 px-2 py-2 text-center text-cyan-100 shadow-[0_10px_28px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.12)] backdrop-blur-md active:scale-[.97]"
+                        style={{
+                          background: "linear-gradient(180deg, #0d4568 0%, #071d31 100%)",
+                        }}
+                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center rounded-xl border border-cyan-300/55 px-2 py-2 text-center text-cyan-100 shadow-[0_10px_28px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.12)] backdrop-blur-md active:scale-[.97]"
                       >
                         <Building2 className="h-5 w-5 text-cyan-300" />
                         <span className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.05]">
@@ -243,10 +246,15 @@ export default function FolderDock({
                           disabled={disconnected}
                           aria-disabled={disconnected}
                           title={disconnected ? `${folderItem.label} — not connected` : folderItem.label}
+                          style={{
+                            background: disconnected
+                              ? "linear-gradient(180deg, #334155 0%, #0f172a 100%)"
+                              : "linear-gradient(180deg, #0b3655 0%, #061827 100%)",
+                          }}
                           className={`relative flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center shadow-[0_10px_26px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md transition active:scale-[.97] ${
                             disconnected
-                              ? "cursor-not-allowed border-slate-600/45 bg-gradient-to-b from-slate-700/80 to-slate-900/92 text-slate-400 grayscale opacity-65"
-                              : "border-cyan-700/55 bg-gradient-to-b from-[#0b3655]/94 to-[#071a2c]/96 text-cyan-100 hover:border-cyan-300/65 hover:from-[#0e4569]/96 hover:text-white"
+                              ? "cursor-not-allowed border-slate-600/45 text-slate-400 grayscale opacity-65"
+                              : "border-cyan-700/55 text-cyan-100 hover:border-cyan-300/65 hover:text-white"
                           }`}
                         >
                           {documentFormat ? (
@@ -272,10 +280,15 @@ export default function FolderDock({
                   type="button"
                   onClick={() => toggleFolder(id)}
                   aria-expanded={isOpen}
+                  style={{
+                    background: isOpen
+                      ? "linear-gradient(180deg, #12608a 0%, #08263e 100%)"
+                      : "linear-gradient(180deg, #0b3655 0%, #061827 100%)",
+                  }}
                   className={`pointer-events-auto flex h-[64px] w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border shadow-[0_12px_30px_rgba(0,0,0,.48),inset_0_1px_0_rgba(255,255,255,.11)] backdrop-blur-xl transition active:scale-[.96] ${
                     isOpen
-                      ? "border-cyan-300/75 bg-gradient-to-b from-[#12608a] to-[#08263e] text-cyan-50 ring-2 ring-cyan-300/20"
-                      : "border-cyan-800/65 bg-gradient-to-b from-[#0b3655]/96 to-[#061827]/98 text-cyan-200 hover:border-cyan-400/65 hover:from-[#0e4569] hover:text-white"
+                      ? "border-cyan-300/75 text-cyan-50 ring-2 ring-cyan-300/20"
+                      : "border-cyan-800/65 text-cyan-200 hover:border-cyan-400/65 hover:text-white"
                   }`}
                 >
                   <FolderIcon className={`h-5 w-5 ${isOpen ? "text-cyan-200" : "text-cyan-400"}`} />
