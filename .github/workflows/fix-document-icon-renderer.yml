@@ -1,0 +1,59 @@
+name: Fix document icon renderer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-document-icon-renderer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/persistent-project-graph
+          fetch-depth: 0
+
+      - name: Replace fixed small icon wrapper for document nodes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('artifacts/nosmo-nexus/src/components/persistent-workspace.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''                  <span className={`flex items-center justify-center rounded-xl ${style.chip} ${selectedNode ? "h-14 w-14" : "h-10 w-10"}`}>
+                    <Icon className={selectedNode ? "h-7 w-7" : "h-5 w-5"} />
+                  </span>'''
+
+          new = '''                  {node.type === "document" ? (
+                    <Icon
+                      className={selectedNode
+                        ? "h-[92px] w-[92px] drop-shadow-[0_10px_16px_rgba(0,0,0,.52)]"
+                        : "h-[64px] w-[64px] drop-shadow-[0_8px_13px_rgba(0,0,0,.46)]"}
+                    />
+                  ) : (
+                    <span className={`flex items-center justify-center rounded-xl ${style.chip} ${selectedNode ? "h-14 w-14" : "h-10 w-10"}`}>
+                      <Icon className={selectedNode ? "h-7 w-7" : "h-5 w-5"} />
+                    </span>
+                  )}'''
+
+          if old not in text:
+              raise SystemExit('Expected renderer block not found; refusing unsafe edit')
+
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit renderer fix
+        shell: bash
+        run: |
+          git config user.name 'NOSMO Build Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/nosmo-nexus/src/components/persistent-workspace.tsx
+          git commit -m 'Render full-size document file icons'
+          git push origin HEAD:agent/persistent-project-graph
