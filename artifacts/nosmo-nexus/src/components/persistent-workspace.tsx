@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type TouchEvent as ReactTouchEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { motion } from "framer-motion";
@@ -30,12 +29,41 @@ import {
 
 type Point = { x: number; y: number };
 type Edge = { id: string; source: string; target: string; manual?: boolean };
-type PanDrag = { clientX: number; clientY: number; x: number; y: number };
-type PinchGesture = { distance: number; midpoint: Point; zoom: number; worldPoint: Point };
+type Gesture =
+  | {
+      mode: "pan";
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      x: number;
+      y: number;
+    }
+  | {
+      mode: "node";
+      pointerId: number;
+      nodeId: string;
+      clientX: number;
+      clientY: number;
+      point: Point;
+      zoom: number;
+      lastClientX: number;
+      lastClientY: number;
+      lastTime: number;
+      velocityX: number;
+      velocityY: number;
+      moved: boolean;
+    }
+  | {
+      mode: "pinch";
+      distance: number;
+      zoom: number;
+      worldPoint: Point;
+    };
 
 const FLOW = { type: "tween" as const, duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
 const clampZoom = (value: number) => Math.min(1.3, Math.max(0.3, value));
+const clampGlide = (value: number) => Math.max(-36, Math.min(36, value));
 
 function seededAngle(id: string) {
   let hash = 0;
@@ -105,12 +133,17 @@ export default function PersistentWorkspace() {
   const [linkSource, setLinkSource] = useState<string | null>(null);
   const [zoom, setZoom] = useState(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [panDrag, setPanDrag] = useState<PanDrag | null>(null);
-  const touchPanRef = useRef<PanDrag | null>(null);
-  const pinchRef = useRef<PinchGesture | null>(null);
-  const didPinchRef = useRef(false);
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const activePointersRef = useRef(new Map<number, Point>());
+  const gestureRef = useRef<Gesture | null>(null);
+  const draggedNodeRef = useRef<string | null>(null);
+  const pinnedRef = useRef(pinned);
+  const manualEdgesRef = useRef(manualEdges);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
+
+  pinnedRef.current = pinned;
+  manualEdgesRef.current = manualEdges;
 
   const edges = useMemo(() => {
     const map = new Map(baseEdges.map((edge) => [edge.id, edge]));
@@ -148,7 +181,7 @@ export default function PersistentWorkspace() {
     }
   }, []);
 
-  const persist = (nextPinned = pinned, nextManualEdges = manualEdges) => {
+  const persist = (nextPinned = pinnedRef.current, nextManualEdges = manualEdgesRef.current) => {
     try {
       localStorage.setItem(
         "nosmo-persistent-workspace",
@@ -160,12 +193,16 @@ export default function PersistentWorkspace() {
   };
 
   const selectNode = (node: WorkspaceNode) => {
+    if (draggedNodeRef.current === node.id) {
+      draggedNodeRef.current = null;
+      return;
+    }
     if (linkSource && linkSource !== node.id) {
       const id = edgeId(linkSource, node.id);
       if (!edges.some((edge) => edge.id === id)) {
         const next = [...manualEdges, { id, source: linkSource, target: node.id, manual: true }];
         setManualEdges(next);
-        persist(pinned, next);
+        persist(pinnedRef.current, next);
       }
       setLinkSource(null);
       return;
@@ -176,7 +213,9 @@ export default function PersistentWorkspace() {
   const reset = () => {
     setSelectedId(PROJECT_ID);
     setPinned({});
+    pinnedRef.current = {};
     setManualEdges([]);
+    manualEdgesRef.current = [];
     setLinkSource(null);
     setPan({ x: 0, y: 0 });
     setZoom(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
@@ -197,97 +236,96 @@ export default function PersistentWorkspace() {
     setPan({ x: -centreX * nextZoom, y: -centreY * nextZoom });
   };
 
-  const readTouches = (touches: TouchList) => {
-    if (touches.length < 2) return null;
-    const first = touches.item(0);
-    const second = touches.item(1);
-    if (!first || !second) return null;
+  const readPinch = () => {
+    const points = [...activePointersRef.current.values()];
+    if (points.length < 2) return null;
+    const [first, second] = points;
     return {
-      distance: Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY),
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
       midpoint: {
-        x: (first.clientX + second.clientX) / 2,
-        y: (first.clientY + second.clientY) / 2,
+        x: (first.x + second.x) / 2,
+        y: (first.y + second.y) / 2,
       },
     };
   };
 
-  const beginPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch") return;
-    if ((event.target as HTMLElement).closest("[data-node], [data-control]")) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setPanDrag({ clientX: event.clientX, clientY: event.clientY, x: pan.x, y: pan.y });
+  const initialisePinch = () => {
+    const gesture = readPinch();
+    if (!gesture) return null;
+    const safeZoom = Math.max(zoom, 0.001);
+    const next: Gesture = {
+      mode: "pinch",
+      distance: Math.max(gesture.distance, 1),
+      zoom: safeZoom,
+      worldPoint: {
+        x: (gesture.midpoint.x - size.w / 2 - pan.x) / safeZoom,
+        y: (gesture.midpoint.y - size.h / 2 - pan.y) / safeZoom,
+      },
+    };
+    gestureRef.current = next;
+    setDraggingNodeId(null);
+    return next;
   };
 
-  const movePan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch" || !panDrag) return;
-    setPan({ x: panDrag.x + event.clientX - panDrag.clientX, y: panDrag.y + event.clientY - panDrag.clientY });
-  };
-
-  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "touch") return;
-    setPanDrag(null);
-  };
-
-  const beginTouch = (event: ReactTouchEvent<HTMLDivElement>) => {
+  const beginGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("[data-control]")) return;
 
-    if (event.touches.length >= 2) {
-      const gesture = readTouches(event.touches);
-      if (!gesture) return;
-      const safeZoom = Math.max(zoom, 0.001);
-      didPinchRef.current = true;
-      pinchRef.current = {
-        distance: Math.max(gesture.distance, 1),
-        midpoint: gesture.midpoint,
-        zoom: safeZoom,
-        worldPoint: {
-          x: (gesture.midpoint.x - size.w / 2 - pan.x) / safeZoom,
-          y: (gesture.midpoint.y - size.h / 2 - pan.y) / safeZoom,
-        },
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+
+    if (event.pointerType === "touch") {
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (activePointersRef.current.size >= 2) {
+        initialisePinch();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+    }
+
+    const nodeElement = target.closest<HTMLElement>("[data-node-id]");
+    const nodeId = nodeElement?.dataset.nodeId;
+    const point = nodeId ? positions.get(nodeId) : undefined;
+
+    if (nodeId && point) {
+      gestureRef.current = {
+        mode: "node",
+        pointerId: event.pointerId,
+        nodeId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        point,
+        zoom: Math.max(zoom, 0.001),
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
+        lastTime: event.timeStamp,
+        velocityX: 0,
+        velocityY: 0,
+        moved: false,
       };
-      touchPanRef.current = null;
-      setPanDrag(null);
-      event.preventDefault();
-      event.stopPropagation();
+      setDraggingNodeId(nodeId);
       return;
     }
 
-    if (event.touches.length === 1 && !target.closest("[data-node]")) {
-      const touch = event.touches.item(0);
-      if (touch) {
-        touchPanRef.current = {
-          clientX: touch.clientX,
-          clientY: touch.clientY,
-          x: pan.x,
-          y: pan.y,
-        };
-      }
-    }
+    gestureRef.current = {
+      mode: "pan",
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      x: pan.x,
+      y: pan.y,
+    };
   };
 
-  const moveTouch = (event: ReactTouchEvent<HTMLDivElement>) => {
-    if (event.touches.length >= 2) {
-      const gesture = readTouches(event.touches);
-      let start = pinchRef.current;
+  const moveGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch" && activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
 
-      if (gesture && !start) {
-        const safeZoom = Math.max(zoom, 0.001);
-        didPinchRef.current = true;
-        start = {
-          distance: Math.max(gesture.distance, 1),
-          midpoint: gesture.midpoint,
-          zoom: safeZoom,
-          worldPoint: {
-            x: (gesture.midpoint.x - size.w / 2 - pan.x) / safeZoom,
-            y: (gesture.midpoint.y - size.h / 2 - pan.y) / safeZoom,
-          },
-        };
-        pinchRef.current = start;
-        touchPanRef.current = null;
-      }
-
-      if (gesture && start) {
+    if (event.pointerType === "touch" && activePointersRef.current.size >= 2) {
+      const gesture = readPinch();
+      const start = gestureRef.current?.mode === "pinch" ? gestureRef.current : initialisePinch();
+      if (gesture && start?.mode === "pinch") {
         const nextZoom = clampZoom(start.zoom * gesture.distance / start.distance);
         setZoom(nextZoom);
         setPan({
@@ -295,43 +333,90 @@ export default function PersistentWorkspace() {
           y: gesture.midpoint.y - size.h / 2 - start.worldPoint.y * nextZoom,
         });
       }
-
       event.preventDefault();
       event.stopPropagation();
       return;
     }
 
-    if (didPinchRef.current) {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    if (gesture.mode === "pinch") {
       event.preventDefault();
       event.stopPropagation();
       return;
     }
+    if (gesture.pointerId !== event.pointerId) return;
 
-    const touch = event.touches.item(0);
-    const start = touchPanRef.current;
-    if (event.touches.length === 1 && touch && start) {
-      setPan({
-        x: start.x + touch.clientX - start.clientX,
-        y: start.y + touch.clientY - start.clientY,
-      });
-      event.preventDefault();
+    const deltaX = event.clientX - gesture.clientX;
+    const deltaY = event.clientY - gesture.clientY;
+
+    if (gesture.mode === "pan") {
+      setPan({ x: gesture.x + deltaX, y: gesture.y + deltaY });
+      if (event.pointerType === "touch") event.preventDefault();
+      return;
     }
+
+    const now = event.timeStamp;
+    const elapsed = Math.max(1, now - gesture.lastTime);
+    gesture.velocityX = (event.clientX - gesture.lastClientX) / elapsed * 1000;
+    gesture.velocityY = (event.clientY - gesture.lastClientY) / elapsed * 1000;
+    gesture.lastClientX = event.clientX;
+    gesture.lastClientY = event.clientY;
+    gesture.lastTime = now;
+    gesture.moved = gesture.moved || Math.hypot(deltaX, deltaY) > 4;
+
+    const nextPoint = {
+      x: gesture.point.x + deltaX / gesture.zoom,
+      y: gesture.point.y + deltaY / gesture.zoom,
+    };
+    const next = { ...pinnedRef.current, [gesture.nodeId]: nextPoint };
+    pinnedRef.current = next;
+    setPinned(next);
+    if (event.pointerType === "touch") event.preventDefault();
   };
 
-  const endTouch = (event: ReactTouchEvent<HTMLDivElement>) => {
-    const wasPinching = didPinchRef.current;
-    if (event.touches.length < 2) pinchRef.current = null;
-    if (event.touches.length === 0) {
-      touchPanRef.current = null;
-      didPinchRef.current = false;
-    } else if (wasPinching) {
-      touchPanRef.current = null;
+  const endGesture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") {
+      activePointersRef.current.delete(event.pointerId);
     }
 
-    if (wasPinching) {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+
+    if (gesture.mode === "pinch") {
+      if (activePointersRef.current.size === 0) gestureRef.current = null;
       event.preventDefault();
       event.stopPropagation();
+      return;
     }
+
+    if (gesture.pointerId !== event.pointerId) return;
+
+    if (gesture.mode === "node") {
+      const deltaX = event.clientX - gesture.clientX;
+      const deltaY = event.clientY - gesture.clientY;
+      const slipX = gesture.moved ? clampGlide(gesture.velocityX * 0.035) : 0;
+      const slipY = gesture.moved ? clampGlide(gesture.velocityY * 0.035) : 0;
+      const finalPoint = {
+        x: gesture.point.x + (deltaX + slipX) / gesture.zoom,
+        y: gesture.point.y + (deltaY + slipY) / gesture.zoom,
+      };
+      const next = { ...pinnedRef.current, [gesture.nodeId]: finalPoint };
+      pinnedRef.current = next;
+      setPinned(next);
+      persist(next, manualEdgesRef.current);
+      setDraggingNodeId(null);
+
+      if (gesture.moved) {
+        draggedNodeRef.current = gesture.nodeId;
+        window.setTimeout(() => {
+          if (draggedNodeRef.current === gesture.nodeId) draggedNodeRef.current = null;
+        }, 0);
+      }
+    }
+
+    gestureRef.current = null;
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* capture is optional */ }
   };
 
   const wheel = (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -363,15 +448,12 @@ export default function PersistentWorkspace() {
   return (
     <div
       ref={containerRef}
+      data-zoom={zoom.toFixed(3)}
       className="dark relative h-[100dvh] w-full touch-none overflow-hidden bg-background text-foreground select-none"
-      onPointerDown={beginPan}
-      onPointerMove={movePan}
-      onPointerUp={endPan}
-      onPointerCancel={endPan}
-      onTouchStartCapture={beginTouch}
-      onTouchMoveCapture={moveTouch}
-      onTouchEndCapture={endTouch}
-      onTouchCancelCapture={endTouch}
+      onPointerDownCapture={beginGesture}
+      onPointerMoveCapture={moveGesture}
+      onPointerUpCapture={endGesture}
+      onPointerCancelCapture={endGesture}
       onWheel={wheel}
     >
       <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(hsl(var(--border)/.25)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.25)_1px,transparent_1px)] [background-size:46px_46px]" />
@@ -381,7 +463,7 @@ export default function PersistentWorkspace() {
         <button type="button" onClick={() => setZoom((value) => Math.max(0.3, value / 1.12))} className="rounded-xl p-2 text-muted-foreground hover:bg-secondary"><Minus className="h-4 w-4" /></button>
         <button type="button" onClick={fit} className="rounded-xl p-2 text-muted-foreground hover:bg-secondary"><Maximize2 className="h-4 w-4" /></button>
         <button type="button" onClick={reset} className="rounded-xl p-2 text-muted-foreground hover:bg-secondary"><RotateCcw className="h-4 w-4" /></button>
-        <span className="ml-1 text-[10px] font-bold uppercase tracking-[.11em] text-muted-foreground">{NODES.length} objects · {edges.length} links</span>
+        <span className="ml-1 text-[10px] font-bold uppercase tracking-[.11em] text-muted-foreground">{NODES.length} objects · {edges.length} links · {Math.round(zoom * 100)}%</span>
       </div>
 
       <button
@@ -432,28 +514,15 @@ export default function PersistentWorkspace() {
           const nearby = connected(node.id, selectedId, edges);
           const style = TYPE_STYLE[node.type];
           const Icon = node.Icon;
+          const dragging = draggingNodeId === node.id;
           return (
             <motion.div
               key={node.id}
               data-node
+              data-node-id={node.id}
               className="absolute left-0 top-0 z-20"
               animate={{ x: point.x, y: point.y, opacity: selectedNode || nearby ? 1 : 0.64, scale: selectedNode ? 1.1 : 1 }}
-              transition={FLOW}
-              drag
-              dragMomentum={false}
-              onDragEnd={(_, info) => {
-                const slipX = Math.max(-36, Math.min(36, info.velocity.x * 0.035));
-                const slipY = Math.max(-36, Math.min(36, info.velocity.y * 0.035));
-                const next = {
-                  ...pinned,
-                  [node.id]: {
-                    x: point.x + (info.offset.x + slipX) / zoom,
-                    y: point.y + (info.offset.y + slipY) / zoom,
-                  },
-                };
-                setPinned(next);
-                persist(next, manualEdges);
-              }}
+              transition={dragging ? { duration: 0 } : FLOW}
             >
               <button
                 type="button"
@@ -469,6 +538,7 @@ export default function PersistentWorkspace() {
                   </span>
                   {pinned[node.id] && !selectedNode && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-background bg-amber-300" />}
                   <span
+                    data-control
                     role="button"
                     tabIndex={0}
                     onClick={(event) => { event.stopPropagation(); setLinkSource(node.id); }}
