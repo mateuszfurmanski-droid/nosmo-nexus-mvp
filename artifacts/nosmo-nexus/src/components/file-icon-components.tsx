@@ -1,36 +1,10 @@
 import type { SVGProps } from "react";
 
 export type FileFormat =
-  | "pdf"
-  | "docx"
-  | "xlsx"
-  | "pptx"
-  | "gdoc"
-  | "gsheet"
-  | "gslides"
-  | "onenote"
-  | "outlook"
-  | "vsdx"
-  | "dwg"
-  | "txt"
-  | "rtf"
-  | "mpp"
-  | "zip"
-  | "rar"
-  | "7z"
-  | "jpg"
-  | "png"
-  | "gif"
-  | "mp4"
-  | "mov"
-  | "avi"
-  | "mp3"
-  | "wav"
-  | "csv"
-  | "xml"
-  | "html"
-  | "psd"
-  | "file";
+  | "pdf" | "docx" | "xlsx" | "pptx" | "gdoc" | "gsheet" | "gslides"
+  | "onenote" | "outlook" | "vsdx" | "dwg" | "txt" | "rtf" | "mpp"
+  | "zip" | "rar" | "7z" | "jpg" | "png" | "gif" | "mp4" | "mov"
+  | "avi" | "mp3" | "wav" | "csv" | "xml" | "html" | "psd" | "file";
 
 const LABELS: Record<FileFormat, string> = {
   pdf: "PDF", docx: "DOCX", xlsx: "XLSX", pptx: "PPTX",
@@ -49,16 +23,12 @@ const ALIASES: Record<string, FileFormat> = {
   gdoc: "gdoc", googledoc: "gdoc", googledocs: "gdoc",
   gsheet: "gsheet", gsheets: "gsheet", googlesheet: "gsheet", googlesheets: "gsheet",
   gslides: "gslides", googleslides: "gslides",
-  one: "onenote", onenote: "onenote",
-  msg: "outlook", eml: "outlook", outlook: "outlook",
-  vsd: "vsdx", vsdx: "vsdx", visio: "vsdx",
-  dwg: "dwg", dxf: "dwg", autocad: "dwg",
+  one: "onenote", onenote: "onenote", msg: "outlook", eml: "outlook", outlook: "outlook",
+  vsd: "vsdx", vsdx: "vsdx", visio: "vsdx", dwg: "dwg", dxf: "dwg", autocad: "dwg",
   txt: "txt", text: "txt", rtf: "rtf", mpp: "mpp", project: "mpp",
-  zip: "zip", rar: "rar", "7z": "7z",
-  jpg: "jpg", jpeg: "jpg", png: "png", gif: "gif",
-  mp4: "mp4", mov: "mov", quicktime: "mov", avi: "avi",
-  mp3: "mp3", wav: "wav", csv: "csv", xml: "xml",
-  html: "html", htm: "html", psd: "psd", photoshop: "psd", file: "file",
+  zip: "zip", rar: "rar", "7z": "7z", jpg: "jpg", jpeg: "jpg", png: "png", gif: "gif",
+  mp4: "mp4", mov: "mov", quicktime: "mov", avi: "avi", mp3: "mp3", wav: "wav",
+  csv: "csv", xml: "xml", html: "html", htm: "html", psd: "psd", photoshop: "psd", file: "file",
 };
 
 const MIME_FORMATS: Array<[string, FileFormat]> = [
@@ -74,6 +44,22 @@ const MIME_FORMATS: Array<[string, FileFormat]> = [
   ["audio/mpeg", "mp3"], ["audio/wav", "wav"],
 ];
 
+const NODE_ICON_CSS = `
+  [data-node] span:has(> svg[data-nosmo-file-icon]) {
+    width: 60px !important;
+    height: 60px !important;
+    overflow: visible !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+  }
+  [data-node] span:has(> svg[data-nosmo-file-icon]) > svg[data-nosmo-file-icon] {
+    width: 60px !important;
+    height: 60px !important;
+    filter: drop-shadow(0 8px 12px rgba(0,0,0,.48));
+  }
+`;
+
 function isFileFormat(value: string): value is FileFormat {
   return value in LABELS;
 }
@@ -81,7 +67,6 @@ function isFileFormat(value: string): value is FileFormat {
 export function resolveFileFormat(value = "", mimeType = ""): FileFormat {
   const mime = mimeType.toLowerCase();
   for (const [fragment, format] of MIME_FORMATS) if (mime.includes(fragment)) return format;
-
   const source = value.toLowerCase().replace(/[?#].*$/, "");
   const phrases: Array<[RegExp, FileFormat]> = [
     [/google\s*docs?/, "gdoc"], [/google\s*sheets?/, "gsheet"],
@@ -103,7 +88,6 @@ export type FileIconProps = Omit<SVGProps<SVGSVGElement>, "children" | "format">
 };
 
 const ICON_SHEET_URL = `${import.meta.env.BASE_URL}assets/file-icons/approved-file-icons.webp`;
-
 const CELLS: Record<FileFormat, readonly [number, number]> = {
   pdf: [0, 0], docx: [1, 0], xlsx: [2, 0], pptx: [3, 0], gdoc: [4, 0], gsheet: [5, 0],
   gslides: [0, 1], onenote: [1, 1], outlook: [2, 1], vsdx: [3, 1], dwg: [4, 1], txt: [5, 1],
@@ -115,24 +99,27 @@ const CELLS: Record<FileFormat, readonly [number, number]> = {
 function AssetFileIcon({ format, className, ...props }: Omit<SVGProps<SVGSVGElement>, "format"> & { format: FileFormat }) {
   const [column, row] = CELLS[format];
   return (
-    <svg
-      {...props}
-      data-nosmo-file-icon={format}
-      className={className}
-      viewBox="0 0 96 96"
-      role="img"
-      aria-label={`${LABELS[format]} file`}
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <image
-        href={ICON_SHEET_URL}
-        width="576"
-        height="480"
-        x={-column * 96}
-        y={-row * 96}
-        preserveAspectRatio="none"
-      />
-    </svg>
+    <>
+      <style>{NODE_ICON_CSS}</style>
+      <svg
+        {...props}
+        data-nosmo-file-icon={format}
+        className={className}
+        viewBox="0 0 96 96"
+        role="img"
+        aria-label={`${LABELS[format]} file`}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <image
+          href={ICON_SHEET_URL}
+          width="576"
+          height="480"
+          x={-column * 96}
+          y={-row * 96}
+          preserveAspectRatio="none"
+        />
+      </svg>
+    </>
   );
 }
 
@@ -177,6 +164,5 @@ export const XmlFileIcon = createFileIcon("xml");
 export const HtmlFileIcon = createFileIcon("html");
 export const PsdFileIcon = createFileIcon("psd");
 export const GenericFileIcon = createFileIcon("file");
-
 export const ImageFileIcon = JpgFileIcon;
 export const VideoFileIcon = Mp4FileIcon;
