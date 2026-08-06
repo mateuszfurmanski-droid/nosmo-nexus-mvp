@@ -30,9 +30,11 @@ import {
 type Point = { x: number; y: number };
 type Edge = { id: string; source: string; target: string; manual?: boolean };
 type PanDrag = { clientX: number; clientY: number; x: number; y: number };
+type PinchGesture = { distance: number; midpoint: Point; zoom: number; worldPoint: Point };
 
 const FLOW = { type: "tween" as const, duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
+const clampZoom = (value: number) => Math.min(1.3, Math.max(0.3, value));
 
 function seededAngle(id: string) {
   let hash = 0;
@@ -103,6 +105,9 @@ export default function PersistentWorkspace() {
   const [zoom, setZoom] = useState(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [panDrag, setPanDrag] = useState<PanDrag | null>(null);
+  const activePointersRef = useRef(new Map<number, Point>());
+  const pinchRef = useRef<PinchGesture | null>(null);
+  const suppressTouchRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
@@ -191,19 +196,102 @@ export default function PersistentWorkspace() {
     setPan({ x: -centreX * nextZoom, y: -centreY * nextZoom });
   };
 
+  const readPinch = () => {
+    const points = [...activePointersRef.current.values()];
+    if (points.length < 2) return null;
+    const [first, second] = points;
+    return {
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
+      midpoint: { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 },
+    };
+  };
+
   const beginPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("[data-node], [data-control]")) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-control]")) return;
+
+    if (event.pointerType === "touch") {
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (activePointersRef.current.size >= 2) {
+        for (const pointerId of activePointersRef.current.keys()) {
+          try { event.currentTarget.setPointerCapture(pointerId); } catch { /* pointer may already be captured */ }
+        }
+        const gesture = readPinch();
+        if (gesture) {
+          const safeZoom = Math.max(zoom, 0.001);
+          suppressTouchRef.current = true;
+          pinchRef.current = {
+            distance: Math.max(gesture.distance, 1),
+            midpoint: gesture.midpoint,
+            zoom: safeZoom,
+            worldPoint: {
+              x: (gesture.midpoint.x - size.w / 2 - pan.x) / safeZoom,
+              y: (gesture.midpoint.y - size.h / 2 - pan.y) / safeZoom,
+            },
+          };
+          setPanDrag(null);
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
+    }
+
+    if (target.closest("[data-node]")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setPanDrag({ clientX: event.clientX, clientY: event.clientY, x: pan.x, y: pan.y });
   };
+
   const movePan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch" && activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      if (activePointersRef.current.size >= 2) {
+        const gesture = readPinch();
+        const start = pinchRef.current;
+        if (gesture && start) {
+          const nextZoom = clampZoom(start.zoom * gesture.distance / start.distance);
+          setZoom(nextZoom);
+          setPan({
+            x: gesture.midpoint.x - size.w / 2 - start.worldPoint.x * nextZoom,
+            y: gesture.midpoint.y - size.h / 2 - start.worldPoint.y * nextZoom,
+          });
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      if (suppressTouchRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+    }
+
     if (!panDrag) return;
     setPan({ x: panDrag.x + event.clientX - panDrag.clientX, y: panDrag.y + event.clientY - panDrag.clientY });
   };
-  const endPan = () => setPanDrag(null);
+
+  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") {
+      activePointersRef.current.delete(event.pointerId);
+      try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* capture is optional */ }
+      if (activePointersRef.current.size < 2) pinchRef.current = null;
+
+      if (suppressTouchRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (activePointersRef.current.size === 0) suppressTouchRef.current = false;
+      }
+    }
+    setPanDrag(null);
+  };
+
   const wheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setZoom((value) => Math.min(1.3, Math.max(0.3, value * (event.deltaY > 0 ? 0.92 : 1.08))));
+    setZoom((value) => clampZoom(value * (event.deltaY > 0 ? 0.92 : 1.08)));
   };
 
   if (mode === "workflow") {
@@ -231,10 +319,10 @@ export default function PersistentWorkspace() {
     <div
       ref={containerRef}
       className="dark relative h-[100dvh] w-full touch-none overflow-hidden bg-background text-foreground select-none"
-      onPointerDown={beginPan}
-      onPointerMove={movePan}
-      onPointerUp={endPan}
-      onPointerCancel={endPan}
+      onPointerDownCapture={beginPan}
+      onPointerMoveCapture={movePan}
+      onPointerUpCapture={endPan}
+      onPointerCancelCapture={endPan}
       onWheel={wheel}
     >
       <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(hsl(var(--border)/.25)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--border)/.25)_1px,transparent_1px)] [background-size:46px_46px]" />
