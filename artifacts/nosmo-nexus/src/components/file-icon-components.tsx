@@ -1,5 +1,4 @@
 import type { SVGProps } from "react";
-import { FILE_ICON_SPRITE_DATA_URL } from "./file-icon-sprite-data";
 
 export type FileFormat =
   | "pdf"
@@ -33,183 +32,64 @@ export type FileFormat =
   | "psd"
   | "file";
 
-type SpriteCell = {
-  column: 0 | 1 | 2 | 3 | 4 | 5;
-  row: 0 | 1 | 2 | 3 | 4;
-  label: string;
-};
-
-const CELLS: Record<FileFormat, SpriteCell> = {
-  pdf: { column: 0, row: 0, label: "PDF" },
-  docx: { column: 1, row: 0, label: "DOCX" },
-  xlsx: { column: 2, row: 0, label: "XLSX" },
-  pptx: { column: 3, row: 0, label: "PPTX" },
-  gdoc: { column: 4, row: 0, label: "Google Docs" },
-  gsheet: { column: 5, row: 0, label: "Google Sheets" },
-  gslides: { column: 0, row: 1, label: "Google Slides" },
-  onenote: { column: 1, row: 1, label: "OneNote" },
-  outlook: { column: 2, row: 1, label: "Outlook" },
-  vsdx: { column: 3, row: 1, label: "Visio" },
-  dwg: { column: 4, row: 1, label: "DWG" },
-  txt: { column: 5, row: 1, label: "TXT" },
-  rtf: { column: 0, row: 2, label: "RTF" },
-  mpp: { column: 1, row: 2, label: "Microsoft Project" },
-  zip: { column: 2, row: 2, label: "ZIP" },
-  rar: { column: 3, row: 2, label: "RAR" },
-  "7z": { column: 4, row: 2, label: "7Z" },
-  jpg: { column: 5, row: 2, label: "JPG" },
-  png: { column: 0, row: 3, label: "PNG" },
-  gif: { column: 1, row: 3, label: "GIF" },
-  mp4: { column: 2, row: 3, label: "MP4" },
-  mov: { column: 3, row: 3, label: "MOV" },
-  avi: { column: 4, row: 3, label: "AVI" },
-  mp3: { column: 5, row: 3, label: "MP3" },
-  wav: { column: 0, row: 4, label: "WAV" },
-  csv: { column: 1, row: 4, label: "CSV" },
-  xml: { column: 2, row: 4, label: "XML" },
-  html: { column: 3, row: 4, label: "HTML" },
-  psd: { column: 4, row: 4, label: "PSD" },
-  file: { column: 5, row: 4, label: "File" },
+const LABELS: Record<FileFormat, string> = {
+  pdf: "PDF", docx: "DOCX", xlsx: "XLSX", pptx: "PPTX",
+  gdoc: "Google Docs", gsheet: "Google Sheets", gslides: "Google Slides",
+  onenote: "OneNote", outlook: "Outlook", vsdx: "Visio", dwg: "DWG",
+  txt: "TXT", rtf: "RTF", mpp: "Microsoft Project", zip: "ZIP", rar: "RAR",
+  "7z": "7Z", jpg: "JPG", png: "PNG", gif: "GIF", mp4: "MP4", mov: "MOV",
+  avi: "AVI", mp3: "MP3", wav: "WAV", csv: "CSV", xml: "XML", html: "HTML",
+  psd: "PSD", file: "File",
 };
 
 const ALIASES: Record<string, FileFormat> = {
-  pdf: "pdf",
-  doc: "docx",
-  docx: "docx",
-  word: "docx",
-  xls: "xlsx",
-  xlsx: "xlsx",
-  excel: "xlsx",
-  ppt: "pptx",
-  pptx: "pptx",
-  powerpoint: "pptx",
-  gdoc: "gdoc",
-  googledoc: "gdoc",
-  googledocs: "gdoc",
-  gsheet: "gsheet",
-  gsheets: "gsheet",
-  googlesheet: "gsheet",
-  googlesheets: "gsheet",
-  gslides: "gslides",
-  googleslides: "gslides",
-  one: "onenote",
-  onenote: "onenote",
-  msg: "outlook",
-  eml: "outlook",
-  outlook: "outlook",
-  vsd: "vsdx",
-  vsdx: "vsdx",
-  visio: "vsdx",
-  dwg: "dwg",
-  dxf: "dwg",
-  autocad: "dwg",
-  txt: "txt",
-  text: "txt",
-  rtf: "rtf",
-  mpp: "mpp",
-  project: "mpp",
-  zip: "zip",
-  rar: "rar",
-  "7z": "7z",
-  jpg: "jpg",
-  jpeg: "jpg",
-  png: "png",
-  gif: "gif",
-  mp4: "mp4",
-  mov: "mov",
-  quicktime: "mov",
-  avi: "avi",
-  mp3: "mp3",
-  wav: "wav",
-  csv: "csv",
-  xml: "xml",
-  html: "html",
-  htm: "html",
-  psd: "psd",
-  photoshop: "psd",
-  file: "file",
+  pdf: "pdf", doc: "docx", docx: "docx", word: "docx",
+  xls: "xlsx", xlsx: "xlsx", excel: "xlsx",
+  ppt: "pptx", pptx: "pptx", powerpoint: "pptx",
+  gdoc: "gdoc", googledoc: "gdoc", googledocs: "gdoc",
+  gsheet: "gsheet", gsheets: "gsheet", googlesheet: "gsheet", googlesheets: "gsheet",
+  gslides: "gslides", googleslides: "gslides",
+  one: "onenote", onenote: "onenote",
+  msg: "outlook", eml: "outlook", outlook: "outlook",
+  vsd: "vsdx", vsdx: "vsdx", visio: "vsdx",
+  dwg: "dwg", dxf: "dwg", autocad: "dwg",
+  txt: "txt", text: "txt", rtf: "rtf", mpp: "mpp", project: "mpp",
+  zip: "zip", rar: "rar", "7z": "7z",
+  jpg: "jpg", jpeg: "jpg", png: "png", gif: "gif",
+  mp4: "mp4", mov: "mov", quicktime: "mov", avi: "avi",
+  mp3: "mp3", wav: "wav", csv: "csv", xml: "xml",
+  html: "html", htm: "html", psd: "psd", photoshop: "psd", file: "file",
 };
 
 const MIME_FORMATS: Array<[string, FileFormat]> = [
-  ["application/pdf", "pdf"],
-  ["wordprocessingml", "docx"],
-  ["msword", "docx"],
-  ["spreadsheetml", "xlsx"],
-  ["ms-excel", "xlsx"],
-  ["presentationml", "pptx"],
-  ["ms-powerpoint", "pptx"],
-  ["text/csv", "csv"],
-  ["text/rtf", "rtf"],
-  ["text/plain", "txt"],
-  ["text/html", "html"],
-  ["application/xml", "xml"],
-  ["text/xml", "xml"],
-  ["application/zip", "zip"],
-  ["application/x-rar", "rar"],
-  ["application/x-7z", "7z"],
-  ["image/jpeg", "jpg"],
-  ["image/png", "png"],
-  ["image/gif", "gif"],
-  ["image/vnd.adobe.photoshop", "psd"],
-  ["video/mp4", "mp4"],
-  ["video/quicktime", "mov"],
-  ["video/x-msvideo", "avi"],
-  ["audio/mpeg", "mp3"],
-  ["audio/wav", "wav"],
+  ["application/pdf", "pdf"], ["wordprocessingml", "docx"], ["msword", "docx"],
+  ["spreadsheetml", "xlsx"], ["ms-excel", "xlsx"],
+  ["presentationml", "pptx"], ["ms-powerpoint", "pptx"],
+  ["text/csv", "csv"], ["text/rtf", "rtf"], ["text/plain", "txt"],
+  ["text/html", "html"], ["application/xml", "xml"], ["text/xml", "xml"],
+  ["application/zip", "zip"], ["application/x-rar", "rar"], ["application/x-7z", "7z"],
+  ["image/jpeg", "jpg"], ["image/png", "png"], ["image/gif", "gif"],
+  ["image/vnd.adobe.photoshop", "psd"], ["video/mp4", "mp4"],
+  ["video/quicktime", "mov"], ["video/x-msvideo", "avi"],
+  ["audio/mpeg", "mp3"], ["audio/wav", "wav"],
 ];
 
-const DOCUMENT_NODE_STYLES = `
-  [data-node] span:has(> svg[data-nosmo-file-icon]) {
-    width: 58px !important;
-    height: 58px !important;
-    overflow: visible !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  [data-node] span:has(> svg[data-nosmo-file-icon]) > svg {
-    width: 58px !important;
-    height: 58px !important;
-    filter: drop-shadow(0 8px 12px rgba(0,0,0,.46));
-  }
-
-  [data-node] span[class~="h-28"] > span:has(> svg[data-nosmo-file-icon]) {
-    width: 82px !important;
-    height: 82px !important;
-  }
-
-  [data-node] span[class~="h-28"] > span:has(> svg[data-nosmo-file-icon]) > svg {
-    width: 82px !important;
-    height: 82px !important;
-    filter: drop-shadow(0 11px 16px rgba(0,0,0,.5));
-  }
-`;
-
 function isFileFormat(value: string): value is FileFormat {
-  return value in CELLS;
+  return value in LABELS;
 }
 
 export function resolveFileFormat(value = "", mimeType = ""): FileFormat {
   const mime = mimeType.toLowerCase();
-  for (const [fragment, format] of MIME_FORMATS) {
-    if (mime.includes(fragment)) return format;
-  }
+  for (const [fragment, format] of MIME_FORMATS) if (mime.includes(fragment)) return format;
 
   const source = value.toLowerCase().replace(/[?#].*$/, "");
   const phrases: Array<[RegExp, FileFormat]> = [
-    [/google\s*docs?/, "gdoc"],
-    [/google\s*sheets?/, "gsheet"],
-    [/google\s*slides?/, "gslides"],
-    [/power\s*point/, "pptx"],
-    [/one\s*note/, "onenote"],
-    [/microsof?t\s*project/, "mpp"],
+    [/google\s*docs?/, "gdoc"], [/google\s*sheets?/, "gsheet"],
+    [/google\s*slides?/, "gslides"], [/power\s*point/, "pptx"],
+    [/one\s*note/, "onenote"], [/microsof?t\s*project/, "mpp"],
   ];
-  for (const [pattern, format] of phrases) {
-    if (pattern.test(source)) return format;
-  }
-
-  const tokens = source.split(/[^a-z0-9]+/).filter(Boolean).reverse();
-  for (const token of tokens) {
+  for (const [pattern, format] of phrases) if (pattern.test(source)) return format;
+  for (const token of source.split(/[^a-z0-9]+/).filter(Boolean).reverse()) {
     const match = ALIASES[token];
     if (match) return match;
   }
@@ -222,42 +102,48 @@ export type FileIconProps = Omit<SVGProps<SVGSVGElement>, "children" | "format">
   mimeType?: string;
 };
 
-function SpriteFileIcon({ format, className, ...props }: Omit<SVGProps<SVGSVGElement>, "format"> & { format: FileFormat }) {
-  const cell = CELLS[format];
+const ICON_SHEET_URL = `${import.meta.env.BASE_URL}assets/file-icons/approved-file-icons.webp`;
+
+const CELLS: Record<FileFormat, readonly [number, number]> = {
+  pdf: [0, 0], docx: [1, 0], xlsx: [2, 0], pptx: [3, 0], gdoc: [4, 0], gsheet: [5, 0],
+  gslides: [0, 1], onenote: [1, 1], outlook: [2, 1], vsdx: [3, 1], dwg: [4, 1], txt: [5, 1],
+  rtf: [0, 2], mpp: [1, 2], zip: [2, 2], rar: [3, 2], "7z": [4, 2], jpg: [5, 2],
+  png: [0, 3], gif: [1, 3], mp4: [2, 3], mov: [3, 3], avi: [4, 3], mp3: [5, 3],
+  wav: [0, 4], csv: [1, 4], xml: [2, 4], html: [3, 4], psd: [4, 4], file: [5, 4],
+};
+
+function AssetFileIcon({ format, className, ...props }: Omit<SVGProps<SVGSVGElement>, "format"> & { format: FileFormat }) {
+  const [column, row] = CELLS[format];
   return (
-    <>
-      <style>{DOCUMENT_NODE_STYLES}</style>
-      <svg
-        {...props}
-        data-nosmo-file-icon={format}
-        className={className}
-        viewBox="0 0 60 60"
-        role="img"
-        aria-label={`${cell.label} file`}
-        preserveAspectRatio="xMidYMid meet"
-      >
-        <image
-          href={FILE_ICON_SPRITE_DATA_URL}
-          width="360"
-          height="300"
-          x={-cell.column * 60}
-          y={-cell.row * 60}
-          preserveAspectRatio="none"
-        />
-      </svg>
-    </>
+    <svg
+      {...props}
+      data-nosmo-file-icon={format}
+      className={className}
+      viewBox="0 0 96 96"
+      role="img"
+      aria-label={`${LABELS[format]} file`}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <image
+        href={ICON_SHEET_URL}
+        width="576"
+        height="480"
+        x={-column * 96}
+        y={-row * 96}
+        preserveAspectRatio="none"
+      />
+    </svg>
   );
 }
 
 export function FileIcon({ format, fileName, mimeType, ...props }: FileIconProps) {
   const explicit = typeof format === "string" && isFileFormat(format) ? format : undefined;
-  const resolved = explicit ?? resolveFileFormat(format || fileName || "", mimeType);
-  return <SpriteFileIcon format={resolved} {...props} />;
+  return <AssetFileIcon format={explicit ?? resolveFileFormat(format || fileName || "", mimeType)} {...props} />;
 }
 
 function createFileIcon(format: FileFormat) {
   return function SpecificFileIcon(props: Omit<SVGProps<SVGSVGElement>, "format">) {
-    return <SpriteFileIcon format={format} {...props} />;
+    return <AssetFileIcon format={format} {...props} />;
   };
 }
 
@@ -292,6 +178,5 @@ export const HtmlFileIcon = createFileIcon("html");
 export const PsdFileIcon = createFileIcon("psd");
 export const GenericFileIcon = createFileIcon("file");
 
-// Compatibility aliases used by older Nexus screens.
 export const ImageFileIcon = JpgFileIcon;
 export const VideoFileIcon = Mp4FileIcon;
