@@ -1,5 +1,6 @@
 name: Fix document icon renderer
 
+# Trigger registered workflow.
 on:
   push:
     branches: [main]
