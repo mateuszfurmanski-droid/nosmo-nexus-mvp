@@ -158,6 +158,33 @@ const MIME_FORMATS: Array<[string, FileFormat]> = [
   ["audio/wav", "wav"],
 ];
 
+const DOCUMENT_NODE_STYLES = `
+  [data-node] span:has(> svg[data-nosmo-file-icon]) {
+    width: 58px !important;
+    height: 58px !important;
+    overflow: visible !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  [data-node] span:has(> svg[data-nosmo-file-icon]) > svg {
+    width: 58px !important;
+    height: 58px !important;
+    filter: drop-shadow(0 8px 12px rgba(0,0,0,.46));
+  }
+
+  [data-node] span[class~="h-28"] > span:has(> svg[data-nosmo-file-icon]) {
+    width: 82px !important;
+    height: 82px !important;
+  }
+
+  [data-node] span[class~="h-28"] > span:has(> svg[data-nosmo-file-icon]) > svg {
+    width: 82px !important;
+    height: 82px !important;
+    filter: drop-shadow(0 11px 16px rgba(0,0,0,.5));
+  }
+`;
+
 function isFileFormat(value: string): value is FileFormat {
   return value in CELLS;
 }
@@ -198,23 +225,27 @@ export type FileIconProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
 function SpriteFileIcon({ format, className, ...props }: SVGProps<SVGSVGElement> & { format: FileFormat }) {
   const cell = CELLS[format];
   return (
-    <svg
-      {...props}
-      className={className}
-      viewBox="0 0 60 60"
-      role="img"
-      aria-label={`${cell.label} file`}
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <image
-        href={FILE_ICON_SPRITE_DATA_URL}
-        width="360"
-        height="300"
-        x={-cell.column * 60}
-        y={-cell.row * 60}
-        preserveAspectRatio="none"
-      />
-    </svg>
+    <>
+      <style>{DOCUMENT_NODE_STYLES}</style>
+      <svg
+        {...props}
+        data-nosmo-file-icon={format}
+        className={className}
+        viewBox="0 0 60 60"
+        role="img"
+        aria-label={`${cell.label} file`}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <image
+          href={FILE_ICON_SPRITE_DATA_URL}
+          width="360"
+          height="300"
+          x={-cell.column * 60}
+          y={-cell.row * 60}
+          preserveAspectRatio="none"
+        />
+      </svg>
+    </>
   );
 }
 
