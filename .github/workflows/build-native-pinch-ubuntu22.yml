@@ -1,5 +1,6 @@
 name: Build native pinch on Ubuntu 22
 
+# Registered workflow trigger.
 on:
   push:
     branches: [main]
