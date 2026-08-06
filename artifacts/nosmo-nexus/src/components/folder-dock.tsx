@@ -1,68 +1,97 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Boxes,
   Building2,
   CheckSquare,
+  DoorOpen,
   FileText,
+  Flame,
+  Hammer,
   HardHat,
   Layers3,
+  PlugZap,
+  ShieldCheck,
   Users,
   Wrench,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { FileIcon, type FileFormat } from "./file-icon-components";
 import type { WorkspaceNode } from "./workspace-data";
 
 type FolderId = "project" | "people" | "tasks" | "documents" | "tools" | "trades" | "system";
+type ItemStatus = "active" | "disconnected";
+
+type FolderItem = {
+  label: string;
+  Icon?: LucideIcon;
+  status?: ItemStatus;
+};
 
 type FolderDefinition = {
   id: FolderId;
   label: string;
   Icon: LucideIcon;
-  items: string[];
+  items: FolderItem[];
 };
+
+const item = (label: string, Icon?: LucideIcon, status: ItemStatus = "active"): FolderItem => ({
+  label,
+  Icon,
+  status,
+});
 
 const FOLDERS: FolderDefinition[] = [
   {
     id: "project",
     label: "Project",
     Icon: Building2,
-    items: ["Overview", "Areas", "Floors", "Rooms", "Progress", "Issues", "Approvals", "Timeline"],
+    items: ["Overview", "Areas", "Floors", "Rooms", "Progress", "Issues", "Approvals", "Timeline"].map((label) => item(label)),
   },
   {
     id: "people",
     label: "People",
     Icon: Users,
-    items: ["Project team", "Person cards", "Companies", "Contacts", "Availability", "Responsibilities", "Training", "Communication"],
+    items: ["Project team", "Person cards", "Companies", "Contacts", "Availability", "Responsibilities", "Training", "Communication"].map((label) => item(label)),
   },
   {
     id: "tasks",
     label: "Tasks",
     Icon: CheckSquare,
-    items: ["My tasks", "Team tasks", "Snags", "Inspections", "Blocked work", "Assignments", "Approvals", "Completed"],
+    items: ["My tasks", "Team tasks", "Snags", "Inspections", "Blocked work", "Assignments", "Approvals", "Completed"].map((label) => item(label)),
   },
   {
     id: "documents",
     label: "Docs",
     Icon: FileText,
-    items: ["Plans", "Schedules", "Specifications", "Certificates", "Photos", "Evidence", "Reports", "Site instructions"],
+    items: ["Plans", "Schedules", "Specifications", "Certificates", "Photos", "Evidence", "Reports", "Site instructions"].map((label) => item(label)),
   },
   {
     id: "tools",
     label: "Tools",
     Icon: Wrench,
-    items: ["DoorFlow", "Fire Door Register", "Electrical", "Plan Review", "Safety", "Communication", "BIM", "Supplies"],
+    items: [
+      item("DoorFlow", DoorOpen),
+      item("Fire Register", Flame),
+      item("Electrical", Zap),
+      item("Work Wallet", ShieldCheck, "disconnected"),
+      item("Hilti", Hammer, "disconnected"),
+      item("FabStation", Boxes, "disconnected"),
+      item("BIM", Layers3, "disconnected"),
+      item("Supplies", PlugZap, "disconnected"),
+    ],
   },
   {
     id: "trades",
     label: "Trades",
     Icon: HardHat,
-    items: ["All trades", "Joinery", "Fire doors", "Electrical", "Plumbing", "HVAC", "Drylining", "Site management"],
+    items: ["All trades", "Joinery", "Fire doors", "Electrical", "Plumbing", "HVAC", "Drylining", "Site management"].map((label) => item(label)),
   },
   {
     id: "system",
     label: "System",
     Icon: Layers3,
-    items: ["Search", "Ask Nexus", "Notifications", "Integrations", "Companies", "Settings", "Help", "System map"],
+    items: ["Search", "Ask Nexus", "Notifications", "Integrations", "Companies", "Settings", "Help", "System map"].map((label) => item(label)),
   },
 ];
 
@@ -145,7 +174,7 @@ export default function FolderDock({
   const toggleFolder = (id: FolderId) => {
     setOpenFolders((current) => {
       const next = current.includes(id)
-        ? current.filter((item) => item !== id)
+        ? current.filter((folderId) => folderId !== id)
         : [...current, id];
       persist(order, next);
       return next;
@@ -175,7 +204,7 @@ export default function FolderDock({
             const folder = definitions.get(id);
             if (!folder) return null;
             const isOpen = openFolders.includes(id);
-            const Icon = folder.Icon;
+            const FolderIcon = folder.Icon;
 
             return (
               <div
@@ -190,34 +219,49 @@ export default function FolderDock({
                       <button
                         type="button"
                         onClick={onOpenWorkflow}
-                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center rounded-xl border border-primary/45 bg-primary/14 px-2 py-2 text-center text-primary shadow-lg backdrop-blur-md active:scale-[.97]"
+                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center rounded-xl border border-cyan-300/55 bg-gradient-to-b from-[#0d4568]/95 to-[#071d31]/95 px-2 py-2 text-center text-cyan-100 shadow-[0_10px_28px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.12)] backdrop-blur-md active:scale-[.97]"
                       >
-                        <Building2 className="h-5 w-5" />
+                        <Building2 className="h-5 w-5 text-cyan-300" />
                         <span className="mt-1 line-clamp-2 text-[10px] font-semibold leading-[1.05]">
                           {selected.label}
                         </span>
-                        <span className="mt-1 text-[8px] font-bold uppercase tracking-[.08em]">
+                        <span className="mt-1 text-[8px] font-bold uppercase tracking-[.08em] text-cyan-300">
                           {selectedLinks} links
                         </span>
                       </button>
                     )}
 
-                    {folder.items.map((item) => {
-                      const documentFormat = id === "documents" ? DOCUMENT_ITEM_FORMAT[item] : undefined;
+                    {folder.items.map((folderItem) => {
+                      const documentFormat = id === "documents" ? DOCUMENT_ITEM_FORMAT[folderItem.label] : undefined;
+                      const ItemIcon = folderItem.Icon ?? FolderIcon;
+                      const disconnected = folderItem.status === "disconnected";
+
                       return (
                         <button
-                          key={item}
+                          key={folderItem.label}
                           type="button"
-                          className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1 rounded-xl border border-border bg-background/88 px-2 py-2 text-center text-muted-foreground shadow-lg backdrop-blur-md transition hover:border-primary/40 hover:text-foreground active:scale-[.97]"
+                          disabled={disconnected}
+                          aria-disabled={disconnected}
+                          title={disconnected ? `${folderItem.label} — not connected` : folderItem.label}
+                          className={`relative flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center shadow-[0_10px_26px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md transition active:scale-[.97] ${
+                            disconnected
+                              ? "cursor-not-allowed border-slate-600/45 bg-gradient-to-b from-slate-700/80 to-slate-900/92 text-slate-400 grayscale opacity-65"
+                              : "border-cyan-700/55 bg-gradient-to-b from-[#0b3655]/94 to-[#071a2c]/96 text-cyan-100 hover:border-cyan-300/65 hover:from-[#0e4569]/96 hover:text-white"
+                          }`}
                         >
                           {documentFormat ? (
                             <FileIcon format={documentFormat} className="h-9 w-9" />
                           ) : (
-                            <Icon className="h-5 w-5 text-primary" />
+                            <ItemIcon className={`h-5 w-5 ${disconnected ? "text-slate-400" : "text-cyan-300"}`} />
                           )}
                           <span className="line-clamp-2 text-[10px] font-semibold leading-[1.05]">
-                            {item}
+                            {folderItem.label}
                           </span>
+                          {disconnected && (
+                            <span className="text-[6px] font-bold uppercase tracking-[.08em] text-slate-500">
+                              Not connected
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -228,13 +272,13 @@ export default function FolderDock({
                   type="button"
                   onClick={() => toggleFolder(id)}
                   aria-expanded={isOpen}
-                  className={`pointer-events-auto flex h-[64px] w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border shadow-xl backdrop-blur-xl transition ${
+                  className={`pointer-events-auto flex h-[64px] w-[64px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border shadow-[0_12px_30px_rgba(0,0,0,.48),inset_0_1px_0_rgba(255,255,255,.11)] backdrop-blur-xl transition active:scale-[.96] ${
                     isOpen
-                      ? "border-primary/60 bg-primary/18 text-primary ring-2 ring-primary/15"
-                      : "border-border bg-background/92 text-muted-foreground hover:border-primary/35 hover:text-foreground"
+                      ? "border-cyan-300/75 bg-gradient-to-b from-[#12608a] to-[#08263e] text-cyan-50 ring-2 ring-cyan-300/20"
+                      : "border-cyan-800/65 bg-gradient-to-b from-[#0b3655]/96 to-[#061827]/98 text-cyan-200 hover:border-cyan-400/65 hover:from-[#0e4569] hover:text-white"
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <FolderIcon className={`h-5 w-5 ${isOpen ? "text-cyan-200" : "text-cyan-400"}`} />
                   <span className="max-w-[58px] truncate text-[8px] font-bold uppercase tracking-[.08em]">
                     {folder.label}
                   </span>
