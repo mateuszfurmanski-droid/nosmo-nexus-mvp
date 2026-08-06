@@ -9,6 +9,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { FileIcon, type FileFormat } from "./file-icon-components";
 import type { WorkspaceNode } from "./workspace-data";
 
 type FolderId = "project" | "people" | "tasks" | "documents" | "tools" | "trades" | "system";
@@ -64,6 +65,17 @@ const FOLDERS: FolderDefinition[] = [
     items: ["Search", "Ask Nexus", "Notifications", "Integrations", "Companies", "Settings", "Help", "System map"],
   },
 ];
+
+const DOCUMENT_ITEM_FORMAT: Record<string, FileFormat> = {
+  Plans: "pdf",
+  Schedules: "xlsx",
+  Specifications: "docx",
+  Certificates: "pdf",
+  Photos: "jpg",
+  Evidence: "zip",
+  Reports: "docx",
+  "Site instructions": "docx",
+};
 
 const DEFAULT_ORDER: FolderId[] = FOLDERS.map((folder) => folder.id);
 const STORAGE_KEY = "nosmo-folder-dock-v1";
@@ -190,18 +202,25 @@ export default function FolderDock({
                       </button>
                     )}
 
-                    {folder.items.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-background/88 px-2 py-2 text-center text-muted-foreground shadow-lg backdrop-blur-md transition hover:border-primary/40 hover:text-foreground active:scale-[.97]"
-                      >
-                        <Icon className="h-5 w-5 text-primary" />
-                        <span className="line-clamp-2 text-[10px] font-semibold leading-[1.05]">
-                          {item}
-                        </span>
-                      </button>
-                    ))}
+                    {folder.items.map((item) => {
+                      const documentFormat = id === "documents" ? DOCUMENT_ITEM_FORMAT[item] : undefined;
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1 rounded-xl border border-border bg-background/88 px-2 py-2 text-center text-muted-foreground shadow-lg backdrop-blur-md transition hover:border-primary/40 hover:text-foreground active:scale-[.97]"
+                        >
+                          {documentFormat ? (
+                            <FileIcon format={documentFormat} className="h-9 w-9" />
+                          ) : (
+                            <Icon className="h-5 w-5 text-primary" />
+                          )}
+                          <span className="line-clamp-2 text-[10px] font-semibold leading-[1.05]">
+                            {item}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
