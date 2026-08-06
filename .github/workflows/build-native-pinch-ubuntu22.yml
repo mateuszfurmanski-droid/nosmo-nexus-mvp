@@ -1,0 +1,61 @@
+name: Build native pinch on Ubuntu 22
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-native-pinch-ubuntu22.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Clone application branch
+        shell: bash
+        run: |
+          git clone --depth 1 --branch agent/persistent-project-graph \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" source
+
+      - name: Build graph preview
+        shell: bash
+        working-directory: source
+        env:
+          PORT: 4173
+          BASE_PATH: /apps/nexus-graph-preview/
+        run: |
+          corepack enable
+          corepack prepare pnpm@10 --activate
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm --filter @workspace/nosmo-nexus build
+          mkdir -p artifacts/nosmo-nexus/dist/public/relationship-tree
+          cp artifacts/nosmo-nexus/dist/public/index.html artifacts/nosmo-nexus/dist/public/relationship-tree/index.html
+          python - <<'PY'
+          from pathlib import Path
+          target = Path('artifacts/nosmo-nexus/dist/public/relationship-tree/index.html')
+          html = target.read_text(encoding='utf-8')
+          route = '<script>history.replaceState(null,"","/apps/nexus-graph-preview/relationship-tree");</script>'
+          target.write_text(html.replace('</head>', route + '\n</head>'), encoding='utf-8')
+          PY
+
+      - name: Push technical build branch
+        shell: bash
+        working-directory: source
+        run: |
+          rm -rf /tmp/nexus-public
+          mkdir -p /tmp/nexus-public
+          cp -a artifacts/nosmo-nexus/dist/public/. /tmp/nexus-public/
+          git config user.name "NOSMO Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan build/pinch-native-preview
+          git rm -rf .
+          cp -a /tmp/nexus-public/. .
+          git add -A
+          git commit -m "Build native pinch zoom preview"
+          git push --force origin HEAD:build/pinch-native-preview
