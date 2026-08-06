@@ -216,13 +216,13 @@ export function resolveFileFormat(value = "", mimeType = ""): FileFormat {
   return "file";
 }
 
-export type FileIconProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
+export type FileIconProps = Omit<SVGProps<SVGSVGElement>, "children" | "format"> & {
   format?: FileFormat | string;
   fileName?: string;
   mimeType?: string;
 };
 
-function SpriteFileIcon({ format, className, ...props }: SVGProps<SVGSVGElement> & { format: FileFormat }) {
+function SpriteFileIcon({ format, className, ...props }: Omit<SVGProps<SVGSVGElement>, "format"> & { format: FileFormat }) {
   const cell = CELLS[format];
   return (
     <>
@@ -256,7 +256,7 @@ export function FileIcon({ format, fileName, mimeType, ...props }: FileIconProps
 }
 
 function createFileIcon(format: FileFormat) {
-  return function SpecificFileIcon(props: SVGProps<SVGSVGElement>) {
+  return function SpecificFileIcon(props: Omit<SVGProps<SVGSVGElement>, "format">) {
     return <SpriteFileIcon format={format} {...props} />;
   };
 }
