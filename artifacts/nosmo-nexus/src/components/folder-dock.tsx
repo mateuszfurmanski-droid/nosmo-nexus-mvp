@@ -26,6 +26,7 @@ type FolderItem = {
   label: string;
   Icon?: LucideIcon;
   status?: ItemStatus;
+  href?: string;
 };
 
 type FolderDefinition = {
@@ -35,11 +36,12 @@ type FolderDefinition = {
   items: FolderItem[];
 };
 
-const item = (label: string, Icon?: LucideIcon, status: ItemStatus = "active"): FolderItem => ({
-  label,
-  Icon,
-  status,
-});
+const item = (
+  label: string,
+  Icon?: LucideIcon,
+  status: ItemStatus = "active",
+  href?: string,
+): FolderItem => ({ label, Icon, status, href });
 
 const FOLDERS: FolderDefinition[] = [
   {
@@ -71,9 +73,9 @@ const FOLDERS: FolderDefinition[] = [
     label: "Tools",
     Icon: Wrench,
     items: [
-      item("DoorFlow", DoorOpen),
-      item("Fire Register", Flame),
-      item("Electrical", Zap),
+      item("DoorFlow", DoorOpen, "active", "/apps/doorflow/"),
+      item("Fire Register", Flame, "active", "/apps/fire-door-register/"),
+      item("Electrical", Zap, "disconnected"),
       item("Work Wallet", ShieldCheck, "disconnected"),
       item("Hilti", Hammer, "disconnected"),
       item("FabStation", Boxes, "disconnected"),
@@ -219,9 +221,7 @@ export default function FolderDock({
                       <button
                         type="button"
                         onClick={onOpenWorkflow}
-                        style={{
-                          background: "linear-gradient(180deg, #0d4568 0%, #071d31 100%)",
-                        }}
+                        style={{ background: "linear-gradient(180deg, #0d4568 0%, #071d31 100%)" }}
                         className="flex h-[72px] w-[86px] flex-none flex-col items-center justify-center rounded-xl border border-cyan-300/55 px-2 py-2 text-center text-cyan-100 shadow-[0_10px_28px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.12)] backdrop-blur-md active:scale-[.97]"
                       >
                         <Building2 className="h-5 w-5 text-cyan-300" />
@@ -238,25 +238,19 @@ export default function FolderDock({
                       const documentFormat = id === "documents" ? DOCUMENT_ITEM_FORMAT[folderItem.label] : undefined;
                       const ItemIcon = folderItem.Icon ?? FolderIcon;
                       const disconnected = folderItem.status === "disconnected";
-
-                      return (
-                        <button
-                          key={folderItem.label}
-                          type="button"
-                          disabled={disconnected}
-                          aria-disabled={disconnected}
-                          title={disconnected ? `${folderItem.label} — not connected` : folderItem.label}
-                          style={{
-                            background: disconnected
-                              ? "linear-gradient(180deg, #334155 0%, #0f172a 100%)"
-                              : "linear-gradient(180deg, #0b3655 0%, #061827 100%)",
-                          }}
-                          className={`relative flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center shadow-[0_10px_26px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md transition active:scale-[.97] ${
-                            disconnected
-                              ? "cursor-not-allowed border-slate-600/45 text-slate-400 grayscale opacity-65"
-                              : "border-cyan-700/55 text-cyan-100 hover:border-cyan-300/65 hover:text-white"
-                          }`}
-                        >
+                      const title = disconnected ? `${folderItem.label} — not connected` : folderItem.label;
+                      const tileClassName = `relative flex h-[72px] w-[86px] flex-none flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center shadow-[0_10px_26px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-md transition active:scale-[.97] ${
+                        disconnected
+                          ? "cursor-not-allowed border-slate-600/45 text-slate-400 grayscale opacity-65"
+                          : "border-cyan-700/55 text-cyan-100 hover:border-cyan-300/65 hover:text-white"
+                      }`;
+                      const tileStyle = {
+                        background: disconnected
+                          ? "linear-gradient(180deg, #334155 0%, #0f172a 100%)"
+                          : "linear-gradient(180deg, #0b3655 0%, #061827 100%)",
+                      };
+                      const tileContent = (
+                        <>
                           {documentFormat ? (
                             <FileIcon format={documentFormat} className="h-9 w-9" />
                           ) : (
@@ -270,6 +264,35 @@ export default function FolderDock({
                               Not connected
                             </span>
                           )}
+                        </>
+                      );
+
+                      if (folderItem.href && !disconnected) {
+                        return (
+                          <a
+                            key={folderItem.label}
+                            href={folderItem.href}
+                            title={title}
+                            aria-label={`Open ${folderItem.label}`}
+                            className={tileClassName}
+                            style={tileStyle}
+                          >
+                            {tileContent}
+                          </a>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={folderItem.label}
+                          type="button"
+                          disabled={disconnected}
+                          aria-disabled={disconnected}
+                          title={title}
+                          style={tileStyle}
+                          className={tileClassName}
+                        >
+                          {tileContent}
                         </button>
                       );
                     })}
