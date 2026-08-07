@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NOSMO Nexus Overlay Prototype</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="logo">N</div>
+      <div>
+        <h1>NOSMO Nexus Overlay</h1>
+        <p>Development context and Work Wallet adapter controls</p>
+      </div>
+    </header>
+
+    <div class="warning">DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API</div>
+
+    <section>
+      <h2>Local Nexus Context</h2>
+      <p class="hint">This page seeds synthetic/local context only. It does not read Work Wallet account data.</p>
+      <div class="grid">
+        <label>Project ID<input id="projectId" placeholder="halifax-demo"></label>
+        <label>Project label<input id="projectLabel" placeholder="Halifax"></label>
+        <label>Person ID<input id="personId" placeholder="person-demo-001"></label>
+        <label>Person label<input id="personLabel" placeholder="Demo User"></label>
+        <label>Role context<input id="roleContext" placeholder="Manager"></label>
+        <label>Trade context<input id="tradeContext" placeholder="Joinery"></label>
+        <label>Selected object type<input id="selectedObjectType" placeholder="door"></label>
+        <label>Selected object ID<input id="selectedObjectId" placeholder="D-001"></label>
+      </div>
+      <label>Return route<input id="returnRoute" value="https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree"></label>
+    </section>
+
+    <section>
+      <h2>Local action set</h2>
+      <div class="checks" id="actionChecks"></div>
+    </section>
+
+    <section>
+      <h2>Work Wallet adapter</h2>
+      <label class="toggle"><input id="adapterEnabled" type="checkbox"> Enable overlay on portal.work-wallet.com</label>
+    </section>
+
+    <div class="buttons">
+      <button id="save" class="primary">Save local context</button>
+      <button id="clear">Clear context</button>
+      <button id="reset">Reset adapter state</button>
+    </div>
+    <p id="status" role="status"></p>
+  </main>
+  <script src="../runtime.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
