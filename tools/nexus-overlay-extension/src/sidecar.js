@@ -1,6 +1,7 @@
 (() => {
   const ROOT_ID = "nosmo-nexus-overlay-root";
   const RUNTIME = () => globalThis.NexusOverlayRuntime;
+  const SAFE_WITHOUT_CONTEXT = new Set(["project_tree", "connector_status", "return_to_nexus"]);
 
   const DEFAULT_URLS = {
     relationshipTree:
@@ -14,13 +15,13 @@
   };
 
   const ACTIONS = [
-    { key: "ask_nexus", label: "Ask Nexus", icon: "?", requiresTarget: false },
+    { key: "ask_nexus", label: "Ask Nexus", icon: "?" },
     { key: "project_tree", label: "Project Tree", icon: "T" },
     { key: "person_card", label: "Person Card", icon: "P" },
     { key: "tasks", label: "Tasks / Snags", icon: "✓" },
     { key: "documents", label: "Documents", icon: "D" },
     { key: "communication", label: "Communication", icon: "C" },
-    { key: "supplies", label: "Supplies / Purchases", icon: "S", requiresTarget: false },
+    { key: "supplies", label: "Supplies / Purchases", icon: "S" },
     { key: "related_apps", label: "Related Apps", icon: "A" },
     { key: "connector_status", label: "Connector Status", icon: "W" },
     { key: "return_to_nexus", label: "Return to Nexus", icon: "↩" }
@@ -152,6 +153,16 @@
         .nexus-action:disabled { cursor: not-allowed; filter: grayscale(1); opacity: .48; }
         .nexus-action b { display: block; color: #65ddff; font-size: 11px; }
         .nexus-action span { display: block; margin-top: 5px; font-size: 9px; line-height: 1.25; }
+        .nexus-adapter-meta {
+          margin-top: 12px;
+          padding: 9px 10px;
+          border: 1px dashed rgba(148,163,184,.28);
+          border-radius: 10px;
+          color: #8ea0b5;
+          font-size: 8px;
+          line-height: 1.45;
+          overflow-wrap: anywhere;
+        }
         .nexus-footer {
           margin-top: 12px;
           padding-top: 10px;
@@ -189,6 +200,7 @@
             <p class="nexus-context-detail">Open extension options to seed development context.</p>
           </div>
           <div class="nexus-actions"></div>
+          <div class="nexus-adapter-meta"></div>
           <div class="nexus-footer">
             DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API
             <br><button class="nexus-options" type="button">Context / Options</button>
@@ -222,17 +234,22 @@
     }
   }
 
+  function isActionAllowed(action, context) {
+    if (SAFE_WITHOUT_CONTEXT.has(action.key)) return true;
+    return RUNTIME().actionAllowed(context, action.key);
+  }
+
   function actionReason(action, context) {
     if (action.key === "ask_nexus") return "Not connected in this slice";
     if (action.key === "supplies") return "No safe launch target yet";
     if (action.key === "person_card" && !context?.personId) return "Needs person context";
-    if (!RUNTIME().actionAllowed(context, action.key)) return "Not in local action set";
+    if (!isActionAllowed(action, context)) return "Not in local action set";
     return "Open";
   }
 
   function buildActionButton(action, context, adapter) {
     const target = actionTarget(action, context);
-    const allowed = RUNTIME().actionAllowed(context, action.key);
+    const allowed = isActionAllowed(action, context);
     const enabled = Boolean(target && allowed);
     const button = document.createElement("button");
     button.type = "button";
@@ -252,6 +269,13 @@
           actionKey: action.key,
           contextSource: context?.contextSource || null
         });
+        if (action.key === "connector_status") {
+          await RUNTIME().logDiagnostic("CONNECTOR_STATUS_VIEWED", {
+            adapterId: adapter.adapter_id,
+            actionKey: action.key,
+            contextSource: context?.contextSource || null
+          });
+        }
         if (action.key === "return_to_nexus") {
           await RUNTIME().logDiagnostic("RELATIONSHIP_TREE_RETURNED", {
             adapterId: adapter.adapter_id,
@@ -278,8 +302,11 @@
     const contextTitle = shadow.querySelector(".nexus-context strong");
     const contextDetail = shadow.querySelector(".nexus-context-detail");
     const actions = shadow.querySelector(".nexus-actions");
+    const adapterMeta = shadow.querySelector(".nexus-adapter-meta");
     const options = shadow.querySelector(".nexus-options");
     const disable = shadow.querySelector(".nexus-disable");
+
+    adapterMeta.textContent = `${adapter.provider} · ${adapter.product} · adapter ${adapter.adapter_version} · ${adapter.supported_integration_level.join(" + ")} · ${adapter.vendor_approval}`;
 
     function render(nextContext, nextPreference) {
       const status = RUNTIME().contextStatus(nextContext);
