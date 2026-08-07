@@ -75,7 +75,7 @@ const FOLDERS: FolderDefinition[] = [
     items: [
       item("DoorFlow", DoorOpen, "active", "/apps/doorflow/"),
       item("Fire Register", Flame, "active", "/apps/fire-door-register/"),
-      item("Electrical", Zap, "disconnected"),
+      item("Electrical", Zap, "active", "/apps/nexus/electrical-commissioning/"),
       item("Work Wallet", ShieldCheck, "active", "/apps/nexus/safety-connector"),
       item("Hilti", Hammer, "disconnected"),
       item("FabStation", Boxes, "disconnected"),
