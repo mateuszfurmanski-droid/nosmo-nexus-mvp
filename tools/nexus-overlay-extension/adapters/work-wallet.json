@@ -1,0 +1,38 @@
+{
+  "adapter_id": "work-wallet",
+  "provider": "Work Wallet",
+  "product": "Work Wallet Portal",
+  "domain_allowlist": ["portal.work-wallet.com"],
+  "url_patterns": ["https://portal.work-wallet.com/*"],
+  "supported_overlay_mode": "NEXUS_SIDECAR",
+  "supported_integration_level": ["LEVEL_1_DEEP_LINK", "LEVEL_6_SIDECAR"],
+  "context_detectors": ["URL_PATH_ONLY", "USER_CONFIRMATION"],
+  "deep_link_templates": {
+    "relationship_tree": "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree",
+    "connector_status": "https://nosmotechnology.co.uk/apps/nexus/?module=safety"
+  },
+  "connector_id": "work-wallet-safety-connector-demo",
+  "read_capabilities": ["CURRENT_URL_ONLY"],
+  "write_capabilities": [],
+  "required_permissions": ["storage", "https://portal.work-wallet.com/*"],
+  "restricted_actions": [
+    "AUTOMATIC_FORM_SUBMISSION",
+    "AUTOMATIC_APPROVAL",
+    "AUTOMATIC_SIGN_OFF",
+    "AUTOMATIC_PERMIT_ACTION",
+    "AUTOMATIC_INCIDENT_ACTION",
+    "EXTERNAL_RECORD_WRITE"
+  ],
+  "data_classification": "NO_EXTERNAL_RECORD_CONTENT_IN_PKG_013",
+  "source_of_record_rules": [
+    "Work Wallet remains the source of record for formal Work Wallet safety and compliance records.",
+    "Nexus overlay state is not evidence that a Work Wallet record changed.",
+    "No external write is supported by PKG-013."
+  ],
+  "return_behaviour": "OPEN_NEXUS_RELATIONSHIP_TREE_IN_NEW_TAB",
+  "fallback_behaviour": "SHOW_NO_NEXUS_CONTEXT_AND_SAFE_LINKS_ONLY",
+  "vendor_approval": "NOT_CLAIMED",
+  "external_capability_label": "DEVELOPMENT_PROTOTYPE_NOT_VENDOR_APPROVED_NO_LIVE_WORK_WALLET_API",
+  "adapter_version": "0.1.0",
+  "last_reviewed_at": "2026-08-07"
+}
