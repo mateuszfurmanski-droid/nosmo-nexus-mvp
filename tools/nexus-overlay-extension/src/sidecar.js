@@ -249,6 +249,7 @@
             <span class="nexus-comm-title">QUICK COMMUNICATION · USER-INITIATED</span>
             <div class="nexus-comm-row">${communicationButtons}</div>
           </div>
+          <div class="nexus-supply-host"></div>
           <div class="nexus-adapter-meta"></div>
           <div class="nexus-footer">
             DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API
@@ -359,6 +360,14 @@
     const disable = shadow.querySelector(".nexus-disable");
     let activeContext = context;
 
+    const supplyRequest = globalThis.NexusOverlaySupplyRequest?.mount({
+      shadow,
+      runtime: RUNTIME(),
+      adapter,
+      getContext: () => activeContext,
+      externalToolsUrl: DEFAULT_URLS.supplies
+    }) || { render() {}, destroy() {} };
+
     adapterMeta.textContent = `${adapter.provider} · ${adapter.product} · adapter ${adapter.adapter_version} · ${adapter.supported_integration_level.join(" + ")} · ${adapter.vendor_approval}`;
 
     shadow.querySelectorAll(".nexus-comm-button").forEach((button) => {
@@ -390,6 +399,7 @@
       contextSource.textContent = `${page} · ${objectType} · ${objectId}`;
       actions.replaceChildren(...ACTIONS.map((action) => buildActionButton(action, nextContext, adapter)));
       communication.hidden = !RUNTIME().actionAllowed(nextContext, "communication");
+      supplyRequest.render(nextContext);
       panel.classList.toggle("open", nextPreference?.sidecarOpen === true);
     }
 
@@ -418,6 +428,7 @@
       host,
       render,
       destroy() {
+        supplyRequest.destroy();
         host.remove();
       }
     };
