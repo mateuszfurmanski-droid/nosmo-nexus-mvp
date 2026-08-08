@@ -77,6 +77,10 @@
     );
   }
 
+  $("openMock").addEventListener("click", () => {
+    window.open(chrome.runtime.getURL("dev/mock-work-wallet.html"), "_blank", "noopener,noreferrer");
+  });
+
   $("save").addEventListener("click", async () => {
     await runtime.setStoredContext({
       projectId: $("projectId").value.trim() || null,
