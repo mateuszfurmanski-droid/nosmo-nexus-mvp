@@ -36,7 +36,28 @@ host: https://portal.work-wallet.com/*
 - route continuity watcher for SPA navigation;
 - safe Nexus deep-link actions;
 - local minimal diagnostics;
-- self-contained Node validator.
+- self-contained Node validator;
+- extension-owned local Work Wallet mock portal for account-free testing.
+
+## Account-free local mock
+
+A Work Wallet account is not required to test the Nexus Overlay UI and runtime.
+
+After loading the extension unpacked:
+
+1. Open the extension options page.
+2. Click `Open local Work Wallet mock`.
+3. A clearly labelled local test harness opens as an extension-owned page.
+4. Use Dashboard, People, Jobs, Permits, Audits and Risk to simulate external route changes.
+5. Confirm one Nexus `N` launcher remains available.
+6. Click `Seed Halifax demo context` to load synthetic Nexus project/person context.
+7. Open the sidecar and verify `DEMO / LOCAL CONTEXT`.
+8. Use Project Tree / Connector Status / Return to Nexus as user-initiated deep links.
+9. Disable and re-enable the overlay from the mock controls.
+
+The local mock is not Work Wallet and does not imitate or assert access to any real Work Wallet records. It exists only as a safe overlay test harness.
+
+The mock adds no new host permission. The Manifest remains restricted to `https://portal.work-wallet.com/*` for the real external-site content script.
 
 ## Explicit limitations
 
@@ -60,8 +81,8 @@ Work Wallet remains the source of record for its formal safety and compliance re
 3. Choose `Load unpacked`.
 4. Select this `tools/nexus-overlay-extension` folder.
 5. Open extension details and confirm the requested site access is limited to `portal.work-wallet.com`.
-6. Open the extension options page and optionally seed local Nexus context.
-7. Open the authorised Work Wallet portal session.
+6. Open the extension options page.
+7. Use the local Work Wallet mock for account-free testing, or open an authorised Work Wallet portal session for the real-site smoke test.
 
 ## Load unpacked in Edge
 
@@ -125,10 +146,11 @@ The validator checks:
 - empty Work Wallet write capability;
 - Context Packet fixture;
 - second adapter fixture;
-- referenced extension files;
-- selected forbidden credential/session interception patterns.
+- referenced extension and local mock files;
+- clear non-vendor labelling of the mock;
+- selected forbidden credential/session interception patterns, including the mock harness script.
 
-## Manual smoke test
+## Real Work Wallet manual smoke test
 
 1. Load the extension unpacked.
 2. Open `https://portal.work-wallet.com/` using an authorised session.
