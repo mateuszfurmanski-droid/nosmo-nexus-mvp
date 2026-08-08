@@ -6,12 +6,13 @@
   const DEFAULT_URLS = {
     relationshipTree:
       "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree",
-    people: "https://nosmotechnology.co.uk/apps/nexus/?module=people",
-    tasks: "https://nosmotechnology.co.uk/apps/nexus/?module=tasks",
-    documents: "https://nosmotechnology.co.uk/apps/nexus/?module=documents",
-    integrations: "https://nosmotechnology.co.uk/apps/nexus/?module=integrations",
-    connectorStatus: "https://nosmotechnology.co.uk/apps/nexus/?module=safety",
-    gmail: "https://mail.google.com/mail/u/0/#inbox?compose=new"
+    people: "https://nosmotechnology.co.uk/apps/nexus/people",
+    tasks: "https://nosmotechnology.co.uk/apps/nexus/tasks",
+    documents: "https://nosmotechnology.co.uk/apps/nexus/plans",
+    communication: "https://nosmotechnology.co.uk/apps/nexus/communication-hub",
+    supplies: "https://nosmotechnology.co.uk/apps/nexus/external-tools",
+    integrations: "https://nosmotechnology.co.uk/apps/nexus/integrations",
+    connectorStatus: "https://nosmotechnology.co.uk/apps/nexus/safety-connector"
   };
 
   const ACTIONS = [
@@ -19,7 +20,7 @@
     { key: "project_tree", label: "Project Tree", icon: "T" },
     { key: "person_card", label: "Person Card", icon: "P" },
     { key: "tasks", label: "Tasks / Snags", icon: "✓" },
-    { key: "documents", label: "Documents", icon: "D" },
+    { key: "documents", label: "Documents / Plans", icon: "D" },
     { key: "communication", label: "Communication", icon: "C" },
     { key: "supplies", label: "Supplies / Purchases", icon: "S" },
     { key: "related_apps", label: "Related Apps", icon: "A" },
@@ -224,7 +225,9 @@
       case "documents":
         return DEFAULT_URLS.documents;
       case "communication":
-        return DEFAULT_URLS.gmail;
+        return DEFAULT_URLS.communication;
+      case "supplies":
+        return DEFAULT_URLS.supplies;
       case "related_apps":
         return DEFAULT_URLS.integrations;
       case "connector_status":
@@ -243,7 +246,6 @@
 
   function actionReason(action, context) {
     if (action.key === "ask_nexus") return "Not connected in this slice";
-    if (action.key === "supplies") return "No safe launch target yet";
     if (action.key === "person_card" && !context?.personId) return "Needs person context";
     if (!isActionAllowed(action, context)) return "Not in local action set";
     return "Open";
