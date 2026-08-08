@@ -62,6 +62,41 @@
     }
   };
 
+  const PAGE_CONTEXT = {
+    dashboard: {
+      selectedObjectType: "project",
+      selectedObjectId: "halifax-demo",
+      externalRecordReference: "WW-101"
+    },
+    people: {
+      personId: "person-demo-001",
+      personLabel: "Demo User",
+      selectedObjectType: "person",
+      selectedObjectId: "person-demo-001",
+      externalRecordReference: "P-001"
+    },
+    jobs: {
+      selectedObjectType: "job",
+      selectedObjectId: "JOB-01",
+      externalRecordReference: "JOB-01"
+    },
+    permits: {
+      selectedObjectType: "permit",
+      selectedObjectId: "PER-201",
+      externalRecordReference: "PER-201"
+    },
+    audits: {
+      selectedObjectType: "audit",
+      selectedObjectId: "AUD-11",
+      externalRecordReference: "AUD-11"
+    },
+    risk: {
+      selectedObjectType: "risk_assessment",
+      selectedObjectId: "RAMS-01",
+      externalRecordReference: "RAMS-01"
+    }
+  };
+
   let adapter = null;
   let mounted = null;
   let stopWatch = null;
@@ -84,6 +119,10 @@
     if (route === "jobs") return "JOB_PAGE";
     if (route === "people") return "PERSON_PAGE";
     return "PORTAL_PAGE";
+  }
+
+  function pageContext(route = routeName()) {
+    return PAGE_CONTEXT[route] || PAGE_CONTEXT.dashboard;
   }
 
   function setLabStatus(text) {
@@ -136,8 +175,10 @@
   async function overlayContext() {
     const existing = await runtime.getStoredContext();
     if (!existing) return null;
+    const detected = pageContext();
     return runtime.normaliseContext({
       ...existing,
+      ...detected,
       sourceApplication: "WORK_WALLET",
       sourceUrl: syntheticPortalUrl(),
       sourcePageType: pageType()
@@ -186,19 +227,20 @@
   }
 
   async function seedContext() {
+    const detected = pageContext();
     await runtime.setStoredContext({
       projectId: "halifax-demo",
       projectLabel: "Halifax Demo",
-      personId: "person-demo-001",
-      personLabel: "Demo Manager",
+      personId: detected.personId || "person-demo-manager",
+      personLabel: detected.personLabel || "Demo Manager",
       roleContext: ["Manager"],
       tradeContext: ["Joinery"],
-      selectedObjectType: routeName() === "people" ? "person" : "project",
-      selectedObjectId: routeName() === "people" ? "person-demo-001" : "halifax-demo",
+      selectedObjectType: detected.selectedObjectType,
+      selectedObjectId: detected.selectedObjectId,
       sourceApplication: "WORK_WALLET",
       sourceUrl: syntheticPortalUrl(),
       sourcePageType: pageType(),
-      externalRecordReference: null,
+      externalRecordReference: detected.externalRecordReference,
       returnRoute: "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree",
       returnGraphState: null,
       allowedActionKeys: [
