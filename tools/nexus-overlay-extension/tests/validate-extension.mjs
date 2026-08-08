@@ -115,18 +115,28 @@ assert(
 const referencedFiles = [
   manifest.background?.service_worker,
   manifest.options_page,
-  ...(manifest.content_scripts?.flatMap((entry) => entry.js || []) || [])
+  ...(manifest.content_scripts?.flatMap((entry) => entry.js || []) || []),
+  "dev/mock-work-wallet.html",
+  "dev/mock-work-wallet.css",
+  "dev/mock-work-wallet.js"
 ].filter(Boolean);
 for (const relative of referencedFiles) {
-  assert(fs.existsSync(path.join(root, relative)), `Manifest references missing file: ${relative}`);
+  assert(fs.existsSync(path.join(root, relative)), `Required extension file missing: ${relative}`);
 }
+
+const mockHtml = read("dev/mock-work-wallet.html");
+assert(
+  mockHtml.includes("LOCAL TEST HARNESS") && mockHtml.includes("NOT WORK WALLET"),
+  "Local mock must be clearly labelled as non-vendor test harness"
+);
 
 const executableFiles = [
   "src/background.js",
   "src/runtime.js",
   "src/sidecar.js",
   "src/content.js",
-  "src/options/options.js"
+  "src/options/options.js",
+  "dev/mock-work-wallet.js"
 ];
 const forbidden = [
   ["document.cookie", /document\s*\.\s*cookie/],
@@ -149,5 +159,6 @@ console.log("PASS: Work Wallet host is portal.work-wallet.com only");
 console.log("PASS: Work Wallet write capability is disabled");
 console.log("PASS: Context Packet fixture contract");
 console.log("PASS: Universal adapter registry fixture");
-console.log("PASS: Manifest file references");
+console.log("PASS: Manifest and local mock file references");
+console.log("PASS: Local mock is clearly labelled non-vendor");
 console.log("PASS: No forbidden credential/session interception patterns");
