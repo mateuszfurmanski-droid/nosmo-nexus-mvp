@@ -251,6 +251,7 @@
         "tasks",
         "documents",
         "communication",
+        "supplies",
         "related_apps",
         "connector_status",
         "return_to_nexus"
