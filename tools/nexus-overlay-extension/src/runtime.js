@@ -2,7 +2,8 @@
   const STORAGE_KEYS = {
     context: "nexusOverlayContext",
     preferences: "nexusOverlayPreferences",
-    diagnostics: "nexusOverlayDiagnostics"
+    diagnostics: "nexusOverlayDiagnostics",
+    supplyRequests: "nexusOverlaySupplyRequests"
   };
 
   const CONTEXT_SOURCES = new Set([
@@ -13,6 +14,7 @@
   ]);
 
   const MAX_DIAGNOSTICS = 100;
+  const MAX_SUPPLY_REQUESTS = 50;
 
   function now() {
     return new Date().toISOString();
@@ -21,6 +23,10 @@
   function createSessionId() {
     if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
     return `nexus-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function cleanText(value, maxLength) {
+    return String(value || "").trim().slice(0, maxLength);
   }
 
   function normaliseContext(value = {}) {
@@ -129,6 +135,40 @@
     return next;
   }
 
+  async function getSupplyRequests() {
+    const stored = await chrome.storage.local.get([STORAGE_KEYS.supplyRequests]);
+    return Array.isArray(stored[STORAGE_KEYS.supplyRequests])
+      ? stored[STORAGE_KEYS.supplyRequests]
+      : [];
+  }
+
+  async function saveSupplyRequestDraft(value = {}) {
+    const item = cleanText(value.item, 120);
+    if (!item) throw new Error("Supply request item is required");
+
+    const request = {
+      id: createSessionId(),
+      status: "LOCAL_DRAFT",
+      item,
+      quantity: cleanText(value.quantity, 40) || "1",
+      note: cleanText(value.note, 400) || null,
+      projectId: cleanText(value.projectId, 120) || null,
+      projectLabel: cleanText(value.projectLabel, 160) || null,
+      selectedObjectType: cleanText(value.selectedObjectType, 80) || null,
+      selectedObjectId: cleanText(value.selectedObjectId, 160) || null,
+      externalRecordReference: cleanText(value.externalRecordReference, 160) || null,
+      sourceApplication: "WORK_WALLET",
+      sourcePageType: cleanText(value.sourcePageType, 80) || null,
+      sourceUrl: cleanText(value.sourceUrl, 500) || null,
+      createdAt: now()
+    };
+
+    const current = await getSupplyRequests();
+    const next = [request, ...current].slice(0, MAX_SUPPLY_REQUESTS);
+    await chrome.storage.local.set({ [STORAGE_KEYS.supplyRequests]: next });
+    return request;
+  }
+
   async function logDiagnostic(eventType, details = {}) {
     const stored = await chrome.storage.local.get([STORAGE_KEYS.diagnostics]);
     const current = Array.isArray(stored[STORAGE_KEYS.diagnostics])
@@ -173,6 +213,8 @@
     clearStoredContext,
     getAdapterPreference,
     setAdapterPreference,
+    getSupplyRequests,
+    saveSupplyRequestDraft,
     logDiagnostic,
     actionAllowed,
     watchLocation
