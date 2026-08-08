@@ -63,7 +63,6 @@ type Gesture =
 const FLOW = { type: "tween" as const, duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
 const clampZoom = (value: number) => Math.min(1.3, Math.max(0.3, value));
-const clampGlide = (value: number) => Math.max(-36, Math.min(36, value));
 
 function seededAngle(id: string) {
   let hash = 0;
@@ -395,11 +394,9 @@ export default function PersistentWorkspace() {
     if (gesture.mode === "node") {
       const deltaX = event.clientX - gesture.clientX;
       const deltaY = event.clientY - gesture.clientY;
-      const slipX = gesture.moved ? clampGlide(gesture.velocityX * 0.035) : 0;
-      const slipY = gesture.moved ? clampGlide(gesture.velocityY * 0.035) : 0;
       const finalPoint = {
-        x: gesture.point.x + (deltaX + slipX) / gesture.zoom,
-        y: gesture.point.y + (deltaY + slipY) / gesture.zoom,
+        x: gesture.point.x + deltaX / gesture.zoom,
+        y: gesture.point.y + deltaY / gesture.zoom,
       };
       const next = { ...pinnedRef.current, [gesture.nodeId]: finalPoint };
       pinnedRef.current = next;
