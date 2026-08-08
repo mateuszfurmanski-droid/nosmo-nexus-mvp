@@ -28,6 +28,14 @@
     { key: "return_to_nexus", label: "Return to Nexus", icon: "↩" }
   ];
 
+  const COMM_CHANNELS = [
+    { key: "phone", label: "Call", icon: "☎" },
+    { key: "sms", label: "SMS", icon: "✉" },
+    { key: "whatsapp", label: "WA", icon: "W" },
+    { key: "gmail", label: "Gmail", icon: "G" },
+    { key: "teams", label: "Teams", icon: "T" }
+  ];
+
   function createRoot() {
     const existing = document.getElementById(ROOT_ID);
     if (existing) return existing;
@@ -46,6 +54,10 @@
   }
 
   function staticMarkup() {
+    const communicationButtons = COMM_CHANNELS.map(
+      (channel) => `<button class="nexus-comm-button" type="button" data-channel="${channel.key}" title="Open ${channel.label} in Nexus Communication Hub"><b>${channel.icon}</b><span>${channel.label}</span></button>`
+    ).join("");
+
     return `
       <style>
         :host { all: initial; }
@@ -155,6 +167,36 @@
         .nexus-action:disabled { cursor: not-allowed; filter: grayscale(1); opacity: .48; }
         .nexus-action b { display: block; color: #65ddff; font-size: 11px; }
         .nexus-action span { display: block; margin-top: 5px; font-size: 9px; line-height: 1.25; }
+        .nexus-comm {
+          margin-top: 12px;
+          padding: 10px;
+          border: 1px solid rgba(148,163,184,.18);
+          border-radius: 12px;
+          background: rgba(9,28,43,.78);
+        }
+        .nexus-comm[hidden] { display: none; }
+        .nexus-comm-title {
+          display: block;
+          margin-bottom: 8px;
+          color: #7d91a8;
+          font-size: 8px;
+          font-weight: 900;
+          letter-spacing: .08em;
+        }
+        .nexus-comm-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+        .nexus-comm-button {
+          min-width: 0;
+          border: 1px solid rgba(62,121,151,.48);
+          border-radius: 9px;
+          background: #0b2639;
+          color: #dcecf5;
+          padding: 7px 3px;
+          cursor: pointer;
+          text-align: center;
+        }
+        .nexus-comm-button:hover { border-color: #65ddff; }
+        .nexus-comm-button b { display: block; color: #65ddff; font-size: 11px; }
+        .nexus-comm-button span { display: block; margin-top: 4px; font-size: 7px; overflow: hidden; text-overflow: ellipsis; }
         .nexus-adapter-meta {
           margin-top: 12px;
           padding: 9px 10px;
@@ -203,6 +245,10 @@
             <p class="nexus-context-source">No external page context</p>
           </div>
           <div class="nexus-actions"></div>
+          <div class="nexus-comm" hidden>
+            <span class="nexus-comm-title">QUICK COMMUNICATION · USER-INITIATED</span>
+            <div class="nexus-comm-row">${communicationButtons}</div>
+          </div>
           <div class="nexus-adapter-meta"></div>
           <div class="nexus-footer">
             DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API
@@ -307,13 +353,30 @@
     const contextDetail = shadow.querySelector(".nexus-context-detail");
     const contextSource = shadow.querySelector(".nexus-context-source");
     const actions = shadow.querySelector(".nexus-actions");
+    const communication = shadow.querySelector(".nexus-comm");
     const adapterMeta = shadow.querySelector(".nexus-adapter-meta");
     const options = shadow.querySelector(".nexus-options");
     const disable = shadow.querySelector(".nexus-disable");
+    let activeContext = context;
 
     adapterMeta.textContent = `${adapter.provider} · ${adapter.product} · adapter ${adapter.adapter_version} · ${adapter.supported_integration_level.join(" + ")} · ${adapter.vendor_approval}`;
 
+    shadow.querySelectorAll(".nexus-comm-button").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const channel = button.dataset.channel;
+        if (!channel) return;
+        await RUNTIME().logDiagnostic("NEXUS_COMMUNICATION_CHANNEL_OPENED", {
+          adapterId: adapter.adapter_id,
+          actionKey: `communication:${channel}`,
+          contextSource: activeContext?.contextSource || null
+        });
+        const target = `${DEFAULT_URLS.communication}?channel=${encodeURIComponent(channel)}`;
+        window.open(target, "_blank", "noopener,noreferrer");
+      });
+    });
+
     function render(nextContext, nextPreference) {
+      activeContext = nextContext;
       const status = RUNTIME().contextStatus(nextContext);
       badge.textContent = status.label;
       badge.className = `nexus-badge ${status.tone}`;
@@ -326,6 +389,7 @@
       contextDetail.textContent = `${person} · ${trade}`;
       contextSource.textContent = `${page} · ${objectType} · ${objectId}`;
       actions.replaceChildren(...ACTIONS.map((action) => buildActionButton(action, nextContext, adapter)));
+      communication.hidden = !RUNTIME().actionAllowed(nextContext, "communication");
       panel.classList.toggle("open", nextPreference?.sidecarOpen === true);
     }
 
@@ -334,7 +398,7 @@
       panel.classList.toggle("open", next.sidecarOpen === true);
       await RUNTIME().logDiagnostic(open ? "OVERLAY_OPENED" : "OVERLAY_CLOSED", {
         adapterId: adapter.adapter_id,
-        contextSource: context?.contextSource || null
+        contextSource: activeContext?.contextSource || null
       });
     }
 
