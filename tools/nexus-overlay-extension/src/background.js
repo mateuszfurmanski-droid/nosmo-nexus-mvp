@@ -20,6 +20,10 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
+chrome.action.onClicked.addListener(() => {
+  chrome.runtime.openOptionsPage();
+});
+
 async function readAdapter(adapterId) {
   const file = ADAPTER_FILES[adapterId];
   if (!file) throw new Error(`Unknown adapter: ${adapterId}`);
