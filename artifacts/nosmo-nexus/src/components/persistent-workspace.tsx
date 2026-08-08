@@ -64,6 +64,7 @@ type Gesture =
 const FLOW = { type: "tween" as const, duration: 1, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
 const clampZoom = (value: number) => Math.min(1.3, Math.max(0.3, value));
+const clampGlide = (value: number) => Math.max(-36, Math.min(36, value));
 const TIMELINE_INNER_RADIUS = 285;
 const TIMELINE_OUTER_RADIUS = 760;
 const TIMELINE_RING_COUNT = 4;
@@ -333,12 +334,13 @@ export default function PersistentWorkspace() {
     const target = event.target as HTMLElement;
     if (target.closest("[data-control]")) return;
 
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
-
     if (event.pointerType === "touch") {
       activePointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (activePointersRef.current.size >= 2) {
         initialisePinch();
+        activePointersRef.current.forEach((_point, pointerId) => {
+          try { event.currentTarget.setPointerCapture(pointerId); } catch { /* capture is optional */ }
+        });
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -365,10 +367,10 @@ export default function PersistentWorkspace() {
         velocityY: 0,
         moved: false,
       };
-      setDraggingNodeId(nodeId);
       return;
     }
 
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
     gestureRef.current = {
       mode: "pan",
       pointerId: event.pointerId,
@@ -418,6 +420,14 @@ export default function PersistentWorkspace() {
       return;
     }
 
+    const movedNow = Math.hypot(deltaX, deltaY) > 4;
+    if (!gesture.moved && movedNow) {
+      gesture.moved = true;
+      setDraggingNodeId(gesture.nodeId);
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* capture is optional */ }
+    }
+    if (!gesture.moved) return;
+
     const now = event.timeStamp;
     const elapsed = Math.max(1, now - gesture.lastTime);
     gesture.velocityX = (event.clientX - gesture.lastClientX) / elapsed * 1000;
@@ -425,7 +435,6 @@ export default function PersistentWorkspace() {
     gesture.lastClientX = event.clientX;
     gesture.lastClientY = event.clientY;
     gesture.lastTime = now;
-    gesture.moved = gesture.moved || Math.hypot(deltaX, deltaY) > 4;
 
     const nextPoint = {
       x: gesture.point.x + deltaX / gesture.zoom,
@@ -443,9 +452,13 @@ export default function PersistentWorkspace() {
     }
 
     const gesture = gestureRef.current;
-    if (!gesture) return;
+    if (!gesture) {
+      try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* capture is optional */ }
+      return;
+    }
 
     if (gesture.mode === "pinch") {
+      try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* capture is optional */ }
       if (activePointersRef.current.size === 0) gestureRef.current = null;
       event.preventDefault();
       event.stopPropagation();
@@ -455,24 +468,26 @@ export default function PersistentWorkspace() {
     if (gesture.pointerId !== event.pointerId) return;
 
     if (gesture.mode === "node") {
-      const deltaX = event.clientX - gesture.clientX;
-      const deltaY = event.clientY - gesture.clientY;
-      let finalPoint = {
-        x: gesture.point.x + deltaX / gesture.zoom,
-        y: gesture.point.y + deltaY / gesture.zoom,
-      };
-      const draggedNode = byId.get(gesture.nodeId);
-      if (timelineEnabled && draggedNode?.type === "document") {
-        const radius = timelineRadius(draggedNode, timelineDomain);
-        if (radius !== null) finalPoint = pointOnRadius(finalPoint, radius, seededAngle(draggedNode.id));
-      }
-      const next = { ...pinnedRef.current, [gesture.nodeId]: finalPoint };
-      pinnedRef.current = next;
-      setPinned(next);
-      persist(next, manualEdgesRef.current);
       setDraggingNodeId(null);
 
       if (gesture.moved) {
+        const deltaX = event.clientX - gesture.clientX;
+        const deltaY = event.clientY - gesture.clientY;
+        const slipX = clampGlide(gesture.velocityX * 0.035);
+        const slipY = clampGlide(gesture.velocityY * 0.035);
+        let finalPoint = {
+          x: gesture.point.x + (deltaX + slipX) / gesture.zoom,
+          y: gesture.point.y + (deltaY + slipY) / gesture.zoom,
+        };
+        const draggedNode = byId.get(gesture.nodeId);
+        if (timelineEnabled && draggedNode?.type === "document") {
+          const radius = timelineRadius(draggedNode, timelineDomain);
+          if (radius !== null) finalPoint = pointOnRadius(finalPoint, radius, seededAngle(draggedNode.id));
+        }
+        const next = { ...pinnedRef.current, [gesture.nodeId]: finalPoint };
+        pinnedRef.current = next;
+        setPinned(next);
+        persist(next, manualEdgesRef.current);
         draggedNodeRef.current = gesture.nodeId;
         window.setTimeout(() => {
           if (draggedNodeRef.current === gesture.nodeId) draggedNodeRef.current = null;
