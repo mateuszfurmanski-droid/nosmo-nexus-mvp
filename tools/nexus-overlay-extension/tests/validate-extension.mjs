@@ -75,6 +75,10 @@ assert(
   JSON.stringify(manifest.content_scripts[0].matches || []) === JSON.stringify([exactWorkWalletHost]),
   "Content script match must equal the Work Wallet host permission"
 );
+assert(
+  manifest.content_scripts[0].js?.includes("src/supply-request.js"),
+  "Supply request component must be explicitly loaded by the Work Wallet content script"
+);
 
 for (const field of requiredAdapterFields) {
   assert(Object.hasOwn(workWallet, field), `Work Wallet adapter missing field: ${field}`);
@@ -129,10 +133,30 @@ assert(
   mockHtml.includes("LOCAL TEST HARNESS") && mockHtml.includes("NOT WORK WALLET"),
   "Local mock must be clearly labelled as non-vendor test harness"
 );
+assert(
+  mockHtml.includes("../src/supply-request.js"),
+  "Local mock must load the same supply request component as the real overlay"
+);
+
+const runtimeSource = read("src/runtime.js");
+const supplySource = read("src/supply-request.js");
+assert(
+  runtimeSource.includes('supplyRequests: "nexusOverlaySupplyRequests"'),
+  "Supply request drafts must use a dedicated local storage key"
+);
+assert(
+  runtimeSource.includes('status: "LOCAL_DRAFT"'),
+  "Supply request storage must label records as LOCAL_DRAFT"
+);
+assert(
+  supplySource.includes("LOCAL DRAFT ONLY") && supplySource.includes("saveSupplyRequestDraft"),
+  "Supply request UI must be explicitly local-only and use the controlled runtime writer"
+);
 
 const executableFiles = [
   "src/background.js",
   "src/runtime.js",
+  "src/supply-request.js",
   "src/sidecar.js",
   "src/content.js",
   "src/options/options.js",
@@ -161,4 +185,5 @@ console.log("PASS: Context Packet fixture contract");
 console.log("PASS: Universal adapter registry fixture");
 console.log("PASS: Manifest and local mock file references");
 console.log("PASS: Local mock is clearly labelled non-vendor");
+console.log("PASS: Supply request is local-draft only");
 console.log("PASS: No forbidden credential/session interception patterns");
