@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Work Wallet Mock — Nexus Overlay Lab</title>
+  <link rel="stylesheet" href="mock-work-wallet.css">
+</head>
+<body>
+  <div class="lab-banner">LOCAL TEST HARNESS — NOT WORK WALLET — NO LIVE ACCOUNT OR API</div>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <div class="brand-mark">WW</div>
+        <div><strong>Work Wallet Mock</strong><span>Overlay test portal</span></div>
+      </div>
+      <nav id="mockNav">
+        <button data-route="dashboard" class="active">Dashboard</button>
+        <button data-route="people">People</button>
+        <button data-route="jobs">Jobs</button>
+        <button data-route="permits">Permits</button>
+        <button data-route="audits">Audits</button>
+        <button data-route="risk">Risk</button>
+      </nav>
+      <div class="sidebar-note">This page exists only to test NOSMO Nexus Overlay without a Work Wallet account.</div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <small>Halifax Demo / Construction</small>
+          <h1 id="pageTitle">Dashboard</h1>
+        </div>
+        <div class="user">DM</div>
+      </header>
+
+      <section class="hero">
+        <div>
+          <span class="eyebrow">MOCK EXTERNAL APPLICATION</span>
+          <h2 id="heroTitle">Project safety overview</h2>
+          <p id="heroText">Synthetic content used to verify that the Nexus launcher and sidecar can coexist with an external construction application.</p>
+        </div>
+        <div class="hero-stat"><strong id="heroNumber">12</strong><span id="heroLabel">open actions</span></div>
+      </section>
+
+      <section class="cards" id="cards"></section>
+
+      <section class="table-card">
+        <div class="table-head"><strong>Recent records</strong><span id="routeBadge">dashboard</span></div>
+        <table>
+          <thead><tr><th>Reference</th><th>Type</th><th>Owner</th><th>Status</th></tr></thead>
+          <tbody id="records"></tbody>
+        </table>
+      </section>
+
+      <section class="lab-controls">
+        <strong>Nexus test controls</strong>
+        <button id="seedContext">Seed Halifax demo context</button>
+        <button id="clearContext">Clear Nexus context</button>
+        <button id="enableOverlay">Enable overlay</button>
+        <button id="openOptions">Open overlay options</button>
+        <span id="labStatus" role="status"></span>
+      </section>
+    </main>
+  </div>
+
+  <script src="../src/runtime.js"></script>
+  <script src="../src/sidecar.js"></script>
+  <script src="mock-work-wallet.js"></script>
+</body>
+</html>
