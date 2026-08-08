@@ -1,7 +1,12 @@
 import FolderDock from "@/components/folder-dock";
 import PersistentWorkspace from "@/components/persistent-workspace";
+import { NODES } from "@/components/workspace-data";
+import { parseRelationshipTreeLaunchContext } from "@/relationship-tree/launch-context";
 
 export default function RelationshipTreeExport() {
+  const validNodeIds = new Set(NODES.map((node) => node.id));
+  const launchContext = parseRelationshipTreeLaunchContext(window.location.search, validNodeIds);
+
   return (
     <div className="relative min-h-[100dvh]">
       <style>{`
@@ -13,7 +18,7 @@ export default function RelationshipTreeExport() {
         }
       `}</style>
 
-      <PersistentWorkspace />
+      <PersistentWorkspace initialSelectedId={launchContext?.focusNodeId} />
       <FolderDock selectedLinks={0} onOpenWorkflow={() => undefined} />
     </div>
   );
