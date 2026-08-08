@@ -135,12 +135,14 @@
   function renderMockPage() {
     const route = routeName();
     const data = ROUTES[route];
+    const detected = pageContext(route);
     $("pageTitle").textContent = data.title;
     $("heroTitle").textContent = data.hero;
     $("heroText").textContent = data.text;
     $("heroNumber").textContent = data.number;
     $("heroLabel").textContent = data.label;
     $("routeBadge").textContent = route;
+    $("detectedContext").textContent = `Nexus page context: ${detected.selectedObjectType} / ${detected.selectedObjectId} · ref ${detected.externalRecordReference}`;
 
     $("cards").replaceChildren(
       ...data.cards.map(([label, value]) => {
