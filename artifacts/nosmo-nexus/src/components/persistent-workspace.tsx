@@ -61,7 +61,7 @@ type Gesture =
       worldPoint: Point;
     };
 
-const FLOW = { type: "tween" as const, duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
+const FLOW = { type: "tween" as const, duration: 1, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
 const clampZoom = (value: number) => Math.min(1.3, Math.max(0.3, value));
 const TIMELINE_INNER_RADIUS = 285;
@@ -182,7 +182,7 @@ export default function PersistentWorkspace() {
   const [linkSource, setLinkSource] = useState<string | null>(null);
   const [zoom, setZoom] = useState(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [timelineEnabled, setTimelineEnabled] = useState(true);
+  const [timelineEnabled, setTimelineEnabled] = useState(false);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const activePointersRef = useRef(new Map<number, Point>());
   const gestureRef = useRef<Gesture | null>(null);
@@ -201,7 +201,7 @@ export default function PersistentWorkspace() {
     return [...map.values()];
   }, [baseEdges, manualEdges]);
 
-  const layoutCentreId = timelineEnabled ? PROJECT_ID : selectedId;
+  const layoutCentreId = PROJECT_ID;
   const timelineDomain = useMemo(() => documentTimelineDomain(NODES), []);
   const timelineRings = useMemo(() => {
     if (!timelineDomain) return [];
@@ -279,7 +279,7 @@ export default function PersistentWorkspace() {
     manualEdgesRef.current = [];
     setLinkSource(null);
     setPan({ x: 0, y: 0 });
-    setTimelineEnabled(true);
+    setTimelineEnabled(false);
     setZoom(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
     try { localStorage.removeItem("nosmo-persistent-workspace"); } catch { /* optional */ }
   };
@@ -533,21 +533,20 @@ export default function PersistentWorkspace() {
           onClick={() => setTimelineEnabled((value) => !value)}
           className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-bold uppercase tracking-[.1em] ${timelineEnabled ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary"}`}
           aria-pressed={timelineEnabled}
-          title="Newest received documents sit farther from the project centre"
+          title="Animate received documents outward by time"
         >
           <Clock3 className="h-4 w-4" /> Timeline {timelineEnabled ? "On" : "Off"}
         </button>
+        <button
+          type="button"
+          onClick={() => setMode("workflow")}
+          className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground hover:bg-secondary hover:text-foreground"
+          title="Open workflow view"
+        >
+          <Workflow className="h-4 w-4" /> Workflow
+        </button>
         <span className="ml-1 text-[10px] font-bold uppercase tracking-[.11em] text-muted-foreground">{NODES.length} objects · {edges.length} links · {Math.round(zoom * 100)}%</span>
       </div>
-
-      <button
-        data-control
-        type="button"
-        onClick={() => setMode("workflow")}
-        className="absolute right-3 top-3 z-50 inline-flex items-center gap-2 rounded-full border border-border bg-background/90 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-xl backdrop-blur-xl hover:text-foreground"
-      >
-        <Workflow className="h-4 w-4" /> Workflow mode
-      </button>
 
       <div data-control className="absolute left-1/2 top-3 z-40 hidden -translate-x-1/2 gap-3 rounded-full border border-border bg-background/75 px-4 py-2 text-[9px] font-bold uppercase tracking-[.12em] backdrop-blur lg:flex">
         <span className="text-primary">{counts.project ?? 0} project</span>
@@ -564,8 +563,13 @@ export default function PersistentWorkspace() {
 
       <div className="absolute left-0 top-0 h-0 w-0 origin-top-left" style={{ transform: world }}>
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible">
-          {timelineEnabled && timelineRings.map((ring, index) => (
-            <g key={`timeline-ring-${index}`}>
+          {timelineRings.map((ring, index) => (
+            <motion.g
+              key={`timeline-ring-${index}`}
+              initial={false}
+              animate={{ opacity: timelineEnabled ? 1 : 0 }}
+              transition={{ duration: 0.35, delay: timelineEnabled ? index * 0.06 : 0 }}
+            >
               <circle
                 cx={0}
                 cy={0}
@@ -583,7 +587,7 @@ export default function PersistentWorkspace() {
               >
                 {index === timelineRings.length - 1 ? "NEWEST · " : ""}{new Date(ring.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
               </text>
-            </g>
+            </motion.g>
           ))}
           {edges.map((edge) => {
             const source = positions.get(edge.source);
@@ -622,7 +626,6 @@ export default function PersistentWorkspace() {
               <button
                 type="button"
                 onClick={() => selectNode(node)}
-                onDoubleClick={() => setMode("workflow")}
                 className="group flex w-[138px] -translate-x-1/2 -translate-y-1/2 cursor-grab flex-col items-center gap-2 rounded-2xl outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span
@@ -668,7 +671,7 @@ export default function PersistentWorkspace() {
       )}
 
       <div data-control className="absolute bottom-3 left-3 z-40 hidden rounded-xl border border-border bg-background/72 px-3 py-2 text-[10px] text-muted-foreground backdrop-blur md:block">
-        {timelineEnabled ? "Timeline: newer received documents sit farther out · drag documents freely; on release they settle onto their time radius" : "Free layout: drag tiles to arrange · chain icon connects any two objects · click changes focus without hiding anything"}
+        {timelineEnabled ? "Timeline: documents animate outward by received time · newest = farthest from the project" : "Project stays centred · click highlights relationships · drag tiles freely · Timeline animates document recency"}
       </div>
     </div>
   );
