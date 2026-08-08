@@ -11,7 +11,7 @@
   "content_scripts": [
     {
       "matches": ["https://portal.work-wallet.com/*"],
-      "js": ["src/runtime.js", "src/sidecar.js", "src/content.js"],
+      "js": ["src/runtime.js", "src/supply-request.js", "src/sidecar.js", "src/content.js"],
       "run_at": "document_idle"
     }
   ],
