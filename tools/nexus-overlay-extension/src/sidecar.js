@@ -138,6 +138,7 @@
         }
         .nexus-context strong { display: block; font-size: 15px; }
         .nexus-context p { margin: 5px 0 0; color: #93a4b7; font-size: 11px; line-height: 1.45; }
+        .nexus-context-source { color: #5f7892 !important; font-size: 9px !important; }
         .nexus-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
         .nexus-action {
           min-height: 58px;
@@ -198,6 +199,7 @@
           <div class="nexus-context">
             <strong>No project selected</strong>
             <p class="nexus-context-detail">Open extension options to seed development context.</p>
+            <p class="nexus-context-source">No external page context</p>
           </div>
           <div class="nexus-actions"></div>
           <div class="nexus-adapter-meta"></div>
@@ -301,6 +303,7 @@
     const badge = shadow.querySelector(".nexus-badge");
     const contextTitle = shadow.querySelector(".nexus-context strong");
     const contextDetail = shadow.querySelector(".nexus-context-detail");
+    const contextSource = shadow.querySelector(".nexus-context-source");
     const actions = shadow.querySelector(".nexus-actions");
     const adapterMeta = shadow.querySelector(".nexus-adapter-meta");
     const options = shadow.querySelector(".nexus-options");
@@ -315,7 +318,11 @@
       contextTitle.textContent = nextContext?.projectLabel || nextContext?.projectId || "No project selected";
       const person = nextContext?.personLabel || nextContext?.personId || "No person context";
       const trade = nextContext?.tradeContext?.join(", ") || "No trade context";
+      const page = nextContext?.sourcePageType || "NO_PAGE_CONTEXT";
+      const objectType = nextContext?.selectedObjectType || "no object";
+      const objectId = nextContext?.externalRecordReference || nextContext?.selectedObjectId || "—";
       contextDetail.textContent = `${person} · ${trade}`;
+      contextSource.textContent = `${page} · ${objectType} · ${objectId}`;
       actions.replaceChildren(...ACTIONS.map((action) => buildActionButton(action, nextContext, adapter)));
       panel.classList.toggle("open", nextPreference?.sidecarOpen === true);
     }
