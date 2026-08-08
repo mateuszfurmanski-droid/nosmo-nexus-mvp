@@ -9,6 +9,15 @@
   let adapter = null;
   let stopWatchingLocation = null;
 
+  function safePortalUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+      return "https://portal.work-wallet.com/";
+    }
+  }
+
   function sourcePageType(url) {
     try {
       const path = new URL(url).pathname.toLowerCase();
@@ -23,14 +32,44 @@
     }
   }
 
+  function objectTypeForPage(pageType) {
+    if (pageType === "PERMIT_PAGE") return "permit";
+    if (pageType === "AUDIT_PAGE") return "audit";
+    if (pageType === "RISK_PAGE") return "risk_assessment";
+    if (pageType === "JOB_PAGE") return "job";
+    if (pageType === "PERSON_PAGE") return "person";
+    return null;
+  }
+
+  function routeRecordHint(url) {
+    try {
+      const segments = new URL(url).pathname
+        .split("/")
+        .map((segment) => decodeURIComponent(segment).trim())
+        .filter(Boolean);
+      const candidate = segments.at(-1) || null;
+      if (!candidate || candidate.length > 128) return null;
+      if (!/^[A-Za-z0-9._~-]+$/.test(candidate)) return null;
+      const generic = new Set(["dashboard", "people", "users", "contacts", "jobs", "permits", "audits", "risk"]);
+      return generic.has(candidate.toLowerCase()) ? null : candidate;
+    } catch {
+      return null;
+    }
+  }
+
   async function currentContext() {
     const existing = await runtime.getStoredContext();
     if (!existing) return null;
+    const pageType = sourcePageType(location.href);
+    const recordHint = routeRecordHint(location.href);
     return runtime.normaliseContext({
       ...existing,
       sourceApplication: "WORK_WALLET",
-      sourceUrl: location.href,
-      sourcePageType: sourcePageType(location.href)
+      sourceUrl: safePortalUrl(location.href),
+      sourcePageType: pageType,
+      selectedObjectType: recordHint ? objectTypeForPage(pageType) : existing.selectedObjectType,
+      selectedObjectId: recordHint || existing.selectedObjectId,
+      externalRecordReference: recordHint
     });
   }
 
@@ -63,7 +102,7 @@
 
       await runtime.logDiagnostic("EXTERNAL_APP_LAUNCHED", {
         adapterId: adapter.adapter_id,
-        sourceUrl: location.href,
+        sourceUrl: safePortalUrl(location.href),
         contextSource: context?.contextSource || null
       });
 
@@ -74,14 +113,14 @@
         mounted?.render(contextAfterRoute, preferenceAfterRoute);
         await runtime.logDiagnostic("EXTERNAL_PAGE_CONTEXT_DETECTED", {
           adapterId: adapter.adapter_id,
-          sourceUrl: nextUrl,
+          sourceUrl: safePortalUrl(nextUrl),
           contextSource: contextAfterRoute?.contextSource || null
         });
       });
     } catch {
       await runtime.logDiagnostic("ADAPTER_ERROR", {
         adapterId: ADAPTER_ID,
-        sourceUrl: location.href,
+        sourceUrl: safePortalUrl(location.href),
         errorCode: "BOOT_FAILED"
       });
     }
