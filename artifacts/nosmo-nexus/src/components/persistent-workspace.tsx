@@ -10,6 +10,7 @@ import {
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  Clock3,
   Link2,
   Maximize2,
   Minus,
@@ -63,6 +64,42 @@ type Gesture =
 const FLOW = { type: "tween" as const, duration: 0.85, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
 const clampZoom = (value: number) => Math.min(1.3, Math.max(0.3, value));
+const TIMELINE_INNER_RADIUS = 285;
+const TIMELINE_OUTER_RADIUS = 760;
+const TIMELINE_RING_COUNT = 4;
+
+function documentReceivedTime(node: WorkspaceNode) {
+  if (node.type !== "document" || !node.receivedAt) return null;
+  const value = Date.parse(node.receivedAt);
+  return Number.isFinite(value) ? value : null;
+}
+
+function documentTimelineDomain(nodes: WorkspaceNode[]) {
+  const values = nodes.map(documentReceivedTime).filter((value): value is number => value !== null);
+  if (!values.length) return null;
+  return { min: Math.min(...values), max: Math.max(...values) };
+}
+
+function timelineRadius(node: WorkspaceNode, domain: { min: number; max: number } | null) {
+  const received = documentReceivedTime(node);
+  if (received === null || !domain) return null;
+  const span = Math.max(1, domain.max - domain.min);
+  const progress = (received - domain.min) / span;
+  return TIMELINE_INNER_RADIUS + progress * (TIMELINE_OUTER_RADIUS - TIMELINE_INNER_RADIUS);
+}
+
+function pointOnRadius(point: Point, radius: number, fallbackAngle: number) {
+  const distance = Math.hypot(point.x, point.y);
+  const angle = distance > 1 ? Math.atan2(point.y, point.x) : fallbackAngle;
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+}
+
+function formatReceivedAt(value?: string) {
+  if (!value) return "Received date unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Received date unavailable";
+  return `Received ${date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
+}
 
 function seededAngle(id: string) {
   let hash = 0;
@@ -95,6 +132,8 @@ function calculateLayout(
   selectedId: string,
   edges: Edge[],
   pinned: Record<string, Point>,
+  timelineEnabled: boolean,
+  draggingNodeId: string | null,
 ) {
   const selected = nodes.find((node) => node.id === selectedId) ?? nodes[0];
   const inner = nodes.filter((node) => node.id !== selected?.id && connected(node.id, selected?.id ?? "", edges));
@@ -119,6 +158,17 @@ function calculateLayout(
   Object.entries(pinned).forEach(([id, point]) => {
     if (id !== selected?.id && positions.has(id)) positions.set(id, point);
   });
+
+  if (timelineEnabled) {
+    const domain = documentTimelineDomain(nodes);
+    nodes.forEach((node) => {
+      if (node.type !== "document" || node.id === draggingNodeId) return;
+      const radius = timelineRadius(node, domain);
+      const point = positions.get(node.id);
+      if (radius === null || !point) return;
+      positions.set(node.id, pointOnRadius(point, radius, seededAngle(node.id)));
+    });
+  }
   return positions;
 }
 
@@ -132,6 +182,7 @@ export default function PersistentWorkspace() {
   const [linkSource, setLinkSource] = useState<string | null>(null);
   const [zoom, setZoom] = useState(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [timelineEnabled, setTimelineEnabled] = useState(true);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const activePointersRef = useRef(new Map<number, Point>());
   const gestureRef = useRef<Gesture | null>(null);
@@ -150,9 +201,20 @@ export default function PersistentWorkspace() {
     return [...map.values()];
   }, [baseEdges, manualEdges]);
 
+  const layoutCentreId = timelineEnabled ? PROJECT_ID : selectedId;
+  const timelineDomain = useMemo(() => documentTimelineDomain(NODES), []);
+  const timelineRings = useMemo(() => {
+    if (!timelineDomain) return [];
+    return Array.from({ length: TIMELINE_RING_COUNT }, (_, index) => {
+      const progress = index / Math.max(1, TIMELINE_RING_COUNT - 1);
+      const radius = TIMELINE_INNER_RADIUS + progress * (TIMELINE_OUTER_RADIUS - TIMELINE_INNER_RADIUS);
+      const at = timelineDomain.min + progress * (timelineDomain.max - timelineDomain.min);
+      return { radius, at };
+    });
+  }, [timelineDomain]);
   const positions = useMemo(
-    () => calculateLayout(NODES, selectedId, edges, pinned),
-    [selectedId, edges, pinned],
+    () => calculateLayout(NODES, layoutCentreId, edges, pinned, timelineEnabled, draggingNodeId),
+    [layoutCentreId, edges, pinned, timelineEnabled, draggingNodeId],
   );
   const selected = byId.get(selectedId) ?? NODES[0];
   const selectedLinks = edges.filter((edge) => edge.source === selectedId || edge.target === selectedId).length;
@@ -217,6 +279,7 @@ export default function PersistentWorkspace() {
     manualEdgesRef.current = [];
     setLinkSource(null);
     setPan({ x: 0, y: 0 });
+    setTimelineEnabled(true);
     setZoom(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
     try { localStorage.removeItem("nosmo-persistent-workspace"); } catch { /* optional */ }
   };
@@ -394,10 +457,15 @@ export default function PersistentWorkspace() {
     if (gesture.mode === "node") {
       const deltaX = event.clientX - gesture.clientX;
       const deltaY = event.clientY - gesture.clientY;
-      const finalPoint = {
+      let finalPoint = {
         x: gesture.point.x + deltaX / gesture.zoom,
         y: gesture.point.y + deltaY / gesture.zoom,
       };
+      const draggedNode = byId.get(gesture.nodeId);
+      if (timelineEnabled && draggedNode?.type === "document") {
+        const radius = timelineRadius(draggedNode, timelineDomain);
+        if (radius !== null) finalPoint = pointOnRadius(finalPoint, radius, seededAngle(draggedNode.id));
+      }
       const next = { ...pinnedRef.current, [gesture.nodeId]: finalPoint };
       pinnedRef.current = next;
       setPinned(next);
@@ -460,6 +528,15 @@ export default function PersistentWorkspace() {
         <button type="button" onClick={() => setZoom((value) => Math.max(0.3, value / 1.12))} className="rounded-xl p-2 text-muted-foreground hover:bg-secondary"><Minus className="h-4 w-4" /></button>
         <button type="button" onClick={fit} className="rounded-xl p-2 text-muted-foreground hover:bg-secondary"><Maximize2 className="h-4 w-4" /></button>
         <button type="button" onClick={reset} className="rounded-xl p-2 text-muted-foreground hover:bg-secondary"><RotateCcw className="h-4 w-4" /></button>
+        <button
+          type="button"
+          onClick={() => setTimelineEnabled((value) => !value)}
+          className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-bold uppercase tracking-[.1em] ${timelineEnabled ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary"}`}
+          aria-pressed={timelineEnabled}
+          title="Newest received documents sit farther from the project centre"
+        >
+          <Clock3 className="h-4 w-4" /> Timeline {timelineEnabled ? "On" : "Off"}
+        </button>
         <span className="ml-1 text-[10px] font-bold uppercase tracking-[.11em] text-muted-foreground">{NODES.length} objects · {edges.length} links · {Math.round(zoom * 100)}%</span>
       </div>
 
@@ -487,6 +564,27 @@ export default function PersistentWorkspace() {
 
       <div className="absolute left-0 top-0 h-0 w-0 origin-top-left" style={{ transform: world }}>
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible">
+          {timelineEnabled && timelineRings.map((ring, index) => (
+            <g key={`timeline-ring-${index}`}>
+              <circle
+                cx={0}
+                cy={0}
+                r={ring.radius}
+                fill="none"
+                className={index === timelineRings.length - 1 ? "stroke-primary/28" : "stroke-border/28"}
+                strokeWidth={index === timelineRings.length - 1 ? 1.6 : 1}
+                strokeDasharray={index === timelineRings.length - 1 ? "8 7" : "4 8"}
+              />
+              <text
+                x={10}
+                y={-ring.radius + 18}
+                className={index === timelineRings.length - 1 ? "fill-primary text-[11px] font-bold" : "fill-muted-foreground text-[10px] font-semibold"}
+                opacity={index === timelineRings.length - 1 ? 0.8 : 0.55}
+              >
+                {index === timelineRings.length - 1 ? "NEWEST · " : ""}{new Date(ring.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+              </text>
+            </g>
+          ))}
           {edges.map((edge) => {
             const source = positions.get(edge.source);
             const target = positions.get(edge.target);
@@ -546,6 +644,9 @@ export default function PersistentWorkspace() {
                 </span>
                 <span className={`line-clamp-2 max-w-[138px] text-center leading-tight ${selectedNode ? "text-sm font-bold" : "text-[11px] font-semibold text-muted-foreground"}`}>{node.label}</span>
                 <span className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-[8px] font-bold uppercase tracking-[.12em] text-muted-foreground">{node.type}</span>
+                {timelineEnabled && node.type === "document" && node.receivedAt && (
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[8px] font-semibold text-primary/80">{formatReceivedAt(node.receivedAt)}</span>
+                )}
               </button>
             </motion.div>
           );
@@ -556,7 +657,7 @@ export default function PersistentWorkspace() {
         <div data-control className="absolute bottom-3 left-3 right-3 z-50 rounded-2xl border border-border bg-background/92 p-3 shadow-2xl backdrop-blur-xl sm:left-auto sm:w-[370px]">
           <div className="flex items-start gap-3">
             <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${TYPE_STYLE[selected.type].chip}`}><selected.Icon className="h-5 w-5" /></div>
-            <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[.14em] text-primary">Selected {selected.type}</p><p className="mt-1 line-clamp-2 text-sm font-semibold">{selected.label}</p><p className="mt-1 text-xs text-muted-foreground">{selected.sublabel} · {selectedLinks} linked objects</p></div>
+            <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[.14em] text-primary">Selected {selected.type}</p><p className="mt-1 line-clamp-2 text-sm font-semibold">{selected.label}</p><p className="mt-1 text-xs text-muted-foreground">{selected.sublabel} · {selectedLinks} linked objects</p>{selected.type === "document" && selected.receivedAt && <p className="mt-1 text-xs font-medium text-primary">{formatReceivedAt(selected.receivedAt)}{selected.documentDate ? ` · document ${selected.documentDate}` : ""}</p>}</div>
             {linkSource && <button type="button" onClick={() => setLinkSource(null)} className="rounded-lg p-1.5 text-muted-foreground"><X className="h-4 w-4" /></button>}
           </div>
           <div className="mt-3 flex gap-2">
@@ -567,7 +668,7 @@ export default function PersistentWorkspace() {
       )}
 
       <div data-control className="absolute bottom-3 left-3 z-40 hidden rounded-xl border border-border bg-background/72 px-3 py-2 text-[10px] text-muted-foreground backdrop-blur md:block">
-        Drag tiles to arrange · chain icon connects any two objects · click changes focus without hiding anything
+        {timelineEnabled ? "Timeline: newer received documents sit farther out · drag documents freely; on release they settle onto their time radius" : "Free layout: drag tiles to arrange · chain icon connects any two objects · click changes focus without hiding anything"}
       </div>
     </div>
   );
