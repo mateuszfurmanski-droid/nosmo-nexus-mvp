@@ -173,11 +173,12 @@ function calculateLayout(
   return positions;
 }
 
-export default function PersistentWorkspace() {
+export default function PersistentWorkspace({ initialSelectedId }: { initialSelectedId?: string }) {
   const baseEdges = useMemo(buildEdges, []);
   const byId = useMemo(() => new Map(NODES.map((node) => [node.id, node])), []);
+  const validInitialSelectedId = initialSelectedId && byId.has(initialSelectedId) ? initialSelectedId : PROJECT_ID;
   const [mode, setMode] = useState<"map" | "workflow">("map");
-  const [selectedId, setSelectedId] = useState(PROJECT_ID);
+  const [selectedId, setSelectedId] = useState(validInitialSelectedId);
   const [manualEdges, setManualEdges] = useState<Edge[]>([]);
   const [pinned, setPinned] = useState<Record<string, Point>>({});
   const [linkSource, setLinkSource] = useState<string | null>(null);
