@@ -5,8 +5,9 @@
     ["project_tree", "Project Tree"],
     ["person_card", "Person Card"],
     ["tasks", "Tasks / Snags"],
-    ["documents", "Documents"],
+    ["documents", "Documents / Plans"],
     ["communication", "Communication"],
+    ["supplies", "Supplies / Purchases"],
     ["related_apps", "Related Apps"],
     ["connector_status", "Connector Status"],
     ["return_to_nexus", "Return to Nexus"]
