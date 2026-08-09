@@ -16,13 +16,13 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import type { NexusApplicationKey } from "../access/access-resolver";
 import {
-  ACCESS_DEMO_PROFILES,
-  isAccessDemoProfileId,
-  resolveProjectAccess,
-  type AccessDemoProfileId,
-  type NexusApplicationKey,
-} from "../access/access-resolver";
+  ACCESS_CONTEXT_PROJECTS,
+  DEFAULT_ACCESS_PERSON_ID,
+  DEFAULT_ACCESS_PROJECT_ID,
+  resolvePersonProjectAccess,
+} from "../access/person-project-access-context";
 import { FileIcon, type FileFormat } from "./file-icon-components";
 import type { WorkspaceNode } from "./workspace-data";
 
@@ -128,8 +128,7 @@ const DOCUMENT_ITEM_FORMAT: Record<string, FileFormat> = {
 
 const DEFAULT_ORDER: FolderId[] = FOLDERS.map((folder) => folder.id);
 const STORAGE_KEY = "nosmo-folder-dock-v1";
-const ACCESS_PROFILE_STORAGE_KEY = "nosmo-access-demo-profile-v1";
-const ACCESS_PROJECT_ID = "halifax-demo";
+const ACCESS_PROJECT_STORAGE_KEY = "nosmo-access-project-v1";
 
 function validOrder(value: unknown): FolderId[] {
   if (!Array.isArray(value)) return DEFAULT_ORDER;
@@ -138,6 +137,10 @@ function validOrder(value: unknown): FolderId[] {
   return filtered.length === DEFAULT_ORDER.length && new Set(filtered).size === DEFAULT_ORDER.length
     ? filtered
     : DEFAULT_ORDER;
+}
+
+function isKnownProjectId(value: string | null): value is (typeof ACCESS_CONTEXT_PROJECTS)[number]["projectId"] {
+  return ACCESS_CONTEXT_PROJECTS.some((project) => project.projectId === value);
 }
 
 export default function FolderDock({
@@ -152,15 +155,19 @@ export default function FolderDock({
   const definitions = useMemo(() => new Map(FOLDERS.map((folder) => [folder.id, folder])), []);
   const [order, setOrder] = useState<FolderId[]>(DEFAULT_ORDER);
   const [openFolders, setOpenFolders] = useState<FolderId[]>([]);
-  const [accessProfileId, setAccessProfileId] = useState<AccessDemoProfileId>("manager");
+  const [activeProjectId, setActiveProjectId] = useState<(typeof ACCESS_CONTEXT_PROJECTS)[number]["projectId"]>(DEFAULT_ACCESS_PROJECT_ID);
   const viewportRef = useRef<HTMLDivElement>(null);
   const restoredScroll = useRef(false);
 
-  const accessResolution = useMemo(
-    () => resolveProjectAccess(ACCESS_DEMO_PROFILES[accessProfileId], ACCESS_PROJECT_ID),
-    [accessProfileId],
+  const accessContext = useMemo(
+    () => resolvePersonProjectAccess(DEFAULT_ACCESS_PERSON_ID, activeProjectId),
+    [activeProjectId],
   );
-  const allowedApps = useMemo(() => new Set(accessResolution.visibleApps), [accessResolution.visibleApps]);
+  const accessResolution = accessContext?.resolution;
+  const allowedApps = useMemo(
+    () => new Set(accessResolution?.visibleApps ?? []),
+    [accessResolution?.visibleApps],
+  );
 
   const isFolderAllowed = (folder: FolderDefinition) => {
     if (folder.id === "tools") {
@@ -188,12 +195,12 @@ export default function FolderDock({
         setOpenFolders(saved.openFolders.filter((id) => known.has(id)));
       }
 
-      const queryProfile = new URLSearchParams(window.location.search).get("accessProfile");
-      const storedProfile = localStorage.getItem(ACCESS_PROFILE_STORAGE_KEY);
-      if (isAccessDemoProfileId(queryProfile)) {
-        setAccessProfileId(queryProfile);
-      } else if (isAccessDemoProfileId(storedProfile)) {
-        setAccessProfileId(storedProfile);
+      const queryProject = new URLSearchParams(window.location.search).get("project");
+      const storedProject = localStorage.getItem(ACCESS_PROJECT_STORAGE_KEY);
+      if (isKnownProjectId(queryProject)) {
+        setActiveProjectId(queryProject);
+      } else if (isKnownProjectId(storedProject)) {
+        setActiveProjectId(storedProject);
       }
 
       requestAnimationFrame(() => {
@@ -231,16 +238,16 @@ export default function FolderDock({
     }
   };
 
-  const changeAccessProfile = (next: AccessDemoProfileId) => {
-    setAccessProfileId(next);
+  const changeProject = (next: (typeof ACCESS_CONTEXT_PROJECTS)[number]["projectId"]) => {
+    setActiveProjectId(next);
     try {
-      localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, next);
+      localStorage.setItem(ACCESS_PROJECT_STORAGE_KEY, next);
       const params = new URLSearchParams(window.location.search);
-      params.set("accessProfile", next);
+      params.set("project", next);
       const query = params.toString();
       window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
     } catch {
-      // Profile switching remains usable even if persistence/history APIs are unavailable.
+      // Project switching remains usable even if persistence/history APIs are unavailable.
     }
   };
 
@@ -259,29 +266,34 @@ export default function FolderDock({
 
   const visibleOpenFolders = openFolders.filter((id) => visibleOrder.includes(id));
   const anyOpen = visibleOpenFolders.length > 0;
+  const participation = accessContext?.participation;
+  const participationLabel = participation
+    ? `${participation.roles.join(" / ")} · ${participation.trades.join(" / ")}`
+    : "No participation";
 
   return (
     <>
       <div
         data-control
         className="pointer-events-auto fixed right-3 top-3 z-[72] flex items-center gap-2 rounded-xl border border-cyan-800/70 bg-slate-950/88 px-2.5 py-2 text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,.4)] backdrop-blur-xl"
-        aria-label="Synthetic access profile test control"
+        aria-label="Person Card and project participation context"
       >
         <div className="hidden min-[430px]:block">
-          <div className="text-[7px] font-black uppercase tracking-[.18em] text-cyan-400">Access test · synthetic</div>
-          <div className="mt-0.5 max-w-[150px] truncate text-[9px] font-semibold text-slate-300">
-            {accessResolution.displayName}
+          <div className="text-[7px] font-black uppercase tracking-[.18em] text-cyan-400">Person Card → Participation → Access</div>
+          <div className="mt-0.5 max-w-[190px] truncate text-[9px] font-semibold text-slate-200">
+            {accessContext?.personCard.displayName ?? "Unknown person"}
           </div>
+          <div className="mt-0.5 max-w-[190px] truncate text-[8px] text-slate-400">{participationLabel}</div>
         </div>
         <select
-          value={accessProfileId}
-          onChange={(event) => changeAccessProfile(event.target.value as AccessDemoProfileId)}
+          value={activeProjectId}
+          onChange={(event) => changeProject(event.target.value as (typeof ACCESS_CONTEXT_PROJECTS)[number]["projectId"])}
           className="rounded-lg border border-cyan-700/60 bg-slate-900 px-2 py-1.5 text-[10px] font-bold text-cyan-100 outline-none"
-          aria-label="Access test profile"
+          aria-label="Active project for Person Card participation"
         >
-          <option value="manager">Manager</option>
-          <option value="joiner">Joiner</option>
-          <option value="electrician">Electrician</option>
+          {ACCESS_CONTEXT_PROJECTS.map((project) => (
+            <option key={project.projectId} value={project.projectId}>{project.label}</option>
+          ))}
         </select>
       </div>
 
