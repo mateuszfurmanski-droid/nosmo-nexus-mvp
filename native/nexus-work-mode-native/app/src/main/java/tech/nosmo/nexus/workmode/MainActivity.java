@@ -14,8 +14,8 @@ import android.os.Bundle;
 import android.provider.CalendarContract;
 import android.provider.ContactsContract;
 import android.provider.DocumentsContract;
+import android.provider.OpenableColumns;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
@@ -42,7 +42,6 @@ public class MainActivity extends Activity {
     private static final int GREEN = Color.rgb(72, 232, 185);
     private static final int PANEL = Color.rgb(20, 25, 31);
 
-    private static final String NEXUS_URL = "https://nosmotechnology.co.uk/nexus.html";
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
     private static final String DOORFLOW_URL = "https://nosmotechnology.co.uk/doorflow.html";
 
@@ -63,6 +62,10 @@ public class MainActivity extends Activity {
             this.detail = detail;
             this.confidence = confidence;
             this.selected = true;
+        }
+
+        String summary() {
+            return source + " · " + title + " · " + confidence + "%";
         }
     }
 
@@ -85,19 +88,19 @@ public class MainActivity extends Activity {
         addBrand(root);
         addTitle(root, "Work Mode");
         addBody(root,
-                "NEXUS discovers work context only from Android sources you approve. Start with contacts and calendar, then add a project folder or selected photos.");
+                "NEXUS prepares a work context from Android sources you approve. Start with contacts and calendar, then add a project folder or selected work photos.");
         addStatus(root, "READY", GREEN);
 
-        Button start = primaryButton("START DISCOVERY");
+        Button start = primaryButton("Start discovery");
         start.setOnClickListener(v -> startDiscovery());
         root.addView(start, fullWidth(dp(60)));
 
-        Button nexus = secondaryButton("OPEN NEXUS");
-        nexus.setOnClickListener(v -> openUrl(NEXUS_URL));
-        root.addView(nexus, fullWidth(dp(56)));
+        Button tree = secondaryButton("Open Relationship Tree");
+        tree.setOnClickListener(v -> openUrl(workTreeUrl("home")));
+        root.addView(tree, fullWidth(dp(56)));
 
         addSmall(root,
-                "Privacy boundary: no Accessibility Service, no WhatsApp/Gmail database scraping, no unrestricted storage crawl. Android permissions and system pickers only.");
+                "Privacy boundary: no Accessibility Service, no WhatsApp/Gmail database scraping, no unrestricted storage crawl. Contacts and Calendar use Android permissions. Files and photos use system pickers.");
         setPage(root);
     }
 
@@ -275,6 +278,7 @@ public class MainActivity extends Activity {
             try {
                 getContentResolver().takePersistableUriPermission(
                         treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                prefs.edit().putString("workFolderUri", treeUri.toString()).apply();
             } catch (Exception ignored) {
             }
             int found = scanFolder(treeUri);
@@ -345,10 +349,10 @@ public class MainActivity extends Activity {
 
     private String displayName(Uri uri) {
         String result = "Selected photo";
-        String[] projection = new String[]{DocumentsContract.Document.COLUMN_DISPLAY_NAME};
+        String[] projection = new String[]{OpenableColumns.DISPLAY_NAME};
         try (Cursor cursor = getContentResolver().query(uri, projection, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                int ix = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                int ix = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                 String value = value(cursor, ix);
                 if (!value.isEmpty()) result = value;
             }
@@ -361,17 +365,16 @@ public class MainActivity extends Activity {
         LinearLayout root = page();
         addBrand(root);
         addTitle(root, "Discovery Review");
-        int selectedCount = selectedCount();
         addBody(root, signals.isEmpty()
                 ? "No strong work signals found yet. Add a project folder or selected photos."
                 : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work.");
-        addStatus(root, selectedCount + " SELECTED", GREEN);
+        addStatus(root, selectedCount() + " SELECTED", GREEN);
 
-        Button folder = secondaryButton("+ ADD / SCAN WORK FOLDER");
+        Button folder = secondaryButton("+ Add / scan work folder");
         folder.setOnClickListener(v -> chooseWorkFolder());
         root.addView(folder, fullWidth(dp(54)));
 
-        Button photos = secondaryButton("+ ADD WORK PHOTOS");
+        Button photos = secondaryButton("+ Add work photos");
         photos.setOnClickListener(v -> choosePhotos());
         root.addView(photos, fullWidth(dp(54)));
 
@@ -395,11 +398,15 @@ public class MainActivity extends Activity {
             addSmall(root, "+ " + (signals.size() - shown) + " more signals retained in this scan.");
         }
 
-        Button start = primaryButton("ACCEPT + START WORK MODE");
+        Button start = primaryButton("Accept + start Work Mode");
         start.setOnClickListener(v -> enableWorkMode());
         root.addView(start, fullWidth(dp(62)));
 
-        Button rescan = secondaryButton("RESCAN PHONE");
+        Button tree = secondaryButton("Preview in Relationship Tree");
+        tree.setOnClickListener(v -> openUrl(workTreeUrl("review")));
+        root.addView(tree, fullWidth(dp(54)));
+
+        Button rescan = secondaryButton("Rescan phone");
         rescan.setOnClickListener(v -> startDiscovery());
         root.addView(rescan, fullWidth(dp(54)));
         setPage(root);
@@ -412,6 +419,7 @@ public class MainActivity extends Activity {
                 .putBoolean("workMode", true)
                 .putString("activeProject", project)
                 .putInt("acceptedSignals", accepted)
+                .putString("signalSummary", selectedSummary())
                 .apply();
         Toast.makeText(this, "NEXUS Work Mode ON", Toast.LENGTH_LONG).show();
         showWorkMode();
@@ -428,19 +436,24 @@ public class MainActivity extends Activity {
         addSection(root, "ACTIVE CONTEXT");
         addBody(root, project + "\n" + accepted + " approved work signals");
 
-        Button tree = primaryButton("PROJECT WORLD / RELATIONSHIP TREE");
-        tree.setOnClickListener(v -> openUrl(TREE_URL));
+        String summary = prefs.getString("signalSummary", "");
+        if (!summary.isEmpty()) {
+            addSmall(root, summary);
+        }
+
+        Button tree = primaryButton("Open Project World / Relationship Tree");
+        tree.setOnClickListener(v -> openUrl(workTreeUrl("project-world")));
         root.addView(tree, fullWidth(dp(62)));
 
-        Button doorflow = secondaryButton("DOORFLOW");
-        doorflow.setOnClickListener(v -> openUrl(DOORFLOW_URL));
+        Button files = secondaryButton("Add evidence photos");
+        files.setOnClickListener(v -> choosePhotos());
+        root.addView(files, fullWidth(dp(54)));
+
+        Button doorflow = secondaryButton("Open DoorFlow");
+        doorflow.setOnClickListener(v -> openUrl(doorflowUrl()));
         root.addView(doorflow, fullWidth(dp(54)));
 
-        Button nexus = secondaryButton("OPEN NEXUS");
-        nexus.setOnClickListener(v -> openUrl(NEXUS_URL));
-        root.addView(nexus, fullWidth(dp(54)));
-
-        Button update = secondaryButton("UPDATE WORK CONTEXT");
+        Button update = secondaryButton("Update work context");
         update.setOnClickListener(v -> {
             signals.clear();
             dedupe.clear();
@@ -448,7 +461,7 @@ public class MainActivity extends Activity {
         });
         root.addView(update, fullWidth(dp(54)));
 
-        Button off = secondaryButton("TURN WORK MODE OFF");
+        Button off = secondaryButton("Turn Work Mode off");
         off.setOnClickListener(v -> {
             prefs.edit().putBoolean("workMode", false).apply();
             Toast.makeText(this, "Work Mode OFF", Toast.LENGTH_SHORT).show();
@@ -456,8 +469,30 @@ public class MainActivity extends Activity {
         });
         root.addView(off, fullWidth(dp(54)));
 
-        addSmall(root, "Native Android beta 0.5.0 · accepted context stays local on this device in this build.");
+        addSmall(root, "Native Android beta 0.5.1 · accepted context stays local on this device in this build. Relationship Tree receives a work-mode handoff URL only.");
         setPage(root);
+    }
+
+    private String workTreeUrl(String surface) {
+        String project = prefs == null ? "Unassigned work" : prefs.getString("activeProject", "Unassigned work");
+        int accepted = prefs == null ? selectedCount() : prefs.getInt("acceptedSignals", selectedCount());
+        return Uri.parse(TREE_URL).buildUpon()
+                .appendQueryParameter("nexusMode", "work")
+                .appendQueryParameter("nexusClient", "android-native")
+                .appendQueryParameter("nexusSurface", surface)
+                .appendQueryParameter("nexusProject", slug(project))
+                .appendQueryParameter("acceptedSignals", String.valueOf(accepted))
+                .build()
+                .toString();
+    }
+
+    private String doorflowUrl() {
+        return Uri.parse(DOORFLOW_URL).buildUpon()
+                .appendQueryParameter("nexusMode", "work")
+                .appendQueryParameter("nexusClient", "android-native")
+                .appendQueryParameter("nexusProject", slug(prefs.getString("activeProject", "Unassigned work")))
+                .build()
+                .toString();
     }
 
     private String inferProject() {
@@ -480,10 +515,11 @@ public class MainActivity extends Activity {
 
     private void addSignal(String source, String title, String detail, int confidence) {
         String cleanTitle = title == null ? "" : title.trim();
-        String key = (source + "|" + cleanTitle + "|" + detail).toLowerCase(Locale.UK);
+        String cleanDetail = detail == null ? "" : detail.trim();
+        String key = (source + "|" + cleanTitle + "|" + cleanDetail).toLowerCase(Locale.UK);
         if (cleanTitle.isEmpty() || dedupe.contains(key)) return;
         dedupe.add(key);
-        signals.add(new Signal(source, cleanTitle, detail == null ? "" : detail.trim(),
+        signals.add(new Signal(source, cleanTitle, cleanDetail,
                 Math.min(99, Math.max(1, confidence))));
     }
 
@@ -491,6 +527,21 @@ public class MainActivity extends Activity {
         int count = 0;
         for (Signal signal : signals) if (signal.selected) count++;
         return count;
+    }
+
+    private String selectedSummary() {
+        StringBuilder out = new StringBuilder();
+        int shown = 0;
+        for (Signal signal : signals) {
+            if (!signal.selected) continue;
+            if (shown >= 6) break;
+            if (out.length() > 0) out.append("\n");
+            out.append(signal.summary());
+            shown++;
+        }
+        int more = selectedCount() - shown;
+        if (more > 0) out.append("\n+").append(more).append(" more approved signals");
+        return out.toString();
     }
 
     private int workScore(String raw) {
@@ -551,6 +602,13 @@ public class MainActivity extends Activity {
         String clean = value.trim();
         if (clean.length() <= max) return clean;
         return clean.substring(0, max - 1) + "…";
+    }
+
+    private String slug(String value) {
+        String clean = value == null ? "unassigned-work" : value.toLowerCase(Locale.UK);
+        clean = clean.replaceAll("[^a-z0-9]+", "-");
+        clean = clean.replaceAll("(^-+|-+$)", "");
+        return clean.isEmpty() ? "unassigned-work" : clean;
     }
 
     private void openUrl(String url) {
