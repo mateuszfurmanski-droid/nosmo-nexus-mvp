@@ -1,6 +1,7 @@
 (() => {
   const runtime = globalThis.NexusOverlayRuntime;
   const sidecar = globalThis.NexusOverlaySidecar;
+  const recordMapping = globalThis.NexusOverlayRecordMapping;
   const ADAPTER_ID = "work-wallet";
 
   if (!runtime || !sidecar) return;
@@ -178,12 +179,20 @@
     const existing = await runtime.getStoredContext();
     if (!existing) return null;
     const detected = pageContext();
-    return runtime.normaliseContext({
+    const candidate = runtime.normaliseContext({
       ...existing,
       ...detected,
+      nexusNodeId: null,
       sourceApplication: "WORK_WALLET",
       sourceUrl: syntheticPortalUrl(),
       sourcePageType: pageType()
+    });
+    const mappedNexusNodeId = recordMapping
+      ? await recordMapping.resolve(candidate)
+      : null;
+    return runtime.normaliseContext({
+      ...candidate,
+      nexusNodeId: mappedNexusNodeId || candidate.nexusNodeId
     });
   }
 
@@ -288,7 +297,11 @@
 
   chrome.storage.onChanged.addListener(async (changes, areaName) => {
     if (areaName !== "local") return;
-    if (changes[runtime.STORAGE_KEYS.context] || changes[runtime.STORAGE_KEYS.preferences]) {
+    if (
+      changes[runtime.STORAGE_KEYS.context] ||
+      changes[runtime.STORAGE_KEYS.preferences] ||
+      changes[recordMapping?.STORAGE_KEY]
+    ) {
       await bootOverlay();
     }
   });
