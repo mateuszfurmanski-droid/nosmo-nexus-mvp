@@ -9,7 +9,8 @@
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "bootstrap-nexus-identity": "node ./scripts/bootstrap-nexus-person-binding.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
