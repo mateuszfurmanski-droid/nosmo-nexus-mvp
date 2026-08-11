@@ -1,6 +1,7 @@
 (() => {
   const runtime = globalThis.NexusOverlayRuntime;
   const recordMapping = globalThis.NexusOverlayRecordMapping;
+  const connectorContext = globalThis.NexusOverlayConnectorContext;
   const ADAPTER_ID = "work-wallet";
   const ACTIONS = [
     ["project_tree", "Project Tree"],
@@ -123,6 +124,10 @@
     $("mappingExternalReference").value = context?.externalRecordReference || "";
     $("mappingNexusNodeId").value = "";
 
+    if (connectorContext) {
+      $("connectorApiBase").value = await connectorContext.getApiBase();
+    }
+
     renderActionChecks(
       context?.allowedActionKeys?.length
         ? context.allowedActionKeys
@@ -133,6 +138,19 @@
 
   $("openMock").addEventListener("click", () => {
     window.open(chrome.runtime.getURL("dev/mock-work-wallet.html"), "_blank", "noopener,noreferrer");
+  });
+
+  $("saveConnectorApi").addEventListener("click", async () => {
+    if (!connectorContext) {
+      setStatus("Connector context module unavailable.");
+      return;
+    }
+    try {
+      const apiBase = await connectorContext.setApiBase($("connectorApiBase").value);
+      setStatus(`Connector target saved: ${apiBase}`);
+    } catch (error) {
+      setStatus(error?.message || "Connector target could not be saved.");
+    }
   });
 
   $("saveMapping").addEventListener("click", async () => {
