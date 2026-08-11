@@ -2,14 +2,14 @@
   "expo": {
     "name": "NEXUS Work Mode",
     "slug": "nosmo-nexus-work-mode",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "nosmonexus",
     "icon": "./assets/icon.png",
     "android": {
       "package": "tech.nosmo.nexus.workmode",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#030407"
@@ -43,7 +43,8 @@
     "extra": {
       "productLayer": "Construction Operating Layer",
       "privacyMode": "local-first-explicit-permission",
-      "brandAsset": "NOSMO-website/assets/NEXUS_Logo.png"
+      "brandAsset": "NOSMO-website/assets/NEXUS_Logo.png",
+      "workModeRevision": "v2-functional-discovery"
     }
   }
 }
