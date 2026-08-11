@@ -18,21 +18,15 @@ import {
   searchIfcEntities,
   upsertIfcMapping,
   type IfcGuidMapping,
-  type IfcParseResult,
+  type IfcLocalModelSession,
 } from "@/bim/ifc-mapping";
 
 type IfcImportPanelProps = {
   pilots: InstallationPilot[];
   mappings: IfcGuidMapping[];
   onMappingsChange: (mappings: IfcGuidMapping[]) => void;
+  onModelSessionChange?: (session: IfcLocalModelSession | null) => void;
   initialTargetId?: string;
-};
-
-type LoadedIfc = {
-  fileName: string;
-  fileSize: number;
-  sha256?: string;
-  parsed: IfcParseResult;
 };
 
 function bytesLabel(bytes: number) {
@@ -51,13 +45,14 @@ export function IfcImportPanel({
   pilots,
   mappings,
   onMappingsChange,
+  onModelSessionChange,
   initialTargetId,
 }: IfcImportPanelProps) {
   const fallbackTarget = initialTargetId && pilots.some((pilot) => pilot.object.id === initialTargetId)
     ? initialTargetId
     : pilots[0]?.object.id ?? "";
   const [targetId, setTargetId] = useState(fallbackTarget);
-  const [loaded, setLoaded] = useState<LoadedIfc | null>(null);
+  const [loaded, setLoaded] = useState<IfcLocalModelSession | null>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +72,7 @@ export function IfcImportPanel({
 
     setError(null);
     setLoaded(null);
+    onModelSessionChange?.(null);
     if (!file.name.toLowerCase().endsWith(".ifc")) {
       setError("Select a plain STEP IFC file with the .ifc extension. IFCZIP is not enabled in this first mapper.");
       return;
@@ -96,12 +92,15 @@ export function IfcImportPanel({
         return;
       }
       const sha256 = await sha256Hex(buffer);
-      setLoaded({
+      const nextSession: IfcLocalModelSession = {
         fileName: file.name,
         fileSize: file.size,
         sha256,
         parsed,
-      });
+        text,
+      };
+      setLoaded(nextSession);
+      onModelSessionChange?.(nextSession);
       setQuery("");
     } catch {
       setError("The IFC file could not be read locally in this browser.");
@@ -155,7 +154,7 @@ export function IfcImportPanel({
             </div>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            Read a real IFC STEP file in the browser, select an IfcRoot object and bind its GlobalId to the stable Nexus Object ID. This stage imports identity and source provenance only — not geometry and not design authority.
+            Read a real IFC STEP file in the browser, select an IfcRoot object and bind its GlobalId to the stable Nexus Object ID. The active file can also feed the local geometry preview, but the file contents are never persisted by this mapper.
           </p>
         </div>
         <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300">
@@ -249,7 +248,9 @@ export function IfcImportPanel({
                   (mapping) =>
                     mapping.nexusObjectId === targetPilot?.object.id &&
                     mapping.ifcGlobalId === entity.globalId &&
-                    mapping.sourceFileSha256 === loaded.sha256,
+                    (mapping.sourceFileSha256 && loaded.sha256
+                      ? mapping.sourceFileSha256 === loaded.sha256
+                      : mapping.sourceFileName === loaded.fileName && mapping.sourceFileSize === loaded.fileSize),
                 );
                 return (
                   <div key={`${entity.stepId}-${entity.globalId}`} className="flex flex-col gap-3 rounded-xl border border-border bg-card/45 p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -300,7 +301,7 @@ export function IfcImportPanel({
       )}
 
       <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
-        The IFC file contents are not persisted by this mapper. LocalStorage keeps only the selected GlobalId-to-Nexus mapping and source provenance. Geometry, coordinates, authoring revision and approved design intent remain with the IFC/model source.
+        IFC file contents and geometry stay only in the active browser session. LocalStorage keeps only the selected GlobalId-to-Nexus mapping and source provenance. After reload, reopen the source IFC to view geometry again. Approved design intent remains with the IFC/model source.
       </p>
     </section>
   );

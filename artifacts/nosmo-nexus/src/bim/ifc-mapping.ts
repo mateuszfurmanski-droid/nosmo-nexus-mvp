@@ -21,6 +21,15 @@ export type IfcParseResult = {
   warnings: string[];
 };
 
+export type IfcLocalModelSession = {
+  fileName: string;
+  fileSize: number;
+  sha256?: string;
+  parsed: IfcParseResult;
+  /** Active-session text only. Never persisted by the mapper. */
+  text: string;
+};
+
 export type IfcGuidMapping = {
   nexusObjectId: string;
   ifcGlobalId: string;
