@@ -11,8 +11,34 @@ export type NexusApplicationKey =
   | "work-wallet"
   | "external-apps";
 
-export type ProjectRole = "PROJECT_MANAGER" | "SITE_MANAGER" | "SUPERVISOR" | "TRADE";
-export type TradeKey = "DOORS_FIRE" | "ELECTRICAL" | "GENERAL";
+/**
+ * Professional identity belongs to the Person Card.
+ * It describes what the person is qualified / educated / competent to work as.
+ * It does NOT change when the active project changes.
+ */
+export type ProfessionKey =
+  | "JOINER"
+  | "ELECTRICIAN"
+  | "CONSTRUCTION_MANAGER"
+  | "FIRE_DOOR_INSPECTOR"
+  | "GENERAL_OPERATIVE";
+
+/**
+ * Project function belongs to the Person <-> Project participation relation.
+ * It describes what the person is appointed to do on this specific project.
+ */
+export type ProjectFunction =
+  | "PROJECT_MANAGER"
+  | "SITE_MANAGER"
+  | "SUPERVISOR"
+  | "PACKAGE_LEAD"
+  | "INSTALLER"
+  | "INSPECTOR"
+  | "COMMISSIONING_ENGINEER"
+  | "TEAM_MEMBER";
+
+/** Scope/package assigned to the person in the active project. */
+export type ProjectAssignment = "DOORS_FIRE" | "ELECTRICAL" | "GENERAL";
 export type PermissionEffect = "allow" | "deny";
 
 export type ApplicationPermission = {
@@ -23,15 +49,18 @@ export type ApplicationPermission = {
 
 export type ProjectParticipation = {
   projectId: string;
-  roles: ProjectRole[];
-  trades: TradeKey[];
+  functions: ProjectFunction[];
+  assignments: ProjectAssignment[];
   permissions?: ApplicationPermission[];
-  competences?: string[];
 };
 
 export type PersonAccessProfile = {
   personId: string;
   displayName: string;
+  professions: ProfessionKey[];
+  qualifications?: string[];
+  certifications?: string[];
+  competences?: string[];
   participations: ProjectParticipation[];
 };
 
@@ -45,7 +74,10 @@ export type AccessResolution = {
   projectId: string;
   personId: string;
   displayName: string;
-  isManager: boolean;
+  professions: ProfessionKey[];
+  projectFunctions: ProjectFunction[];
+  projectAssignments: ProjectAssignment[];
+  isProjectManager: boolean;
   visibleApps: NexusApplicationKey[];
   decisions: Record<NexusApplicationKey, AccessDecision>;
 };
@@ -74,13 +106,13 @@ const SHARED_APPS: NexusApplicationKey[] = [
   "external-apps",
 ];
 
-const MANAGER_ROLES = new Set<ProjectRole>(["PROJECT_MANAGER", "SITE_MANAGER"]);
+const PROJECT_MANAGER_FUNCTIONS = new Set<ProjectFunction>(["PROJECT_MANAGER", "SITE_MANAGER"]);
 
 function createDecision(app: NexusApplicationKey): AccessDecision {
   return {
     app,
     allowed: false,
-    reasons: ["No matching project participation grants this application."],
+    reasons: ["No active project participation grants this application."],
   };
 }
 
@@ -95,6 +127,14 @@ function deny(decision: AccessDecision, reason: string) {
   decision.reasons = [reason];
 }
 
+function hasProfession(profile: PersonAccessProfile, profession: ProfessionKey) {
+  return profile.professions.includes(profession);
+}
+
+function hasAssignment(participation: ProjectParticipation, assignment: ProjectAssignment) {
+  return participation.assignments.includes(assignment);
+}
+
 export function resolveProjectAccess(
   profile: PersonAccessProfile,
   projectId: string,
@@ -104,28 +144,42 @@ export function resolveProjectAccess(
   ) as Record<NexusApplicationKey, AccessDecision>;
 
   const participation = profile.participations.find((entry) => entry.projectId === projectId);
-  const isManager = participation?.roles.some((role) => MANAGER_ROLES.has(role)) ?? false;
+  const projectFunctions = participation?.functions ?? [];
+  const projectAssignments = participation?.assignments ?? [];
+  const isProjectManager = projectFunctions.some((projectFunction) => PROJECT_MANAGER_FUNCTIONS.has(projectFunction));
 
   if (participation) {
     SHARED_APPS.forEach((app) =>
-      allow(decisions[app], "Shared project application for an active participant."),
+      allow(decisions[app], "Active Project Participation grants shared project access."),
     );
 
-    if (isManager) {
+    if (isProjectManager) {
+      // This comes from the project appointment, not from changing the person's profession.
       ALL_APPS.forEach((app) =>
-        allow(decisions[app], "Manager project role grants the broad project application set."),
+        allow(decisions[app], "Project management function grants broad project oversight."),
       );
-      allow(decisions.trades, "Manager role may switch and filter permitted trade application sets.");
+      allow(decisions.trades, "Project management function may inspect/filter trade work."),
     } else {
-      deny(decisions.trades, "Trades control is reserved for permitted manager roles.");
+      deny(decisions.trades, "Trades control requires an appointed project management function.");
 
-      if (participation.trades.includes("DOORS_FIRE")) {
-        allow(decisions.worksuite, "Doors & Fire participation grants DoorFlow / WorkSuite.");
-        allow(decisions["fire-register"], "Doors & Fire participation grants Fire Door Register.");
+      const doorsQualified =
+        hasProfession(profile, "JOINER") || hasProfession(profile, "FIRE_DOOR_INSPECTOR");
+      if (doorsQualified && hasAssignment(participation, "DOORS_FIRE")) {
+        allow(
+          decisions.worksuite,
+          "Person Card profession plus Doors & Fire project assignment grants WorkSuite.",
+        );
+        allow(
+          decisions["fire-register"],
+          "Person Card profession plus Doors & Fire project assignment grants Fire Door Register.",
+        );
       }
 
-      if (participation.trades.includes("ELECTRICAL")) {
-        allow(decisions.electrical, "Electrical participation grants Electrical Commissioning.");
+      if (hasProfession(profile, "ELECTRICIAN") && hasAssignment(participation, "ELECTRICAL")) {
+        allow(
+          decisions.electrical,
+          "Electrician profession on Person Card plus Electrical project assignment grants Electrical Commissioning.",
+        );
       }
     }
 
@@ -138,7 +192,7 @@ export function resolveProjectAccess(
       }
     });
 
-    // Explicit deny always wins over inherited role/trade/default access.
+    // Explicit deny always wins over profession, project function, assignment and defaults.
     participation.permissions?.forEach((permission) => {
       if (permission.effect === "deny") {
         deny(
@@ -153,81 +207,54 @@ export function resolveProjectAccess(
     projectId,
     personId: profile.personId,
     displayName: profile.displayName,
-    isManager,
+    professions: profile.professions,
+    projectFunctions,
+    projectAssignments,
+    isProjectManager,
     visibleApps: ALL_APPS.filter((app) => decisions[app].allowed),
     decisions,
   };
 }
 
-export type AccessDemoProfileId = "manager" | "joiner" | "electrician";
-
-export const ACCESS_DEMO_PROFILES: Record<AccessDemoProfileId, PersonAccessProfile> = {
-  manager: {
-    personId: "person-demo-manager",
-    displayName: "Demo Project Manager",
-    participations: [
-      {
-        projectId: "halifax-demo",
-        roles: ["PROJECT_MANAGER"],
-        trades: ["GENERAL"],
-      },
-    ],
-  },
-  joiner: {
+/** Synthetic fixtures used only to exercise the resolver. */
+export const ACCESS_DEMO_PROFILES: PersonAccessProfile[] = [
+  {
     personId: "person-demo-joiner",
     displayName: "Demo Joiner",
+    professions: ["JOINER"],
+    qualifications: ["Carpentry & Joinery"],
     participations: [
       {
         projectId: "halifax-demo",
-        roles: ["TRADE"],
-        trades: ["DOORS_FIRE"],
+        functions: ["INSTALLER"],
+        assignments: ["DOORS_FIRE"],
       },
     ],
   },
-  electrician: {
+  {
     personId: "person-demo-electrician",
     displayName: "Demo Electrician",
+    professions: ["ELECTRICIAN"],
+    qualifications: ["Electrical Installation"],
     participations: [
       {
         projectId: "halifax-demo",
-        roles: ["TRADE"],
-        trades: ["ELECTRICAL"],
+        functions: ["COMMISSIONING_ENGINEER"],
+        assignments: ["ELECTRICAL"],
       },
     ],
   },
-};
-
-export const PROJECT_SWITCH_DEMO_PROFILE: PersonAccessProfile = {
-  personId: "person-demo-multi-project",
-  displayName: "Demo Multi-project Worker",
-  participations: [
-    {
-      projectId: "halifax-demo",
-      roles: ["TRADE"],
-      trades: ["DOORS_FIRE"],
-      permissions: [
-        {
-          app: "electrical",
-          effect: "deny",
-          reason: "Halifax participation explicitly excludes Electrical Commissioning.",
-        },
-      ],
-    },
-    {
-      projectId: "riverside-demo",
-      roles: ["TRADE"],
-      trades: ["ELECTRICAL"],
-      permissions: [
-        {
-          app: "worksuite",
-          effect: "deny",
-          reason: "Riverside participation explicitly excludes Doors & Fire specialist tools.",
-        },
-      ],
-    },
-  ],
-};
-
-export function isAccessDemoProfileId(value: string | null): value is AccessDemoProfileId {
-  return value === "manager" || value === "joiner" || value === "electrician";
-}
+  {
+    personId: "person-demo-manager",
+    displayName: "Demo Construction Manager",
+    professions: ["CONSTRUCTION_MANAGER"],
+    qualifications: ["Construction Management"],
+    participations: [
+      {
+        projectId: "halifax-demo",
+        functions: ["PROJECT_MANAGER"],
+        assignments: ["GENERAL"],
+      },
+    ],
+  },
+];
