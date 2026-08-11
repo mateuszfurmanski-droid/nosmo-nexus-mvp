@@ -10,23 +10,23 @@ on:
       - .github/workflows/android-work-mode-apk.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android-debug-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: agent/android-work-mode-native
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: native/nexus-work-mode/package.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -44,26 +44,45 @@ jobs:
 
       - name: Generate Android project
         working-directory: native/nexus-work-mode
-        run: npx expo prebuild --platform android --non-interactive --clean
+        run: npx expo prebuild --platform android --clean
 
-      - name: Build debug APK
+      - name: Build ARM64 debug APK
         working-directory: native/nexus-work-mode/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a
 
       - name: Stage APK
         run: |
-          mkdir -p dist
-          cp native/nexus-work-mode/android/app/build/outputs/apk/debug/app-debug.apk dist/NOSMO-Nexus-Work-Mode-debug.apk
-          sha256sum dist/NOSMO-Nexus-Work-Mode-debug.apk > dist/NOSMO-Nexus-Work-Mode-debug.apk.sha256
+          mkdir -p android-builds
+          cp native/nexus-work-mode/android/app/build/outputs/apk/debug/app-debug.apk android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk
+          sha256sum android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk > android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256
+          {
+            echo "NOSMO Nexus Work Mode"
+            echo "Build: Android ARM64 debug APK"
+            echo "Source: $GITHUB_SHA"
+            echo "Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } > android-builds/BUILD_INFO.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NOSMO-Nexus-Work-Mode-APK
           path: |
-            dist/NOSMO-Nexus-Work-Mode-debug.apk
-            dist/NOSMO-Nexus-Work-Mode-debug.apk.sha256
+            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk
+            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256
+            android-builds/BUILD_INFO.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish APK to branch
+        run: |
+          git config user.name "nosmo-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256 android-builds/BUILD_INFO.txt
+          if git diff --cached --quiet; then
+            echo "APK output unchanged"
+            exit 0
+          fi
+          git commit -m "Publish Nexus Work Mode Android APK"
+          git push origin HEAD:agent/android-work-mode-native
