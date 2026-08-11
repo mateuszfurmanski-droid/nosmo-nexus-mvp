@@ -6,6 +6,7 @@ export interface NexusApiStorageProviderConfig {
   displayName: string;
   providerKind: "s3-compatible" | "azure-blob" | "microsoft-365" | "custom";
   apiBasePath: string;
+  apiKey?: string;
 }
 
 interface NexusApiStoredObjectResponse {
@@ -39,6 +40,10 @@ function toQuery(request: NexusStorageReadRequest) {
   return params.toString();
 }
 
+function encodeMetadata(value: unknown) {
+  return encodeURIComponent(JSON.stringify(value));
+}
+
 /**
  * Browser-side boundary to Nexus server storage APIs.
  *
@@ -51,29 +56,37 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
   readonly kind: NexusApiStorageProviderConfig["providerKind"];
   readonly displayName: string;
   private readonly apiBasePath: string;
+  private readonly apiKey?: string;
 
   constructor(config: NexusApiStorageProviderConfig) {
     this.providerId = config.providerId;
     this.kind = config.providerKind;
     this.displayName = config.displayName;
     this.apiBasePath = trimTrailingSlash(config.apiBasePath);
+    this.apiKey = config.apiKey;
+  }
+
+  private headers(metadata?: unknown) {
+    const headers = new Headers();
+    if (metadata) headers.set("X-Nexus-Storage-Metadata", encodeMetadata(metadata));
+    if (this.apiKey) headers.set("X-Nexus-Storage-Api-Key", this.apiKey);
+    return headers;
   }
 
   async putObject(request: NexusStoragePutRequest): Promise<NexusStoredObject> {
-    const form = new FormData();
-    form.set("metadata", JSON.stringify({
+    const metadata = {
       scope: request.scope,
       objectKey: request.objectKey,
       filename: request.filename,
       mimeType: request.mimeType,
       sizeBytes: request.sizeBytes,
       checksum: request.checksum,
-    }));
-    form.set("file", request.content, request.filename);
+    };
 
     const response = await fetch(`${this.apiBasePath}/objects`, {
       method: "POST",
-      body: form,
+      headers: this.headers(metadata),
+      body: request.content,
       credentials: "include",
     });
 
@@ -85,6 +98,7 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
   async getObject(request: NexusStorageReadRequest): Promise<Blob> {
     const response = await fetch(`${this.apiBasePath}/objects?${toQuery(request)}`, {
       method: "GET",
+      headers: this.headers(),
       credentials: "include",
     });
 
@@ -95,6 +109,7 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
   async deleteObject(request: NexusStorageReadRequest): Promise<void> {
     const response = await fetch(`${this.apiBasePath}/objects?${toQuery(request)}`, {
       method: "DELETE",
+      headers: this.headers(),
       credentials: "include",
     });
 
