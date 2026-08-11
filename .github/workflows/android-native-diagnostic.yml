@@ -38,14 +38,16 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build pure native debug APK
+      - name: Build pure native debug APK and AAB
         working-directory: native/nexus-work-mode-native
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: gradle :app:assembleDebug :app:bundleDebug --no-daemon --stacktrace
 
       - name: Verify native launcher APK
         run: |
           APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
+          AAB="native/nexus-work-mode-native/app/build/outputs/bundle/debug/app-debug.aab"
           test -f "$APK"
+          test -f "$AAB"
           unzip -l "$APK" | tee /tmp/apk-files.txt
           grep -q "classes.dex" /tmp/apk-files.txt
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
@@ -54,28 +56,31 @@ jobs:
           grep -q "package: name='tech.nosmo.nexus.workmode.diagnostic'" /tmp/badging.txt
           grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.MainActivity'" /tmp/badging.txt
 
-      - name: Stage diagnostic APK
+      - name: Stage diagnostic APK and Play bundle
         run: |
           mkdir -p android-native-build
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-build/NEXUS-Native-Diagnostic-v0.4.0.apk
-          sha256sum android-native-build/NEXUS-Native-Diagnostic-v0.4.0.apk > android-native-build/NEXUS-Native-Diagnostic-v0.4.0.apk.sha256
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-build/NEXUS-Native-Diagnostic-v0.4.1.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/debug/app-debug.aab android-native-build/NEXUS-Native-Diagnostic-v0.4.1.aab
+          sha256sum android-native-build/NEXUS-Native-Diagnostic-v0.4.1.apk > android-native-build/NEXUS-Native-Diagnostic-v0.4.1.apk.sha256
+          sha256sum android-native-build/NEXUS-Native-Diagnostic-v0.4.1.aab > android-native-build/NEXUS-Native-Diagnostic-v0.4.1.aab.sha256
           cp /tmp/badging.txt android-native-build/APK_BADGING.txt
           {
             echo "NEXUS Native Diagnostic"
-            echo "Version: 0.4.0-native"
+            echo "Version: 0.4.1-native"
             echo "Package: tech.nosmo.nexus.workmode.diagnostic"
             echo "Runtime: pure Android Java Activity"
             echo "Expo: none"
             echo "React Native: none"
             echo "Hermes/Metro: none"
+            echo "AAB: included for Google Play Internal App Sharing"
             echo "Purpose: isolate Android launcher/runtime from previous Expo app"
             echo "Source: $GITHUB_SHA"
           } > android-native-build/BUILD_INFO.txt
 
-      - name: Upload diagnostic APK
+      - name: Upload diagnostic APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Native-Diagnostic-v0.4.0
+          name: NEXUS-Native-Diagnostic-v0.4.1
           path: android-native-build/*
           if-no-files-found: error
           retention-days: 14
