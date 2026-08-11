@@ -1,4 +1,4 @@
-export type NexusServerApplicationKey = "work-wallet";
+export type NexusServerApplicationKey = "work-wallet" | "cloud-storage";
 
 export type NexusProjectAuthorizationReason =
   | "PROJECT_AUTH_DISABLED"
@@ -61,11 +61,10 @@ function permissionsFor(value: unknown): NexusProjectApplicationPermissionInput[
 }
 
 /**
- * Canonical initial shared-access rule for server-side connector context reads.
- *
- * ACTIVE participation grants the shared Work Wallet application surface.
- * Explicit deny wins. Profession, provider identity and project function are
- * deliberately absent from this policy.
+ * Canonical initial shared-access rule for server-side project application
+ * surfaces. ACTIVE participation grants shared access unless an explicit deny
+ * exists for the requested application. Profession, provider identity and
+ * project function are deliberately absent from this policy.
  */
 export function evaluateNexusProjectParticipationAccess(
   participations: NexusProjectParticipationPolicyInput[],
