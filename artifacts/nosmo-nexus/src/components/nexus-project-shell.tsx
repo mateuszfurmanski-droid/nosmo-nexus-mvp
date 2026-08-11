@@ -13,7 +13,6 @@ import {
   Maximize2,
   Menu,
   Minus,
-  Network,
   PlugZap,
   Plus,
   RotateCcw,
@@ -25,9 +24,10 @@ import {
   Workflow,
   X,
 } from "lucide-react";
-import { NODES, PROJECT_ID } from "./workspace-data";
+import { NODES, PROJECT_ID, type WorkspaceNode } from "./workspace-data";
 
 type Panel = "menu" | "project" | "people" | "files" | "controls" | "settings" | null;
+type ProjectWorldId = "riverside" | "esafe";
 
 type GraphCommand =
   | "focus-node"
@@ -45,21 +45,31 @@ type GraphState = {
   mode?: "map" | "workflow";
 };
 
+export interface NexusProjectShellProps {
+  children: ReactNode;
+  activeProjectId?: ProjectWorldId;
+  projectNodeId?: string;
+  people?: WorkspaceNode[];
+  onTimeClick?: () => void;
+  timeActive?: boolean;
+  timeSublabel?: string;
+  workflowEnabled?: boolean;
+}
+
 const projects = [
   {
-    id: "riverside",
+    id: "riverside" as const,
     label: "Riverside",
     description: "Canonical Relationship Tree · development project",
-    external: false,
+    href: "/",
   },
   {
-    id: "esafe",
+    id: "esafe" as const,
     label: "e-SAFE Catania",
     description: "Project World · real pilot dataset",
-    external: true,
-    href: "/apps/nexus-esafe-demo/",
+    href: "/project-worlds/esafe",
   },
-] as const;
+];
 
 function dispatchGraphCommand(action: GraphCommand, extra: Record<string, unknown> = {}) {
   window.dispatchEvent(new CustomEvent("nexus:graph-command", { detail: { action, ...extra } }));
@@ -162,14 +172,31 @@ function ActionButton({
   );
 }
 
-export function NexusProjectShell({ children }: { children: ReactNode }) {
+export function NexusProjectShell({
+  children,
+  activeProjectId = "riverside",
+  projectNodeId = PROJECT_ID,
+  people: peopleOverride,
+  onTimeClick,
+  timeActive,
+  timeSublabel,
+  workflowEnabled = true,
+}: NexusProjectShellProps) {
   const [, navigate] = useLocation();
   const [panel, setPanel] = useState<Panel>(null);
-  const [graphState, setGraphState] = useState<GraphState>({ timelineEnabled: false, selectedId: PROJECT_ID, mode: "map" });
+  const [graphState, setGraphState] = useState<GraphState>({ timelineEnabled: false, selectedId: projectNodeId, mode: "map" });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const people = useMemo(() => NODES.filter((node) => node.type === "person"), []);
+  const people = useMemo(
+    () => peopleOverride ?? NODES.filter((node) => node.type === "person"),
+    [peopleOverride],
+  );
+  const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+
+  useEffect(() => {
+    setGraphState((current) => ({ ...current, selectedId: projectNodeId }));
+  }, [projectNodeId]);
 
   useEffect(() => {
     const handleState = (event: Event) => {
@@ -184,7 +211,7 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
   const togglePanel = (next: Exclude<Panel, null>) => setPanel((current) => (current === next ? null : next));
 
   const focusProject = () => {
-    dispatchGraphCommand("focus-node", { nodeId: PROJECT_ID });
+    dispatchGraphCommand("focus-node", { nodeId: projectNodeId });
     closePanel();
   };
 
@@ -196,7 +223,7 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
   const chooseFiles = (files: FileList | null) => {
     const next = Array.from(files ?? []);
     setSelectedFiles(next);
-    window.dispatchEvent(new CustomEvent("nexus:file-upload-request", { detail: { files: next, projectId: PROJECT_ID } }));
+    window.dispatchEvent(new CustomEvent("nexus:file-upload-request", { detail: { files: next, projectId: projectNodeId, worldId: activeProjectId } }));
   };
 
   return (
@@ -215,19 +242,20 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
         />
         <TopTile
           label="Project"
-          sublabel="Riverside"
+          sublabel={activeProject.label}
           active={panel === "project"}
           icon={<FolderKanban className="h-5 w-5" />}
           onClick={() => togglePanel("project")}
         />
         <TopTile
           label="Time"
-          sublabel={graphState.timelineEnabled ? "On" : "Off"}
-          active={Boolean(graphState.timelineEnabled)}
+          sublabel={timeSublabel ?? (graphState.timelineEnabled ? "On" : "Off")}
+          active={timeActive ?? Boolean(graphState.timelineEnabled)}
           icon={<Clock3 className="h-5 w-5" />}
           onClick={() => {
             setPanel(null);
-            dispatchGraphCommand("timeline-toggle");
+            if (onTimeClick) onTimeClick();
+            else dispatchGraphCommand("timeline-toggle");
           }}
         />
         <TopTile
@@ -262,7 +290,7 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
           </div>
           <div className="px-4 pb-1 pt-2 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">System</div>
           <div className="grid gap-2 p-3 pt-2">
-            <ActionButton icon={<SlidersHorizontal className="h-4 w-4" />} title="View controls" description="Zoom, fit, reset and Workflow" onClick={() => setPanel("controls")} />
+            <ActionButton icon={<SlidersHorizontal className="h-4 w-4" />} title="View controls" description="Zoom, fit and reset" onClick={() => setPanel("controls")} />
             <ActionButton icon={<Settings className="h-4 w-4" />} title="Settings" description="Nexus interface settings" onClick={() => setPanel("settings")} />
           </div>
         </PanelFrame>
@@ -272,40 +300,42 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
         <PanelFrame title="ACTIVE PROJECT" onClose={closePanel}>
           <div className="px-4 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Project Worlds</div>
           <div className="grid gap-2 p-3">
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => {
-                  if (project.external && project.href) {
+            {projects.map((project) => {
+              const active = project.id === activeProjectId;
+              return (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => {
                     try { localStorage.setItem("nexus.activeProject", project.id); } catch { /* optional */ }
-                    window.location.assign(project.href);
-                    return;
-                  }
-                  try { localStorage.setItem("nexus.activeProject", project.id); } catch { /* optional */ }
-                  focusProject();
-                  window.dispatchEvent(new CustomEvent("nexus:project-change", { detail: { projectId: project.id, worldId: "dev" } }));
-                }}
-                className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/65 px-3 py-3 text-left hover:border-cyan-300/35 hover:bg-slate-900"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><FolderKanban className="h-5 w-5" /></span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block text-[13px]">{project.label}</strong>
-                  <small className="mt-0.5 block text-[10px] leading-snug text-slate-400">{project.description}</small>
-                </span>
-                {project.external ? <ExternalLink className="h-4 w-4 text-slate-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-              </button>
-            ))}
+                    if (active) {
+                      focusProject();
+                      return;
+                    }
+                    closePanel();
+                    navigate(project.href);
+                  }}
+                  className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 py-3 text-left ${active ? "border-cyan-300/35 bg-cyan-400/10" : "border-slate-700/60 bg-slate-900/65 hover:border-cyan-300/35 hover:bg-slate-900"}`}
+                >
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><FolderKanban className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block text-[13px]">{project.label}</strong>
+                    <small className="mt-0.5 block text-[10px] leading-snug text-slate-400">{project.description}</small>
+                  </span>
+                  {active ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <ExternalLink className="h-4 w-4 text-slate-500" />}
+                </button>
+              );
+            })}
           </div>
-          <p className="px-4 pb-4 text-[10px] leading-relaxed text-slate-500">Changing Project World changes project context while the Nexus shell remains the navigation model.</p>
+          <p className="px-4 pb-4 text-[10px] leading-relaxed text-slate-500">Changing Project World changes project data while retaining the same Nexus shell and Relationship Tree component.</p>
         </PanelFrame>
       )}
 
       {panel === "people" && (
         <PanelFrame title="PEOPLE" onClose={closePanel}>
-          <div className="px-4 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Riverside · Project people</div>
+          <div className="px-4 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{activeProject.label} · Project people</div>
           <div className="grid gap-2 p-3">
-            {people.map((person) => (
+            {people.length ? people.map((person) => (
               <div key={person.id} className="flex items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/65 px-3 py-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cyan-400/10 text-xs font-black text-cyan-300">{initials(person.label)}</span>
                 <span className="min-w-0 flex-1">
@@ -323,7 +353,11 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
                   In tree
                 </button>
               </div>
-            ))}
+            )) : (
+              <div className="rounded-2xl border border-slate-700/60 bg-slate-900/65 px-3 py-4 text-[10px] leading-relaxed text-slate-400">
+                No project-person records are registered in this Project World source model yet. Nexus does not substitute Riverside demo people into e-SAFE.
+              </div>
+            )}
           </div>
           <button type="button" onClick={() => openRoute("/people")} className="mx-3 mb-4 flex w-[calc(100%-24px)] items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-3 py-3 text-xs font-semibold text-slate-200">
             <UserRound className="h-4 w-4" /> Open People catalogue
@@ -337,7 +371,7 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
           <div className="grid gap-2 p-3">
             <ActionButton icon={<Upload className="h-4 w-4" />} title="Select project files" description="Choose local files for Nexus ingestion" onClick={() => fileInputRef.current?.click()} />
             <ActionButton icon={<FileStack className="h-4 w-4" />} title="Project files" description="Plans and controlled project documents" onClick={() => openRoute("/plans")} />
-            <ActionButton icon={<Clock3 className="h-4 w-4" />} title="Timeline" description="Project document and event chronology" onClick={() => openRoute("/timeline")} />
+            <ActionButton icon={<Clock3 className="h-4 w-4" />} title="Timeline" description="Project document and event chronology" onClick={() => onTimeClick ? onTimeClick() : openRoute("/timeline")} />
           </div>
           <div className="mx-3 mb-4 rounded-2xl border border-cyan-300/15 bg-cyan-400/5 px-3 py-3 text-[10px] leading-relaxed text-slate-400">
             {selectedFiles.length
@@ -356,9 +390,9 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
             <ActionButton icon={<RotateCcw className="h-4 w-4" />} title="Reset" description="Reset graph layout" onClick={() => dispatchGraphCommand("reset")} />
           </div>
           <div className="grid gap-2 p-3 pt-0">
-            <ActionButton icon={<Workflow className="h-4 w-4" />} title="Workflow" description="Open the existing workflow view" onClick={() => { dispatchGraphCommand("workflow"); closePanel(); }} />
+            {workflowEnabled && <ActionButton icon={<Workflow className="h-4 w-4" />} title="Workflow" description="Open the existing workflow view" onClick={() => { dispatchGraphCommand("workflow"); closePanel(); }} />}
             <div className="rounded-2xl border border-slate-700/60 bg-slate-900/65 px-3 py-3 text-[10px] text-slate-400">
-              Graph state: {Math.round((graphState.zoom ?? 0) * 100)}% · {graphState.mode ?? "map"} · selected {graphState.selectedId ?? PROJECT_ID}
+              Graph state: {Math.round((graphState.zoom ?? 0) * 100)}% · {graphState.mode ?? "map"} · selected {graphState.selectedId ?? projectNodeId}
             </div>
           </div>
         </PanelFrame>
@@ -369,7 +403,7 @@ export function NexusProjectShell({ children }: { children: ReactNode }) {
           <div className="grid gap-2 p-3">
             <ActionButton icon={<Settings className="h-4 w-4" />} title="Full settings" description="Open the existing Nexus Settings page" onClick={() => openRoute("/settings")} />
             <div className="rounded-2xl border border-slate-700/60 bg-slate-900/65 px-3 py-3 text-[10px] leading-relaxed text-slate-400">
-              This source-native shell deliberately keeps the Relationship Tree dark-theme baseline in this first reconciliation slice. The public wrapper's inversion-based light theme is not copied into product source.
+              This source-native shell deliberately keeps the Relationship Tree dark-theme baseline. Project World context changes data, not the shell implementation.
             </div>
           </div>
         </PanelFrame>
