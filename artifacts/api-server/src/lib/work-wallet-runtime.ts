@@ -6,6 +6,30 @@ export type WorkWalletRuntimeStatus = {
   gatewayConfigured: boolean;
   demoMode: boolean;
   storedEvents: number;
+  contextContract?: string;
+  serverNodeMappingConfigured?: boolean;
+};
+
+export type WorkWalletConnectorContext = {
+  schema: "nexus-work-wallet-context/v1";
+  sourceApplication: "WORK_WALLET";
+  projectId: string;
+  personId: string | null;
+  externalRecordReference: string;
+  selectedObjectType: string | null;
+  nexusNodeId: string | null;
+  contextSource: "CONNECTOR_VERIFIED_CONTEXT";
+  contextConfidence: number;
+  verifiedAt: string;
+  verificationSource: "WORK_WALLET" | "WORK_WALLET_DEMO";
+  developmentContext: boolean;
+  sourceEventId: string;
+};
+
+type ResolveStoredWorkWalletContextInput = {
+  source?: "WORK_WALLET" | "WORK_WALLET_DEMO";
+  projectId: string;
+  sourceRecord: string;
 };
 
 type WorkWalletRuntimeModule = {
@@ -15,6 +39,9 @@ type WorkWalletRuntimeModule = {
     url: URL,
   ) => Promise<boolean>;
   workWalletStatus: () => WorkWalletRuntimeStatus;
+  resolveStoredWorkWalletContext: (
+    input: ResolveStoredWorkWalletContextInput,
+  ) => WorkWalletConnectorContext | null;
 };
 
 let runtimeModulePromise: Promise<WorkWalletRuntimeModule> | null = null;
@@ -28,7 +55,8 @@ async function getWorkWalletRuntimeModule(): Promise<WorkWalletRuntimeModule> {
     runtimeModulePromise = import(runtimeModuleUrl()).then((module) => {
       if (
         typeof module.handleWorkWalletApi !== "function" ||
-        typeof module.workWalletStatus !== "function"
+        typeof module.workWalletStatus !== "function" ||
+        typeof module.resolveStoredWorkWalletContext !== "function"
       ) {
         throw new Error("Invalid Work Wallet runtime module contract");
       }
@@ -75,4 +103,11 @@ export async function workWalletRuntimeMiddleware(
 export async function getWorkWalletRuntimeStatus(): Promise<WorkWalletRuntimeStatus> {
   const runtime = await getWorkWalletRuntimeModule();
   return runtime.workWalletStatus();
+}
+
+export async function resolveWorkWalletConnectorContext(
+  input: ResolveStoredWorkWalletContextInput,
+): Promise<WorkWalletConnectorContext | null> {
+  const runtime = await getWorkWalletRuntimeModule();
+  return runtime.resolveStoredWorkWalletContext(input);
 }
