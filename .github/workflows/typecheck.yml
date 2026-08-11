@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate PKG-015/016/017 connector, ticket, identity, project and runtime boundaries
+      - name: Validate PKG-015/016/017 connector, ticket, CORS, identity, project and runtime boundaries
         run: |
           node scripts/src/validate-work-wallet-context.mjs
           node scripts/src/validate-nexus-browser-session.mjs
@@ -56,6 +56,7 @@ jobs:
           pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/validate-nexus-project-authorization.ts
           node scripts/src/validate-unified-nexus-runtime.mjs
           node scripts/src/validate-nexus-context-ticket.mjs
+          node scripts/src/validate-nexus-cors.mjs
 
       - name: Typecheck workspace
         run: pnpm run typecheck
@@ -107,6 +108,23 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:3000/api/healthz | grep '"status":"ok"' > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/ | grep '<div id="root"' > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/relationship-tree | grep '<div id="root"' > /dev/null
+
+          curl --silent --show-error --dump-header /tmp/cors-allowed.headers --output /dev/null \
+            --request OPTIONS \
+            --header 'Origin: chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type' \
+            http://127.0.0.1:3000/api/nexus/context-tickets/exchange
+          tr -d '\r' < /tmp/cors-allowed.headers | grep -F 'Access-Control-Allow-Origin: chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' > /dev/null
+          tr -d '\r' < /tmp/cors-allowed.headers | grep -F 'Access-Control-Allow-Credentials: true' > /dev/null
+
+          curl --silent --show-error --dump-header /tmp/cors-denied.headers --output /dev/null \
+            --request OPTIONS \
+            --header 'Origin: https://evil.example' \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type' \
+            http://127.0.0.1:3000/api/nexus/context-tickets/exchange || true
+          ! tr -d '\r' < /tmp/cors-denied.headers | grep -F 'Access-Control-Allow-Origin:' > /dev/null
 
           session_status=$(curl --silent --show-error --output /tmp/nexus-session.json --write-out '%{http_code}' \
             --cookie 'sid=ci-session-pkg016' \
