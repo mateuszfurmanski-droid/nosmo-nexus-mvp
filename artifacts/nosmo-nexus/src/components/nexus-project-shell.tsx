@@ -3,6 +3,8 @@ import { useLocation } from "wouter";
 import {
   BriefcaseBusiness,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock3,
   ExternalLink,
   FileStack,
@@ -24,10 +26,12 @@ import {
   Workflow,
   X,
 } from "lucide-react";
+import { tradeDefinitions, type TradeDefinition, type TradeTool } from "@/config/trades";
 import { NODES, PROJECT_ID, type WorkspaceNode } from "./workspace-data";
 
 type Panel = "menu" | "project" | "people" | "files" | "controls" | "settings" | null;
 type ProjectWorldId = "riverside" | "esafe";
+type ViewerRole = "manager" | "trade";
 
 type GraphCommand =
   | "focus-node"
@@ -54,6 +58,8 @@ export interface NexusProjectShellProps {
   timeActive?: boolean;
   timeSublabel?: string;
   workflowEnabled?: boolean;
+  viewerRole?: ViewerRole;
+  viewerTradeId?: string;
 }
 
 const projects = [
@@ -131,7 +137,7 @@ function PanelFrame({
   return (
     <aside
       data-control
-      className={`fixed bottom-2 top-[84px] z-[2050] w-[min(390px,calc(100vw-12px))] overflow-auto rounded-2xl border border-slate-700/70 bg-[#07131f]/98 text-slate-100 shadow-2xl backdrop-blur-xl sm:bottom-3 sm:top-[90px] ${
+      className={`fixed bottom-2 top-[84px] z-[2050] w-[min(410px,calc(100vw-12px))] overflow-auto rounded-2xl border border-slate-700/70 bg-[#07131f]/98 text-slate-100 shadow-2xl backdrop-blur-xl sm:bottom-3 sm:top-[90px] ${
         side === "left" ? "left-2 sm:left-3" : "right-2 sm:right-3"
       }`}
     >
@@ -172,6 +178,44 @@ function ActionButton({
   );
 }
 
+function TradeHeader({ trade, expanded, onClick }: { trade: TradeDefinition; expanded: boolean; onClick: () => void }) {
+  const Icon = trade.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left ${
+        expanded ? "border-cyan-300/35 bg-cyan-400/10" : "border-slate-700/60 bg-slate-900/65 hover:border-cyan-300/25"
+      }`}
+    >
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><Icon className="h-4 w-4" /></span>
+      <span className="min-w-0 flex-1">
+        <strong className="block truncate text-[12px]">{trade.name}</strong>
+        <small className="block truncate text-[9px] uppercase tracking-[0.06em] text-slate-500">{trade.status} · {trade.tools.length} tools</small>
+      </span>
+      {expanded ? <ChevronDown className="h-4 w-4 text-cyan-300" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+    </button>
+  );
+}
+
+function TradeToolButton({ tool, onClick }: { tool: TradeTool; onClick: () => void }) {
+  const Icon = tool.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-2.5 text-left hover:border-cyan-300/25"
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-cyan-400/10 text-cyan-300"><Icon className="h-4 w-4" /></span>
+      <span className="min-w-0 flex-1">
+        <strong className="block truncate text-[11px]">{tool.name}</strong>
+        <small className="block truncate text-[9px] text-slate-500">{tool.note}</small>
+      </span>
+      <span className="text-[8px] font-bold uppercase tracking-[0.05em] text-slate-500">{tool.status}</span>
+    </button>
+  );
+}
+
 export function NexusProjectShell({
   children,
   activeProjectId = "riverside",
@@ -181,11 +225,17 @@ export function NexusProjectShell({
   timeActive,
   timeSublabel,
   workflowEnabled = true,
+  viewerRole = "manager",
+  viewerTradeId,
 }: NexusProjectShellProps) {
   const [, navigate] = useLocation();
   const [panel, setPanel] = useState<Panel>(null);
   const [graphState, setGraphState] = useState<GraphState>({ timelineEnabled: false, selectedId: projectNodeId, mode: "map" });
+  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
+  const [expandedFileTradeId, setExpandedFileTradeId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFileTradeId, setSelectedFileTradeId] = useState<string | null>(null);
+  const pendingFileTradeId = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const people = useMemo(
@@ -193,6 +243,12 @@ export function NexusProjectShell({
     [peopleOverride],
   );
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? projects[0];
+  const activeTrade = tradeDefinitions.find((trade) => trade.id === viewerTradeId);
+  const isManager = viewerRole === "manager";
+  const visibleTrades = useMemo(
+    () => isManager ? tradeDefinitions : activeTrade ? [activeTrade] : [],
+    [activeTrade, isManager],
+  );
 
   useEffect(() => {
     setGraphState((current) => ({ ...current, selectedId: projectNodeId }));
@@ -220,11 +276,37 @@ export function NexusProjectShell({
     navigate(route);
   };
 
+  const openTradeTool = (tool: TradeTool) => {
+    closePanel();
+    if (tool.linkType === "internal") {
+      navigate(tool.href);
+      return;
+    }
+    if (tool.linkType === "external") {
+      window.open(tool.href, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.location.assign(tool.href);
+  };
+
+  const selectFilesForTrade = (tradeId: string | null) => {
+    pendingFileTradeId.current = tradeId;
+    fileInputRef.current?.click();
+  };
+
   const chooseFiles = (files: FileList | null) => {
     const next = Array.from(files ?? []);
+    const tradeId = pendingFileTradeId.current;
     setSelectedFiles(next);
-    window.dispatchEvent(new CustomEvent("nexus:file-upload-request", { detail: { files: next, projectId: projectNodeId, worldId: activeProjectId } }));
+    setSelectedFileTradeId(tradeId);
+    window.dispatchEvent(new CustomEvent("nexus:file-upload-request", {
+      detail: { files: next, projectId: projectNodeId, worldId: activeProjectId, tradeId },
+    }));
+    pendingFileTradeId.current = null;
   };
+
+  const menuSublabel = isManager ? "Manager" : activeTrade?.name ?? "Trade";
+  const filesSublabel = isManager ? "By trade" : activeTrade?.name ?? "Project docs";
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-background">
@@ -235,7 +317,7 @@ export function NexusProjectShell({
       >
         <TopTile
           label="Menu"
-          sublabel="Nexus"
+          sublabel={menuSublabel}
           active={panel === "menu"}
           icon={<Menu className="h-5 w-5" />}
           onClick={() => togglePanel("menu")}
@@ -260,7 +342,7 @@ export function NexusProjectShell({
         />
         <TopTile
           label="Files"
-          sublabel="Project docs"
+          sublabel={filesSublabel}
           active={panel === "files"}
           icon={<Files className="h-5 w-5" />}
           onClick={() => togglePanel("files")}
@@ -278,16 +360,64 @@ export function NexusProjectShell({
       )}
 
       {panel === "menu" && (
-        <PanelFrame title="NEXUS MENU" onClose={closePanel}>
+        <PanelFrame title={isManager ? "NEXUS · MANAGER" : `NEXUS · ${activeTrade?.name ?? "TRADE"}`} onClose={closePanel}>
+          <div className="m-3 mb-1 flex items-center gap-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/5 px-3 py-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><BriefcaseBusiness className="h-4 w-4" /></span>
+            <span className="min-w-0">
+              <strong className="block text-[12px]">{isManager ? "Manager view" : activeTrade?.name ?? "Trade view"}</strong>
+              <small className="block text-[9px] leading-snug text-slate-500">
+                {isManager ? "All project modules are available; Trades filters the same Nexus tools by profession." : "Only the modules relevant to this assigned project trade are exposed in this shell."}
+              </small>
+            </span>
+          </div>
+
           <div className="px-4 pb-1 pt-4 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Navigation</div>
           <div className="grid gap-2 p-3 pt-2">
             <ActionButton icon={<Home className="h-4 w-4" />} title="Home" description="Relationship Tree" onClick={focusProject} />
             <ActionButton icon={<FolderKanban className="h-4 w-4" />} title="Projects" description="Active project and Project Worlds" onClick={() => setPanel("project")} />
             <ActionButton icon={<Users className="h-4 w-4" />} title="People" description="Project people and Person Cards" onClick={() => setPanel("people")} />
-            <ActionButton icon={<BriefcaseBusiness className="h-4 w-4" />} title="Trades" description="Profession and trade tools" onClick={() => openRoute("/trades")} />
-            <ActionButton icon={<Grid3X3 className="h-4 w-4" />} title="Modules" description="Nexus workflow catalogue" onClick={() => openRoute("/modules")} />
+            {isManager && <ActionButton icon={<Grid3X3 className="h-4 w-4" />} title="All modules" description="Complete Nexus workflow catalogue" onClick={() => openRoute("/modules")} />}
             <ActionButton icon={<PlugZap className="h-4 w-4" />} title="Connections" description="External systems and integrations" onClick={() => openRoute("/integrations")} />
           </div>
+
+          <div className="px-4 pb-1 pt-2 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+            {isManager ? "Trades · project filter" : "Your trade tools"}
+          </div>
+          <div className="grid gap-2 p-3 pt-2">
+            {isManager ? visibleTrades.map((trade) => {
+              const expanded = expandedTradeId === trade.id;
+              return (
+                <div key={trade.id} className="grid gap-2">
+                  <TradeHeader trade={trade} expanded={expanded} onClick={() => setExpandedTradeId(expanded ? null : trade.id)} />
+                  {expanded && (
+                    <div className="ml-3 grid gap-1.5 border-l border-cyan-300/15 pl-3">
+                      {trade.tools.map((tool) => <TradeToolButton key={`${trade.id}-${tool.name}`} tool={tool} onClick={() => openTradeTool(tool)} />)}
+                      <button type="button" onClick={() => openRoute(`/trades/${trade.id}`)} className="rounded-xl border border-slate-800 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-cyan-300 hover:bg-slate-900">
+                        Open full {trade.name} workspace
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }) : activeTrade ? (
+              <>
+                <TradeHeader trade={activeTrade} expanded onClick={() => undefined} />
+                <div className="ml-3 grid gap-1.5 border-l border-cyan-300/15 pl-3">
+                  {activeTrade.tools.map((tool) => <TradeToolButton key={`${activeTrade.id}-${tool.name}`} tool={tool} onClick={() => openTradeTool(tool)} />)}
+                </div>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 px-3 py-3 text-[10px] leading-relaxed text-amber-200">
+                No project trade is assigned to this trade-view shell yet.
+              </div>
+            )}
+            {isManager && (
+              <button type="button" onClick={() => openRoute("/trades")} className="rounded-2xl border border-slate-700 bg-slate-900 px-3 py-3 text-[10px] font-semibold text-slate-300 hover:border-cyan-300/25">
+                Open full Trades catalogue
+              </button>
+            )}
+          </div>
+
           <div className="px-4 pb-1 pt-2 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">System</div>
           <div className="grid gap-2 p-3 pt-2">
             <ActionButton icon={<SlidersHorizontal className="h-4 w-4" />} title="View controls" description="Zoom, fit and reset" onClick={() => setPanel("controls")} />
@@ -366,17 +496,56 @@ export function NexusProjectShell({
       )}
 
       {panel === "files" && (
-        <PanelFrame title="FILES" side="right" onClose={closePanel}>
+        <PanelFrame title={isManager ? "FILES · BY TRADE" : `FILES · ${activeTrade?.name ?? "TRADE"}`} side="right" onClose={closePanel}>
           <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(event) => chooseFiles(event.currentTarget.files)} />
           <div className="grid gap-2 p-3">
-            <ActionButton icon={<Upload className="h-4 w-4" />} title="Select project files" description="Choose local files for Nexus ingestion" onClick={() => fileInputRef.current?.click()} />
-            <ActionButton icon={<FileStack className="h-4 w-4" />} title="Project files" description="Plans and controlled project documents" onClick={() => openRoute("/plans")} />
+            <ActionButton icon={<FileStack className="h-4 w-4" />} title="All project files" description="Plans and controlled project documents" onClick={() => openRoute("/plans")} />
             <ActionButton icon={<Clock3 className="h-4 w-4" />} title="Timeline" description="Project document and event chronology" onClick={() => onTimeClick ? onTimeClick() : openRoute("/timeline")} />
           </div>
+
+          <div className="px-4 pb-1 pt-2 text-[9px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
+            {isManager ? "Trade folders" : "Trade folder"}
+          </div>
+          <div className="grid gap-2 p-3 pt-2">
+            {visibleTrades.length ? visibleTrades.map((trade) => {
+              const expanded = !isManager || expandedFileTradeId === trade.id;
+              return (
+                <div key={trade.id} className="grid gap-2">
+                  <TradeHeader trade={trade} expanded={expanded} onClick={() => {
+                    if (isManager) setExpandedFileTradeId(expanded ? null : trade.id);
+                  }} />
+                  {expanded && (
+                    <div className="ml-3 grid grid-cols-2 gap-2 border-l border-cyan-300/15 pl-3">
+                      <button
+                        type="button"
+                        onClick={() => selectFilesForTrade(trade.id)}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-400/5 px-2 py-2.5 text-[9px] font-bold uppercase tracking-[0.06em] text-cyan-200"
+                      >
+                        <Upload className="h-3.5 w-3.5" /> Add files
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openRoute(`/trades/${trade.id}`)}
+                        className="rounded-xl border border-slate-800 bg-slate-950/55 px-2 py-2.5 text-[9px] font-bold uppercase tracking-[0.06em] text-slate-300"
+                      >
+                        Trade workspace
+                      </button>
+                      <div className="col-span-2 rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-[9px] leading-relaxed text-slate-500">
+                        Folder context: {trade.name}. File storage and registry remain owned by Nexus File Loader; this shell supplies project + trade context to ingestion.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }) : (
+              <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 px-3 py-3 text-[10px] text-amber-200">No trade context is assigned yet.</div>
+            )}
+          </div>
+
           <div className="mx-3 mb-4 rounded-2xl border border-cyan-300/15 bg-cyan-400/5 px-3 py-3 text-[10px] leading-relaxed text-slate-400">
             {selectedFiles.length
-              ? `${selectedFiles.length} local file${selectedFiles.length === 1 ? "" : "s"} selected. The shell has emitted the Nexus file-ingestion request; storage/upload remains owned by the File Loader service.`
-              : "No local files selected. File storage and registry remain owned by the Nexus File Loader service rather than the Relationship Tree UI."}
+              ? `${selectedFiles.length} local file${selectedFiles.length === 1 ? "" : "s"} selected${selectedFileTradeId ? ` for ${tradeDefinitions.find((trade) => trade.id === selectedFileTradeId)?.name ?? selectedFileTradeId}` : ""}. The shell emitted project + trade ingestion context; actual storage/upload remains owned by the File Loader service.`
+              : "No local files selected. Manager files are organised as trade folders in navigation without inventing a duplicate document database inside Relationship Tree."}
           </div>
         </PanelFrame>
       )}
@@ -403,7 +572,7 @@ export function NexusProjectShell({
           <div className="grid gap-2 p-3">
             <ActionButton icon={<Settings className="h-4 w-4" />} title="Full settings" description="Open the existing Nexus Settings page" onClick={() => openRoute("/settings")} />
             <div className="rounded-2xl border border-slate-700/60 bg-slate-900/65 px-3 py-3 text-[10px] leading-relaxed text-slate-400">
-              This source-native shell deliberately keeps the Relationship Tree dark-theme baseline. Project World context changes data, not the shell implementation.
+              Role-aware navigation changes visibility only. Production authority still belongs to the project-role permission resolver; hiding a menu entry is not treated as an access-control boundary.
             </div>
           </div>
         </PanelFrame>
