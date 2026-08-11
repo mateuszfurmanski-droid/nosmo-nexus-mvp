@@ -20,6 +20,7 @@ import {
   compareIfcRevisionProperties,
   compareIfcRevisionStructure,
   type IfcRevisionComparison,
+  type IfcRevisionReviewState,
 } from "@/bim/ifc-revision-intelligence";
 
 type Props = {
@@ -27,6 +28,8 @@ type Props = {
   mapping?: IfcGuidMapping;
   pilot: InstallationPilot;
 };
+
+const MAX_REVISION_PAIR_BYTES = 80 * 1024 * 1024;
 
 function bytesLabel(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,14 +57,14 @@ async function readIfcFile(file: File): Promise<IfcLocalModelSession> {
   };
 }
 
-function stateStyle(state: IfcRevisionComparison["reviewState"]) {
+function stateStyle(state: IfcRevisionReviewState) {
   if (state === "NO_CHANGE_DETECTED") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
   if (state === "COMPARISON_BLOCKED") return "border-red-400/30 bg-red-400/10 text-red-200";
   return "border-amber-400/30 bg-amber-400/10 text-amber-200";
 }
 
-function stateLabel(state: IfcRevisionComparison["reviewState"]) {
-  return state.replaceAll("_", " ");
+function stateLabel(state: IfcRevisionReviewState) {
+  return state.replace(/_/g, " ");
 }
 
 export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }: Props) {
@@ -79,6 +82,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
     return compareIfcRevisionStructure(baselineSession, currentSession, mapping.ifcGlobalId);
   }, [baselineSession, currentHasMappedGuid, currentSession, mapping]);
   const comparison = deepComparison ?? structural;
+  const propertyDiffRead = Boolean(deepComparison?.propertyDiffRead);
   const impact = useMemo(
     () => comparison ? buildIfcRevisionImpact(pilot, comparison) : [],
     [comparison, pilot],
@@ -99,9 +103,14 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
       return;
     }
     if (file.size > MAX_LOCAL_IFC_BYTES) {
-      setError(`Comparison file exceeds the ${bytesLabel(MAX_LOCAL_IFC_BYTES)} mobile-safe limit.`);
+      setError(`Comparison file exceeds the ${bytesLabel(MAX_LOCAL_IFC_BYTES)} single-file limit.`);
       return;
     }
+    if (file.size + currentSession.fileSize > MAX_REVISION_PAIR_BYTES) {
+      setError(`The two active IFC revisions would exceed the ${bytesLabel(MAX_REVISION_PAIR_BYTES)} mobile comparison limit. Use smaller discipline models for this review.`);
+      return;
+    }
+
     setReadingFile(true);
     try {
       setBaselineSession(await readIfcFile(file));
@@ -144,7 +153,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
             </div>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            Compare the active IFC against an earlier local IFC using the stable GlobalId as the object anchor. STEP IDs may change between exports and are never treated as persistent identity. Results are review intelligence only: no task, readiness, inspection or evidence state is changed automatically.
+            Compare the active IFC against an earlier local IFC using GlobalId as the object anchor. STEP IDs may change between exports and are not persistent identity. The result is review intelligence only: Nexus does not automatically change task, readiness, material, inspection, evidence or as-built state.
           </p>
         </div>
         <span className="rounded-full border border-orange-400/25 bg-orange-400/10 px-3 py-1.5 text-[10px] font-bold text-orange-200">SESSION-ONLY DIFF</span>
@@ -191,6 +200,8 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
             </div>
           </div>
 
+          <p className="mt-3 text-[9px] leading-relaxed text-muted-foreground">Mobile guard: the two retained IFC text sessions are limited to {bytesLabel(MAX_REVISION_PAIR_BYTES)} combined. Deep WASM property reads are performed sequentially so both models are not open in WASM memory at the same time.</p>
+
           {error && (
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-400/25 bg-red-400/10 p-3 text-xs text-red-100">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
@@ -208,7 +219,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="rounded-xl border border-border bg-card/45 px-3 py-2"><p className="text-[8px] uppercase text-muted-foreground">Project lineage</p><p className="mt-1 text-[10px] font-semibold">{comparison.sameProject === true ? "MATCH" : comparison.sameProject === false ? "MISMATCH" : "UNKNOWN"}</p></div>
-                  <div className="rounded-xl border border-border bg-card/45 px-3 py-2"><p className="text-[8px] uppercase text-muted-foreground">Object fields</p><p className="mt-1 text-[10px] font-semibold">{comparison.changes.length} changes</p></div>
+                  <div className="rounded-xl border border-border bg-card/45 px-3 py-2"><p className="text-[8px] uppercase text-muted-foreground">Source changes</p><p className="mt-1 text-[10px] font-semibold">{comparison.changes.length}</p></div>
                   <div className="rounded-xl border border-border bg-card/45 px-3 py-2"><p className="text-[8px] uppercase text-muted-foreground">Project objects +</p><p className="mt-1 text-[10px] font-semibold">{comparison.addedObjectCount}</p></div>
                   <div className="rounded-xl border border-border bg-card/45 px-3 py-2"><p className="text-[8px] uppercase text-muted-foreground">Project objects −</p><p className="mt-1 text-[10px] font-semibold">{comparison.removedObjectCount}</p></div>
                 </div>
@@ -220,12 +231,12 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
                 </div>
               )}
 
-              {structural && structural.reviewState !== "COMPARISON_BLOCKED" && !comparison.propertyDiffRead && (
+              {structural && structural.reviewState !== "COMPARISON_BLOCKED" && !propertyDiffRead && (
                 <div className="mt-4 rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/5 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold text-fuchsia-100">Deep source-property diff</p>
-                      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Read item fields, Psets, type properties and materials from both local files through the Full WASM source reader. This may load the pinned development runtime if it is not already present.</p>
+                      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Compare item fields, Psets, type properties and materials from both local files through the Full WASM source reader.</p>
                     </div>
                     <button type="button" onClick={runDeepComparison} disabled={comparing} className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold text-fuchsia-100 disabled:opacity-50">
                       {comparing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDiff className="h-4 w-4" />}
@@ -235,7 +246,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
                 </div>
               )}
 
-              {comparison.propertyDiffRead && (
+              {propertyDiffRead && (
                 <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-[10px] text-emerald-100">
                   <CheckCircle2 className="h-4 w-4" /> Source-property diff loaded for both IFC revisions in this browser session.
                 </div>
@@ -266,7 +277,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
               {impact.length > 0 && (
                 <div className="mt-4 rounded-2xl border border-orange-400/20 bg-orange-400/5 p-4">
                   <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-orange-200">Nexus operational impact preview</p>
-                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">These are review targets derived from existing Project Graph relationships. They are not automatic state mutations.</p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Review targets come from existing Nexus object relationships. They are not automatic state mutations.</p>
                   <div className="mt-3 grid gap-2 md:grid-cols-2">
                     {impact.map((item) => (
                       <div key={item.kind} className="rounded-xl border border-border bg-background/40 p-3">
@@ -281,7 +292,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
               )}
 
               <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
-                Project-wide added/removed GlobalId counts are context only and do not prove that those objects affect this work package. Geometry movement, coordinate deltas and design intent still require an authorised model comparison workflow before Nexus can treat them as verified changes.
+                Project-wide added/removed GlobalId counts are context only. Geometry movement, coordinate deltas and design intent still require an authorised model-comparison workflow before Nexus can treat them as verified design changes.
               </p>
             </>
           )}
