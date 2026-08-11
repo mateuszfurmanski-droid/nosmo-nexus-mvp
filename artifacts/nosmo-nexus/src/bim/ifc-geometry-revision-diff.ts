@@ -45,7 +45,7 @@ export type IfcGeometryRevisionDiff = {
   warnings: string[];
 };
 
-type WebIfcVector<T> = { size(): number; get(index: number): T };
+type WebIfcVector<T> = { size(): number; get(index: number): T; delete?: () => void };
 type PlacedGeometry = { geometryExpressID: number; flatTransformation: number[] };
 type FlatMesh = { expressID: number; geometries: WebIfcVector<PlacedGeometry>; delete?: () => void };
 type GeometryHandle = {
@@ -57,7 +57,7 @@ type GeometryHandle = {
 };
 
 type GeometryDiffApi = WebIfcApi & {
-  LoadAllGeometry(modelID: number): unknown;
+  LoadAllGeometry(modelID: number): WebIfcVector<FlatMesh>;
   GetCoordinationMatrix(modelID: number): number[];
   GetExpressIdFromGuid(modelID: number, guid: string): string | number | undefined;
   GetFlatMesh(modelID: number, expressID: number): FlatMesh;
@@ -150,9 +150,11 @@ export async function loadIfcObjectGeometrySnapshot(
     modelID = api.OpenModel(new TextEncoder().encode(session.text));
     if (modelID < 0) throw new Error("web-ifc could not open this IFC revision for geometry comparison.");
 
-    // web-ifc documents LoadAllGeometry before coordination-matrix retrieval.
-    api.LoadAllGeometry(modelID);
+    // Upstream web-ifc documents LoadAllGeometry before coordination-matrix retrieval.
+    const loadedGeometry = api.LoadAllGeometry(modelID);
     const coordinationMatrix = api.GetCoordinationMatrix(modelID);
+    loadedGeometry.delete?.();
+
     const expressID = numberFromExpressId(api.GetExpressIdFromGuid(modelID, globalId));
     if (expressID === undefined) throw new Error(`GlobalId ${globalId} has no express ID in ${session.fileName}.`);
 
