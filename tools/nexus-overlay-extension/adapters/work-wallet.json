@@ -9,7 +9,7 @@
   "context_detectors": ["URL_PATH_ONLY", "USER_CONFIRMATION"],
   "deep_link_templates": {
     "relationship_tree": "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree",
-    "connector_status": "https://nosmotechnology.co.uk/apps/nexus/?module=safety"
+    "connector_status": "https://nosmotechnology.co.uk/apps/nexus/safety-connector"
   },
   "connector_id": "work-wallet-safety-connector-demo",
   "read_capabilities": ["CURRENT_URL_ONLY"],
@@ -34,5 +34,5 @@
   "vendor_approval": "NOT_CLAIMED",
   "external_capability_label": "DEVELOPMENT_PROTOTYPE_NOT_VENDOR_APPROVED_NO_LIVE_WORK_WALLET_API",
   "adapter_version": "0.1.0",
-  "last_reviewed_at": "2026-08-07"
+  "last_reviewed_at": "2026-08-11"
 }
