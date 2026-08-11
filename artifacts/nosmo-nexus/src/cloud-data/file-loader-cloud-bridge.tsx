@@ -23,6 +23,7 @@ import {
   type NexusFileUploadRequestDetailBase,
   type NexusQueuedUploadRecord,
 } from "./offline-upload-queue";
+import { resolveFileLoaderCloudRoute } from "./file-loader-drive-routing";
 import { createNexusStorageProvider } from "./storage-provider-resolver";
 import type { NexusStorageProvider } from "./storage-provider";
 
@@ -34,50 +35,21 @@ const ASSET_UPLOAD_QUEUED_EVENT = "nexus:asset-upload-queued";
 const PROJECT_REGISTRY_REFRESH_EVENT = "nexus:project-registry-refresh";
 
 type ExplicitUploadTarget = NexusFileUploadExplicitTarget;
-
-type FileUploadRequestDetail = NexusFileUploadRequestDetailBase & {
-  files?: File[];
-};
-
-type GraphStateDetail = {
-  selectedId?: string;
-};
-
-type UploadableFile = {
-  content: Blob;
-  name: string;
-  type: string;
-  size: number;
-  lastModified?: number;
-};
-
-type UploadResult = {
-  asset: NexusAsset;
-  links: NexusAssetLink[];
-};
+type FileUploadRequestDetail = NexusFileUploadRequestDetailBase & { files?: File[] };
+type GraphStateDetail = { selectedId?: string };
+type UploadableFile = { content: Blob; name: string; type: string; size: number; lastModified?: number };
+type UploadResult = { asset: NexusAsset; links: NexusAssetLink[] };
 
 function isFileArray(value: unknown): value is File[] {
   return Array.isArray(value) && typeof File !== "undefined" && value.every((item) => item instanceof File);
 }
 
 function toUploadableFile(file: File): UploadableFile {
-  return {
-    content: file,
-    name: file.name,
-    type: file.type || "application/octet-stream",
-    size: file.size,
-    lastModified: file.lastModified,
-  };
+  return { content: file, name: file.name, type: file.type || "application/octet-stream", size: file.size, lastModified: file.lastModified };
 }
 
 function toUploadableQueuedFile(record: NexusQueuedUploadRecord): UploadableFile {
-  return {
-    content: record.content,
-    name: record.file.name,
-    type: record.file.type || "application/octet-stream",
-    size: record.file.size,
-    lastModified: record.file.lastModified,
-  };
+  return { content: record.content, name: record.file.name, type: record.file.type || "application/octet-stream", size: record.file.size, lastModified: record.file.lastModified };
 }
 
 function isBrowserOnline() {
@@ -105,10 +77,7 @@ function createLinks(
   createdByPersonId: string,
   createdAt: string,
 ): NexusAssetLink[] {
-  const rawTargets: ExplicitUploadTarget[] = [
-    { targetType: "project", targetId: projectId },
-  ];
-
+  const rawTargets: ExplicitUploadTarget[] = [{ targetType: "project", targetId: projectId }];
   if (detail.tradeId) rawTargets.push({ targetType: "trade", targetId: detail.tradeId });
   if (detail.target) rawTargets.push(detail.target);
   if (detail.taskId) rawTargets.push({ targetType: "task", targetId: detail.taskId });
@@ -116,29 +85,26 @@ function createLinks(
   if (detail.inspectionId) rawTargets.push({ targetType: "inspection", targetId: detail.inspectionId });
   if (detail.personId) rawTargets.push({ targetType: "person", targetId: detail.personId });
   if (detail.workPackageId) rawTargets.push({ targetType: "work_package", targetId: detail.workPackageId });
-
   const inferred = inferSelectedTarget(selectedId, projectId);
   if (inferred) rawTargets.push(inferred);
 
   const seen = new Set<string>();
-  return rawTargets
-    .filter((target) => {
-      const key = `${target.targetType}:${target.targetId}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map((target) => ({
-      linkId: createNexusAssetLinkId(assetId, target.targetType, target.targetId),
-      assetId,
-      projectId,
-      targetType: target.targetType,
-      targetId: target.targetId,
-      role: target.targetType === "project" ? "primary_project_media" : "reference",
-      sourceModule,
-      createdByPersonId,
-      createdAt,
-    }));
+  return rawTargets.filter((target) => {
+    const key = `${target.targetType}:${target.targetId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map((target) => ({
+    linkId: createNexusAssetLinkId(assetId, target.targetType, target.targetId),
+    assetId,
+    projectId,
+    targetType: target.targetType,
+    targetId: target.targetId,
+    role: target.targetType === "project" ? "primary_project_media" : "reference",
+    sourceModule,
+    createdByPersonId,
+    createdAt,
+  }));
 }
 
 function dispatchUploadFailure(filename: string, message: string) {
@@ -146,14 +112,7 @@ function dispatchUploadFailure(filename: string, message: string) {
 }
 
 function dispatchUploadQueued(record: NexusQueuedUploadRecord) {
-  window.dispatchEvent(new CustomEvent(ASSET_UPLOAD_QUEUED_EVENT, {
-    detail: {
-      filename: record.file.name,
-      projectId: record.projectId,
-      queueItemId: record.queueItemId,
-      attempts: record.attempts,
-    },
-  }));
+  window.dispatchEvent(new CustomEvent(ASSET_UPLOAD_QUEUED_EVENT, { detail: { filename: record.file.name, projectId: record.projectId, queueItemId: record.queueItemId, attempts: record.attempts } }));
 }
 
 async function uploadToNexusCloudDataLayer(
@@ -163,6 +122,11 @@ async function uploadToNexusCloudDataLayer(
   selectedId: string | undefined,
 ): Promise<UploadResult> {
   const projectId = detail.projectId;
+
+  // Re-check on every online write and offline replay. A stale queue item cannot
+  // bypass the canonical project/world boundary after reconnect.
+  resolveFileLoaderCloudRoute(projectId, detail.worldId);
+
   const sourceModule = detail.sourceModule ?? "file-loader";
   const uploadedByPersonId = detail.uploadedByPersonId ?? DEMO_UPLOADER_PERSON_ID;
   const participation = createDemoManagerParticipation(uploadedByPersonId, projectId);
@@ -180,11 +144,10 @@ async function uploadToNexusCloudDataLayer(
     targetType: "project",
     targetId: projectId,
   });
-
   if (!permission.allowed) throw new Error(permission.reason);
 
   const stored = await provider.putObject({
-    scope: { projectId, assetId, fileId },
+    scope: { projectId, worldId: detail.worldId, assetId, fileId },
     objectKey,
     content: file.content,
     filename: file.name,
@@ -193,16 +156,7 @@ async function uploadToNexusCloudDataLayer(
     checksum,
   });
 
-  const links = createLinks(
-    detail,
-    assetId,
-    sourceModule,
-    projectId,
-    selectedId,
-    uploadedByPersonId,
-    now,
-  );
-
+  const links = createLinks(detail, assetId, sourceModule, projectId, selectedId, uploadedByPersonId, now);
   const asset: NexusAsset = {
     assetId,
     projectId,
@@ -256,30 +210,22 @@ export function NexusFileLoaderCloudBridge() {
     const handleGraphState = (event: Event) => {
       selectedNodeRef.current = (event as CustomEvent<GraphStateDetail>).detail?.selectedId;
     };
-
     window.addEventListener("nexus:graph-state", handleGraphState as EventListener);
     return () => window.removeEventListener("nexus:graph-state", handleGraphState as EventListener);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-
     const drainOfflineQueue = async () => {
       if (cancelled || drainingQueueRef.current || !isBrowserOnline()) return;
       drainingQueueRef.current = true;
-
       try {
         const queued = await readPendingNexusOfflineUploads();
         for (const record of queued) {
           if (cancelled || !isBrowserOnline()) return;
           await markNexusOfflineUploadUploading(record.queueItemId);
           try {
-            const result = await uploadToNexusCloudDataLayer(
-              provider,
-              record.detail,
-              toUploadableQueuedFile(record),
-              record.selectedNodeId,
-            );
+            const result = await uploadToNexusCloudDataLayer(provider, record.detail, toUploadableQueuedFile(record), record.selectedNodeId);
             await markNexusOfflineUploadSynced(record.queueItemId, result.asset.assetId);
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown Nexus offline upload sync failure.";
@@ -291,14 +237,9 @@ export function NexusFileLoaderCloudBridge() {
         drainingQueueRef.current = false;
       }
     };
-
-    const onOnline = () => {
-      void drainOfflineQueue();
-    };
-
+    const onOnline = () => void drainOfflineQueue();
     window.addEventListener("online", onOnline);
     void drainOfflineQueue();
-
     return () => {
       cancelled = true;
       window.removeEventListener("online", onOnline);
@@ -310,14 +251,19 @@ export function NexusFileLoaderCloudBridge() {
       const detail = (event as CustomEvent<FileUploadRequestDetail>).detail ?? {};
       const projectId = detail.projectId;
       const files = detail.files;
-
       if (!projectId || !isFileArray(files) || files.length === 0) return;
 
-      const uploadDetail: NexusFileUploadRequestDetailBase & { projectId: string } = {
-        ...detail,
-        projectId,
-      };
+      const uploadDetail: NexusFileUploadRequestDetailBase & { projectId: string } = { ...detail, projectId };
       delete (uploadDetail as FileUploadRequestDetail).files;
+
+      // Validate before queue creation as well as before every provider write.
+      try {
+        resolveFileLoaderCloudRoute(projectId, uploadDetail.worldId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Nexus Cloud project/world routing failed.";
+        for (const file of files) dispatchUploadFailure(file.name, message);
+        return;
+      }
 
       for (const file of files) {
         if (!isBrowserOnline()) {
@@ -329,7 +275,6 @@ export function NexusFileLoaderCloudBridge() {
           }
           continue;
         }
-
         try {
           await uploadToNexusCloudDataLayer(provider, uploadDetail, toUploadableFile(file), selectedNodeRef.current);
         } catch (error) {
@@ -337,7 +282,6 @@ export function NexusFileLoaderCloudBridge() {
         }
       }
     };
-
     window.addEventListener(FILE_UPLOAD_REQUEST_EVENT, handleUploadRequest as EventListener);
     return () => window.removeEventListener(FILE_UPLOAD_REQUEST_EVENT, handleUploadRequest as EventListener);
   }, [provider]);
