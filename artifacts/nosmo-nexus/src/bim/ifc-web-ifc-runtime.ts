@@ -30,7 +30,15 @@ type WebIfcGeometry = {
   delete?: () => void;
 };
 
-type WebIfcApi = {
+export type WebIfcPropertiesApi = {
+  getItemProperties(modelID: number, id: number, recursive?: boolean, inverse?: boolean): Promise<Record<string, unknown> | undefined>;
+  getPropertySets(modelID: number, elementID?: number, recursive?: boolean, includeTypeProperties?: boolean): Promise<Record<string, unknown>[]>;
+  getTypeProperties(modelID: number, elementID?: number, recursive?: boolean): Promise<Record<string, unknown>[]>;
+  getMaterialsProperties(modelID: number, elementID?: number, recursive?: boolean, includeTypeMaterials?: boolean): Promise<Record<string, unknown>[]>;
+};
+
+export type WebIfcApi = {
+  properties: WebIfcPropertiesApi;
   Init(locateFile?: (path: string, prefix?: string) => string, forceSingleThread?: boolean): Promise<void>;
   OpenModel(data: Uint8Array): number;
   CloseModel(modelID: number): void;
@@ -45,7 +53,7 @@ type WebIfcApi = {
   GetNameFromTypeCode(type: number): string;
 };
 
-type WebIfcGlobal = {
+export type WebIfcGlobal = {
   IfcAPI: new () => WebIfcApi;
 };
 
@@ -64,7 +72,7 @@ function scalarValue(value: unknown) {
   return typeof candidate.value === "string" ? candidate.value : undefined;
 }
 
-function ensureWebIfcRuntime() {
+export function ensureWebIfcRuntime() {
   if (typeof window === "undefined") return Promise.reject(new Error("web-ifc requires a browser runtime."));
   if (window.WebIFC?.IfcAPI) return Promise.resolve(window.WebIFC);
   if (runtimePromise) return runtimePromise;
