@@ -11,6 +11,7 @@ import notesRouter from "./notes";
 import searchRouter from "./search";
 import conversationsRouter from "./conversations";
 import filesRouter from "./files";
+import nexusCloudRouter from "./nexus-cloud";
 import { requireWorkspace } from "../middlewares/requireWorkspace";
 
 const router: IRouter = Router();
@@ -33,5 +34,6 @@ router.use(aiRouter);
 router.use(notesRouter);
 router.use(searchRouter);
 router.use(conversationsRouter);
+router.use(nexusCloudRouter);
 
 export default router;
