@@ -1,28 +1,38 @@
-# NOSMO Nexus Overlay Prototype — PKG-013
+# NOSMO Nexus Overlay Prototype — PKG-013 + PKG-015 bridge
 
 Status: **DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API**
 
-This folder contains the isolated Chrome / Edge Manifest V3 prototype of the reusable NOSMO Nexus Overlay Runtime. Work Wallet is the first adapter.
+This folder contains the Chrome / Edge Manifest V3 NOSMO Nexus Overlay Runtime. Work Wallet is the first external adapter. PKG-015 adds a development-safe connector-originated Context Packet on top of the PKG-013 overlay without turning the browser extension into a holder of server credentials.
 
 ## Security / external boundary
 
-Approved prototype host:
+The Work Wallet content script still injects only on:
 
 ```text
 https://portal.work-wallet.com/*
 ```
 
-Requested permissions:
+Extension API permission remains:
 
 ```text
-permission: storage
-host: https://portal.work-wallet.com/*
+storage
 ```
+
+Exact host permissions used by PKG-015 are:
+
+```text
+https://portal.work-wallet.com/*
+https://nosmotechnology.co.uk/*
+http://127.0.0.1:3000/*
+```
+
+The two Nexus hosts are for service-worker connector fetches. They do not receive content-script injection.
 
 The prototype has:
 
-- no Work Wallet API key;
-- no live Work Wallet sync;
+- no Work Wallet API key in the browser;
+- no server-to-server integration key in extension source, storage or URL;
+- no live Work Wallet customer sync claim;
 - no Work Wallet write capability;
 - no password, cookie or bearer-token capture;
 - no request interception;
@@ -42,19 +52,19 @@ Work Wallet remains source-of-record for its formal safety/compliance records.
 - SPA route-continuity watcher;
 - safe URL/path-only external-page hints;
 - local non-vendor Work Wallet mock;
-- project/person/task/document context display;
 - Project Tree, People, Tasks, Plans, Communication, External Tools, Integrations and Connector Status launch surfaces;
 - Call / SMS / WhatsApp / Gmail / Teams launch-only strip;
 - local-only Supply Request drafts;
-- adapter enable/disable state;
-- minimal local diagnostics;
 - Work Wallet → Relationship Tree focused handoff;
 - exact user-confirmed Work Wallet record → Nexus node mapping registry;
-- dependency-free validators.
+- PKG-015 service-worker connector-context client;
+- visible `DEMO / CONNECTOR VERIFIED` state;
+- connector provenance fields (`contextSchema`, `verificationSource`, `verifiedAt`, `sourceEventId`);
+- dependency-free package and behavioural validators.
 
 ## Relationship Tree handoff
 
-PKG-014 consumes the controlled launch contract:
+PKG-014 consumes:
 
 ```text
 /relationship-tree?nexusSource=work-wallet&nexusFocus=<NEXUS_NODE_ID>
@@ -68,9 +78,7 @@ nexusNodeId
 
 A Work Wallet external record ID is never automatically treated as a Nexus node ID.
 
-### Synthetic mock mappings
-
-Only the local development mock has automatic mappings:
+Synthetic mock mappings remain explicit:
 
 ```text
 project | halifax-demo      -> proj
@@ -78,11 +86,47 @@ person  | person-demo-001   -> p-mateusz
 job     | JOB-01            -> t-install
 ```
 
-Permit, Audit and Risk mock records deliberately fall back to the generic Relationship Tree unless an explicit local mapping is added.
+Permit, Audit and Risk mock records fall back to the generic Relationship Tree unless an explicit local mapping or Nexus connector mapping exists.
+
+## Connector-verified development context
+
+PKG-015 uses the existing Nexus Work Wallet gateway rather than a second connector.
+
+Development flow:
+
+```text
+local Work Wallet mock
+-> extension service worker
+-> Nexus demo event endpoint
+-> Nexus server normalises/stores event
+-> Nexus server returns nexus-work-wallet-context/v1
+-> Overlay stores CONNECTOR_VERIFIED_CONTEXT
+-> sidecar shows DEMO / CONNECTOR VERIFIED
+-> server-owned nexusNodeId may drive PKG-014 focus
+```
+
+The connector response is deliberately minimal. It carries project/person/reference/object/navigation provenance but not event `title` or `detail`.
+
+`DEMO / CONNECTOR VERIFIED` means the Nexus connector accepted and normalised a **synthetic development event**. It is not a claim that a live Work Wallet customer record was vendor-verified.
+
+The server-to-server inbound integration key is never used by the extension. Production browser verification requires a separate authenticated Nexus session, short-lived context ticket, or equivalent approved partner/OAuth mechanism.
+
+## Connector API target
+
+Options exposes only two controlled development targets:
+
+```text
+http://127.0.0.1:3000
+https://nosmotechnology.co.uk
+```
+
+The local server is the default. There is no arbitrary connector URL field and no integration-key field.
+
+The public host option is only useful once that deployment exposes the matching Nexus connector API. Do not infer public deployment from the presence of the option.
 
 ## Explicit local Work Wallet record mapping
 
-Extension Options contains an optional exact mapping registry for an authorised real Work Wallet route before an official connector supplies verified mapping data.
+The PKG-013 fallback registry remains available when connector context is unavailable.
 
 Contract:
 
@@ -110,17 +154,21 @@ Rules:
 
 ## Account-free local mock
 
-A Work Wallet account is not required for UI/runtime development.
+A Work Wallet account is not required for development testing.
 
-1. Load the extension unpacked.
-2. Open extension Options.
-3. Click `Open local Work Wallet mock`.
-4. Use Dashboard, People, Jobs, Permits, Audits and Risk.
-5. Seed the Halifax demo context.
-6. Open the Nexus sidecar.
-7. Verify `DEMO / LOCAL CONTEXT`.
-8. Test Project Tree, communication launch actions, Supply Request and Connector Status.
-9. Disable/re-enable the overlay and verify the mock remains operational.
+1. Start a local Nexus server on port 3000 when connector verification is required.
+2. Load the extension unpacked.
+3. Open extension Options.
+4. Keep `Local Nexus server — http://127.0.0.1:3000` selected.
+5. Click `Open local Work Wallet mock`.
+6. Use Dashboard, People, Jobs, Permits, Audits and Risk.
+7. Seed the Halifax demo context.
+8. Open the Nexus sidecar and confirm `DEMO / LOCAL CONTEXT`.
+9. Click `Verify via Nexus Connector`.
+10. When the local Nexus API is available, confirm `DEMO / CONNECTOR VERIFIED`.
+11. On Jobs / `JOB-01`, Project Tree may use server-owned `t-install` focus.
+12. On an unmapped Permit/Audit/Risk record, connector verification remains valid but Project Tree falls back to the generic tree.
+13. Change route and confirm the prior record's verified state is not carried to the new record before re-verification.
 
 The mock is an extension-owned test harness. It is **not Work Wallet** and contains only synthetic data.
 
@@ -140,24 +188,31 @@ Edge:
 3. Choose `Load unpacked`.
 4. Select `tools/nexus-overlay-extension`.
 
-Confirm site access remains limited to `portal.work-wallet.com`.
+Review the exact site-access list before testing.
 
 ## Validation
 
-Primary validator:
+Primary overlay validator:
 
 ```bash
 node tools/nexus-overlay-extension/tests/validate-extension.mjs
 ```
 
-It performs static package-contract checks and invokes:
+It invokes:
 
 ```bash
 node tools/nexus-overlay-extension/tests/validate-tree-handoff.mjs
 node tools/nexus-overlay-extension/tests/validate-record-mapping.mjs
+node tools/nexus-overlay-extension/tests/validate-connector-context.mjs
 ```
 
-The behavioural validators check focused Tree URLs, safe fallback, exact record mapping, cross-project/type/application isolation, unsafe ID rejection and mapping removal.
+Server connector context validator:
+
+```bash
+node scripts/src/validate-work-wallet-context.mjs
+```
+
+PKG-015 GitHub Actions runs both validators from a complete checkout before workspace typecheck/build and then exercises demo and protected Work Wallet context endpoints with synthetic CI data.
 
 ## Real Work Wallet smoke test — still required
 
@@ -167,18 +222,18 @@ Using an authorised Work Wallet session:
 2. Open/close the sidecar without changing Work Wallet state.
 3. Navigate normal portal routes and verify no duplicate overlay appears.
 4. Confirm URL-only page hints are not labelled connector-verified.
-5. Add an exact local external-reference → Nexus-node mapping in Options.
-6. Open that exact Work Wallet record route.
-7. Confirm Project Tree opens the expected `nexusFocus` target.
-8. Navigate to another record and verify stale focus is not reused.
-9. Disable/re-enable the overlay.
-10. Confirm no Work Wallet form is submitted.
+5. Confirm the extension never requests or stores the server-to-server integration key.
+6. Use exact local mapping only where explicitly configured.
+7. Navigate to another record and verify stale focus is not reused.
+8. Disable/re-enable the overlay.
+9. Confirm no Work Wallet form is submitted.
 
-Chrome and Edge visual smoke tests remain required before merge review.
+Real portal `CONNECTOR VERIFIED` is deliberately out of scope until browser authentication/ticketing is implemented. Chrome and Edge visual smoke tests remain required before merge review.
 
 ## Current limitations
 
 - no vendor-approved/live Work Wallet API integration;
+- no production browser authentication/ticket for connector context;
 - no production rollout;
 - no automatic mapping from arbitrary Work Wallet IDs to Nexus nodes;
 - no Gmail/Teams OAuth or automatic message sending;
@@ -188,10 +243,10 @@ Chrome and Edge visual smoke tests remain required before merge review.
 
 ## Package boundary
 
-PKG-013 may modify only:
+PKG-013 extension work remains inside:
 
 ```text
 tools/nexus-overlay-extension/**
 ```
 
-Any required change outside this folder is a separate controlled package / decision.
+PKG-015 additionally changes the existing Nexus Work Wallet server boundary and CI under its own controlled package. It does not modify WorkSuite, e-SAFE Project World, Cloud Data Layer, Relationship Tree gesture algorithms, DoorFlow or Electrical Commissioning.
