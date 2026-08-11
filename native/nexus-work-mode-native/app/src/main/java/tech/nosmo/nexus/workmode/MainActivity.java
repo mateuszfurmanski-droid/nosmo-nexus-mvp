@@ -9,6 +9,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CalendarContract;
@@ -16,6 +18,7 @@ import android.provider.ContactsContract;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.view.Gravity;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
@@ -35,12 +38,15 @@ public class MainActivity extends Activity {
     private static final int REQ_WORK_FOLDER = 101;
     private static final int REQ_PHOTOS = 102;
 
-    private static final int BG = Color.rgb(3, 4, 7);
-    private static final int GOLD = Color.rgb(245, 196, 0);
-    private static final int TEXT = Color.rgb(238, 242, 247);
-    private static final int MUTED = Color.rgb(164, 176, 190);
-    private static final int GREEN = Color.rgb(72, 232, 185);
-    private static final int PANEL = Color.rgb(20, 25, 31);
+    private static final int BG = Color.rgb(4, 12, 28);
+    private static final int PANEL = Color.rgb(9, 27, 55);
+    private static final int PANEL_SOFT = Color.rgb(12, 38, 76);
+    private static final int BLUE = Color.rgb(38, 132, 255);
+    private static final int BLUE_DARK = Color.rgb(18, 82, 168);
+    private static final int CYAN = Color.rgb(78, 203, 255);
+    private static final int TEXT = Color.rgb(235, 246, 255);
+    private static final int MUTED = Color.rgb(153, 181, 213);
+    private static final int GREEN = Color.rgb(62, 226, 167);
 
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
     private static final String DOORFLOW_URL = "https://nosmotechnology.co.uk/doorflow.html";
@@ -90,7 +96,7 @@ public class MainActivity extends Activity {
         addTitle(root, "AI Work Mode");
         addBody(root,
                 "NEXUS prepares an AI-ready work context from Android sources you approve. Start with contacts and calendar, then add a project folder or selected work photos.");
-        addStatus(root, "AI CONTEXT READY", GREEN);
+        addStatus(root, "BLUE NEXUS · AI CONTEXT READY", CYAN);
 
         Button start = primaryButton("Start discovery");
         start.setOnClickListener(v -> startDiscovery());
@@ -373,7 +379,7 @@ public class MainActivity extends Activity {
         addBody(root, signals.isEmpty()
                 ? "No strong work signals found yet. Add a project folder or selected photos."
                 : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work. Nexus AI will receive a bounded handoff packet, not raw phone data.");
-        addStatus(root, selectedCount() + " SELECTED", GREEN);
+        addStatus(root, selectedCount() + " SELECTED", CYAN);
 
         Button folder = secondaryButton("+ Add / scan work folder");
         folder.setOnClickListener(v -> chooseWorkFolder());
@@ -452,7 +458,7 @@ public class MainActivity extends Activity {
         LinearLayout root = page();
         addBrand(root);
         addTitle(root, "AI WORK MODE");
-        addStatus(root, "AI READY", GREEN);
+        addStatus(root, "BLUE NEXUS · AI READY", CYAN);
 
         String project = prefs.getString("activeProject", "Unassigned work");
         int accepted = prefs.getInt("acceptedSignals", 0);
@@ -496,7 +502,7 @@ public class MainActivity extends Activity {
         });
         root.addView(off, fullWidth(dp(54)));
 
-        addSmall(root, "Native Android beta 0.5.2-ai · this app prepares the AI context packet. Nexus web/backend owns the model call and must enforce project permissions.");
+        addSmall(root, "Native Android beta 0.5.3-blue · blue Nexus visual system · AI context packet prepared locally. Nexus web/backend owns the model call and must enforce project permissions.");
         setPage(root);
     }
 
@@ -531,10 +537,11 @@ public class MainActivity extends Activity {
     }
 
     private String doorflowUrl() {
+        String project = prefs == null ? "Unassigned work" : prefs.getString("activeProject", "Unassigned work");
         return Uri.parse(DOORFLOW_URL).buildUpon()
                 .appendQueryParameter("nexusMode", "work")
                 .appendQueryParameter("nexusClient", "android-native")
-                .appendQueryParameter("nexusProject", slug(prefs.getString("activeProject", "Unassigned work")))
+                .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
                 .build()
                 .toString();
@@ -547,6 +554,7 @@ public class MainActivity extends Activity {
     private String aiContextPacket(String project, int accepted) {
         return "version=" + AI_CONTEXT_VERSION +
                 "; client=android-native" +
+                "; theme=blue-nexus" +
                 "; project=" + slug(project) +
                 "; acceptedSignals=" + accepted +
                 "; signalTypes=" + sourceBreakdown() +
@@ -613,58 +621,43 @@ public class MainActivity extends Activity {
         int shown = 0;
         for (Signal signal : signals) {
             if (!signal.selected) continue;
-            if (shown >= 6) break;
-            if (out.length() > 0) out.append("\n");
-            out.append(signal.summary());
+            if (shown > 0) out.append("\n");
+            out.append("• ").append(signal.summary());
             shown++;
+            if (shown >= 6) break;
         }
-        int more = selectedCount() - shown;
-        if (more > 0) out.append("\n+").append(more).append(" more approved signals");
+        int remaining = selectedCount() - shown;
+        if (remaining > 0) out.append("\n+ ").append(remaining).append(" more approved signals");
         return out.toString();
     }
 
-    private int workScore(String raw) {
-        if (raw == null) return 0;
-        String text = raw.toLowerCase(Locale.UK);
-        String[] strong = new String[]{
-                "construction", "site", "joiner", "carpenter", "electric", "plumb", "manager",
-                "project", "supervisor", "foreman", "contractor", "engineer", "architect", "fire door",
-                "doorflow", "bim", "fabstation", "work wallet", "snag", "inspection", "induction",
-                "tesco", "halifax", "lloyds", "dormy", "optimal", "nosmo", "nexus"
-        };
-        String[] medium = new String[]{
-                "build", "floor", "room", "drawing", "plan", "schedule", "handover", "qa", "commission",
-                "hvac", "mechanical", "drylin", "ceiling", "steel", "concrete", "permit", "delivery"
-        };
+    private int workScore(String value) {
+        String s = value == null ? "" : value.toLowerCase(Locale.UK);
         int score = 0;
-        for (String keyword : strong) if (text.contains(keyword)) score += 28;
-        for (String keyword : medium) if (text.contains(keyword)) score += 15;
-        return Math.min(99, score);
+        String[] strong = new String[]{"nosmo", "nexus", "halifax", "tesco", "riverside", "lloyds", "doorflow", "fabstation", "work wallet", "workwallet", "procore", "autodesk"};
+        String[] construction = new String[]{"site", "project", "construction", "joiner", "carpenter", "manager", "supervisor", "bim", "ifc", "drawing", "floor", "room", "inspection", "snag", "handover", "commissioning", "fire", "door", "electrical", "hvac", "mep", "ceiling", "drywall", "drylining", "qa", "qc", "rfi", "programme", "schedule"};
+        for (String token : strong) if (s.contains(token)) score += 35;
+        for (String token : construction) if (s.contains(token)) score += 16;
+        if (s.endsWith(".pdf") || s.endsWith(".xlsx") || s.endsWith(".xls") || s.endsWith(".docx") || s.endsWith(".pptx") || s.endsWith(".ifc") || s.endsWith(".dwg")) score += 25;
+        return Math.min(score, 99);
     }
 
     private boolean likelyWorkFile(String name) {
-        String lower = name.toLowerCase(Locale.UK);
-        String[] extensions = new String[]{
-                ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".ppt", ".pptx",
-                ".dwg", ".dxf", ".ifc", ".rvt", ".nwd", ".nwc", ".zip", ".txt",
-                ".jpg", ".jpeg", ".png", ".heic"
-        };
-        for (String ext : extensions) if (lower.endsWith(ext)) return true;
-        return workScore(lower) >= 45;
-    }
-
-    private String value(Cursor cursor, int index) {
-        if (index < 0 || cursor.isNull(index)) return "";
-        String value = cursor.getString(index);
-        return value == null ? "" : value.trim();
+        String n = name == null ? "" : name.toLowerCase(Locale.UK);
+        if (n.endsWith(".pdf") || n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".docx") || n.endsWith(".pptx") || n.endsWith(".ifc") || n.endsWith(".dwg") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png")) {
+            return true;
+        }
+        return workScore(n) >= 45;
     }
 
     private String joinNonEmpty(String... values) {
         StringBuilder out = new StringBuilder();
         for (String value : values) {
-            if (value == null || value.trim().isEmpty()) continue;
+            if (value == null) continue;
+            String clean = value.trim();
+            if (clean.isEmpty()) continue;
             if (out.length() > 0) out.append(" · ");
-            out.append(value.trim());
+            out.append(clean);
         }
         return out.toString();
     }
@@ -680,146 +673,167 @@ public class MainActivity extends Activity {
         if (value == null) return "";
         String clean = value.trim();
         if (clean.length() <= max) return clean;
-        return clean.substring(0, max - 1) + "…";
+        return clean.substring(0, Math.max(0, max - 1)) + "…";
+    }
+
+    private String value(Cursor cursor, int index) {
+        if (cursor == null || index < 0) return "";
+        try {
+            String value = cursor.getString(index);
+            return value == null ? "" : value;
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     private String slug(String value) {
         String clean = value == null ? "unassigned-work" : value.toLowerCase(Locale.UK);
-        clean = clean.replaceAll("[^a-z0-9]+", "-");
-        clean = clean.replaceAll("(^-+|-+$)", "");
+        clean = clean.replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
         return clean.isEmpty() ? "unassigned-work" : clean;
-    }
-
-    private void openUrl(String url) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (Exception e) {
-            Toast.makeText(this, "No browser available", Toast.LENGTH_SHORT).show();
-        }
     }
 
     private LinearLayout page() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(22), dp(34), dp(22), dp(42));
+        root.setPadding(dp(18), dp(18), dp(18), dp(28));
         root.setBackgroundColor(BG);
         return root;
     }
 
-    private void setPage(LinearLayout content) {
+    private void setPage(LinearLayout root) {
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
+        scroll.setFillViewport(false);
         scroll.setBackgroundColor(BG);
-        scroll.addView(content, new ScrollView.LayoutParams(
+        scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
         setContentView(scroll);
     }
 
     private void addBrand(LinearLayout root) {
-        TextView view = new TextView(this);
-        view.setText("NEXUS");
-        view.setTextColor(GOLD);
-        view.setTextSize(18);
-        view.setGravity(Gravity.CENTER);
-        view.setLetterSpacing(0.18f);
-        view.setTypeface(null, 1);
-        root.addView(view, fullWidth(dp(46)));
+        TextView brand = new TextView(this);
+        brand.setText("NEXUS");
+        brand.setTextColor(CYAN);
+        brand.setTextSize(15);
+        brand.setTypeface(Typeface.DEFAULT_BOLD);
+        brand.setLetterSpacing(0.22f);
+        brand.setGravity(Gravity.CENTER_VERTICAL);
+        brand.setPadding(dp(14), dp(10), dp(14), dp(10));
+        GradientDrawable bg = rounded(PANEL_SOFT, dp(18), BLUE_DARK, 1);
+        brand.setBackground(bg);
+        LinearLayout.LayoutParams lp = fullWidth(dp(44));
+        lp.setMargins(0, 0, 0, dp(18));
+        root.addView(brand, lp);
     }
 
     private void addTitle(LinearLayout root, String text) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(TEXT);
-        view.setTextSize(30);
-        view.setGravity(Gravity.CENTER);
-        view.setTypeface(null, 1);
-        root.addView(view, wrapHeightWithMargins(dp(8), dp(12)));
+        TextView title = new TextView(this);
+        title.setText(text);
+        title.setTextColor(TEXT);
+        title.setTextSize(28);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setPadding(0, 0, 0, dp(10));
+        root.addView(title, wrapHeight());
     }
 
     private void addBody(LinearLayout root, String text) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(MUTED);
-        view.setTextSize(16);
-        view.setGravity(Gravity.CENTER);
-        view.setLineSpacing(0f, 1.2f);
-        root.addView(view, wrapHeightWithMargins(dp(8), dp(18)));
-    }
-
-    private void addSection(LinearLayout root, String text) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(GOLD);
-        view.setTextSize(13);
-        view.setTypeface(null, 1);
-        view.setLetterSpacing(0.08f);
-        root.addView(view, wrapHeightWithMargins(dp(18), dp(8)));
+        TextView body = new TextView(this);
+        body.setText(text);
+        body.setTextColor(MUTED);
+        body.setTextSize(15);
+        body.setLineSpacing(dp(2), 1.05f);
+        body.setPadding(0, 0, 0, dp(14));
+        root.addView(body, wrapHeight());
     }
 
     private void addStatus(LinearLayout root, String text, int color) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(color);
-        view.setTextSize(15);
-        view.setGravity(Gravity.CENTER);
-        view.setTypeface(null, 1);
-        root.addView(view, fullWidth(dp(54)));
+        TextView status = new TextView(this);
+        status.setText(text);
+        status.setTextColor(color);
+        status.setTextSize(12);
+        status.setTypeface(Typeface.DEFAULT_BOLD);
+        status.setPadding(dp(12), dp(8), dp(12), dp(8));
+        status.setBackground(rounded(Color.rgb(6, 33, 66), dp(16), BLUE_DARK, 1));
+        LinearLayout.LayoutParams lp = fullWidth(dp(40));
+        lp.setMargins(0, 0, 0, dp(14));
+        root.addView(status, lp);
+    }
+
+    private void addSection(LinearLayout root, String text) {
+        TextView section = new TextView(this);
+        section.setText(text);
+        section.setTextColor(CYAN);
+        section.setTextSize(12);
+        section.setTypeface(Typeface.DEFAULT_BOLD);
+        section.setLetterSpacing(0.08f);
+        section.setPadding(0, dp(16), 0, dp(8));
+        root.addView(section, wrapHeight());
     }
 
     private void addSmall(LinearLayout root, String text) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(Color.rgb(112, 126, 142));
-        view.setTextSize(12);
-        view.setGravity(Gravity.CENTER);
-        view.setLineSpacing(0f, 1.15f);
-        root.addView(view, wrapHeightWithMargins(dp(18), dp(8)));
+        TextView small = new TextView(this);
+        small.setText(text);
+        small.setTextColor(MUTED);
+        small.setTextSize(12);
+        small.setLineSpacing(dp(2), 1.05f);
+        small.setPadding(0, dp(8), 0, dp(12));
+        root.addView(small, wrapHeight());
     }
 
     private Button primaryButton(String text) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setTextColor(BG);
-        button.setTextSize(14);
-        button.setTypeface(null, 1);
-        button.setBackgroundColor(GOLD);
-        button.setAllCaps(false);
-        return button;
+        return button(text, true);
     }
 
     private Button secondaryButton(String text) {
+        return button(text, false);
+    }
+
+    private Button button(String text, boolean primary) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextColor(TEXT);
-        button.setTextSize(14);
-        button.setTypeface(null, 1);
-        button.setBackgroundColor(PANEL);
         button.setAllCaps(false);
+        button.setTextSize(15);
+        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setTextColor(primary ? Color.WHITE : TEXT);
+        int fill = primary ? BLUE : PANEL;
+        int stroke = primary ? CYAN : BLUE_DARK;
+        button.setBackground(rounded(fill, dp(18), stroke, 1));
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(12), 0, dp(12), 0);
         return button;
     }
 
+    private GradientDrawable rounded(int fill, int radius, int strokeColor, int strokeWidth) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fill);
+        drawable.setCornerRadius(radius);
+        drawable.setStroke(dp(strokeWidth), strokeColor);
+        return drawable;
+    }
+
     private LinearLayout.LayoutParams fullWidth(int height) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, height);
-        params.setMargins(0, dp(7), 0, dp(7));
-        return params;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                height);
+        lp.setMargins(0, dp(6), 0, dp(8));
+        return lp;
     }
 
     private LinearLayout.LayoutParams wrapHeight() {
         return new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-    }
-
-    private LinearLayout.LayoutParams wrapHeightWithMargins(int top, int bottom) {
-        LinearLayout.LayoutParams params = wrapHeight();
-        params.setMargins(0, top, 0, bottom);
-        return params;
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception ex) {
+            Toast.makeText(this, "Cannot open Nexus link", Toast.LENGTH_SHORT).show();
+        }
     }
 }
