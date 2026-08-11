@@ -1,0 +1,11 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [CoordinationView_V2.0]'),'2;1');
+FILE_NAME('nexus_smoke_electrical.ifc','2026-08-11T12:55:00',('NOSMO Nexus'),('NOSMO'),'Synthetic smoke fixture','NOSMO Nexus','');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+#1=IFCPROJECT('0PROJECTSMOKE000000001',$,'NOSMO Nexus Synthetic IFC Smoke Project',$,$,$,$,$,$);
+#10=IFCCABLECARRIERSEGMENT('0CABLETRAYSMOKE0000001',$,'Nexus Smoke Cable Tray','Synthetic IFC smoke fixture for PR validation',$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;
