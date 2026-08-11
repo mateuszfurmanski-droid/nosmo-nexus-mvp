@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 jobs:
-  android-debug-apk:
+  android-release-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -35,7 +35,7 @@ jobs:
           node-version: '20'
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -77,8 +77,6 @@ jobs:
               return result
 
           mark = logo_with_transparency(source)
-
-          # Standard Android launcher icon: official NEXUS logo unchanged, only scaled and placed.
           size = 1024
           base = Image.new('RGBA', (size, size), '#030407')
           glow = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -87,27 +85,19 @@ jobs:
           draw.ellipse((160, 10, 864, 714), fill=(245, 196, 0, 24))
           glow = glow.filter(ImageFilter.GaussianBlur(110))
           base = Image.alpha_composite(base, glow)
-
           logo = mark.copy()
           logo.thumbnail((850, 410), Image.Resampling.LANCZOS)
-          x = (size - logo.width) // 2
-          y = (size - logo.height) // 2
-          base.alpha_composite(logo, (x, y))
-
+          base.alpha_composite(logo, ((size - logo.width)//2, (size - logo.height)//2))
           border = Image.new('RGBA', (size, size), (0, 0, 0, 0))
           bd = ImageDraw.Draw(border)
           bd.rounded_rectangle((26, 26, 998, 998), radius=220, outline=(255, 255, 255, 30), width=4)
           bd.rounded_rectangle((38, 38, 986, 986), radius=210, outline=(245, 196, 0, 28), width=2)
-          base = Image.alpha_composite(base, border)
-          base.save(out / 'icon.png')
+          Image.alpha_composite(base, border).save(out / 'icon.png')
 
-          # Adaptive foreground: preserve the same official logo, with generous safe-zone padding.
           foreground = Image.new('RGBA', (size, size), (0, 0, 0, 0))
           adaptive = mark.copy()
           adaptive.thumbnail((650, 320), Image.Resampling.LANCZOS)
-          ax = (size - adaptive.width) // 2
-          ay = (size - adaptive.height) // 2
-          foreground.alpha_composite(adaptive, (ax, ay))
+          foreground.alpha_composite(adaptive, ((size-adaptive.width)//2, (size-adaptive.height)//2))
           foreground.save(out / 'adaptive-icon.png')
           PY
 
@@ -115,21 +105,27 @@ jobs:
         working-directory: native/nexus-work-mode
         run: npx expo prebuild --platform android --clean
 
-      - name: Build ARM64 debug APK
+      - name: Build standalone ARM64 release APK
         working-directory: native/nexus-work-mode/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      - name: Verify release APK exists
+        run: |
+          test -f native/nexus-work-mode/android/app/build/outputs/apk/release/app-release.apk
+          ls -lh native/nexus-work-mode/android/app/build/outputs/apk/release/app-release.apk
 
       - name: Stage APK
         run: |
           mkdir -p android-builds
-          cp native/nexus-work-mode/android/app/build/outputs/apk/debug/app-debug.apk android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk
-          sha256sum android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk > android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256
+          cp native/nexus-work-mode/android/app/build/outputs/apk/release/app-release.apk android-builds/NEXUS-Work-Mode-arm64-release.apk
+          sha256sum android-builds/NEXUS-Work-Mode-arm64-release.apk > android-builds/NEXUS-Work-Mode-arm64-release.apk.sha256
           {
             echo "NEXUS Work Mode"
             echo "Brand: official NOSMO NEXUS logo"
-            echo "Build: Android ARM64 debug APK"
+            echo "Build: standalone Android ARM64 RELEASE APK"
+            echo "JavaScript bundle: embedded in release build"
             echo "Source: $GITHUB_SHA"
             echo "Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           } > android-builds/BUILD_INFO.txt
@@ -137,15 +133,15 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NOSMO-Nexus-Work-Mode-APK
+          name: NEXUS-Work-Mode-Release-APK
           path: |
-            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk
-            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256
+            android-builds/NEXUS-Work-Mode-arm64-release.apk
+            android-builds/NEXUS-Work-Mode-arm64-release.apk.sha256
             android-builds/BUILD_INFO.txt
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish APK and official launcher assets to branch when permitted
+      - name: Publish release APK and launcher assets to branch when permitted
         continue-on-error: true
         run: |
           git config user.name "nosmo-automation"
@@ -153,12 +149,12 @@ jobs:
           git add \
             native/nexus-work-mode/assets/icon.png \
             native/nexus-work-mode/assets/adaptive-icon.png \
-            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk \
-            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256 \
+            android-builds/NEXUS-Work-Mode-arm64-release.apk \
+            android-builds/NEXUS-Work-Mode-arm64-release.apk.sha256 \
             android-builds/BUILD_INFO.txt
           if git diff --cached --quiet; then
-            echo "APK and branding outputs unchanged"
+            echo "Release APK output unchanged"
             exit 0
           fi
-          git commit -m "Publish branded Nexus Work Mode Android build"
+          git commit -m "Publish standalone Nexus Work Mode release APK"
           git push origin HEAD:agent/android-work-mode-native
