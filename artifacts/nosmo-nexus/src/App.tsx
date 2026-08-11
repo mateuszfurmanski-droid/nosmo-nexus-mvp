@@ -6,6 +6,9 @@ import { AppLayout } from "@/components/layout";
 import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
+import { NexusFileLoaderCloudBridge } from "@/cloud-data/file-loader-cloud-bridge";
+import { NexusWorkModeAiHandoffReceiver } from "@/cloud-data/work-mode-ai-handoff-receiver";
+import { NexusWorkSuiteDraftActionInbox } from "@/cloud-data/worksuite-draft-action-inbox";
 
 // Pages
 import NexusLaunchpad from "@/pages/nexus-launchpad";
@@ -104,6 +107,9 @@ function App() {
         <FocusProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <AvailabilityProvider>
+              <NexusFileLoaderCloudBridge />
+              <NexusWorkModeAiHandoffReceiver />
+              <NexusWorkSuiteDraftActionInbox />
               <Router />
             </AvailabilityProvider>
           </WouterRouter>
