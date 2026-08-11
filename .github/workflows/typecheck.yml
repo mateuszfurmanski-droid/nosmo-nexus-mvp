@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate Work Wallet connector and overlay contracts
+        run: |
+          node scripts/src/validate-work-wallet-context.mjs
+          node tools/nexus-overlay-extension/tests/validate-extension.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
@@ -45,6 +50,8 @@ jobs:
         env:
           PORT: 3000
           WORK_WALLET_DEMO_MODE: "true"
+          NEXUS_INTEGRATION_KEY: "ci-work-wallet-key"
+          WORK_WALLET_NEXUS_NODE_MAP_JSON: '{"halifax-demo|PER-201":"t-fire"}'
         run: |
           pnpm --filter @workspace/scripts serve-nexus > /tmp/nexus-server.log 2>&1 &
           server_pid=$!
@@ -69,37 +76,85 @@ jobs:
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/integrations/work-wallet/status \
-            | grep '"demoMode":true' > /dev/null
+            | tee /tmp/work-wallet-status.json \
+            | grep '"contextContract":"nexus-work-wallet-context/v1"' > /dev/null
+          grep '"demoMode":true' /tmp/work-wallet-status.json > /dev/null
+          grep '"gatewayConfigured":true' /tmp/work-wallet-status.json > /dev/null
 
-          cat > /tmp/work-wallet-event.json <<'JSON'
+          cat > /tmp/work-wallet-demo-event.json <<'JSON'
           {
-            "id": "ci-work-wallet-event-001",
-            "eventType": "INDUCTION_COMPLETED",
-            "projectId": "HALIFAX-DEMO",
-            "personId": "p2",
-            "sourceRecord": "WW-IND-CI-001",
-            "title": "Site induction completed",
-            "detail": "Synthetic CI event"
+            "id": "ci-work-wallet-demo-job-001",
+            "eventType": "ASSET_INSPECTION_COMPLETED",
+            "projectId": "halifax-demo",
+            "sourceRecord": "JOB-01",
+            "sourceObjectType": "job",
+            "title": "Synthetic job event",
+            "detail": "Synthetic CI detail must not enter connector context"
           }
           JSON
 
           first_status=$(curl --silent --show-error --output /tmp/first-event.json --write-out '%{http_code}' \
             --header 'Content-Type: application/json' \
-            --data @/tmp/work-wallet-event.json \
+            --data @/tmp/work-wallet-demo-event.json \
             http://127.0.0.1:3000/api/integrations/work-wallet/demo-events)
           test "$first_status" = "202"
           grep '"status":"accepted"' /tmp/first-event.json > /dev/null
 
           duplicate_status=$(curl --silent --show-error --output /tmp/duplicate-event.json --write-out '%{http_code}' \
             --header 'Content-Type: application/json' \
-            --data @/tmp/work-wallet-event.json \
+            --data @/tmp/work-wallet-demo-event.json \
             http://127.0.0.1:3000/api/integrations/work-wallet/demo-events)
           test "$duplicate_status" = "200"
           grep '"status":"duplicate"' /tmp/duplicate-event.json > /dev/null
 
           curl --fail --silent --show-error \
-            http://127.0.0.1:3000/api/integrations/work-wallet/demo-events \
-            | grep 'ci-work-wallet-event-001' > /dev/null
+            'http://127.0.0.1:3000/api/integrations/work-wallet/demo-context?projectId=halifax-demo&sourceRecord=JOB-01' \
+            > /tmp/demo-context.json
+          grep '"schema":"nexus-work-wallet-context/v1"' /tmp/demo-context.json > /dev/null
+          grep '"contextSource":"CONNECTOR_VERIFIED_CONTEXT"' /tmp/demo-context.json > /dev/null
+          grep '"verificationSource":"WORK_WALLET_DEMO"' /tmp/demo-context.json > /dev/null
+          grep '"developmentContext":true' /tmp/demo-context.json > /dev/null
+          grep '"nexusNodeId":"t-install"' /tmp/demo-context.json > /dev/null
+          if grep -q '"detail"' /tmp/demo-context.json; then exit 1; fi
+          if grep -q '"title"' /tmp/demo-context.json; then exit 1; fi
+
+          unknown_status=$(curl --silent --show-error --output /tmp/unknown-context.json --write-out '%{http_code}' \
+            'http://127.0.0.1:3000/api/integrations/work-wallet/demo-context?projectId=halifax-demo&sourceRecord=NO-SUCH-RECORD')
+          test "$unknown_status" = "404"
+          grep '"error":"CONTEXT_NOT_FOUND"' /tmp/unknown-context.json > /dev/null
+
+          unauthorised_status=$(curl --silent --show-error --output /tmp/unauthorised-context.json --write-out '%{http_code}' \
+            'http://127.0.0.1:3000/api/integrations/work-wallet/context?projectId=halifax-demo&sourceRecord=PER-201')
+          test "$unauthorised_status" = "401"
+          grep '"error":"UNAUTHORISED"' /tmp/unauthorised-context.json > /dev/null
+
+          cat > /tmp/work-wallet-live-event.json <<'JSON'
+          {
+            "id": "ci-work-wallet-live-permit-001",
+            "eventType": "PERMIT_RENEWED",
+            "projectId": "halifax-demo",
+            "sourceRecord": "PER-201",
+            "sourceObjectType": "permit",
+            "title": "Synthetic protected permit event",
+            "detail": "Synthetic protected CI detail"
+          }
+          JSON
+
+          live_status=$(curl --silent --show-error --output /tmp/live-event.json --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --header 'X-Nexus-Integration-Key: ci-work-wallet-key' \
+            --data @/tmp/work-wallet-live-event.json \
+            http://127.0.0.1:3000/api/integrations/work-wallet/events)
+          test "$live_status" = "202"
+
+          curl --fail --silent --show-error \
+            --header 'X-Nexus-Integration-Key: ci-work-wallet-key' \
+            'http://127.0.0.1:3000/api/integrations/work-wallet/context?projectId=halifax-demo&sourceRecord=PER-201' \
+            > /tmp/live-context.json
+          grep '"verificationSource":"WORK_WALLET"' /tmp/live-context.json > /dev/null
+          grep '"developmentContext":false' /tmp/live-context.json > /dev/null
+          grep '"nexusNodeId":"t-fire"' /tmp/live-context.json > /dev/null
+          if grep -q '"detail"' /tmp/live-context.json; then exit 1; fi
 
       - name: Upload Nexus build
         uses: actions/upload-artifact@v4
