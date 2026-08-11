@@ -9,6 +9,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import type { InstallationPilot } from "@/bim/installation-pilots";
+import type { IfcGeometryRevisionDiff } from "@/bim/ifc-geometry-revision-diff";
 import {
   MAX_LOCAL_IFC_BYTES,
   parseIfcStep,
@@ -23,6 +24,7 @@ import {
   type IfcRevisionReviewState,
 } from "@/bim/ifc-revision-intelligence";
 import { IfcGeometryRevisionDiffPanel } from "@/components/ifc-geometry-revision-diff-panel";
+import { NexusChangeControlPanel } from "@/components/nexus-change-control-panel";
 
 type Props = {
   currentSession: IfcLocalModelSession;
@@ -71,6 +73,7 @@ function stateLabel(state: IfcRevisionReviewState) {
 export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }: Props) {
   const [baselineSession, setBaselineSession] = useState<IfcLocalModelSession | null>(null);
   const [deepComparison, setDeepComparison] = useState<IfcRevisionComparison | null>(null);
+  const [geometryDiff, setGeometryDiff] = useState<IfcGeometryRevisionDiff | null>(null);
   const [readingFile, setReadingFile] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +94,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
 
   useEffect(() => {
     setDeepComparison(null);
+    setGeometryDiff(null);
   }, [baselineSession, currentSession, mapping?.ifcGlobalId]);
 
   async function loadBaseline(event: ChangeEvent<HTMLInputElement>) {
@@ -99,6 +103,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
     if (!file) return;
     setError(null);
     setDeepComparison(null);
+    setGeometryDiff(null);
     if (!file.name.toLowerCase().endsWith(".ifc")) {
       setError("Select a plain STEP IFC file with the .ifc extension.");
       return;
@@ -298,11 +303,24 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
                   currentSession={currentSession}
                   globalId={mapping.ifcGlobalId}
                   pilot={pilot}
+                  onResultChange={setGeometryDiff}
+                />
+              )}
+
+              {baselineSession && (
+                <NexusChangeControlPanel
+                  baselineSession={baselineSession}
+                  currentSession={currentSession}
+                  globalId={mapping.ifcGlobalId}
+                  pilot={pilot}
+                  comparison={comparison}
+                  impact={impact}
+                  geometryDiff={geometryDiff}
                 />
               )}
 
               <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
-                Project-wide added/removed GlobalId counts are context only. Geometry/coordinate output remains model-space review intelligence until checked against the authorised project coordinate/survey basis and trusted BIM viewer.
+                Project-wide added/removed GlobalId counts are context only. Geometry/coordinate output remains model-space review intelligence until checked against the authorised project coordinate/survey basis and trusted BIM viewer. Change Control records a human decision preview; graph/timeline persistence is a separate authorised stage.
               </p>
             </>
           )}
