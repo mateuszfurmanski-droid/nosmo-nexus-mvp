@@ -17,6 +17,11 @@ assert(receiver.includes("WORK MODE AI"), "visible Work Mode AI label missing");
 assert(receiver.includes("android-work-discovery-v1"), "bounded Android AI context marker missing");
 assert(receiver.includes("nexusIntent"), "nexusIntent parsing missing");
 assert(receiver.includes("nexusPrompt"), "nexusPrompt parsing missing");
+assert(receiver.includes("/api/nexus/work-mode-ai/context"), "server-side Work Mode AI context endpoint missing");
+assert(receiver.includes("nexus:work-mode-ai-next-action"), "next action UI intent event missing");
+assert(receiver.includes("nexus:work-mode-ai-evidence-review-request"), "evidence review draft intent event missing");
+assert(receiver.includes("intent-only-no-mutation"), "next action must remain intent-only in this slice");
+assert(receiver.includes("Requires Project Participation before mutation"), "authority boundary copy missing for action intents");
 assert(/server-side Nexus AI orchestration/i.test(receiver), "server-side orchestration boundary copy missing");
 
 const forbidden = [
