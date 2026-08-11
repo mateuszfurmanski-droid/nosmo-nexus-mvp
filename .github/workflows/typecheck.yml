@@ -66,6 +66,11 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector-demo > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/electrical-commissioning/ > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/nexus-cloud/file-loader > /dev/null
+
+          grep -R 'Request upload-session plan' artifacts/nosmo-nexus/dist/public/assets > /dev/null
+          grep -R '/api/nexus-cloud/upload-sessions' artifacts/nosmo-nexus/dist/public/assets > /dev/null
+          grep -R 'nexus-cloud-upload-session-plan/v1' artifacts/nosmo-nexus/dist/public/assets > /dev/null
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/integrations/work-wallet/status \
