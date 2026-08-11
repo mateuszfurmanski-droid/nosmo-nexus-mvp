@@ -9,13 +9,16 @@ import {
   ShieldCheck,
   FolderKanban,
   AlertTriangle,
+  Zap,
+  Cable,
+  FileCheck2,
 } from "lucide-react";
 import {
   PdfFileIcon,
   XlsxFileIcon,
 } from "./file-icon-components";
 
-export type NodeType = "person" | "task" | "document" | "project" | "issue";
+export type NodeType = "person" | "task" | "document" | "project" | "issue" | "module";
 
 type WorkspaceIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -25,6 +28,10 @@ export interface WorkspaceNode {
   sublabel: string;
   type: NodeType;
   Icon: WorkspaceIcon;
+  /** Optional parent creates a real graph hierarchy instead of a direct project-hub edge. */
+  graphParentId?: string;
+  /** Static module path relative to the current Nexus deployment base. */
+  launchPath?: string;
   /** Organisation a person belongs to — drives company grouping in the layout. */
   company?: string;
   /** When Nexus received this object. Radial Timeline uses this for document distance from project centre. */
@@ -44,6 +51,15 @@ export const MANAGER_ID = "p-sitemgr"; // responsible role for routed issues
 export const NODES: WorkspaceNode[] = [
   // Project
   { id: "proj", label: "Riverside Heights Demo", sublabel: "Active Synthetic Project", type: "project", Icon: FolderKanban },
+
+  // Native specialist branch. The application remains a separate workflow,
+  // but its records belong to the same Project Graph rather than a website-only overlay.
+  { id: "m-electrical", label: "Electrical", sublabel: "Trade system", type: "module", Icon: Zap },
+  { id: "m-electrical-commissioning", label: "Electrical Commissioning", sublabel: "Open module", type: "module", Icon: Zap, graphParentId: "m-electrical", launchPath: "electrical-commissioning/" },
+  { id: "e-cables", label: "Cables", sublabel: "LV distribution", type: "module", Icon: Cable, graphParentId: "m-electrical" },
+  { id: "e-certificates", label: "Certificates", sublabel: "Apartment testing", type: "module", Icon: FileCheck2, graphParentId: "m-electrical" },
+  { id: "e-communal", label: "Communal", sublabel: "Systems & areas", type: "module", Icon: Building2, graphParentId: "m-electrical" },
+  { id: "e-snags", label: "Electrical Snags", sublabel: "Open defects", type: "module", Icon: AlertTriangle, graphParentId: "m-electrical" },
 
   // People
   { id: "p-mateusz", label: "Alex Carter", sublabel: "Joiner", type: "person", Icon: HardHat, company: "Demo Joinery Services" },
@@ -108,14 +124,16 @@ export const TYPE_STYLE: Record<NodeType, { chip: string; centerBorder: string }
   task: { chip: "bg-emerald-500/15 text-emerald-400", centerBorder: "border-emerald-500" },
   document: { chip: "bg-amber-500/15 text-amber-400", centerBorder: "border-amber-500" },
   issue: { chip: "bg-red-500/15 text-red-400", centerBorder: "border-red-500" },
+  module: { chip: "bg-cyan-500/15 text-cyan-300", centerBorder: "border-cyan-400" },
 };
 
 export const TYPE_ORDER: Record<NodeType, number> = {
   issue: -1,
   person: 0,
-  task: 1,
-  document: 2,
-  project: 3,
+  module: 1,
+  task: 2,
+  document: 3,
+  project: 4,
 };
 
 export const ISSUE_ICON = AlertTriangle;
@@ -259,8 +277,9 @@ export function taskWorker(taskId: string): string {
   return people.find((p) => p !== MANAGER_ID) ?? people[0] ?? MANAGER_ID;
 }
 
-/* Build relationships from the single source: project hub + task involvement
-   (with shared doc<->person derivation) + direct person links. */
+/* Build relationships from the single source: project hub + explicit graph
+   hierarchy + task involvement (with shared doc<->person derivation) + direct
+   person links. */
 export function buildAdjacency(): Record<string, string[]> {
   const map: Record<string, Set<string>> = {};
   for (const node of NODES) map[node.id] = new Set();
@@ -271,8 +290,14 @@ export function buildAdjacency(): Record<string, string[]> {
     map[b]?.add(a);
   };
 
-  // Everything relates to the fictional Riverside Heights project.
-  for (const node of NODES) if (node.id !== PROJECT_ID) link(PROJECT_ID, node.id);
+  // Root-level objects relate directly to the project. A graphParentId creates
+  // a true nested branch and prevents a duplicate direct project edge.
+  for (const node of NODES) {
+    if (node.id !== PROJECT_ID && !node.graphParentId) link(PROJECT_ID, node.id);
+  }
+  for (const node of NODES) {
+    if (node.graphParentId) link(node.graphParentId, node.id);
+  }
 
   // Task involvement drives people + document relationships, shares each
   // document with everyone involved in the task that uses it, and relates the
