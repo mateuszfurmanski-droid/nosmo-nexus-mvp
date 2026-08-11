@@ -158,7 +158,7 @@ export function resolveProjectAccess(
       ALL_APPS.forEach((app) =>
         allow(decisions[app], "Project management function grants broad project oversight."),
       );
-      allow(decisions.trades, "Project management function may inspect/filter trade work."),
+      allow(decisions.trades, "Project management function may inspect/filter trade work.");
     } else {
       deny(decisions.trades, "Trades control requires an appointed project management function.");
 
