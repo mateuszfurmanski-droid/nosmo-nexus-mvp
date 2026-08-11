@@ -269,3 +269,114 @@ export function resolveProjectAccess(
     decisions,
   };
 }
+
+/**
+ * Canonical demo Person Card -> Project participation records used by source-native
+ * Nexus surfaces until authenticated identity/profile storage exists. These records
+ * are still synthetic, but their shape is the shared contract: Person Card identity
+ * plus project-specific function, trade scope and work-package scope.
+ */
+export const ACTION_ENGINE_DEMO_PERSON_ACCESS_PROFILES: PersonAccessProfile[] = [
+  {
+    personId: "p-sitemgr",
+    displayName: "Sarah Wilson",
+    professions: ["CONSTRUCTION_MANAGER"],
+    qualifications: ["Construction management"],
+    participations: [
+      {
+        projectId: "riverside-demo",
+        status: "ACTIVE",
+        identityAssurance: "SYNTHETIC_DEMO",
+        functions: ["SITE_MANAGER"],
+        assignments: ["GENERAL"],
+        tradeScopes: ["Electrical", "Mechanical & HVAC", "Plumbing & Public Health"],
+        workPackageScopes: [],
+      },
+    ],
+  },
+  {
+    personId: "p-elec-supervisor",
+    displayName: "S. Cole",
+    professions: ["ELECTRICIAN"],
+    qualifications: ["Electrical installation"],
+    participations: [
+      {
+        projectId: "riverside-demo",
+        status: "ACTIVE",
+        identityAssurance: "SYNTHETIC_DEMO",
+        functions: ["SUPERVISOR"],
+        assignments: ["ELECTRICAL"],
+        tradeScopes: ["Electrical"],
+        workPackageScopes: ["ELEC-L02-CONT-04"],
+      },
+    ],
+  },
+  {
+    personId: "p-hvac-supervisor",
+    displayName: "A. Reed",
+    professions: ["MECHANICAL_INSTALLER"],
+    qualifications: ["Mechanical services"],
+    participations: [
+      {
+        projectId: "riverside-demo",
+        status: "ACTIVE",
+        identityAssurance: "SYNTHETIC_DEMO",
+        functions: ["SUPERVISOR"],
+        assignments: ["MECHANICAL_HVAC"],
+        tradeScopes: ["Mechanical & HVAC"],
+        workPackageScopes: ["HVAC-L02-DUCT-07"],
+      },
+    ],
+  },
+  {
+    personId: "p-plumb-supervisor",
+    displayName: "K. Shah",
+    professions: ["PLUMBER"],
+    qualifications: ["Plumbing and public health"],
+    participations: [
+      {
+        projectId: "riverside-demo",
+        status: "ACTIVE",
+        identityAssurance: "SYNTHETIC_DEMO",
+        functions: ["SUPERVISOR"],
+        assignments: ["PLUMBING_PUBLIC_HEALTH"],
+        tradeScopes: ["Plumbing & Public Health"],
+        workPackageScopes: ["PLB-L02-DRAIN-03"],
+      },
+    ],
+  },
+  {
+    personId: "p-architect",
+    displayName: "Priya Shah",
+    professions: ["ARCHITECT"],
+    qualifications: ["Architecture"],
+    participations: [
+      {
+        projectId: "riverside-demo",
+        status: "ACTIVE",
+        identityAssurance: "SYNTHETIC_DEMO",
+        functions: ["DESIGN_COORDINATOR"],
+        assignments: ["GENERAL"],
+        tradeScopes: ["Electrical", "Mechanical & HVAC", "Plumbing & Public Health"],
+        workPackageScopes: [],
+      },
+    ],
+  },
+  {
+    personId: "person-demo-electrical-installer",
+    displayName: "Demo Electrical Installer",
+    professions: ["ELECTRICIAN"],
+    qualifications: ["Electrical installation"],
+    participations: [
+      {
+        projectId: "riverside-demo",
+        status: "ACTIVE",
+        identityAssurance: "SYNTHETIC_DEMO",
+        functions: ["TEAM_MEMBER"],
+        assignments: ["ELECTRICAL"],
+        tradeScopes: ["Electrical"],
+        workPackageScopes: ["ELEC-L02-CONT-04"],
+      },
+    ],
+  },
+];
