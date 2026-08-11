@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { resolveNexusGoogleDriveProjectRoute } from "./google-drive-routing";
+import { resolveNexusGoogleDriveProjectRouteFromAlias } from "./google-drive-routing";
 
 type WorkModeAiHandoffContext = {
   mode: string;
@@ -67,11 +67,13 @@ function removeWorkModeAiQueryParams() {
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-function focusProjectContext(context: WorkModeAiHandoffContext) {
+function focusProjectContext(context: WorkModeAiHandoffContext, canonicalProjectId: string, canonicalWorldId?: string) {
   window.dispatchEvent(new CustomEvent("nexus:project-change", {
     detail: {
-      projectId: context.project,
-      worldId: context.worldId,
+      projectId: canonicalProjectId,
+      worldId: canonicalWorldId,
+      requestedProjectId: context.project,
+      requestedWorldId: context.worldId,
       source: "android-work-mode-ai-handoff",
     },
   }));
@@ -79,19 +81,21 @@ function focusProjectContext(context: WorkModeAiHandoffContext) {
   window.dispatchEvent(new CustomEvent("nexus:graph-command", {
     detail: {
       action: "focus-node",
-      nodeId: context.project,
+      nodeId: canonicalProjectId,
+      requestedNodeId: context.project,
       source: "android-work-mode-ai-handoff",
     },
   }));
 }
 
-function openDoorFlow(context: WorkModeAiHandoffContext) {
+function openDoorFlow(context: WorkModeAiHandoffContext, canonicalProjectId: string, canonicalWorldId?: string) {
   const url = new URL("/doorflow.html", window.location.origin);
   url.searchParams.set("nexusMode", "work");
   url.searchParams.set("nexusClient", context.client);
   url.searchParams.set("nexusSource", "android-work-mode-ai-handoff");
-  url.searchParams.set("nexusProject", context.project);
-  if (context.worldId) url.searchParams.set("nexusWorld", context.worldId);
+  url.searchParams.set("nexusProject", canonicalProjectId);
+  if (canonicalWorldId) url.searchParams.set("nexusWorld", canonicalWorldId);
+  if (canonicalProjectId !== context.project) url.searchParams.set("nexusRequestedProject", context.project);
   window.location.assign(`${url.pathname}${url.search}`);
 }
 
@@ -104,15 +108,19 @@ export function NexusWorkModeAiHandoffReceiver() {
   const [context, setContext] = useState<WorkModeAiHandoffContext | null>(() => readWorkModeAiHandoff());
   const [summaryOpen, setSummaryOpen] = useState(false);
 
-  const projectRoute = useMemo(() => {
+  const resolvedProject = useMemo(() => {
     if (!context) return null;
-    return resolveNexusGoogleDriveProjectRoute(context.project, context.worldId);
+    return resolveNexusGoogleDriveProjectRouteFromAlias(context.project, context.worldId);
   }, [context]);
 
   if (!context) return null;
 
+  const projectRoute = resolvedProject?.route ?? null;
+  const canonicalProjectId = projectRoute?.projectId ?? context.project;
+  const canonicalWorldId = projectRoute?.worldId ?? context.worldId;
   const projectLabel = projectRoute?.displayName ?? context.project;
   const routeStatus = projectRoute ? "Drive route resolved" : "Project route pending review";
+  const aliasStatus = resolvedProject?.matchedAlias ? `alias: ${resolvedProject.matchedAlias}` : "direct project id";
 
   return (
     <section
@@ -164,7 +172,7 @@ export function NexusWorkModeAiHandoffReceiver() {
         </div>
         <div className="rounded-2xl border border-slate-700/70 bg-slate-950/45 px-2 py-2">
           <strong className="block text-cyan-200">{routeStatus}</strong>
-          <span className="text-slate-500">cloud route</span>
+          <span className="text-slate-500">{aliasStatus}</span>
         </div>
       </div>
 
@@ -174,6 +182,9 @@ export function NexusWorkModeAiHandoffReceiver() {
           <p className="mt-1 whitespace-pre-wrap break-words text-slate-300">{context.prompt}</p>
           <p className="mt-2 text-[10px] text-slate-500">
             This frontend does not execute a model call and does not contain API keys. Server-side Nexus AI orchestration must consume this prompt later.
+          </p>
+          <p className="mt-2 text-[10px] text-slate-500">
+            Project route: requested <strong>{context.project}</strong> → canonical <strong>{canonicalProjectId}</strong>{canonicalWorldId ? ` / ${canonicalWorldId}` : ""}.
           </p>
         </div>
       )}
@@ -188,7 +199,7 @@ export function NexusWorkModeAiHandoffReceiver() {
         </button>
         <button
           type="button"
-          onClick={() => focusProjectContext(context)}
+          onClick={() => focusProjectContext(context, canonicalProjectId, canonicalWorldId)}
           className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 px-3 py-2 text-[11px] font-bold text-cyan-100 hover:bg-cyan-400/15"
         >
           Focus project
@@ -202,7 +213,7 @@ export function NexusWorkModeAiHandoffReceiver() {
         </button>
         <button
           type="button"
-          onClick={() => openDoorFlow(context)}
+          onClick={() => openDoorFlow(context, canonicalProjectId, canonicalWorldId)}
           className="rounded-2xl border border-slate-700 bg-slate-950/45 px-3 py-2 text-[11px] font-bold text-slate-200 hover:border-cyan-300/30"
         >
           Open DoorFlow
