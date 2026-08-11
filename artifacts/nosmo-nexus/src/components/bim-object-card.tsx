@@ -5,8 +5,10 @@ import type { InstallationPilot } from "@/bim/installation-pilots";
 import {
   loadIfcMappings,
   type IfcGuidMapping,
+  type IfcLocalModelSession,
 } from "@/bim/ifc-mapping";
 import { IfcImportPanel } from "@/components/ifc-import-panel";
+import { IfcLiteGeometryViewer } from "@/components/ifc-lite-geometry-viewer";
 
 const base = import.meta.env.BASE_URL;
 
@@ -19,6 +21,7 @@ type BimObjectCardProps = {
 
 export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedMapping }: BimObjectCardProps) {
   const [localMappings, setLocalMappings] = useState<IfcGuidMapping[]>([]);
+  const [modelSession, setModelSession] = useState<IfcLocalModelSession | null>(null);
 
   useEffect(() => {
     setLocalMappings(loadIfcMappings());
@@ -28,6 +31,13 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
     () => suppliedMapping ?? localMappings.find((mapping) => mapping.nexusObjectId === pilot.object.id),
     [localMappings, pilot.object.id, suppliedMapping],
   );
+  const viewerMappings = useMemo(() => {
+    if (!suppliedMapping) return localMappings;
+    return [
+      ...localMappings.filter((mapping) => mapping.nexusObjectId !== suppliedMapping.nexusObjectId),
+      suppliedMapping,
+    ];
+  }, [localMappings, suppliedMapping]);
   const relationshipTreeHref = `/relationship-tree?nexusSource=bim-overlay&nexusFocus=${pilot.object.id}`;
   const externalIdentity = ifcMapping?.ifcGlobalId ?? pilot.object.externalId;
 
@@ -86,7 +96,7 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
 
           {ifcMapping && (
             <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-              Mapping proves identity linkage only. It does not import geometry, validate coordinates, certify the authoring revision or transfer design authority to Nexus.
+              Mapping proves identity linkage only. It does not validate coordinates, certify the authoring revision or transfer design authority to Nexus.
             </p>
           )}
         </div>
@@ -147,9 +157,20 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
           pilots={[pilot]}
           mappings={localMappings}
           onMappingsChange={setLocalMappings}
+          onModelSessionChange={setModelSession}
           initialTargetId={pilot.object.id}
         />
       </div>
+
+      {modelSession && (
+        <div className="mt-5">
+          <IfcLiteGeometryViewer
+            session={modelSession}
+            mappings={viewerMappings}
+            currentNexusObjectId={pilot.object.id}
+          />
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-400/20 bg-purple-400/5 p-4">
         <div>
