@@ -1,0 +1,79 @@
+name: Build Manager PR49 Preview
+
+on:
+  push:
+    branches:
+      - codex/manager-trade-shell-pr45
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Nexus for manager preview subpath
+        env:
+          BASE_PATH: /apps/nexus-manager-preview/
+        run: pnpm --filter @workspace/nosmo-nexus run build
+
+      - name: Verify preview base path
+        run: |
+          grep -q '/apps/nexus-manager-preview/assets/' artifacts/nosmo-nexus/dist/public/index.html
+          grep -q 'nexus-manager-preview' artifacts/nosmo-nexus/dist/public/index.html
+
+      - name: Stage public manager preview
+        run: |
+          rm -rf /tmp/nexus-manager-preview
+          mkdir -p /tmp/nexus-manager-preview/apps/nexus-manager-preview
+          cp -R artifacts/nosmo-nexus/dist/public/. /tmp/nexus-manager-preview/apps/nexus-manager-preview/
+          cat > /tmp/nexus-manager-preview/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width,initial-scale=1">
+              <meta http-equiv="refresh" content="0; url=/apps/nexus-manager-preview/">
+              <title>NOSMO Nexus Manager Preview</title>
+            </head>
+            <body>
+              <a href="/apps/nexus-manager-preview/">Open NOSMO Nexus Manager Preview</a>
+            </body>
+          </html>
+          HTML
+
+      - name: Upload website-ready preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-manager-pr49-preview
+          path: /tmp/nexus-manager-preview
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish isolated public preview branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan preview-pr49-manager
+          git rm -rf .
+          git clean -fdx
+          cp -R /tmp/nexus-manager-preview/. .
+          git add .
+          git commit -m "Publish PR49 manager preview"
+          git push --force origin HEAD:preview-pr49-manager
