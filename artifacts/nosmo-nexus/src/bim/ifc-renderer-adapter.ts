@@ -21,7 +21,7 @@ export interface IfcRendererAdapter<TScene = unknown> {
   id: IfcRendererBackendId;
   label: string;
   capabilities: IfcRendererCapabilities;
-  load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions): Promise<TScene> | TScene;
+  load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions): TScene;
 }
 
 export const liteStepRenderer: IfcRendererAdapter<IfcLiteGeometryResult> = {
