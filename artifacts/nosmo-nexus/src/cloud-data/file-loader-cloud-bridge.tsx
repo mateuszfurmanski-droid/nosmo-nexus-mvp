@@ -14,41 +14,74 @@ import {
 import { computeSha256, upsertNexusAssetRegistryEntry } from "./asset-registry";
 import { createDemoManagerParticipation, resolveNexusAssetPermission } from "./asset-permissions";
 import { LocalDevNexusStorageProvider } from "./local-dev-storage-provider";
+import {
+  enqueueNexusOfflineUpload,
+  markNexusOfflineUploadFailed,
+  markNexusOfflineUploadSynced,
+  markNexusOfflineUploadUploading,
+  readPendingNexusOfflineUploads,
+  type NexusFileUploadExplicitTarget,
+  type NexusFileUploadRequestDetailBase,
+  type NexusQueuedUploadRecord,
+} from "./offline-upload-queue";
+import type { NexusStorageProvider } from "./storage-provider";
 
 const DEMO_UPLOADER_PERSON_ID = "person-demo-nexus-manager";
 const FILE_UPLOAD_REQUEST_EVENT = "nexus:file-upload-request";
 const ASSET_UPLOADED_EVENT = "nexus:asset-uploaded";
 const ASSET_UPLOAD_FAILED_EVENT = "nexus:asset-upload-failed";
+const ASSET_UPLOAD_QUEUED_EVENT = "nexus:asset-upload-queued";
 const PROJECT_REGISTRY_REFRESH_EVENT = "nexus:project-registry-refresh";
 
-type ExplicitUploadTarget = {
-  targetType: NexusAssetTargetType;
-  targetId: string;
-};
+type ExplicitUploadTarget = NexusFileUploadExplicitTarget;
 
-type FileUploadRequestDetail = {
+type FileUploadRequestDetail = NexusFileUploadRequestDetailBase & {
   files?: File[];
-  projectId?: string;
-  worldId?: string;
-  tradeId?: string | null;
-  taskId?: string;
-  objectId?: string;
-  inspectionId?: string;
-  personId?: string;
-  workPackageId?: string;
-  target?: ExplicitUploadTarget;
-  sourceModule?: NexusAssetSourceModule;
-  uploadedByPersonId?: string;
-  deviceId?: string;
-  clientSessionId?: string;
 };
 
 type GraphStateDetail = {
   selectedId?: string;
 };
 
+type UploadableFile = {
+  content: Blob;
+  name: string;
+  type: string;
+  size: number;
+  lastModified?: number;
+};
+
+type UploadResult = {
+  asset: NexusAsset;
+  links: NexusAssetLink[];
+};
+
 function isFileArray(value: unknown): value is File[] {
-  return Array.isArray(value) && value.every((item) => item instanceof File);
+  return Array.isArray(value) && typeof File !== "undefined" && value.every((item) => item instanceof File);
+}
+
+function toUploadableFile(file: File): UploadableFile {
+  return {
+    content: file,
+    name: file.name,
+    type: file.type || "application/octet-stream",
+    size: file.size,
+    lastModified: file.lastModified,
+  };
+}
+
+function toUploadableQueuedFile(record: NexusQueuedUploadRecord): UploadableFile {
+  return {
+    content: record.content,
+    name: record.file.name,
+    type: record.file.type || "application/octet-stream",
+    size: record.file.size,
+    lastModified: record.file.lastModified,
+  };
+}
+
+function isBrowserOnline() {
+  return typeof navigator.onLine !== "boolean" || navigator.onLine;
 }
 
 function inferSelectedTarget(selectedId: string | undefined, projectId: string | undefined): ExplicitUploadTarget | null {
@@ -64,7 +97,7 @@ function inferSelectedTarget(selectedId: string | undefined, projectId: string |
 }
 
 function createLinks(
-  detail: FileUploadRequestDetail,
+  detail: NexusFileUploadRequestDetailBase,
   assetId: string,
   sourceModule: NexusAssetSourceModule,
   projectId: string,
@@ -112,9 +145,112 @@ function dispatchUploadFailure(filename: string, message: string) {
   window.dispatchEvent(new CustomEvent(ASSET_UPLOAD_FAILED_EVENT, { detail: { filename, message } }));
 }
 
+function dispatchUploadQueued(record: NexusQueuedUploadRecord) {
+  window.dispatchEvent(new CustomEvent(ASSET_UPLOAD_QUEUED_EVENT, {
+    detail: {
+      filename: record.file.name,
+      projectId: record.projectId,
+      queueItemId: record.queueItemId,
+      attempts: record.attempts,
+    },
+  }));
+}
+
+async function uploadToNexusCloudDataLayer(
+  provider: NexusStorageProvider,
+  detail: NexusFileUploadRequestDetailBase & { projectId: string },
+  file: UploadableFile,
+  selectedId: string | undefined,
+): Promise<UploadResult> {
+  const projectId = detail.projectId;
+  const sourceModule = detail.sourceModule ?? "file-loader";
+  const uploadedByPersonId = detail.uploadedByPersonId ?? DEMO_UPLOADER_PERSON_ID;
+  const participation = createDemoManagerParticipation(uploadedByPersonId, projectId);
+  const checksum: NexusChecksum = { algorithm: "sha256", value: await computeSha256(file.content) };
+  const assetId = createStableNexusAssetId(projectId, checksum);
+  const fileId = createStableNexusFileId(assetId, file.name);
+  const objectKey = `${normaliseNexusIdPart(projectId)}/${assetId}/${fileId}`;
+  const now = new Date().toISOString();
+
+  const permission = resolveNexusAssetPermission({
+    viewerPersonId: uploadedByPersonId,
+    projectId,
+    permission: "asset:write",
+    participation,
+    targetType: "project",
+    targetId: projectId,
+  });
+
+  if (!permission.allowed) throw new Error(permission.reason);
+
+  const stored = await provider.putObject({
+    scope: { projectId, assetId, fileId },
+    objectKey,
+    content: file.content,
+    filename: file.name,
+    mimeType: file.type || "application/octet-stream",
+    sizeBytes: file.size,
+    checksum,
+  });
+
+  const links = createLinks(
+    detail,
+    assetId,
+    sourceModule,
+    projectId,
+    selectedId,
+    uploadedByPersonId,
+    now,
+  );
+
+  const asset: NexusAsset = {
+    assetId,
+    projectId,
+    kind: classifyNexusAssetKind({ name: file.name, type: file.type }, sourceModule),
+    status: "AVAILABLE",
+    title: file.name,
+    checksum,
+    primaryFile: {
+      fileId,
+      assetId,
+      projectId,
+      filename: file.name,
+      mimeType: file.type || "application/octet-stream",
+      extension: file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() : undefined,
+      sizeBytes: file.size,
+      checksum,
+      storage: stored.storage,
+      uploadedAt: now,
+      uploadedByPersonId,
+    },
+    provenance: {
+      captureMode: sourceModule === "mobile-camera" ? "capture" : "import",
+      sourceModule,
+      uploadedByPersonId,
+      uploadedAt: now,
+      originalFilename: file.name,
+      originalMimeType: file.type || "application/octet-stream",
+      originalSizeBytes: file.size,
+      deviceId: detail.deviceId,
+      clientSessionId: detail.clientSessionId,
+      clientGeneratedAt: file.lastModified ? new Date(file.lastModified).toISOString() : now,
+      userAgent: navigator.userAgent,
+      networkState: typeof navigator.onLine === "boolean" ? navigator.onLine ? "online" : "offline" : "unknown",
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  upsertNexusAssetRegistryEntry({ asset, links });
+  window.dispatchEvent(new CustomEvent(ASSET_UPLOADED_EVENT, { detail: { asset, links } }));
+  window.dispatchEvent(new CustomEvent(PROJECT_REGISTRY_REFRESH_EVENT, { detail: { projectId, assetId } }));
+  return { asset, links };
+}
+
 export function NexusFileLoaderCloudBridge() {
   const provider = useMemo(() => new LocalDevNexusStorageProvider(), []);
   const selectedNodeRef = useRef<string | undefined>(undefined);
+  const drainingQueueRef = useRef(false);
 
   useEffect(() => {
     const handleGraphState = (event: Event) => {
@@ -126,6 +262,50 @@ export function NexusFileLoaderCloudBridge() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const drainOfflineQueue = async () => {
+      if (cancelled || drainingQueueRef.current || !isBrowserOnline()) return;
+      drainingQueueRef.current = true;
+
+      try {
+        const queued = await readPendingNexusOfflineUploads();
+        for (const record of queued) {
+          if (cancelled || !isBrowserOnline()) return;
+          await markNexusOfflineUploadUploading(record.queueItemId);
+          try {
+            const result = await uploadToNexusCloudDataLayer(
+              provider,
+              record.detail,
+              toUploadableQueuedFile(record),
+              record.selectedNodeId,
+            );
+            await markNexusOfflineUploadSynced(record.queueItemId, result.asset.assetId);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown Nexus offline upload sync failure.";
+            await markNexusOfflineUploadFailed(record.queueItemId, message);
+            dispatchUploadFailure(record.file.name, message);
+          }
+        }
+      } finally {
+        drainingQueueRef.current = false;
+      }
+    };
+
+    const onOnline = () => {
+      void drainOfflineQueue();
+    };
+
+    window.addEventListener("online", onOnline);
+    void drainOfflineQueue();
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", onOnline);
+    };
+  }, [provider]);
+
+  useEffect(() => {
     const handleUploadRequest = async (event: Event) => {
       const detail = (event as CustomEvent<FileUploadRequestDetail>).detail ?? {};
       const projectId = detail.projectId;
@@ -133,93 +313,25 @@ export function NexusFileLoaderCloudBridge() {
 
       if (!projectId || !isFileArray(files) || files.length === 0) return;
 
-      const sourceModule = detail.sourceModule ?? "file-loader";
-      const uploadedByPersonId = detail.uploadedByPersonId ?? DEMO_UPLOADER_PERSON_ID;
-      const participation = createDemoManagerParticipation(uploadedByPersonId, projectId);
+      const uploadDetail: NexusFileUploadRequestDetailBase & { projectId: string } = {
+        ...detail,
+        projectId,
+      };
+      delete (uploadDetail as FileUploadRequestDetail).files;
 
       for (const file of files) {
-        try {
-          const checksum: NexusChecksum = { algorithm: "sha256", value: await computeSha256(file) };
-          const assetId = createStableNexusAssetId(projectId, checksum);
-          const fileId = createStableNexusFileId(assetId, file.name);
-          const objectKey = `${normaliseNexusIdPart(projectId)}/${assetId}/${fileId}`;
-          const now = new Date().toISOString();
-
-          const permission = resolveNexusAssetPermission({
-            viewerPersonId: uploadedByPersonId,
-            projectId,
-            permission: "asset:write",
-            participation,
-            targetType: "project",
-            targetId: projectId,
-          });
-
-          if (!permission.allowed) {
-            dispatchUploadFailure(file.name, permission.reason);
-            continue;
+        if (!isBrowserOnline()) {
+          try {
+            const queued = await enqueueNexusOfflineUpload(file, uploadDetail, selectedNodeRef.current);
+            dispatchUploadQueued(queued);
+          } catch (error) {
+            dispatchUploadFailure(file.name, error instanceof Error ? error.message : "Failed to queue Nexus upload offline.");
           }
+          continue;
+        }
 
-          const stored = await provider.putObject({
-            scope: { projectId, assetId, fileId },
-            objectKey,
-            content: file,
-            filename: file.name,
-            mimeType: file.type || "application/octet-stream",
-            sizeBytes: file.size,
-            checksum,
-          });
-
-          const links = createLinks(
-            detail,
-            assetId,
-            sourceModule,
-            projectId,
-            selectedNodeRef.current,
-            uploadedByPersonId,
-            now,
-          );
-
-          const asset: NexusAsset = {
-            assetId,
-            projectId,
-            kind: classifyNexusAssetKind(file, sourceModule),
-            status: "AVAILABLE",
-            title: file.name,
-            checksum,
-            primaryFile: {
-              fileId,
-              assetId,
-              projectId,
-              filename: file.name,
-              mimeType: file.type || "application/octet-stream",
-              extension: file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() : undefined,
-              sizeBytes: file.size,
-              checksum,
-              storage: stored.storage,
-              uploadedAt: now,
-              uploadedByPersonId,
-            },
-            provenance: {
-              captureMode: sourceModule === "mobile-camera" ? "capture" : "import",
-              sourceModule,
-              uploadedByPersonId,
-              uploadedAt: now,
-              originalFilename: file.name,
-              originalMimeType: file.type || "application/octet-stream",
-              originalSizeBytes: file.size,
-              deviceId: detail.deviceId,
-              clientSessionId: detail.clientSessionId,
-              clientGeneratedAt: now,
-              userAgent: navigator.userAgent,
-              networkState: typeof navigator.onLine === "boolean" ? navigator.onLine ? "online" : "offline" : "unknown",
-            },
-            createdAt: now,
-            updatedAt: now,
-          };
-
-          upsertNexusAssetRegistryEntry({ asset, links });
-          window.dispatchEvent(new CustomEvent(ASSET_UPLOADED_EVENT, { detail: { asset, links } }));
-          window.dispatchEvent(new CustomEvent(PROJECT_REGISTRY_REFRESH_EVENT, { detail: { projectId, assetId } }));
+        try {
+          await uploadToNexusCloudDataLayer(provider, uploadDetail, toUploadableFile(file), selectedNodeRef.current);
         } catch (error) {
           dispatchUploadFailure(file.name, error instanceof Error ? error.message : "Unknown Nexus asset upload failure.");
         }
