@@ -37,10 +37,13 @@ import ExternalTools from "@/pages/external-tools";
 function Router() {
   return (
     <Switch>
-      {/* Specialist full-screen workflows intentionally run without the app shell. */}
-      <Route path="/first-run" component={FirstRun} />
+      {/* Relationship Tree + Nexus shell is the canonical full-screen home. */}
+      <Route path="/" component={RelationshipTreeExport} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
+
+      {/* Specialist full-screen workflows intentionally run without the standard app layout. */}
+      <Route path="/first-run" component={FirstRun} />
       <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />
@@ -54,8 +57,8 @@ function AppLayoutRoutes() {
     <>
       <AppLayout>
         <Switch>
-          {/* One canonical menu. /modules is retained as a compatibility alias. */}
-          <Route path="/" component={NexusLaunchpad} />
+          {/* Legacy launchpad remains a secondary catalogue, never a second Nexus home. */}
+          <Route path="/menu" component={NexusLaunchpad} />
           <Route path="/modules" component={NexusLaunchpad} />
           <Route path="/trades/:tradeId" component={TradeWorkspace} />
           <Route path="/trades" component={Trades} />
