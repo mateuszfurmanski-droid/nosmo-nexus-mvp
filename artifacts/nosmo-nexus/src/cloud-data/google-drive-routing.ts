@@ -1,5 +1,11 @@
-export type NexusCloudProjectId = "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" | "RIVERSIDE_DEMO_PROJECT";
-export type NexusCloudWorldId = "esafe-demo" | "dev";
+import {
+  NEXUS_CLOUD_DRIVE_SCHEMA,
+  nexusCloudDriveManifest,
+  type NexusCloudProjectId,
+  type NexusCloudWorldId,
+} from "../cloud/nexus-cloud-drive-manifest";
+
+export type { NexusCloudProjectId, NexusCloudWorldId } from "../cloud/nexus-cloud-drive-manifest";
 
 export type NexusGoogleDriveFolderRole =
   | "cloudRoot"
@@ -14,6 +20,7 @@ export type NexusGoogleDriveFolderRole =
   | "auditProvenance"
   | "projectRoot"
   | "projectInbox"
+  | "pendingGraphLink"
   | "byTrade"
   | "byType"
   | "projectAudit";
@@ -32,6 +39,7 @@ export interface NexusGoogleDriveProjectRoute {
   displayName: string;
   projectRoot: NexusGoogleDriveFolderRef;
   inbox: NexusGoogleDriveFolderRef;
+  pendingGraphLink: NexusGoogleDriveFolderRef;
   byTrade: NexusGoogleDriveFolderRef;
   byType: NexusGoogleDriveFolderRef;
   audit: NexusGoogleDriveFolderRef;
@@ -58,7 +66,12 @@ export interface NexusGoogleDriveResolvedProjectRoute {
   matchedAlias?: string;
 }
 
-function folder(role: NexusGoogleDriveFolderRole, id: string, title: string, canonicalUse: string): NexusGoogleDriveFolderRef {
+function folder(
+  role: NexusGoogleDriveFolderRole,
+  id: string,
+  title: string,
+  canonicalUse: string,
+): NexusGoogleDriveFolderRef {
   return {
     role,
     id,
@@ -68,8 +81,17 @@ function folder(role: NexusGoogleDriveFolderRole, id: string, title: string, can
   };
 }
 
-function doc(role: NexusGoogleDriveRegistryRef["role"], id: string, title: string, url: string): NexusGoogleDriveRegistryRef {
-  return { role, id, title, url };
+function fromManifestFolder(
+  role: NexusGoogleDriveFolderRole,
+  source: { id: string; name: string; url: string; canonicalUse: string },
+): NexusGoogleDriveFolderRef {
+  return {
+    role,
+    id: source.id,
+    title: source.name,
+    url: source.url,
+    canonicalUse: source.canonicalUse,
+  };
 }
 
 function normaliseProjectAlias(value: string) {
@@ -82,17 +104,53 @@ function normaliseProjectAlias(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function projectRoute(projectId: NexusCloudProjectId): NexusGoogleDriveProjectRoute {
+  const project = nexusCloudDriveManifest.projectWorlds.find((entry) => entry.projectId === projectId);
+  if (!project) throw new Error(`Missing canonical Nexus Cloud project world: ${projectId}`);
+
+  return {
+    projectId: project.projectId,
+    worldId: project.worldId,
+    displayName: project.displayName,
+    projectRoot: fromManifestFolder("projectRoot", project.folders.projectRoot),
+    inbox: fromManifestFolder("projectInbox", project.folders.inbox),
+    pendingGraphLink: fromManifestFolder("pendingGraphLink", project.folders.pendingGraphLink),
+    byTrade: fromManifestFolder("byTrade", project.folders.byTrade),
+    byType: fromManifestFolder("byType", project.folders.byType),
+    audit: fromManifestFolder("projectAudit", project.folders.auditProvenance),
+  };
+}
+
+const projectRoutes: NexusGoogleDriveProjectRoute[] = [
+  projectRoute("NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA"),
+  projectRoute("RIVERSIDE_DEMO_PROJECT"),
+];
+
+const projectAliases: NexusGoogleDriveProjectAlias[] = [
+  { alias: "esafe", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "android-work-mode" },
+  { alias: "e-safe", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "android-work-mode" },
+  { alias: "esafe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "human-short-name" },
+  { alias: "e-safe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "human-short-name" },
+  { alias: "nexus-demo-project-001-esafe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "legacy-url" },
+  { alias: "riverside", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "android-work-mode" },
+  { alias: "riverside-demo", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "human-short-name" },
+  { alias: "riverside-demo-project", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "legacy-url" },
+];
+
+/**
+ * Compatibility facade for existing Work Mode / Cloud UI.
+ * Canonical project-world folder identity lives only in
+ * ../cloud/nexus-cloud-drive-manifest.ts.
+ *
+ * Global Android review folders are intake/review surfaces, not project storage.
+ */
 export const NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG = {
+  schema: NEXUS_CLOUD_DRIVE_SCHEMA,
   providerId: "nexus-google-drive-personal-cloud-v1",
   providerKind: "google-drive",
   status: "configured-boundary",
   sourceOfTruth: "NEXUS_CLOUD_ASSET_INDEX + NEXUS_CLOUD_ROUTING_RULES",
-  root: folder(
-    "cloudRoot",
-    "1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0",
-    "00_NEXUS_PERSONAL_CLOUD",
-    "Top-level Nexus cloud memory root. Do not store project files directly here.",
-  ),
+  root: fromManifestFolder("cloudRoot", nexusCloudDriveManifest.roots.cloudRoot),
   globalFolders: {
     androidWorkModeInbox: folder(
       "androidWorkModeInbox",
@@ -124,23 +182,17 @@ export const NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG = {
       "05_PRIVATE_DO_NOT_UPLOAD",
       "Explicit privacy exclusion bucket. Never ingest into Project Graph.",
     ),
-    projectWorldsRoot: folder(
+    projectWorldsRoot: fromManifestFolder(
       "projectWorldsRoot",
-      "1gCa35DoMCOioIdZbpYETvseEhA_D3n_Q",
-      "10_PROJECT_WORLDS",
-      "Every project gets its own child folder. This is the project separation boundary.",
+      nexusCloudDriveManifest.roots.projectWorldsRoot,
     ),
-    sharedRegistries: folder(
+    sharedRegistries: fromManifestFolder(
       "sharedRegistries",
-      "1h-sNqC3983nfG1IaUe6SXWeWnJLVrcOx",
-      "20_SHARED_REGISTRIES",
-      "Indexes, manifests and provider-neutral registries.",
+      nexusCloudDriveManifest.roots.sharedRegistries,
     ),
-    connectorExports: folder(
+    connectorExports: fromManifestFolder(
       "connectorExports",
-      "1gmhM6WCj-m4Ms_JK7pdvmYP32Id9JkKo",
-      "30_CONNECTOR_EXPORTS",
-      "External connector staging. Not canonical by itself.",
+      nexusCloudDriveManifest.roots.connectorExports,
     ),
     auditProvenance: folder(
       "auditProvenance",
@@ -150,67 +202,27 @@ export const NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG = {
     ),
   },
   registries: {
-    assetIndex: doc(
-      "assetIndex",
-      "1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI",
-      "NEXUS_CLOUD_ASSET_INDEX",
-      "https://docs.google.com/spreadsheets/d/1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI/edit",
-    ),
-    routingRules: doc(
-      "routingRules",
-      "1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c",
-      "NEXUS_CLOUD_ROUTING_RULES",
-      "https://docs.google.com/document/d/1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c/edit",
-    ),
-    migrationLog: doc(
-      "migrationLog",
-      "1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU",
-      "LOG_20260811_1357_ESAFE_RIVERSIDE_DRIVE_CLEANUP",
-      "https://docs.google.com/document/d/1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU/edit",
-    ),
-  },
-  projectAliases: [
-    { alias: "esafe", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "android-work-mode" },
-    { alias: "e-safe", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "android-work-mode" },
-    { alias: "esafe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "human-short-name" },
-    { alias: "e-safe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "human-short-name" },
-    { alias: "nexus-demo-project-001-esafe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "legacy-url" },
-    { alias: "riverside", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "android-work-mode" },
-    { alias: "riverside-demo", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "human-short-name" },
-    { alias: "riverside-demo-project", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "legacy-url" },
-  ] satisfies NexusGoogleDriveProjectAlias[],
-  projectRoutes: [
-    {
-      projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA",
-      worldId: "esafe-demo",
-      displayName: "e-SAFE Catania Project World",
-      projectRoot: folder(
-        "projectRoot",
-        "1Zu80-Yj9RocZJlBDXKXxId9ZRnn9EcOE",
-        "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA",
-        "All e-SAFE files stay under this project root. Never mix with Riverside.",
-      ),
-      inbox: folder("projectInbox", "1xsIITjBwTEE1z7whhub3RnsSXfrxwur9", "00_INBOX", "Project-specific intake pending graph link."),
-      byTrade: folder("byTrade", "1YnBK64v0ZfVTodBJXjAXPmNrug_qpR0P", "02_BY_TRADE", "Reviewed files classified by trade."),
-      byType: folder("byType", "1LvwOZXJ5emW1N058kIMD9XV70J6cFhr9", "03_BY_TYPE", "Optional secondary grouping by file type."),
-      audit: folder("projectAudit", "1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz", "90_AUDIT_PROVENANCE", "Project-specific provenance and migration notes."),
+    assetIndex: {
+      role: "assetIndex",
+      id: nexusCloudDriveManifest.registries.assetIndex.id,
+      title: nexusCloudDriveManifest.registries.assetIndex.name,
+      url: nexusCloudDriveManifest.registries.assetIndex.url,
     },
-    {
-      projectId: "RIVERSIDE_DEMO_PROJECT",
-      worldId: "dev",
-      displayName: "Riverside Demo Project World",
-      projectRoot: folder(
-        "projectRoot",
-        "1_6fUF-W--i3lbtNpZRkhaU142ExI1k-g",
-        "RIVERSIDE_DEMO_PROJECT",
-        "All Riverside files stay under this project root. Never mix with e-SAFE.",
-      ),
-      inbox: folder("projectInbox", "1n8xdmpeLMTkKp-Pe__XS4eLChaFo2H46", "00_INBOX", "Project-specific intake pending graph link."),
-      byTrade: folder("byTrade", "1VZ3TPt5d6N6VYvBb2tAUJYCCcnLJEl68", "02_BY_TRADE", "Reviewed files classified by trade."),
-      byType: folder("byType", "14aYunionA4U7DqPdjqelcU7kAGgDse5w", "03_BY_TYPE", "Optional secondary grouping by file type."),
-      audit: folder("projectAudit", "1k5yqEoL-SD2fr8UwBFvXhxYLxF6Y7K-a", "90_AUDIT_PROVENANCE", "Project-specific provenance and migration notes."),
+    routingRules: {
+      role: "routingRules",
+      id: nexusCloudDriveManifest.registries.routingRules.id,
+      title: nexusCloudDriveManifest.registries.routingRules.name,
+      url: nexusCloudDriveManifest.registries.routingRules.url,
     },
-  ],
+    migrationLog: {
+      role: "migrationLog",
+      id: nexusCloudDriveManifest.registries.migrationLog.id,
+      title: nexusCloudDriveManifest.registries.migrationLog.name,
+      url: nexusCloudDriveManifest.registries.migrationLog.url,
+    },
+  } satisfies Record<string, NexusGoogleDriveRegistryRef>,
+  projectAliases,
+  projectRoutes,
   hardRules: [
     "Resolve projectId and worldId before canonical project storage.",
     "Do not store project files directly in 00_NEXUS_PERSONAL_CLOUD.",
@@ -222,15 +234,21 @@ export const NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG = {
   ],
 } as const;
 
-export function resolveNexusGoogleDriveProjectRoute(projectId: string, worldId?: string): NexusGoogleDriveProjectRoute | null {
-  return NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG.projectRoutes.find((route) => {
+export function resolveNexusGoogleDriveProjectRoute(
+  projectId: string,
+  worldId?: string,
+): NexusGoogleDriveProjectRoute | null {
+  return projectRoutes.find((route) => {
     if (route.projectId !== projectId) return false;
     if (worldId && route.worldId !== worldId) return false;
     return true;
   }) ?? null;
 }
 
-export function resolveNexusGoogleDriveProjectRouteFromAlias(projectIdOrAlias: string, worldId?: string): NexusGoogleDriveResolvedProjectRoute | null {
+export function resolveNexusGoogleDriveProjectRouteFromAlias(
+  projectIdOrAlias: string,
+  worldId?: string,
+): NexusGoogleDriveResolvedProjectRoute | null {
   const directRoute = resolveNexusGoogleDriveProjectRoute(projectIdOrAlias, worldId);
   if (directRoute) {
     return {
@@ -241,7 +259,7 @@ export function resolveNexusGoogleDriveProjectRouteFromAlias(projectIdOrAlias: s
   }
 
   const normalisedAlias = normaliseProjectAlias(projectIdOrAlias);
-  const alias = NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG.projectAliases.find((candidate) => candidate.alias === normalisedAlias);
+  const alias = projectAliases.find((candidate) => candidate.alias === normalisedAlias);
   if (!alias) return null;
 
   const route = resolveNexusGoogleDriveProjectRoute(alias.projectId, worldId ?? alias.worldId);
@@ -255,14 +273,32 @@ export function resolveNexusGoogleDriveProjectRouteFromAlias(projectIdOrAlias: s
   };
 }
 
-export function requireNexusGoogleDriveProjectRoute(projectId: string, worldId?: string): NexusGoogleDriveProjectRoute {
+export function requireNexusGoogleDriveProjectRoute(
+  projectId: string,
+  worldId?: string,
+): NexusGoogleDriveProjectRoute {
   const route = resolveNexusGoogleDriveProjectRoute(projectId, worldId);
-  if (!route) throw new Error(`No Nexus Google Drive project route for projectId=${projectId}${worldId ? ` worldId=${worldId}` : ""}.`);
+  if (!route) {
+    throw new Error(
+      `No Nexus Google Drive project route for projectId=${projectId}${worldId ? ` worldId=${worldId}` : ""}.`,
+    );
+  }
   return route;
 }
 
-export function isNexusGoogleDriveProjectBoundaryValid(projectId: string, worldId: string, folderId: string): boolean {
+export function isNexusGoogleDriveProjectBoundaryValid(
+  projectId: string,
+  worldId: string,
+  folderId: string,
+): boolean {
   const route = resolveNexusGoogleDriveProjectRoute(projectId, worldId);
   if (!route) return false;
-  return [route.projectRoot.id, route.inbox.id, route.byTrade.id, route.byType.id, route.audit.id].includes(folderId);
+  return [
+    route.projectRoot.id,
+    route.inbox.id,
+    route.pendingGraphLink.id,
+    route.byTrade.id,
+    route.byType.id,
+    route.audit.id,
+  ].includes(folderId);
 }
