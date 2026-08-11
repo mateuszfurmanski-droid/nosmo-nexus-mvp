@@ -6,17 +6,6 @@ function unique(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
-/**
- * Resolve the repository/application root without assuming pnpm keeps cwd at
- * the monorepo root. `pnpm --filter @workspace/api-server start` runs with the
- * package directory as cwd, while the bundled server lives under
- * artifacts/api-server/dist.
- *
- * NEXUS_RUNTIME_ROOT is an optional explicit deployment override. INIT_CWD is
- * used when pnpm preserves the invoking directory. Remaining candidates cover
- * package cwd and bundled dist execution. A marker file must exist; there is no
- * blind fallback to an arbitrary parent directory.
- */
 export function resolveNexusRuntimeRoot(): string {
   const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
   const candidates = unique([
@@ -61,6 +50,19 @@ export function resolveWorkWalletRuntimeModulePath(): string {
 
   if (!existsSync(modulePath)) {
     throw new Error("Work Wallet runtime module is unavailable");
+  }
+
+  return modulePath;
+}
+
+export function resolveNexusCloudStorageRuntimeModulePath(): string {
+  const modulePath = path.join(
+    resolveNexusRuntimeRoot(),
+    "scripts/src/nexus-cloud-storage-api.mjs",
+  );
+
+  if (!existsSync(modulePath)) {
+    throw new Error("Nexus Cloud storage runtime module is unavailable");
   }
 
   return modulePath;
