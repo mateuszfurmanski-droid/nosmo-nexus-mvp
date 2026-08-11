@@ -13,6 +13,7 @@ import { IfcLiteGeometryViewer } from "@/components/ifc-lite-geometry-viewer";
 import { IfcWebIfcEnginePanel } from "@/components/ifc-web-ifc-engine-panel";
 import { IfcRevisionIntelligencePanel } from "@/components/ifc-revision-intelligence-panel";
 import { SpatialConnectorPanel } from "@/components/spatial-connector-panel";
+import { RealIfcValidationPanel } from "@/components/real-ifc-validation-panel";
 
 const base = import.meta.env.BASE_URL;
 
@@ -212,6 +213,15 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
 
       <div className="mt-5">
         <SpatialConnectorPanel pilot={pilot} ifcMapping={ifcMapping} />
+      </div>
+
+      <div className="mt-5">
+        <RealIfcValidationPanel
+          pilot={pilot}
+          ifcMapping={ifcMapping}
+          modelSession={modelSession}
+          sourceProperties={currentSourceProperties}
+        />
       </div>
 
       <div className="mt-5">
