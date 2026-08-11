@@ -48,13 +48,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate PKG-015/017 connector, identity, project and runtime boundaries
+      - name: Validate PKG-015/016/017 connector, ticket, identity, project and runtime boundaries
         run: |
           node scripts/src/validate-work-wallet-context.mjs
           node scripts/src/validate-nexus-browser-session.mjs
           node scripts/src/validate-nexus-person-binding.mjs
           pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/validate-nexus-project-authorization.ts
           node scripts/src/validate-unified-nexus-runtime.mjs
+          node scripts/src/validate-nexus-context-ticket.mjs
 
       - name: Typecheck workspace
         run: pnpm run typecheck
@@ -71,13 +72,23 @@ jobs:
       - name: Apply disposable CI database schema
         run: pnpm --filter @workspace/db push
 
-      - name: Smoke test unified production runtime with connector context
+      - name: Seed PKG-016 authenticated CI fixture
+        env:
+          CI: "true"
+          NODE_ENV: test
+          NEXUS_CI_CONTEXT_TICKET_FIXTURE: "true"
+        run: node lib/db/scripts/seed-pkg016-context-ticket-ci.mjs
+
+      - name: Smoke test unified production runtime with connector context and single-use ticket
         env:
           PORT: 3000
           NODE_ENV: test
           WORK_WALLET_DEMO_MODE: "true"
           NEXUS_INTEGRATION_KEY: "ci-integration-key"
           WORK_WALLET_NEXUS_NODE_MAP_JSON: '{"halifax-demo|PER-201":"t-fire"}'
+          NEXUS_IDENTITY_BINDING_MODE: "postgres"
+          NEXUS_PROJECT_AUTH_MODE: "postgres"
+          NEXUS_CONTEXT_TICKET_ALLOWED_ORIGINS: "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         run: |
           pnpm --filter @workspace/api-server start > /tmp/nexus-unified-server.log 2>&1 &
           server_pid=$!
@@ -98,64 +109,22 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:3000/relationship-tree | grep '<div id="root"' > /dev/null
 
           session_status=$(curl --silent --show-error --output /tmp/nexus-session.json --write-out '%{http_code}' \
+            --cookie 'sid=ci-session-pkg016' \
             http://127.0.0.1:3000/api/nexus/session)
-          test "$session_status" = "401"
-          grep '"bindingStatus":"UNAUTHENTICATED"' /tmp/nexus-session.json > /dev/null
+          test "$session_status" = "200"
+          grep '"bindingStatus":"BOUND"' /tmp/nexus-session.json > /dev/null
+          grep '"personId":"person-ci"' /tmp/nexus-session.json > /dev/null
           grep '"canIssueContextTicket":false' /tmp/nexus-session.json > /dev/null
-
-          curl --fail --silent --show-error \
-            http://127.0.0.1:3000/api/integrations/work-wallet/status \
-            | grep '"contextContract":"nexus-work-wallet-context/v1"' > /dev/null
-
-          cat > /tmp/work-wallet-demo-event.json <<'JSON'
-          {
-            "id": "ci-work-wallet-demo-job-001",
-            "eventType": "ASSET_INSPECTION_COMPLETED",
-            "projectId": "halifax-demo",
-            "sourceRecord": "JOB-01",
-            "sourceObjectType": "job",
-            "title": "Synthetic job event",
-            "detail": "Must not enter browser context"
-          }
-          JSON
-
-          first_status=$(curl --silent --show-error --output /tmp/first-event.json --write-out '%{http_code}' \
-            --header 'Content-Type: application/json' \
-            --data @/tmp/work-wallet-demo-event.json \
-            http://127.0.0.1:3000/api/integrations/work-wallet/demo-events)
-          test "$first_status" = "202"
-          grep '"status":"accepted"' /tmp/first-event.json > /dev/null
-
-          duplicate_status=$(curl --silent --show-error --output /tmp/duplicate-event.json --write-out '%{http_code}' \
-            --header 'Content-Type: application/json' \
-            --data @/tmp/work-wallet-demo-event.json \
-            http://127.0.0.1:3000/api/integrations/work-wallet/demo-events)
-          test "$duplicate_status" = "200"
-          grep '"status":"duplicate"' /tmp/duplicate-event.json > /dev/null
-
-          curl --fail --silent --show-error \
-            'http://127.0.0.1:3000/api/integrations/work-wallet/demo-context?projectId=HALIFAX-DEMO&sourceRecord=JOB-01' \
-            > /tmp/demo-context.json
-          grep '"schema":"nexus-work-wallet-context/v1"' /tmp/demo-context.json > /dev/null
-          grep '"contextSource":"CONNECTOR_VERIFIED_CONTEXT"' /tmp/demo-context.json > /dev/null
-          grep '"nexusNodeId":"t-install"' /tmp/demo-context.json > /dev/null
-          grep '"developmentContext":true' /tmp/demo-context.json > /dev/null
-          ! grep '"title"' /tmp/demo-context.json > /dev/null
-          ! grep '"detail"' /tmp/demo-context.json > /dev/null
-
-          unknown_status=$(curl --silent --show-error --output /tmp/unknown-context.json --write-out '%{http_code}' \
-            'http://127.0.0.1:3000/api/integrations/work-wallet/demo-context?projectId=halifax-demo&sourceRecord=JOB-010')
-          test "$unknown_status" = "404"
 
           cat > /tmp/work-wallet-live-event.json <<'JSON'
           {
-            "id": "ci-work-wallet-live-permit-001",
+            "id": "ci-pkg016-live-permit-001",
             "eventType": "PERMIT_RENEWED",
             "projectId": "halifax-demo",
             "sourceRecord": "PER-201",
             "sourceObjectType": "permit",
             "title": "Synthetic protected permit event",
-            "detail": "Must not enter browser context"
+            "detail": "Must not enter ticket context"
           }
           JSON
 
@@ -166,19 +135,70 @@ jobs:
             http://127.0.0.1:3000/api/integrations/work-wallet/events)
           test "$live_event_status" = "202"
 
-          unauthorised_context_status=$(curl --silent --show-error --output /tmp/live-context-unauthorised.json --write-out '%{http_code}' \
-            'http://127.0.0.1:3000/api/integrations/work-wallet/context?projectId=halifax-demo&sourceRecord=PER-201')
-          test "$unauthorised_context_status" = "401"
+          unauth_issue_status=$(curl --silent --show-error --output /tmp/ticket-unauth.json --write-out '%{http_code}' \
+            --header 'Origin: http://127.0.0.1:3000' \
+            --header 'Content-Type: application/json' \
+            --data '{"adapterId":"work-wallet","projectId":"halifax-demo","externalRecordReference":"PER-201"}' \
+            http://127.0.0.1:3000/api/nexus/context-tickets)
+          test "$unauth_issue_status" = "401"
 
-          curl --fail --silent --show-error \
-            --header 'X-Nexus-Integration-Key: ci-integration-key' \
-            'http://127.0.0.1:3000/api/integrations/work-wallet/context?projectId=halifax-demo&sourceRecord=PER-201' \
-            > /tmp/live-context.json
-          grep '"nexusNodeId":"t-fire"' /tmp/live-context.json > /dev/null
-          grep '"developmentContext":false' /tmp/live-context.json > /dev/null
-          grep '"verificationSource":"WORK_WALLET"' /tmp/live-context.json > /dev/null
-          ! grep '"title"' /tmp/live-context.json > /dev/null
-          ! grep '"detail"' /tmp/live-context.json > /dev/null
+          cross_origin_issue_status=$(curl --silent --show-error --output /tmp/ticket-cross-origin.json --write-out '%{http_code}' \
+            --cookie 'sid=ci-session-pkg016' \
+            --header 'Origin: https://evil.example' \
+            --header 'Content-Type: application/json' \
+            --data '{"adapterId":"work-wallet","projectId":"halifax-demo","externalRecordReference":"PER-201"}' \
+            http://127.0.0.1:3000/api/nexus/context-tickets)
+          test "$cross_origin_issue_status" = "403"
+
+          client_authority_status=$(curl --silent --show-error --output /tmp/ticket-client-authority.json --write-out '%{http_code}' \
+            --cookie 'sid=ci-session-pkg016' \
+            --header 'Origin: http://127.0.0.1:3000' \
+            --header 'Content-Type: application/json' \
+            --data '{"adapterId":"work-wallet","projectId":"halifax-demo","externalRecordReference":"PER-201","personId":"attacker"}' \
+            http://127.0.0.1:3000/api/nexus/context-tickets)
+          test "$client_authority_status" = "400"
+
+          issue_status=$(curl --silent --show-error --output /tmp/ticket-issued.json --write-out '%{http_code}' \
+            --cookie 'sid=ci-session-pkg016' \
+            --header 'Origin: http://127.0.0.1:3000' \
+            --header 'Content-Type: application/json' \
+            --data '{"adapterId":"work-wallet","projectId":"halifax-demo","externalRecordReference":"PER-201"}' \
+            http://127.0.0.1:3000/api/nexus/context-tickets)
+          test "$issue_status" = "201"
+          grep '"schema":"nexus-context-ticket/v1"' /tmp/ticket-issued.json > /dev/null
+          grep '"purpose":"CONNECTOR_CONTEXT_READ"' /tmp/ticket-issued.json > /dev/null
+
+          ticket=$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync("/tmp/ticket-issued.json","utf8")); if(typeof x.ticket!=="string"||x.ticket.length!==43) process.exit(1); process.stdout.write(x.ticket)')
+          test -n "$ticket"
+
+          wrong_exchange_status=$(curl --silent --show-error --output /tmp/ticket-wrong-origin.json --write-out '%{http_code}' \
+            --header 'Origin: https://evil.example' \
+            --header 'Content-Type: application/json' \
+            --data "{\"ticket\":\"$ticket\"}" \
+            http://127.0.0.1:3000/api/nexus/context-tickets/exchange)
+          test "$wrong_exchange_status" = "403"
+
+          exchange_status=$(curl --silent --show-error --output /tmp/ticket-exchanged.json --write-out '%{http_code}' \
+            --header 'Origin: chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+            --header 'Content-Type: application/json' \
+            --data "{\"ticket\":\"$ticket\"}" \
+            http://127.0.0.1:3000/api/nexus/context-tickets/exchange)
+          test "$exchange_status" = "200"
+          grep '"schema":"nexus-context-ticket-exchange/v1"' /tmp/ticket-exchanged.json > /dev/null
+          grep '"nexusNodeId":"t-fire"' /tmp/ticket-exchanged.json > /dev/null
+          grep '"contextSource":"CONNECTOR_VERIFIED_CONTEXT"' /tmp/ticket-exchanged.json > /dev/null
+          grep '"developmentContext":false' /tmp/ticket-exchanged.json > /dev/null
+          ! grep '"title"' /tmp/ticket-exchanged.json > /dev/null
+          ! grep '"detail"' /tmp/ticket-exchanged.json > /dev/null
+          ! grep "$ticket" /tmp/ticket-exchanged.json > /dev/null
+
+          reuse_status=$(curl --silent --show-error --output /tmp/ticket-reused.json --write-out '%{http_code}' \
+            --header 'Origin: chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+            --header 'Content-Type: application/json' \
+            --data "{\"ticket\":\"$ticket\"}" \
+            http://127.0.0.1:3000/api/nexus/context-tickets/exchange)
+          test "$reuse_status" = "410"
+          grep '"error":"CONTEXT_TICKET_INVALID"' /tmp/ticket-reused.json > /dev/null
 
       - name: Upload Nexus build
         uses: actions/upload-artifact@v4

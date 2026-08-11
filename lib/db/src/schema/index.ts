@@ -10,3 +10,4 @@ export * from "./conversations";
 export * from "./files";
 export * from "./nexus-identity";
 export * from "./nexus-project-participation";
+export * from "./nexus-context-ticket";

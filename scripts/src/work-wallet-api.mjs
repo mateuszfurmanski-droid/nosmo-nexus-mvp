@@ -152,6 +152,15 @@ function contextQuery(url) {
   return projectId && sourceRecord ? { projectId, sourceRecord } : null;
 }
 
+export function resolveStoredWorkWalletContext({
+  source = "WORK_WALLET",
+  projectId,
+  sourceRecord,
+}) {
+  if (source !== "WORK_WALLET" && source !== "WORK_WALLET_DEMO") return null;
+  return findWorkWalletContext(events, { source, projectId, sourceRecord });
+}
+
 function sendContext(response, source, url) {
   const query = contextQuery(url);
   if (!query) {
@@ -159,7 +168,7 @@ function sendContext(response, source, url) {
     return;
   }
 
-  const context = findWorkWalletContext(events, { source, ...query });
+  const context = resolveStoredWorkWalletContext({ source, ...query });
   if (!context) {
     json(response, 404, { error: "CONTEXT_NOT_FOUND" });
     return;
