@@ -44,6 +44,20 @@ export interface NexusGoogleDriveRegistryRef {
   role: "assetIndex" | "routingRules" | "migrationLog";
 }
 
+export interface NexusGoogleDriveProjectAlias {
+  alias: string;
+  projectId: NexusCloudProjectId;
+  worldId: NexusCloudWorldId;
+  reason: "android-work-mode" | "legacy-url" | "human-short-name";
+}
+
+export interface NexusGoogleDriveResolvedProjectRoute {
+  route: NexusGoogleDriveProjectRoute;
+  requestedProjectId: string;
+  requestedWorldId?: string;
+  matchedAlias?: string;
+}
+
 function folder(role: NexusGoogleDriveFolderRole, id: string, title: string, canonicalUse: string): NexusGoogleDriveFolderRef {
   return {
     role,
@@ -56,6 +70,16 @@ function folder(role: NexusGoogleDriveFolderRole, id: string, title: string, can
 
 function doc(role: NexusGoogleDriveRegistryRef["role"], id: string, title: string, url: string): NexusGoogleDriveRegistryRef {
   return { role, id, title, url };
+}
+
+function normaliseProjectAlias(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-")
+    .replace(/[^a-z0-9-]+/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export const NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG = {
@@ -145,6 +169,16 @@ export const NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG = {
       "https://docs.google.com/document/d/1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU/edit",
     ),
   },
+  projectAliases: [
+    { alias: "esafe", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "android-work-mode" },
+    { alias: "e-safe", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "android-work-mode" },
+    { alias: "esafe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "human-short-name" },
+    { alias: "e-safe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "human-short-name" },
+    { alias: "nexus-demo-project-001-esafe-catania", projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", reason: "legacy-url" },
+    { alias: "riverside", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "android-work-mode" },
+    { alias: "riverside-demo", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "human-short-name" },
+    { alias: "riverside-demo-project", projectId: "RIVERSIDE_DEMO_PROJECT", worldId: "dev", reason: "legacy-url" },
+  ] satisfies NexusGoogleDriveProjectAlias[],
   projectRoutes: [
     {
       projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA",
@@ -194,6 +228,31 @@ export function resolveNexusGoogleDriveProjectRoute(projectId: string, worldId?:
     if (worldId && route.worldId !== worldId) return false;
     return true;
   }) ?? null;
+}
+
+export function resolveNexusGoogleDriveProjectRouteFromAlias(projectIdOrAlias: string, worldId?: string): NexusGoogleDriveResolvedProjectRoute | null {
+  const directRoute = resolveNexusGoogleDriveProjectRoute(projectIdOrAlias, worldId);
+  if (directRoute) {
+    return {
+      route: directRoute,
+      requestedProjectId: projectIdOrAlias,
+      requestedWorldId: worldId,
+    };
+  }
+
+  const normalisedAlias = normaliseProjectAlias(projectIdOrAlias);
+  const alias = NEXUS_GOOGLE_DRIVE_CLOUD_CONFIG.projectAliases.find((candidate) => candidate.alias === normalisedAlias);
+  if (!alias) return null;
+
+  const route = resolveNexusGoogleDriveProjectRoute(alias.projectId, worldId ?? alias.worldId);
+  if (!route) return null;
+
+  return {
+    route,
+    requestedProjectId: projectIdOrAlias,
+    requestedWorldId: worldId,
+    matchedAlias: alias.alias,
+  };
 }
 
 export function requireNexusGoogleDriveProjectRoute(projectId: string, worldId?: string): NexusGoogleDriveProjectRoute {
