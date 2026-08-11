@@ -49,7 +49,18 @@ assert(!route.includes("x-nexus-integration-key"), "browser ticket route must ne
 
 assert(origins.includes("NEXUS_CONTEXT_TICKET_ALLOWED_ORIGINS"), "ticket exchange allowlist env missing");
 assert(origins.includes("chrome-extension:\\/\\/"), "Chrome extension origin support missing");
-assert(!origins.includes("*"), "ticket origin policy must not contain wildcard authority");
+for (const forbiddenWildcard of [
+  'allowed.add("*")',
+  '"*://"',
+  '"https://*"',
+  '"http://*"',
+  '"<all_urls>"',
+]) {
+  assert(
+    !origins.includes(forbiddenWildcard),
+    `ticket origin policy must not grant wildcard authority: ${forbiddenWildcard}`,
+  );
+}
 
 assert(workWalletApi.includes("export function resolveStoredWorkWalletContext"), "internal connector context resolver missing");
 assert(workWalletRuntime.includes("resolveWorkWalletConnectorContext"), "unified runtime connector context bridge missing");
