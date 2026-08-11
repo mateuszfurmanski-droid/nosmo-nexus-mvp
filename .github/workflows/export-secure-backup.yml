@@ -35,6 +35,7 @@ jobs:
           sha256sum "${out}/${repo}.bundle" "${out}/${repo}-main-snapshot.tar.gz" > "${out}/SHA256SUMS.txt"
 
       - name: Upload secure backup artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: secure-backup-${{ github.event.repository.name }}
