@@ -34,7 +34,11 @@ jobs:
           tar --exclude=.git -czf "${out}/${repo}-main-snapshot.tar.gz" .
           sha256sum "${out}/${repo}.bundle" "${out}/${repo}-main-snapshot.tar.gz" > "${out}/SHA256SUMS.txt"
 
+      # PRs still verify that bundle/snapshot creation works, but skip artifact
+      # upload so repository storage quota does not block development PRs.
+      # Main/manual runs keep the actual backup artifact upload behaviour.
       - name: Upload secure backup artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: secure-backup-${{ github.event.repository.name }}
