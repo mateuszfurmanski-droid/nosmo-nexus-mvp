@@ -147,6 +147,63 @@ function copyPrompt(prompt: string) {
   void navigator.clipboard.writeText(prompt);
 }
 
+function dispatchWorkModeAiNextActionIntent(
+  context: WorkModeAiHandoffContext,
+  action: WorkModeAiServerAction,
+  serverSummary: WorkModeAiServerResponse | null,
+) {
+  const canonical = canonicalProjectFor(context);
+  window.dispatchEvent(new CustomEvent("nexus:work-mode-ai-next-action", {
+    detail: {
+      actionId: action.id,
+      title: action.title,
+      target: action.target,
+      requiresAuthority: action.requiresAuthority,
+      projectId: canonical.projectId,
+      worldId: canonical.worldId,
+      requestedProjectId: canonical.requestedProjectId,
+      matchedAlias: canonical.matchedAlias,
+      acceptedSignals: context.acceptedSignals,
+      serverBoundary: serverSummary?.providerBoundary ?? "server-side-orchestrator",
+      modelExecution: serverSummary?.modelExecution ?? "disabled-demo-boundary",
+      source: "work-mode-ai-overlay",
+      status: "intent-only-no-mutation",
+    },
+  }));
+}
+
+function runNextActionIntent(
+  context: WorkModeAiHandoffContext,
+  action: WorkModeAiServerAction,
+  serverSummary: WorkModeAiServerResponse | null,
+) {
+  dispatchWorkModeAiNextActionIntent(context, action, serverSummary);
+
+  if (action.id === "focus-project-world" || action.target === "relationship-tree") {
+    focusProjectContext(context);
+    return;
+  }
+
+  if (action.id === "open-doorflow-if-relevant" || action.target === "doorflow") {
+    openDoorFlow(context);
+    return;
+  }
+
+  if (action.id === "check-missing-evidence" || action.target === "project-graph") {
+    const canonical = canonicalProjectFor(context);
+    window.dispatchEvent(new CustomEvent("nexus:work-mode-ai-evidence-review-request", {
+      detail: {
+        projectId: canonical.projectId,
+        worldId: canonical.worldId,
+        requestedProjectId: canonical.requestedProjectId,
+        acceptedSignals: context.acceptedSignals,
+        source: "work-mode-ai-overlay",
+        status: "draft-intent-only-no-mutation",
+      },
+    }));
+  }
+}
+
 async function requestWorkModeAiServerSummary(context: WorkModeAiHandoffContext): Promise<WorkModeAiServerResponse> {
   const canonical = canonicalProjectFor(context);
   const response = await fetch("/api/nexus/work-mode-ai/context", {
@@ -179,6 +236,7 @@ export function NexusWorkModeAiHandoffReceiver() {
   const [serverSummary, setServerSummary] = useState<WorkModeAiServerResponse | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [serverLoading, setServerLoading] = useState(false);
+  const [lastIntentQueued, setLastIntentQueued] = useState<string | null>(null);
 
   const canonicalProject = useMemo(() => {
     if (!context) return null;
@@ -203,6 +261,11 @@ export function NexusWorkModeAiHandoffReceiver() {
       .then((result) => setServerSummary(result))
       .catch((error) => setServerError(error instanceof Error ? error.message : "Unknown Work Mode AI boundary error"))
       .finally(() => setServerLoading(false));
+  };
+
+  const handleNextAction = (action: WorkModeAiServerAction) => {
+    runNextActionIntent(context, action, serverSummary);
+    setLastIntentQueued(action.title);
   };
 
   return (
@@ -271,11 +334,32 @@ export function NexusWorkModeAiHandoffReceiver() {
               <div className="space-y-1">
                 {serverSummary.nextActions.map((action) => (
                   <div key={action.id} className="rounded-xl border border-slate-700/70 bg-slate-950/35 px-2 py-1.5">
-                    <strong className="block text-cyan-100">{action.title}</strong>
-                    <span className="text-slate-400">{action.detail}</span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <strong className="block text-cyan-100">{action.title}</strong>
+                        <span className="text-slate-400">{action.detail}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleNextAction(action)}
+                        className="shrink-0 rounded-lg border border-cyan-300/25 bg-cyan-400/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-cyan-100 hover:bg-cyan-400/15"
+                      >
+                        Intent
+                      </button>
+                    </div>
+                    {action.requiresAuthority && (
+                      <span className="mt-1 block text-[9px] uppercase tracking-[0.08em] text-amber-200/80">
+                        Requires Project Participation before mutation
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
+              {lastIntentQueued && (
+                <p className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 px-2 py-1 text-[10px] text-cyan-100">
+                  Queued UI intent: {lastIntentQueued}. No backend mutation was executed.
+                </p>
+              )}
             </div>
           ) : (
             <>
