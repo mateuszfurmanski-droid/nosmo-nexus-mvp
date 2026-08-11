@@ -62,6 +62,10 @@ export const webIfcWasmRenderer = {
   },
 } satisfies IfcRendererAdapter<IfcLiteGeometryResult>;
 
+/* Compatibility export for the existing Lite viewer's "next backend" label.
+   The full engine is development opt-in in this branch, not a production-bundled renderer. */
+export const plannedWebIfcRenderer = webIfcWasmRenderer;
+
 export const IFC_RENDERERS = [liteStepRenderer, webIfcWasmRenderer] as const;
 
 export function getIfcRendererAdapter(): typeof liteStepRenderer;
