@@ -1,4 +1,5 @@
 import { FileCheck2, FileText, GitCompareArrows } from "lucide-react";
+import { readPersistedChangeEvents, type NexusChangeEventProjection } from "@/bim/change-event-persistence";
 import {
   NODES,
   OBJECT_LINKS,
@@ -13,6 +14,7 @@ function appendNode(node: WorkspaceNode) {
 }
 
 function appendDirectLink(a: string, b: string) {
+  if (!NODES.some((node) => node.id === a) || !NODES.some((node) => node.id === b)) return;
   if (!PERSON_LINKS.some(([left, right]) => (left === a && right === b) || (left === b && right === a))) {
     // The current persistent graph uses PERSON_LINKS as its generic direct-edge
     // compatibility registry. Keep this shim isolated here until the graph edge
@@ -33,9 +35,17 @@ function appendObjectDocument(objectId: string, documentId: string) {
   object.docs.push(documentId);
 }
 
-for (const event of SYNTHETIC_CHANGE_EVENTS) {
+function temporalOffset(decidedAt: string, minutes: number) {
+  const value = Date.parse(decidedAt);
+  if (!Number.isFinite(value)) return decidedAt;
+  return new Date(value + minutes * 60_000).toISOString();
+}
+
+function projectEvent(event: NexusChangeEventProjection) {
+  const objectLinks = OBJECT_LINKS[event.objectId];
   const rfiId = event.links.rfis[0];
   const evidenceId = event.links.documents.find((id) => id.startsWith("d-chg-evidence"));
+  const sourceLabel = event.synthetic ? "SYNTHETIC" : "BROWSER-PERSISTED";
 
   // Current radial Timeline positions temporal records through the document
   // primitive. The node ID remains the canonical Change Event ID; no duplicate
@@ -44,7 +54,7 @@ for (const event of SYNTHETIC_CHANGE_EVENTS) {
   appendNode({
     id: event.id,
     label: `Change Event · ${event.decision.code.replaceAll("_", " ")}`,
-    sublabel: `${event.objectId} · ${event.reviewState.replaceAll("_", " ")} · SYNTHETIC`,
+    sublabel: `${event.objectId} · ${event.reviewState.replaceAll("_", " ")} · ${sourceLabel}`,
     type: "document",
     Icon: GitCompareArrows,
     receivedAt: event.decision.decidedAt,
@@ -57,12 +67,12 @@ for (const event of SYNTHETIC_CHANGE_EVENTS) {
   if (rfiId) {
     appendNode({
       id: rfiId,
-      label: "RFI-DEMO-018 · Revised CT-E21 route",
-      sublabel: "RFI · Prepared from Change Event · SYNTHETIC",
+      label: `${rfiId} · Revision information request`,
+      sublabel: `RFI · Prepared from ${event.id} · ${sourceLabel}`,
       type: "document",
       Icon: FileText,
-      receivedAt: "2026-08-11T05:42:00Z",
-      documentDate: "2026-08-11",
+      receivedAt: temporalOffset(event.decision.decidedAt, 2),
+      documentDate: event.decision.decidedAt.slice(0, 10),
       externalId: event.id,
       trade: event.trade,
       workPackage: event.workPackage,
@@ -72,12 +82,12 @@ for (const event of SYNTHETIC_CHANGE_EVENTS) {
   if (evidenceId) {
     appendNode({
       id: evidenceId,
-      label: "CT-E21 revision evidence set",
-      sublabel: "Evidence requirement · SYNTHETIC",
+      label: `${event.objectId} revision evidence set`,
+      sublabel: `Evidence requirement · ${sourceLabel}`,
       type: "document",
       Icon: FileCheck2,
-      receivedAt: "2026-08-11T05:43:00Z",
-      documentDate: "2026-08-11",
+      receivedAt: temporalOffset(event.decision.decidedAt, 3),
+      documentDate: event.decision.decidedAt.slice(0, 10),
       externalId: event.id,
       trade: event.trade,
       workPackage: event.workPackage,
@@ -97,7 +107,17 @@ for (const event of SYNTHETIC_CHANGE_EVENTS) {
     appendDirectLink(event.id, evidenceId);
   }
 
+  // Canonical object relationships enrich a persisted event without requiring
+  // Change Control to copy graph-specific person/inspection IDs into storage.
+  if (objectLinks) {
+    for (const personId of objectLinks.people) appendDirectLink(event.id, personId);
+    for (const docId of objectLinks.docs) appendDirectLink(event.id, docId);
+    for (const issueId of objectLinks.issues) appendDirectLink(event.id, issueId);
+    for (const inspectionId of objectLinks.inspections) appendDirectLink(event.id, inspectionId);
+  }
+
   for (const personId of event.links.people) appendDirectLink(event.id, personId);
+  for (const documentId of event.links.documents) appendDirectLink(event.id, documentId);
   for (const issueId of event.links.issues) appendDirectLink(event.id, issueId);
   for (const inspectionId of event.links.inspections) {
     appendDirectLink(event.id, inspectionId);
@@ -105,4 +125,12 @@ for (const event of SYNTHETIC_CHANGE_EVENTS) {
   }
   appendDirectLink(event.id, event.objectId);
   appendDirectLink(event.id, event.taskId);
+}
+
+export function applyPersistedChangeEventsToProjectGraph() {
+  const byId = new Map<string, NexusChangeEventProjection>();
+  for (const event of SYNTHETIC_CHANGE_EVENTS) byId.set(event.id, event);
+  for (const event of readPersistedChangeEvents()) byId.set(event.id, event);
+  for (const event of byId.values()) projectEvent(event);
+  return [...byId.values()];
 }
