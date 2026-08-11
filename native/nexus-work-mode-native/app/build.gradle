@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'tech.nosmo.nexus.workmode'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'tech.nosmo.nexus.workmode'
+        minSdk 26
+        targetSdk 35
+        versionCode 13
+        versionName '0.7.0-native'
+    }
+
+    signingConfigs {
+        nexusTest {
+            storeFile file('../signing/nexus-test.keystore')
+            storePassword 'nexusworkmode'
+            keyAlias 'nexus-test'
+            keyPassword 'nexusworkmode'
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.native'
+            versionNameSuffix '-test'
+            signingConfig signingConfigs.nexusTest
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}

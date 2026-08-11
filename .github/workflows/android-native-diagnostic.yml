@@ -1,0 +1,138 @@
+name: Build NEXUS Native Work Mode APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-native-diagnostic
+    paths:
+      - native/nexus-work-mode-native/**
+      - .github/workflows/android-native-diagnostic.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - native/nexus-work-mode-native/**
+      - .github/workflows/android-native-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-native-work-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Prepare stable test signing key
+        run: |
+          base64 -d native/nexus-work-mode-native/signing/nexus-test.keystore.b64 > native/nexus-work-mode-native/signing/nexus-test.keystore
+          keytool -list -keystore native/nexus-work-mode-native/signing/nexus-test.keystore -storepass nexusworkmode -alias nexus-test
+
+      - name: Add official NEXUS logo
+        run: |
+          mkdir -p native/nexus-work-mode-native/app/src/main/res/drawable
+          curl -L --fail --retry 3 \
+            https://raw.githubusercontent.com/mateuszfurmanski-droid/NOSMO-website/main/assets/NEXUS_Logo.png \
+            -o native/nexus-work-mode-native/app/src/main/res/drawable/nexus_logo.png
+
+      - name: Build native Work Mode APK and AAB
+        working-directory: native/nexus-work-mode-native
+        run: gradle :app:assembleDebug :app:bundleDebug --no-daemon --stacktrace
+
+      - name: Verify native Work Mode package
+        run: |
+          APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
+          AAB="native/nexus-work-mode-native/app/build/outputs/bundle/debug/app-debug.aab"
+          test -f "$APK"
+          test -f "$AAB"
+          unzip -l "$APK" | tee /tmp/apk-files.txt
+          grep -q "classes.dex" /tmp/apk-files.txt
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -q "package: name='tech.nosmo.nexus.workmode.native'" /tmp/badging.txt
+          grep -q "versionName='0.7.0-native-test'" /tmp/badging.txt
+          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.NexusShellActivity'" /tmp/badging.txt
+          grep -q "uses-permission: name='android.permission.READ_CONTACTS'" /tmp/badging.txt
+          grep -q "uses-permission: name='android.permission.READ_CALENDAR'" /tmp/badging.txt
+          grep -q "uses-permission: name='android.permission.READ_MEDIA_IMAGES'" /tmp/badging.txt
+          grep -q "uses-permission: name='android.permission.MANAGE_EXTERNAL_STORAGE'" /tmp/badging.txt
+          unzip -p "$APK" classes.dex > /tmp/classes.dex || true
+          unzip -p "$APK" classes2.dex > /tmp/classes2.dex || true
+          strings /tmp/classes.dex /tmp/classes2.dex | tee /tmp/dex-strings.txt
+          grep -q "One memory for the construction ecosystem" /tmp/dex-strings.txt
+          grep -q "SCAN PHONE + CONNECTED CLOUD" /tmp/dex-strings.txt
+          grep -q "NEXUS CLOUD / GOOGLE DRIVE" /tmp/dex-strings.txt
+          grep -q "PROJECT WORLDS" /tmp/dex-strings.txt
+          grep -q "e-SAFE CATANIA" /tmp/dex-strings.txt
+          grep -q "RIVERSIDE" /tmp/dex-strings.txt
+          grep -q "ASSET INDEX" /tmp/dex-strings.txt
+          grep -q "ROUTING RULES" /tmp/dex-strings.txt
+          grep -q "MIGRATION LOG" /tmp/dex-strings.txt
+          grep -q "1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI" /tmp/dex-strings.txt
+          grep -q "1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c" /tmp/dex-strings.txt
+          grep -q "1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU" /tmp/dex-strings.txt
+          grep -q "10_PROJECT_WORLDS" /tmp/dex-strings.txt
+          grep -q "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" /tmp/dex-strings.txt
+          grep -q "RIVERSIDE_DEMO_PROJECT" /tmp/dex-strings.txt
+          grep -q "PHOTOS_SITE_EVIDENCE" /tmp/dex-strings.txt
+          grep -q "DOCUMENTS_PDF_OFFICE" /tmp/dex-strings.txt
+          grep -q "DRAWINGS_BIM_IFC" /tmp/dex-strings.txt
+          grep -q "PENDING_USER_APPROVAL" /tmp/dex-strings.txt
+          if grep -q "01_ESAFE_PROJECT_WORLD" /tmp/dex-strings.txt; then
+            echo "Stale pre-migration e-SAFE folder route found in APK; use 10_PROJECT_WORLDS/<projectId>/... instead."
+            exit 1
+          fi
+          grep -q "0.7.0" /tmp/dex-strings.txt
+          grep -q "e-SAFE-first discovery" /tmp/dex-strings.txt
+          grep -q "no Tesco default" /tmp/dex-strings.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/signing.txt
+
+      - name: Stage Work Mode APK and Play bundle
+        run: |
+          mkdir -p android-native-build
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-build/NEXUS-Work-Mode-Native-v0.7.0.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/debug/app-debug.aab android-native-build/NEXUS-Work-Mode-Native-v0.7.0.aab
+          sha256sum android-native-build/NEXUS-Work-Mode-Native-v0.7.0.apk > android-native-build/NEXUS-Work-Mode-Native-v0.7.0.apk.sha256
+          sha256sum android-native-build/NEXUS-Work-Mode-Native-v0.7.0.aab > android-native-build/NEXUS-Work-Mode-Native-v0.7.0.aab.sha256
+          cp /tmp/badging.txt android-native-build/APK_BADGING.txt
+          cp /tmp/signing.txt android-native-build/APK_SIGNING.txt
+          {
+            echo "NEXUS Work Mode Native"
+            echo "Version: 0.7.0-native"
+            echo "Package: tech.nosmo.nexus.workmode.native"
+            echo "Runtime: pure Android Java"
+            echo "Launcher: native NexusShellActivity visual shell derived from the older NEXUS web prototype"
+            echo "Nexus Cloud: canonical Google Drive map with Project Worlds, e-SAFE Catania, Riverside, Asset Index, Routing Rules and Migration Log"
+            echo "Canonical copy route: 00_NEXUS_PERSONAL_CLOUD/10_PROJECT_WORLDS/<projectId>/..."
+            echo "Legacy route blocked: 01_ESAFE_PROJECT_WORLD"
+            echo "Discovery: Contacts + Calendar + MediaStore photo index + selected work photos + optional MANAGE_EXTERNAL_STORAGE file index + persistent document-provider cloud source"
+            echo "Personal Cloud: persistent Google Drive folder through Android Storage Access Framework; accepted source files are copied and originals retained"
+            echo "Project World: e-SAFE Project World handoff with Google Drive Personal Cloud provenance"
+            echo "Signing: stable NOSMO test key for repeat installs"
+            echo "AAB: included for future Play distribution"
+            echo "Source: $GITHUB_SHA"
+          } > android-native-build/BUILD_INFO.txt
+
+      - name: Upload Work Mode APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Work-Mode-Native-v0.7.0
+          path: android-native-build/*
+          if-no-files-found: error
+          retention-days: 14
