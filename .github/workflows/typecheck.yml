@@ -33,7 +33,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate Nexus Google Drive routing
-        run: node scripts/src/validate-nexus-google-drive-routing.mjs
+        run: |
+          node scripts/src/validate-nexus-google-drive-routing.mjs
+          pnpm --filter @workspace/scripts exec tsx ../artifacts/nosmo-nexus/src/cloud-data/validate-file-loader-drive-routing.ts
+          node scripts/src/validate-nexus-cloud-server-routing.mjs
 
       - name: Validate Android Work Mode AI handoff receiver
         run: node scripts/src/validate-work-mode-ai-handoff.mjs
@@ -135,16 +138,24 @@ jobs:
           grep '"status":"accepted"' /tmp/work-mode-ai-response.json > /dev/null
           grep '"projectId":"RIVERSIDE_DEMO_PROJECT"' /tmp/work-mode-ai-response.json > /dev/null
           grep '"modelExecution":"disabled-demo-boundary"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"draftAction"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"mutationMode":"draft-only-no-mutation"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"executionBoundary":"worksuite-action-engine-required"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"workSuiteActionEngineApproval":true' /tmp/work-mode-ai-response.json > /dev/null
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/nexus/cloud-storage/status \
-            | grep '"providerBoundary":"nexus-api"' > /dev/null
+            > /tmp/cloud-storage-status.json
+          grep '"providerBoundary":"nexus-api"' /tmp/cloud-storage-status.json > /dev/null
+          grep '"schema":"nexus-cloud-drive-manifest/v1"' /tmp/cloud-storage-status.json > /dev/null
+          grep '"configuredProjectWorlds":2' /tmp/cloud-storage-status.json > /dev/null
 
           printf 'nexus cloud storage smoke\n' > /tmp/nexus-cloud-object.bin
           cloud_checksum=$(sha256sum /tmp/nexus-cloud-object.bin | awk '{print $1}')
           cloud_size=$(wc -c < /tmp/nexus-cloud-object.bin | tr -d ' ')
-          cloud_metadata=$(CLOUD_SIZE="$cloud_size" CLOUD_CHECKSUM="$cloud_checksum" node -e 'const metadata = { scope: { projectId: "HALIFAX-DEMO", assetId: "nxs_asset_ci_cloud_001", fileId: "nxs_file_ci_cloud_001" }, objectKey: "ci-cloud-object-001", filename: "ci-photo.jpg", mimeType: "image/jpeg", sizeBytes: Number(process.env.CLOUD_SIZE), checksum: { algorithm: "sha256", value: process.env.CLOUD_CHECKSUM } }; process.stdout.write(encodeURIComponent(JSON.stringify(metadata)));')
 
+          # Provider-neutral projects remain valid without a worldId.
+          cloud_metadata=$(CLOUD_SIZE="$cloud_size" CLOUD_CHECKSUM="$cloud_checksum" node -e 'const metadata = { scope: { projectId: "HALIFAX-DEMO", assetId: "nxs_asset_ci_cloud_001", fileId: "nxs_file_ci_cloud_001" }, objectKey: "ci-cloud-object-001", filename: "ci-photo.jpg", mimeType: "image/jpeg", sizeBytes: Number(process.env.CLOUD_SIZE), checksum: { algorithm: "sha256", value: process.env.CLOUD_CHECKSUM } }; process.stdout.write(encodeURIComponent(JSON.stringify(metadata)));')
           cloud_upload_status=$(curl --silent --show-error --output /tmp/cloud-upload.json --write-out '%{http_code}' \
             --request POST \
             --header "Content-Type: image/jpeg" \
@@ -164,7 +175,58 @@ jobs:
             --output /tmp/nexus-cloud-readback.bin
           cmp /tmp/nexus-cloud-object.bin /tmp/nexus-cloud-readback.bin
 
+          # Configured e-SAFE Project World fails closed without exact worldId.
+          esafe_metadata_missing_world=$(CLOUD_SIZE="$cloud_size" CLOUD_CHECKSUM="$cloud_checksum" node -e 'const metadata = { scope: { projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", assetId: "nxs_asset_ci_esafe_001", fileId: "nxs_file_ci_esafe_001" }, objectKey: "ci-esafe-object-001", filename: "esafe-photo.jpg", mimeType: "image/jpeg", sizeBytes: Number(process.env.CLOUD_SIZE), checksum: { algorithm: "sha256", value: process.env.CLOUD_CHECKSUM } }; process.stdout.write(encodeURIComponent(JSON.stringify(metadata)));')
+          esafe_missing_world_status=$(curl --silent --show-error --output /tmp/esafe-missing-world.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Content-Type: image/jpeg" \
+            --header "X-Nexus-Storage-Metadata: $esafe_metadata_missing_world" \
+            --data-binary @/tmp/nexus-cloud-object.bin \
+            http://127.0.0.1:3000/api/nexus/cloud-storage/objects)
+          test "$esafe_missing_world_status" = "400"
+          grep 'NEXUS_CLOUD_WORLD_REQUIRED' /tmp/esafe-missing-world.json > /dev/null
+
+          esafe_metadata_wrong_world=$(CLOUD_SIZE="$cloud_size" CLOUD_CHECKSUM="$cloud_checksum" node -e 'const metadata = { scope: { projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "dev", assetId: "nxs_asset_ci_esafe_001", fileId: "nxs_file_ci_esafe_001" }, objectKey: "ci-esafe-object-001", filename: "esafe-photo.jpg", mimeType: "image/jpeg", sizeBytes: Number(process.env.CLOUD_SIZE), checksum: { algorithm: "sha256", value: process.env.CLOUD_CHECKSUM } }; process.stdout.write(encodeURIComponent(JSON.stringify(metadata)));')
+          esafe_wrong_world_status=$(curl --silent --show-error --output /tmp/esafe-wrong-world.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Content-Type: image/jpeg" \
+            --header "X-Nexus-Storage-Metadata: $esafe_metadata_wrong_world" \
+            --data-binary @/tmp/nexus-cloud-object.bin \
+            http://127.0.0.1:3000/api/nexus/cloud-storage/objects)
+          test "$esafe_wrong_world_status" = "400"
+          grep 'NEXUS_CLOUD_PROJECT_WORLD_MISMATCH' /tmp/esafe-wrong-world.json > /dev/null
+
+          esafe_metadata=$(CLOUD_SIZE="$cloud_size" CLOUD_CHECKSUM="$cloud_checksum" node -e 'const metadata = { scope: { projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", worldId: "esafe-demo", assetId: "nxs_asset_ci_esafe_001", fileId: "nxs_file_ci_esafe_001" }, objectKey: "ci-esafe-object-001", filename: "esafe-photo.jpg", mimeType: "image/jpeg", sizeBytes: Number(process.env.CLOUD_SIZE), checksum: { algorithm: "sha256", value: process.env.CLOUD_CHECKSUM } }; process.stdout.write(encodeURIComponent(JSON.stringify(metadata)));')
+          esafe_upload_status=$(curl --silent --show-error --output /tmp/esafe-upload.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Content-Type: image/jpeg" \
+            --header "X-Nexus-Storage-Metadata: $esafe_metadata" \
+            --data-binary @/tmp/nexus-cloud-object.bin \
+            http://127.0.0.1:3000/api/nexus/cloud-storage/objects)
+          test "$esafe_upload_status" = "201"
+
+          curl --fail --silent --show-error --get \
+            --data-urlencode "projectId=NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" \
+            --data-urlencode "worldId=esafe-demo" \
+            --data-urlencode "assetId=nxs_asset_ci_esafe_001" \
+            --data-urlencode "fileId=nxs_file_ci_esafe_001" \
+            --data-urlencode "objectKey=ci-esafe-object-001" \
+            http://127.0.0.1:3000/api/nexus/cloud-storage/objects \
+            --output /tmp/esafe-cloud-readback.bin
+          cmp /tmp/nexus-cloud-object.bin /tmp/esafe-cloud-readback.bin
+
+          esafe_wrong_read_status=$(curl --silent --show-error --output /tmp/esafe-wrong-read.json --write-out '%{http_code}' --get \
+            --data-urlencode "projectId=NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" \
+            --data-urlencode "worldId=dev" \
+            --data-urlencode "assetId=nxs_asset_ci_esafe_001" \
+            --data-urlencode "fileId=nxs_file_ci_esafe_001" \
+            --data-urlencode "objectKey=ci-esafe-object-001" \
+            http://127.0.0.1:3000/api/nexus/cloud-storage/objects)
+          test "$esafe_wrong_read_status" = "400"
+          grep 'NEXUS_CLOUD_PROJECT_WORLD_MISMATCH' /tmp/esafe-wrong-read.json > /dev/null
+
       - name: Upload Nexus build
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: nosmo-nexus-web
