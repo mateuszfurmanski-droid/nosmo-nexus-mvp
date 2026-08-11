@@ -21,10 +21,10 @@ import {
 } from "lucide-react";
 import InteractiveWorkspace from "./interactive-workspace";
 import {
-  NODES,
-  PROJECT_ID,
+  NODES as DEFAULT_NODES,
+  PROJECT_ID as DEFAULT_PROJECT_ID,
   TYPE_STYLE,
-  buildAdjacency,
+  buildAdjacency as buildDefaultAdjacency,
   type WorkspaceNode,
 } from "./workspace-data";
 
@@ -60,6 +60,14 @@ type Gesture =
       zoom: number;
       worldPoint: Point;
     };
+
+export interface PersistentWorkspaceProps {
+  nodes?: WorkspaceNode[];
+  projectId?: string;
+  adjacency?: Record<string, string[]>;
+  storageKey?: string;
+  workflowEnabled?: boolean;
+}
 
 const FLOW = { type: "tween" as const, duration: 1, ease: [0.22, 1, 0.36, 1] as const };
 const edgeId = (a: string, b: string) => [a, b].sort().join("|");
@@ -108,8 +116,7 @@ function seededAngle(id: string) {
   return (hash % 360) * Math.PI / 180;
 }
 
-function buildEdges(): Edge[] {
-  const adjacency = buildAdjacency();
+function buildEdges(adjacency: Record<string, string[]>): Edge[] {
   const map = new Map<string, Edge>();
   Object.entries(adjacency).forEach(([source, targets]) => {
     targets.forEach((target) => {
@@ -173,11 +180,18 @@ function calculateLayout(
   return positions;
 }
 
-export default function PersistentWorkspace() {
-  const baseEdges = useMemo(buildEdges, []);
-  const byId = useMemo(() => new Map(NODES.map((node) => [node.id, node])), []);
+export default function PersistentWorkspace({
+  nodes = DEFAULT_NODES,
+  projectId = DEFAULT_PROJECT_ID,
+  adjacency,
+  storageKey = "nosmo-persistent-workspace",
+  workflowEnabled = true,
+}: PersistentWorkspaceProps = {}) {
+  const resolvedAdjacency = useMemo(() => adjacency ?? buildDefaultAdjacency(), [adjacency]);
+  const baseEdges = useMemo(() => buildEdges(resolvedAdjacency), [resolvedAdjacency]);
+  const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const [mode, setMode] = useState<"map" | "workflow">("map");
-  const [selectedId, setSelectedId] = useState(PROJECT_ID);
+  const [selectedId, setSelectedId] = useState(projectId);
   const [manualEdges, setManualEdges] = useState<Edge[]>([]);
   const [pinned, setPinned] = useState<Record<string, Point>>({});
   const [linkSource, setLinkSource] = useState<string | null>(null);
@@ -196,14 +210,22 @@ export default function PersistentWorkspace() {
   pinnedRef.current = pinned;
   manualEdgesRef.current = manualEdges;
 
-  const edges = useMemo(() => {
-    const map = new Map(baseEdges.map((edge) => [edge.id, edge]));
-    manualEdges.forEach((edge) => map.set(edge.id, edge));
-    return [...map.values()];
-  }, [baseEdges, manualEdges]);
+  useEffect(() => {
+    setSelectedId((current) => nodes.some((node) => node.id === current) ? current : projectId);
+    setLinkSource((current) => current && nodes.some((node) => node.id === current) ? current : null);
+  }, [nodes, projectId]);
 
-  const layoutCentreId = PROJECT_ID;
-  const timelineDomain = useMemo(() => documentTimelineDomain(NODES), []);
+  const edges = useMemo(() => {
+    const liveIds = new Set(nodes.map((node) => node.id));
+    const map = new Map(baseEdges.filter((edge) => liveIds.has(edge.source) && liveIds.has(edge.target)).map((edge) => [edge.id, edge]));
+    manualEdges
+      .filter((edge) => liveIds.has(edge.source) && liveIds.has(edge.target))
+      .forEach((edge) => map.set(edge.id, edge));
+    return [...map.values()];
+  }, [baseEdges, manualEdges, nodes]);
+
+  const layoutCentreId = projectId;
+  const timelineDomain = useMemo(() => documentTimelineDomain(nodes), [nodes]);
   const timelineRings = useMemo(() => {
     if (!timelineDomain) return [];
     return Array.from({ length: TIMELINE_RING_COUNT }, (_, index) => {
@@ -214,10 +236,10 @@ export default function PersistentWorkspace() {
     });
   }, [timelineDomain]);
   const positions = useMemo(
-    () => calculateLayout(NODES, layoutCentreId, edges, pinned, timelineEnabled, draggingNodeId),
-    [layoutCentreId, edges, pinned, timelineEnabled, draggingNodeId],
+    () => calculateLayout(nodes, layoutCentreId, edges, pinned, timelineEnabled, draggingNodeId),
+    [nodes, layoutCentreId, edges, pinned, timelineEnabled, draggingNodeId],
   );
-  const selected = byId.get(selectedId) ?? NODES[0];
+  const selected = byId.get(selectedId) ?? nodes[0];
   const selectedLinks = edges.filter((edge) => edge.source === selectedId || edge.target === selectedId).length;
 
   useLayoutEffect(() => {
@@ -232,7 +254,7 @@ export default function PersistentWorkspace() {
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("nosmo-persistent-workspace") ?? "null") as {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null") as {
         pinned?: Record<string, Point>;
         manualEdges?: Edge[];
       } | null;
@@ -241,12 +263,12 @@ export default function PersistentWorkspace() {
     } catch {
       // Browser memory is optional.
     }
-  }, []);
+  }, [storageKey]);
 
   const persist = (nextPinned = pinnedRef.current, nextManualEdges = manualEdgesRef.current) => {
     try {
       localStorage.setItem(
-        "nosmo-persistent-workspace",
+        storageKey,
         JSON.stringify({ pinned: nextPinned, manualEdges: nextManualEdges }),
       );
     } catch {
@@ -273,7 +295,7 @@ export default function PersistentWorkspace() {
   };
 
   const reset = () => {
-    setSelectedId(PROJECT_ID);
+    setSelectedId(projectId);
     setPinned({});
     pinnedRef.current = {};
     setManualEdges([]);
@@ -282,7 +304,7 @@ export default function PersistentWorkspace() {
     setPan({ x: 0, y: 0 });
     setTimelineEnabled(false);
     setZoom(typeof window !== "undefined" && window.innerWidth < 720 ? 0.52 : 0.72);
-    try { localStorage.removeItem("nosmo-persistent-workspace"); } catch { /* optional */ }
+    try { localStorage.removeItem(storageKey); } catch { /* optional */ }
   };
 
   const fit = () => {
@@ -504,7 +526,7 @@ export default function PersistentWorkspace() {
     setZoom((value) => clampZoom(value * (event.deltaY > 0 ? 0.92 : 1.08)));
   };
 
-  if (mode === "workflow") {
+  if (mode === "workflow" && workflowEnabled) {
     return (
       <div className="relative h-[100dvh] overflow-hidden">
         <button
@@ -520,7 +542,7 @@ export default function PersistentWorkspace() {
   }
 
   const world = `translate(${size.w / 2 + pan.x}px, ${size.h / 2 + pan.y}px) scale(${zoom})`;
-  const counts = NODES.reduce<Record<string, number>>((result, node) => {
+  const counts = nodes.reduce<Record<string, number>>((result, node) => {
     result[node.type] = (result[node.type] ?? 0) + 1;
     return result;
   }, {});
@@ -552,15 +574,17 @@ export default function PersistentWorkspace() {
         >
           <Clock3 className="h-4 w-4" /> Timeline {timelineEnabled ? "On" : "Off"}
         </button>
-        <button
-          type="button"
-          onClick={() => setMode("workflow")}
-          className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground hover:bg-secondary hover:text-foreground"
-          title="Open workflow view"
-        >
-          <Workflow className="h-4 w-4" /> Workflow
-        </button>
-        <span className="ml-1 text-[10px] font-bold uppercase tracking-[.11em] text-muted-foreground">{NODES.length} objects · {edges.length} links · {Math.round(zoom * 100)}%</span>
+        {workflowEnabled && (
+          <button
+            type="button"
+            onClick={() => setMode("workflow")}
+            className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-muted-foreground hover:bg-secondary hover:text-foreground"
+            title="Open workflow view"
+          >
+            <Workflow className="h-4 w-4" /> Workflow
+          </button>
+        )}
+        <span className="ml-1 text-[10px] font-bold uppercase tracking-[.11em] text-muted-foreground">{nodes.length} objects · {edges.length} links · {Math.round(zoom * 100)}%</span>
       </div>
 
       <div data-control className="absolute left-1/2 top-3 z-40 hidden -translate-x-1/2 gap-3 rounded-full border border-border bg-background/75 px-4 py-2 text-[9px] font-bold uppercase tracking-[.12em] backdrop-blur lg:flex">
@@ -622,7 +646,7 @@ export default function PersistentWorkspace() {
           })}
         </svg>
 
-        {NODES.map((node) => {
+        {nodes.map((node) => {
           const point = positions.get(node.id) ?? { x: 0, y: 0 };
           const selectedNode = node.id === selectedId;
           const nearby = connected(node.id, selectedId, edges);
@@ -679,7 +703,7 @@ export default function PersistentWorkspace() {
             {linkSource && <button type="button" onClick={() => setLinkSource(null)} className="rounded-lg p-1.5 text-muted-foreground"><X className="h-4 w-4" /></button>}
           </div>
           <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => setMode("workflow")} className="flex-1 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">Open workflow</button>
+            {workflowEnabled && <button type="button" onClick={() => setMode("workflow")} className="flex-1 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">Open workflow</button>}
             <button type="button" onClick={() => setLinkSource(selected.id)} className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground"><Link2 className="h-3.5 w-3.5" /> Connect</button>
           </div>
         </div>
