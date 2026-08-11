@@ -56,6 +56,7 @@ export function IfcImportPanel({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const smokeFixtureHref = `${import.meta.env.BASE_URL}fixtures/nexus_smoke_electrical.ifc`;
 
   const targetPilot = pilots.find((pilot) => pilot.object.id === targetId) ?? pilots[0];
   const candidates = useMemo(() => {
@@ -198,11 +199,23 @@ export function IfcImportPanel({
             <p className="text-xs font-semibold">Target: {targetPilot?.object.id ?? "No target"}</p>
             <p className="mt-1 text-[10px] text-muted-foreground">Choose the Nexus object first, then open an IFC discipline model.</p>
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-400/10 px-4 py-2.5 text-xs font-semibold text-indigo-200 hover:bg-indigo-400/15">
-            <HardDriveUpload className="h-4 w-4" /> {busy ? "Reading IFC…" : "Open .ifc file"}
-            <input type="file" accept=".ifc,text/plain" className="hidden" disabled={busy} onChange={loadFile} />
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={smokeFixtureHref}
+              download="nexus_smoke_electrical.ifc"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs font-semibold text-amber-200 hover:bg-amber-400/15"
+            >
+              Synthetic smoke fixture
+            </a>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-400/10 px-4 py-2.5 text-xs font-semibold text-indigo-200 hover:bg-indigo-400/15">
+              <HardDriveUpload className="h-4 w-4" /> {busy ? "Reading IFC…" : "Open .ifc file"}
+              <input type="file" accept=".ifc,text/plain" className="hidden" disabled={busy} onChange={loadFile} />
+            </label>
+          </div>
         </div>
+        <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-[10px] leading-relaxed text-amber-100/90">
+          The synthetic smoke fixture is only for repeatable mapper/UI smoke. It is not a representative project IFC and must not be used for real IFC, trusted-viewer, coordinate, tolerance, device or partner PASS.
+        </p>
 
         {error && (
           <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-400/25 bg-red-400/10 p-3 text-xs text-red-200">
