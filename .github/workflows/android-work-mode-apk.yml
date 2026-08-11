@@ -8,6 +8,12 @@ on:
     paths:
       - native/nexus-work-mode/**
       - .github/workflows/android-work-mode-apk.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - native/nexus-work-mode/**
+      - .github/workflows/android-work-mode-apk.yml
 
 permissions:
   contents: write
@@ -75,7 +81,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish APK to branch
+      - name: Publish APK to branch when permitted
+        continue-on-error: true
         run: |
           git config user.name "nosmo-automation"
           git config user.email "actions@users.noreply.github.com"
