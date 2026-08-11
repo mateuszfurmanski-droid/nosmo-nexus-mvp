@@ -1,0 +1,69 @@
+name: Build Nexus Work Mode APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-work-mode-native
+    paths:
+      - native/nexus-work-mode/**
+      - .github/workflows/android-work-mode-apk.yml
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: native/nexus-work-mode/package.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install native dependencies
+        working-directory: native/nexus-work-mode
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck native app
+        working-directory: native/nexus-work-mode
+        run: npm run typecheck
+
+      - name: Generate Android project
+        working-directory: native/nexus-work-mode
+        run: npx expo prebuild --platform android --non-interactive --clean
+
+      - name: Build debug APK
+        working-directory: native/nexus-work-mode/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Stage APK
+        run: |
+          mkdir -p dist
+          cp native/nexus-work-mode/android/app/build/outputs/apk/debug/app-debug.apk dist/NOSMO-Nexus-Work-Mode-debug.apk
+          sha256sum dist/NOSMO-Nexus-Work-Mode-debug.apk > dist/NOSMO-Nexus-Work-Mode-debug.apk.sha256
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOSMO-Nexus-Work-Mode-APK
+          path: |
+            dist/NOSMO-Nexus-Work-Mode-debug.apk
+            dist/NOSMO-Nexus-Work-Mode-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
