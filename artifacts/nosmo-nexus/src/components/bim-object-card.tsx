@@ -9,6 +9,7 @@ import {
 } from "@/bim/ifc-mapping";
 import { IfcImportPanel } from "@/components/ifc-import-panel";
 import { IfcLiteGeometryViewer } from "@/components/ifc-lite-geometry-viewer";
+import { IfcWebIfcEnginePanel } from "@/components/ifc-web-ifc-engine-panel";
 
 const base = import.meta.env.BASE_URL;
 
@@ -163,14 +164,24 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
       </div>
 
       {modelSession && (
-        <div className="mt-5">
-          <IfcLiteGeometryViewer
-            session={modelSession}
-            mappings={viewerMappings}
-            currentNexusObjectId={pilot.object.id}
-            onMappingsChange={setLocalMappings}
-          />
-        </div>
+        <>
+          <div className="mt-5">
+            <IfcLiteGeometryViewer
+              session={modelSession}
+              mappings={viewerMappings}
+              currentNexusObjectId={pilot.object.id}
+              onMappingsChange={setLocalMappings}
+            />
+          </div>
+          <div className="mt-5">
+            <IfcWebIfcEnginePanel
+              session={modelSession}
+              mappings={viewerMappings}
+              currentNexusObjectId={pilot.object.id}
+              onMappingsChange={setLocalMappings}
+            />
+          </div>
+        </>
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-400/20 bg-purple-400/5 p-4">
