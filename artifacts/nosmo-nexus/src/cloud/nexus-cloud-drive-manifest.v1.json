@@ -1,0 +1,42 @@
+{
+  "schema": "nexus-cloud-drive-manifest/v1",
+  "verifiedAt": "2026-08-11T14:21:00+01:00",
+  "purpose": "Current practical Nexus Cloud Memory adapter for Google Drive. Drive IDs are a routing contract, not vendor lock-in.",
+  "hardRule": "Resolve projectId/worldId before storing, classifying or graph-linking a file.",
+  "roots": {
+    "cloudRoot": {"role":"cloudRoot","id":"1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0","name":"00_NEXUS_PERSONAL_CLOUD","url":"https://drive.google.com/drive/folders/1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0","canonicalUse":"Top-level Nexus cloud memory root. Do not store project files directly here."},
+    "projectWorldsRoot": {"role":"projectWorldsRoot","id":"1gCa35DoMCOioIdZbpYETvseEhA_D3n_Q","name":"10_PROJECT_WORLDS","url":"https://drive.google.com/drive/folders/1gCa35DoMCOioIdZbpYETvseEhA_D3n_Q","canonicalUse":"Every project gets its own child folder. Project separation boundary."},
+    "sharedRegistries": {"role":"sharedRegistries","id":"1h-sNqC3983nfG1IaUe6SXWeWnJLVrcOx","name":"20_SHARED_REGISTRIES","url":"https://drive.google.com/drive/folders/1h-sNqC3983nfG1IaUe6SXWeWnJLVrcOx","canonicalUse":"Indexes, manifests and configs. Contains NEXUS_CLOUD_ASSET_INDEX."},
+    "connectorExports": {"role":"connectorExports","id":"1gmhM6WCj-m4Ms_JK7pdvmYP32Id9JkKo","name":"30_CONNECTOR_EXPORTS","url":"https://drive.google.com/drive/folders/1gmhM6WCj-m4Ms_JK7pdvmYP32Id9JkKo","canonicalUse":"Connector staging only. Not canonical by itself."}
+  },
+  "registries": {
+    "assetIndex": {"id":"1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI","name":"NEXUS_CLOUD_ASSET_INDEX","url":"https://docs.google.com/spreadsheets/d/1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI/edit","columns":["assetId","fileName","projectId","worldId","tradeId","assetType","classificationStatus","visibilityScope","driveFileId","drivePathOrUrl","linkedGraphNodeIds","source","createdAt","notes"]},
+    "routingRules": {"id":"1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c","name":"NEXUS_CLOUD_ROUTING_RULES","url":"https://docs.google.com/document/d/1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c/edit"},
+    "migrationLog": {"id":"1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU","name":"LOG_20260811_1357_ESAFE_RIVERSIDE_DRIVE_CLEANUP","url":"https://docs.google.com/document/d/1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU/edit"}
+  },
+  "projectWorlds": [
+    {
+      "projectId":"NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA","worldId":"esafe-demo","displayName":"e-SAFE Catania Project World",
+      "folders":{
+        "projectRoot":{"role":"projectRoot","id":"1Zu80-Yj9RocZJlBDXKXxId9ZRnn9EcOE","name":"NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA","url":"https://drive.google.com/drive/folders/1Zu80-Yj9RocZJlBDXKXxId9ZRnn9EcOE","canonicalUse":"All e-SAFE files stay under this project root. Never mix with Riverside."},
+        "inbox":{"role":"inbox","id":"1xsIITjBwTEE1z7whhub3RnsSXfrxwur9","name":"00_INBOX","url":"https://drive.google.com/drive/folders/1xsIITjBwTEE1z7whhub3RnsSXfrxwur9","canonicalUse":"Unclassified new e-SAFE uploads before graph-link review."},
+        "pendingGraphLink":{"role":"pendingGraphLink","id":"1Pb1F_2PYtRt3YwhGFNdCLBK03s9TPbGZ","name":"01_PENDING_GRAPH_LINK","url":"https://drive.google.com/drive/folders/1Pb1F_2PYtRt3YwhGFNdCLBK03s9TPbGZ","canonicalUse":"e-SAFE files with clear project boundary but pending graph node linkage."},
+        "byTrade":{"role":"byTrade","id":"1YnBK64v0ZfVTodBJXjAXPmNrug_qpR0P","name":"02_BY_TRADE","url":"https://drive.google.com/drive/folders/1YnBK64v0ZfVTodBJXjAXPmNrug_qpR0P","canonicalUse":"Reviewed e-SAFE files grouped by trade."},
+        "byType":{"role":"byType","id":"1LvwOZXJ5emW1N058kIMD9XV70J6cFhr9","name":"03_BY_TYPE","url":"https://drive.google.com/drive/folders/1LvwOZXJ5emW1N058kIMD9XV70J6cFhr9","canonicalUse":"Reviewed e-SAFE files grouped by file/media type."},
+        "auditProvenance":{"role":"auditProvenance","id":"1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz","name":"90_AUDIT_PROVENANCE","url":"https://drive.google.com/drive/folders/1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz","canonicalUse":"e-SAFE migration notes, audit records and provenance evidence."},
+        "legacySourceLibrary":{"role":"legacySourceLibrary","id":"1jCJW5_dqGMulRopirpyUdlDatyoGA2AN","name":"99_LEGACY_IMPORT_20260808_eSAFE_SOURCE_LIBRARY","url":"https://drive.google.com/drive/folders/1jCJW5_dqGMulRopirpyUdlDatyoGA2AN","canonicalUse":"Legacy e-SAFE source material. Preserve internal structure for provenance."}
+      }
+    },
+    {
+      "projectId":"RIVERSIDE_DEMO_PROJECT","worldId":"dev","displayName":"Riverside Demo Project World",
+      "folders":{
+        "projectRoot":{"role":"projectRoot","id":"1_6fUF-W--i3lbtNpZRkhaU142ExI1k-g","name":"RIVERSIDE_DEMO_PROJECT","url":"https://drive.google.com/drive/folders/1_6fUF-W--i3lbtNpZRkhaU142ExI1k-g","canonicalUse":"All Riverside files stay under this project root. Never mix with e-SAFE."},
+        "inbox":{"role":"inbox","id":"1n8xdmpeLMTkKp-Pe__XS4eLChaFo2H46","name":"00_INBOX","url":"https://drive.google.com/drive/folders/1n8xdmpeLMTkKp-Pe__XS4eLChaFo2H46","canonicalUse":"Unclassified new Riverside uploads before graph-link review."},
+        "pendingGraphLink":{"role":"pendingGraphLink","id":"1ffW9qCJQKCpAI4T9YJsYjWDdwpxCwHgw","name":"01_PENDING_GRAPH_LINK","url":"https://drive.google.com/drive/folders/1ffW9qCJQKCpAI4T9YJsYjWDdwpxCwHgw","canonicalUse":"Riverside files with clear project boundary but pending graph node linkage."},
+        "byTrade":{"role":"byTrade","id":"1VZ3TPt5d6N6VYvBb2tAUJYCCcnLJEl68","name":"02_BY_TRADE","url":"https://drive.google.com/drive/folders/1VZ3TPt5d6N6VYvBb2tAUJYCCcnLJEl68","canonicalUse":"Reviewed Riverside files grouped by trade."},
+        "byType":{"role":"byType","id":"14aYunionA4U7DqPdjqelcU7kAGgDse5w","name":"03_BY_TYPE","url":"https://drive.google.com/drive/folders/14aYunionA4U7DqPdjqelcU7kAGgDse5w","canonicalUse":"Reviewed Riverside files grouped by file/media type."},
+        "auditProvenance":{"role":"auditProvenance","id":"1k5yqEoL-SD2fr8UwBFvXhxYLxF6Y7K-a","name":"90_AUDIT_PROVENANCE","url":"https://drive.google.com/drive/folders/1k5yqEoL-SD2fr8UwBFvXhxYLxF6Y7K-a","canonicalUse":"Riverside audit records and provenance evidence."}
+      }
+    }
+  ]
+}

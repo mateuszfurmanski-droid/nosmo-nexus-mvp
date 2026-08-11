@@ -16,10 +16,7 @@ interface NexusApiStoredObjectResponse {
   writtenAt: string;
 }
 
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/+$/, "");
-}
-
+function trimTrailingSlash(value: string) { return value.replace(/\/+$/, ""); }
 function assertStoredObjectResponse(value: unknown): NexusApiStoredObjectResponse {
   const candidate = value as Partial<NexusApiStoredObjectResponse> | null;
   if (!candidate || typeof candidate !== "object") throw new Error("Invalid Nexus storage API response.");
@@ -33,6 +30,7 @@ function assertStoredObjectResponse(value: unknown): NexusApiStoredObjectRespons
 function toQuery(request: NexusStorageReadRequest) {
   const params = new URLSearchParams();
   params.set("projectId", request.scope.projectId);
+  if (request.scope.worldId) params.set("worldId", request.scope.worldId);
   params.set("assetId", request.scope.assetId);
   params.set("fileId", request.scope.fileId);
   params.set("objectKey", request.objectKey);
@@ -40,17 +38,9 @@ function toQuery(request: NexusStorageReadRequest) {
   return params.toString();
 }
 
-function encodeMetadata(value: unknown) {
-  return encodeURIComponent(JSON.stringify(value));
-}
+function encodeMetadata(value: unknown) { return encodeURIComponent(JSON.stringify(value)); }
 
-/**
- * Browser-side boundary to Nexus server storage APIs.
- *
- * This class intentionally does not import S3, Azure or Microsoft SDKs and does
- * not hold provider credentials in the UI. The Nexus server/API owns the concrete
- * provider adapter, permission enforcement, audit write and signed cloud request.
- */
+/** Browser-side boundary; concrete provider credentials stay server-side. */
 export class NexusApiStorageProvider implements NexusStorageProvider {
   readonly providerId: string;
   readonly kind: NexusApiStorageProviderConfig["providerKind"];
@@ -74,45 +64,20 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
   }
 
   async putObject(request: NexusStoragePutRequest): Promise<NexusStoredObject> {
-    const metadata = {
-      scope: request.scope,
-      objectKey: request.objectKey,
-      filename: request.filename,
-      mimeType: request.mimeType,
-      sizeBytes: request.sizeBytes,
-      checksum: request.checksum,
-    };
-
-    const response = await fetch(`${this.apiBasePath}/objects`, {
-      method: "POST",
-      headers: this.headers(metadata),
-      body: request.content,
-      credentials: "include",
-    });
-
+    const metadata = { scope: request.scope, objectKey: request.objectKey, filename: request.filename, mimeType: request.mimeType, sizeBytes: request.sizeBytes, checksum: request.checksum };
+    const response = await fetch(`${this.apiBasePath}/objects`, { method: "POST", headers: this.headers(metadata), body: request.content, credentials: "include" });
     if (!response.ok) throw new Error(`Nexus storage API upload failed (${response.status}).`);
-    const stored = assertStoredObjectResponse(await response.json());
-    return stored;
+    return assertStoredObjectResponse(await response.json());
   }
 
   async getObject(request: NexusStorageReadRequest): Promise<Blob> {
-    const response = await fetch(`${this.apiBasePath}/objects?${toQuery(request)}`, {
-      method: "GET",
-      headers: this.headers(),
-      credentials: "include",
-    });
-
+    const response = await fetch(`${this.apiBasePath}/objects?${toQuery(request)}`, { method: "GET", headers: this.headers(), credentials: "include" });
     if (!response.ok) throw new Error(`Nexus storage API read failed (${response.status}).`);
     return response.blob();
   }
 
   async deleteObject(request: NexusStorageReadRequest): Promise<void> {
-    const response = await fetch(`${this.apiBasePath}/objects?${toQuery(request)}`, {
-      method: "DELETE",
-      headers: this.headers(),
-      credentials: "include",
-    });
-
+    const response = await fetch(`${this.apiBasePath}/objects?${toQuery(request)}`, { method: "DELETE", headers: this.headers(), credentials: "include" });
     if (!response.ok) throw new Error(`Nexus storage API delete failed (${response.status}).`);
   }
 }
