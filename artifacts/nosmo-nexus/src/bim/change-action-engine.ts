@@ -29,6 +29,12 @@ export type ChangeActionAuditEntry = {
   decisionCode: NexusChangeEventProjection["decision"]["code"];
   actorId: string;
   actorName: string;
+  participationId?: string;
+  identityAssurance: ChangeActionActorContext["identityAssurance"];
+  authoritySource: ChangeActionActorContext["authoritySource"];
+  projectFunctions: ChangeActionActorContext["projectFunctions"];
+  tradeScopes: string[];
+  workPackageScopes: string[];
   target: "TIMELINE" | "TASK" | "WORK" | "RFI" | "EVIDENCE" | "INSPECTION";
   recordId: string;
   action: string;
@@ -88,6 +94,12 @@ export type ChangeActionEngineState = {
     decisionCode: NexusChangeEventProjection["decision"]["code"];
     actorId: string;
     actorName: string;
+    participationId?: string;
+    identityAssurance: ChangeActionActorContext["identityAssurance"];
+    authoritySource: ChangeActionActorContext["authoritySource"];
+    projectFunctions: ChangeActionActorContext["projectFunctions"];
+    tradeScopes: string[];
+    workPackageScopes: string[];
     appliedAt: string;
     auditIds: string[];
   }>;
@@ -238,6 +250,12 @@ function appendAudit(
     decisionCode: binding.event.decision.code,
     actorId: actor.personId,
     actorName: actor.displayName,
+    participationId: actor.participationId,
+    identityAssurance: actor.identityAssurance,
+    authoritySource: actor.authoritySource,
+    projectFunctions: actor.projectFunctions,
+    tradeScopes: actor.tradeScopes,
+    workPackageScopes: actor.workPackageScopes,
     target,
     recordId,
     action,
@@ -399,6 +417,12 @@ export function applyBoundChangeEventActions(args: {
     decisionCode: binding.event.decision.code,
     actorId: actor.personId,
     actorName: actor.displayName,
+    participationId: actor.participationId,
+    identityAssurance: actor.identityAssurance,
+    authoritySource: actor.authoritySource,
+    projectFunctions: actor.projectFunctions,
+    tradeScopes: actor.tradeScopes,
+    workPackageScopes: actor.workPackageScopes,
     appliedAt: now,
     auditIds,
   };
