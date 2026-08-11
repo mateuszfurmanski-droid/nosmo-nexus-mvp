@@ -6,6 +6,9 @@ on:
       - codex/esafe-project-graph-hydration
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-preview:
     runs-on: ubuntu-latest
@@ -27,13 +30,52 @@ jobs:
 
       - name: Build isolated preview
         env:
-          BASE_PATH: /apps/nexus-pr45-preview/
+          BASE_PATH: /
         run: pnpm --filter @workspace/nosmo-nexus run build
+
+      - name: Build standalone e-SAFE preview HTML
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          dist = Path('artifacts/nosmo-nexus/dist/public')
+          js = next((dist / 'assets').glob('index-*.js')).read_text(encoding='utf-8')
+          css = next((dist / 'assets').glob('index-*.css')).read_text(encoding='utf-8')
+          out = Path('/tmp/pr45-preview')
+          out.mkdir(parents=True, exist_ok=True)
+          html = f'''<!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+            <title>NOSMO Nexus — PR45 e-SAFE Preview</title>
+            <style>{css}</style>
+          </head>
+          <body>
+            <div id="root"></div>
+            <script>history.replaceState(null, '', '/project-worlds/esafe');</script>
+            <script type="module">{js}</script>
+          </body>
+          </html>'''
+          (out / 'index.html').write_text(html, encoding='utf-8')
+          PY
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
         with:
           name: nexus-pr45-preview
-          path: artifacts/nosmo-nexus/dist/public
+          path: /tmp/pr45-preview/index.html
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish isolated preview branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan preview-pr45-esafe
+          git rm -rf .
+          git clean -fdx
+          cp /tmp/pr45-preview/index.html ./index.html
+          git add index.html
+          git commit -m "Publish PR45 e-SAFE preview"
+          git push --force origin HEAD:preview-pr45-esafe
