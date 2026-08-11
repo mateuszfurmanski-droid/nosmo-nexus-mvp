@@ -1,58 +1,6 @@
-export type ChangeDecisionCode =
-  | "NO_IMPACT"
-  | "RE_PLAN_TASK"
-  | "HOLD_WORK"
-  | "RAISE_RFI"
-  | "UPDATE_PROCUREMENT"
-  | "NEW_EVIDENCE_REQUIRED"
-  | "RE_INSPECTION_REQUIRED"
-  | "ACCEPT_AS_BUILT_DIFFERENCE";
+import type { NexusChangeEventProjection } from "@/bim/change-event-persistence";
 
-export type ChangeReviewState =
-  | "NO_CHANGE_DETECTED"
-  | "HUMAN_REVIEW_REQUIRED"
-  | "COMPARISON_BLOCKED";
-
-/**
- * Persisted Project Graph projection of the canonical Change Event created by
- * the Change Control workflow in nosmo-nexus-mvp#39.
- *
- * This is intentionally a bounded envelope: IFC/Pset/geometry payloads stay in
- * their source/runtime layer. The graph persists identity, provenance,
- * decision/audit context and links to operational records.
- */
-export type NexusChangeEventProjection = {
-  schema: "nexus-change-event/v1";
-  id: string;
-  state: "DECIDED";
-  synthetic: boolean;
-  objectId: string;
-  ifcGlobalId: string;
-  trade: string;
-  workPackage: string;
-  taskId: string;
-  reviewState: ChangeReviewState;
-  decision: {
-    code: ChangeDecisionCode;
-    authorityRequired: string;
-    decidedBy: string;
-    decidedAt: string;
-    note?: string;
-  };
-  source: {
-    baselineFile: string;
-    currentFile: string;
-    baselineFingerprint: string;
-    currentFingerprint: string;
-  };
-  links: {
-    people: string[];
-    documents: string[];
-    issues: string[];
-    inspections: string[];
-    rfis: string[];
-  };
-};
+export type { NexusChangeEventProjection } from "@/bim/change-event-persistence";
 
 /**
  * Synthetic fixture only. It demonstrates the persisted graph/timeline shape
