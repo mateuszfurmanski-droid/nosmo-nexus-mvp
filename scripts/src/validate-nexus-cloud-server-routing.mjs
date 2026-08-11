@@ -3,6 +3,7 @@ import {
   resolveNexusServerCloudRoute,
 } from "./nexus-cloud-drive-route-policy.mjs";
 
+// Merge-ref refresh marker: validate this guard against the current PR #50 runtime.
 function assert(condition, message) {
   if (!condition) throw new Error(`FAIL: ${message}`);
 }
