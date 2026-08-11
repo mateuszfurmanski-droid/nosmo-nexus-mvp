@@ -5,6 +5,11 @@ import {
   type ChangeActionPermissionResult,
 } from "./change-action-permissions";
 
+/**
+ * Technical execution layer used by Nexus WorkSuite.
+ * WorkSuite is the product-facing layer; Action Engine is the internal
+ * permission/audit/concurrency mechanism beneath it.
+ */
 export const CHANGE_ACTION_STORAGE_KEY = "nosmo-change-action-state-v1";
 const MAX_AUDIT_ENTRIES = 300;
 const MAX_APPLIED_EVENTS = 100;
@@ -284,7 +289,7 @@ function applyDecisionMutation(
       reason: event.decision.note?.trim() || `Change Event ${event.id}`,
       updatedAt: now,
     };
-    auditIds.push(appendAudit(state, binding, actor, "WORK", event.objectId, "Applied controlled work hold; release requires a separate authorised action.", now));
+    auditIds.push(appendAudit(state, binding, actor, "WORK", event.objectId, "Applied controlled work hold; release requires a separate authorised compensating action.", now));
   }
 
   if (event.decision.code === "RAISE_RFI") {
