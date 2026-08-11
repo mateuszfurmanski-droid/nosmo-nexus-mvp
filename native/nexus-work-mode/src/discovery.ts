@@ -189,7 +189,7 @@ function itemFromFile(file: File): DiscoveryItem | null {
 }
 
 export async function scanWorkFolder(): Promise<DiscoveryItem[]> {
-  const root = await Directory.pickDirectoryAsync();
+  const root = (await Directory.pickDirectoryAsync()) as unknown as Directory;
   const found: DiscoveryItem[] = [];
   let visited = 0;
   const MAX_ENTRIES = 2000;

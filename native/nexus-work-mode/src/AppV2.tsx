@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   checkOn: { backgroundColor: "#f5c400", borderColor: "#f5c400" },
   checkText: { color: "#030407", fontWeight: "900" },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  discoveryTitle: { color: "#fff", fontWeight: "850", fontSize: 14, flex: 1 },
+  discoveryTitle: { color: "#fff", fontWeight: "800", fontSize: 14, flex: 1 },
   confidence: { color: "#43e4ff", fontWeight: "900", fontSize: 12 },
   discoverySub: { color: "#91a1af", fontSize: 11, marginTop: 3 },
   discoveryReason: { color: "#657585", fontSize: 10, lineHeight: 15, marginTop: 5 },
