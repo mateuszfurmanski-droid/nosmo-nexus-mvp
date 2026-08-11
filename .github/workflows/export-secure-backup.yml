@@ -1,10 +1,6 @@
 name: Export secure backup
 
 on:
-  push:
-    paths:
-      - .github/workflows/export-secure-backup.yml
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -40,4 +36,4 @@ jobs:
           name: secure-backup-${{ github.event.repository.name }}
           path: ${{ runner.temp }}/secure-backup/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
