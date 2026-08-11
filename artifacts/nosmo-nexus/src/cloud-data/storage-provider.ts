@@ -12,6 +12,7 @@ export type NexusStorageProviderKind = "local-dev" | "s3-compatible" | "azure-bl
 export interface NexusStorageObjectScope {
   tenantId?: NexusTenantId;
   projectId: NexusProjectId;
+  worldId?: string;
   assetId: NexusAssetId;
   fileId: NexusFileId;
 }
