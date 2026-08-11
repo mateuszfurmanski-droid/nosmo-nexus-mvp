@@ -36,17 +36,7 @@ jobs:
         run: node scripts/src/validate-nexus-google-drive-routing.mjs
 
       - name: Validate Android Work Mode AI handoff receiver
-        run: |
-          grep -q 'NexusWorkModeAiHandoffReceiver' artifacts/nosmo-nexus/src/App.tsx
-          grep -q 'WORK MODE AI' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          grep -q 'android-work-discovery-v1' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          grep -q 'nexusIntent' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          grep -q 'nexusPrompt' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          grep -qi 'server-side Nexus AI orchestration' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          ! grep -qi 'OPENAI_API_KEY' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          ! grep -qi 'apiKey' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          ! grep -qi 'chat.completions' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          ! grep -qi 'responses.create' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
+        run: node scripts/src/validate-work-mode-ai-handoff.mjs
 
       - name: Typecheck workspace
         run: pnpm run typecheck
