@@ -1,4 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
+import {
+  findWorkWalletContext,
+  normaliseSourceObjectType,
+  safeExternalReference,
+  safeIdentifier,
+} from "./work-wallet-context.mjs";
 
 const allowedEventTypes = new Set([
   "AUDIT_COMPLETED",
@@ -101,6 +107,7 @@ function normaliseEvent(payload, source) {
     projectId,
     personId: optionalString(record, "personId"),
     sourceRecord,
+    sourceObjectType: normaliseSourceObjectType(optionalString(record, "sourceObjectType"), eventType),
     title,
     detail,
     receivedAt: new Date().toISOString(),
@@ -139,11 +146,35 @@ async function acceptEvent(request, response, source) {
   }
 }
 
+function contextQuery(url) {
+  const projectId = safeIdentifier(url.searchParams.get("projectId"), 120);
+  const sourceRecord = safeExternalReference(url.searchParams.get("sourceRecord"));
+  return projectId && sourceRecord ? { projectId, sourceRecord } : null;
+}
+
+function sendContext(response, source, url) {
+  const query = contextQuery(url);
+  if (!query) {
+    json(response, 400, { error: "INVALID_CONTEXT_QUERY" });
+    return;
+  }
+
+  const context = findWorkWalletContext(events, { source, ...query });
+  if (!context) {
+    json(response, 404, { error: "CONTEXT_NOT_FOUND" });
+    return;
+  }
+
+  json(response, 200, { context });
+}
+
 export function workWalletStatus() {
   return {
     gatewayConfigured: Boolean(process.env.NEXUS_INTEGRATION_KEY),
     demoMode: process.env.WORK_WALLET_DEMO_MODE !== "false",
     storedEvents: events.length,
+    contextContract: "nexus-work-wallet-context/v1",
+    serverNodeMappingConfigured: Boolean(process.env.WORK_WALLET_NEXUS_NODE_MAP_JSON),
   };
 }
 
@@ -159,6 +190,36 @@ export async function handleWorkWalletApi(request, response, url) {
       ...workWalletStatus(),
       timestamp: new Date().toISOString(),
     });
+    return true;
+  }
+
+  if (url.pathname === "/api/integrations/work-wallet/demo-context") {
+    if (!demoMode) {
+      json(response, 404, { error: "DEMO_MODE_DISABLED" });
+      return true;
+    }
+    if (method !== "GET") {
+      json(response, 405, { error: "METHOD_NOT_ALLOWED" });
+      return true;
+    }
+    sendContext(response, "WORK_WALLET_DEMO", url);
+    return true;
+  }
+
+  if (url.pathname === "/api/integrations/work-wallet/context") {
+    if (!integrationKey) {
+      json(response, 503, { error: "GATEWAY_NOT_CONFIGURED" });
+      return true;
+    }
+    if (!authorised(request, integrationKey)) {
+      json(response, 401, { error: "UNAUTHORISED" });
+      return true;
+    }
+    if (method !== "GET") {
+      json(response, 405, { error: "METHOD_NOT_ALLOWED" });
+      return true;
+    }
+    sendContext(response, "WORK_WALLET", url);
     return true;
   }
 
