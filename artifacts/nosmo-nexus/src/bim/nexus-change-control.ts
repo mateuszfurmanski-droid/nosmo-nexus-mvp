@@ -143,7 +143,7 @@ export function buildNexusChangeEvent(args: {
 }): NexusChangeEvent {
   const { pilot, globalId, baseline, current, comparison, geometry } = args;
   const eventKey = `${pilot.object.id}-${suffix(baseline.sha256)}-${suffix(current.sha256)}`;
-  const scopes = [...new Set(comparison.changes.map((change) => change.scope))];
+  const scopes: string[] = [...new Set(comparison.changes.map((change) => change.scope))];
   if (comparison.addedObjectCount || comparison.removedObjectCount) scopes.push("PROJECT_OBJECT_SET");
   if (geometry?.movementCandidate) scopes.push("GEOMETRY_MOVEMENT");
   if (geometry?.sizeOrShapeChanged) scopes.push("GEOMETRY_SIZE_SHAPE");
