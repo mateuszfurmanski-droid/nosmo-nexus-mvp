@@ -33,6 +33,7 @@ function assertStoredObjectResponse(value: unknown): NexusApiStoredObjectRespons
 function toQuery(request: NexusStorageReadRequest) {
   const params = new URLSearchParams();
   params.set("projectId", request.scope.projectId);
+  if (request.scope.worldId) params.set("worldId", request.scope.worldId);
   params.set("assetId", request.scope.assetId);
   params.set("fileId", request.scope.fileId);
   params.set("objectKey", request.objectKey);
@@ -44,13 +45,7 @@ function encodeMetadata(value: unknown) {
   return encodeURIComponent(JSON.stringify(value));
 }
 
-/**
- * Browser-side boundary to Nexus server storage APIs.
- *
- * This class intentionally does not import S3, Azure or Microsoft SDKs and does
- * not hold provider credentials in the UI. The Nexus server/API owns the concrete
- * provider adapter, permission enforcement, audit write and signed cloud request.
- */
+/** Browser-side boundary to Nexus server storage APIs; concrete cloud credentials stay server-side. */
 export class NexusApiStorageProvider implements NexusStorageProvider {
   readonly providerId: string;
   readonly kind: NexusApiStorageProviderConfig["providerKind"];
@@ -91,8 +86,7 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
     });
 
     if (!response.ok) throw new Error(`Nexus storage API upload failed (${response.status}).`);
-    const stored = assertStoredObjectResponse(await response.json());
-    return stored;
+    return assertStoredObjectResponse(await response.json());
   }
 
   async getObject(request: NexusStorageReadRequest): Promise<Blob> {
@@ -101,7 +95,6 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
       headers: this.headers(),
       credentials: "include",
     });
-
     if (!response.ok) throw new Error(`Nexus storage API read failed (${response.status}).`);
     return response.blob();
   }
@@ -112,7 +105,6 @@ export class NexusApiStorageProvider implements NexusStorageProvider {
       headers: this.headers(),
       credentials: "include",
     });
-
     if (!response.ok) throw new Error(`Nexus storage API delete failed (${response.status}).`);
   }
 }
