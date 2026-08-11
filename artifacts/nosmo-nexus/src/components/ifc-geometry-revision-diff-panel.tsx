@@ -13,6 +13,7 @@ type Props = {
   currentSession: IfcLocalModelSession;
   globalId: string;
   pilot: InstallationPilot;
+  onResultChange?: (result: IfcGeometryRevisionDiff | null) => void;
 };
 
 function frameLabel(state: IfcGeometryRevisionDiff["frameState"]) {
@@ -25,7 +26,7 @@ function frameStyle(state: IfcGeometryRevisionDiff["frameState"]) {
   return "border-amber-400/25 bg-amber-400/10 text-amber-200";
 }
 
-export function IfcGeometryRevisionDiffPanel({ baselineSession, currentSession, globalId, pilot }: Props) {
+export function IfcGeometryRevisionDiffPanel({ baselineSession, currentSession, globalId, pilot, onResultChange }: Props) {
   const [result, setResult] = useState<IfcGeometryRevisionDiff | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,8 @@ export function IfcGeometryRevisionDiffPanel({ baselineSession, currentSession, 
   useEffect(() => {
     setResult(null);
     setError(null);
-  }, [baselineSession.sha256, currentSession.sha256, globalId]);
+    onResultChange?.(null);
+  }, [baselineSession.sha256, currentSession.sha256, globalId, onResultChange]);
 
   const displayUnit = result?.current.lengthUnit ?? result?.baseline.lengthUnit;
   const reviewTargets = useMemo(() => {
@@ -67,9 +69,12 @@ export function IfcGeometryRevisionDiffPanel({ baselineSession, currentSession, 
     setLoading(true);
     setError(null);
     try {
-      setResult(await compareIfcObjectGeometryRevisions(baselineSession, currentSession, globalId));
+      const next = await compareIfcObjectGeometryRevisions(baselineSession, currentSession, globalId);
+      setResult(next);
+      onResultChange?.(next);
     } catch (cause) {
       setResult(null);
+      onResultChange?.(null);
       setError(cause instanceof Error ? cause.message : "IFC geometry revision comparison failed.");
     } finally {
       setLoading(false);
