@@ -1,8 +1,14 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { Link } from "wouter";
-import { Box, Focus, Minus, MousePointer2, Plus, Rotate3D, TriangleAlert } from "lucide-react";
-import { extractIfcLiteGeometry, type IfcLiteMesh, type Vec3 } from "@/bim/ifc-lite-geometry";
-import type { IfcGuidMapping, IfcLocalModelSession } from "@/bim/ifc-mapping";
+import { Box, Focus, Link2, Minus, MousePointer2, Plus, Rotate3D, TriangleAlert } from "lucide-react";
+import { type IfcLiteMesh, type Vec3 } from "@/bim/ifc-lite-geometry";
+import { getIfcRendererAdapter, plannedWebIfcRenderer } from "@/bim/ifc-renderer-adapter";
+import {
+  saveIfcMappings,
+  upsertIfcMapping,
+  type IfcGuidMapping,
+  type IfcLocalModelSession,
+} from "@/bim/ifc-mapping";
 
 type ProjectedPoint = { x: number; y: number; depth: number };
 
@@ -17,6 +23,7 @@ type IfcLiteGeometryViewerProps = {
   session: IfcLocalModelSession;
   mappings: IfcGuidMapping[];
   currentNexusObjectId: string;
+  onMappingsChange: (mappings: IfcGuidMapping[]) => void;
 };
 
 function sourceMatches(mapping: IfcGuidMapping, session: IfcLocalModelSession) {
@@ -80,17 +87,19 @@ export function IfcLiteGeometryViewer({
   session,
   mappings,
   currentNexusObjectId,
+  onMappingsChange,
 }: IfcLiteGeometryViewerProps) {
+  const renderer = useMemo(() => getIfcRendererAdapter(), []);
   const currentMapping = mappings.find(
     (mapping) => mapping.nexusObjectId === currentNexusObjectId && sourceMatches(mapping, session),
   );
   const geometry = useMemo(
-    () => extractIfcLiteGeometry(session.text, session.parsed, {
+    () => renderer.load(session, {
       targetStepId: currentMapping?.ifcStepId,
       maxObjects: 120,
       maxTriangles: 6000,
     }),
-    [currentMapping?.ifcStepId, session.parsed, session.text],
+    [currentMapping?.ifcStepId, renderer, session],
   );
   const [selectedGlobalId, setSelectedGlobalId] = useState(currentMapping?.ifcGlobalId ?? geometry.meshes[0]?.globalId ?? "");
   const [yaw, setYaw] = useState(-0.7);
@@ -180,6 +189,31 @@ export function IfcLiteGeometryViewer({
     if (exists) setSelectedGlobalId(currentMapping.ifcGlobalId);
   }
 
+  function mapSelectedToCurrentObject() {
+    if (!selectedMesh || selectedMapping) return;
+    const parsedEntity = session.parsed.entities.find((entity) => entity.globalId === selectedMesh.globalId);
+    if (!parsedEntity) return;
+
+    const next: IfcGuidMapping = {
+      nexusObjectId: currentNexusObjectId,
+      ifcGlobalId: parsedEntity.globalId,
+      ifcEntityType: parsedEntity.entityType,
+      ifcStepId: parsedEntity.stepId,
+      ifcName: parsedEntity.name,
+      ifcTag: parsedEntity.tag,
+      sourceFileName: session.fileName,
+      sourceFileSize: session.fileSize,
+      sourceSchema: session.parsed.schema,
+      sourceFileSha256: session.sha256,
+      sourceProjectGlobalId: session.parsed.projectGlobalId,
+      mappedAt: new Date().toISOString(),
+    };
+
+    const updated = upsertIfcMapping(mappings, next);
+    saveIfcMappings(updated);
+    onMappingsChange(updated);
+  }
+
   return (
     <section className="rounded-3xl border border-sky-400/25 bg-card/65 p-4 md:p-6" aria-label="Local IFC geometry preview">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -194,13 +228,19 @@ export function IfcLiteGeometryViewer({
             </div>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            This preview derives supported geometry directly from the active local IFC text. Drag to rotate, wheel/pinch-like controls to zoom, then tap a rendered element to inspect its real IFC GlobalId and any Nexus mapping.
+            Tap geometry to resolve its real IFC GlobalId. Mapping is now available directly from the selected geometry, so the same identity immediately becomes the Nexus Object Card and Project Graph anchor.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1.5 text-[10px] font-bold text-sky-200">LITE GEOMETRY</span>
+          <span className="rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1.5 text-[10px] font-bold text-sky-200">{renderer.label.toUpperCase()}</span>
           <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-[10px] font-bold text-emerald-200">LOCAL FILE ONLY</span>
         </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Active backend</p><p className="mt-1 text-xs font-semibold">{renderer.id}</p></div>
+        <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Coverage</p><p className="mt-1 text-xs font-semibold">{renderer.capabilities.geometryCoverage}</p></div>
+        <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Next backend</p><p className="mt-1 text-xs font-semibold">{plannedWebIfcRenderer.label} · planned</p></div>
       </div>
 
       {geometry.meshes.length > 0 ? (
@@ -281,7 +321,14 @@ export function IfcLiteGeometryViewer({
                     </div>
                   ) : (
                     <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-[10px] leading-relaxed text-amber-200">
-                      This geometry has a real IFC GlobalId but is not mapped to a Nexus Object ID in the active local mapping set. Use the mapper below for explicit binding.
+                      <p>This geometry has a real IFC GlobalId but is not mapped to a Nexus Object ID.</p>
+                      <button
+                        type="button"
+                        onClick={mapSelectedToCurrentObject}
+                        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-400/30 bg-indigo-400/10 px-3 py-2 text-[10px] font-semibold text-indigo-100"
+                      >
+                        <Link2 className="h-3.5 w-3.5" /> Map to {currentNexusObjectId}
+                      </button>
                     </div>
                   )}
                 </>
@@ -314,7 +361,7 @@ export function IfcLiteGeometryViewer({
       )}
 
       <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
-        Preview geometry is a navigation aid, not design validation. It does not certify model completeness, coordinate accuracy, clashes, authoring revision or installation tolerances. IFC/model ownership remains with the source system.
+        Preview geometry is a navigation aid, not design validation. Renderer backends may change, but the identity contract stays fixed: IFC GlobalId ↔ Nexus Object ID. IFC/model ownership remains with the source system.
       </p>
     </section>
   );
