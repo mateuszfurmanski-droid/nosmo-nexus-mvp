@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { BriefcaseBusiness, Cuboid, Fingerprint, Network, ShieldCheck } from "lucide-react";
+import { BriefcaseBusiness, Cuboid, Database, Fingerprint, Network, ShieldCheck } from "lucide-react";
 import type { InstallationPilot } from "@/bim/installation-pilots";
 import {
   loadIfcMappings,
   type IfcGuidMapping,
   type IfcLocalModelSession,
 } from "@/bim/ifc-mapping";
+import type { IfcSourcePropertiesSnapshot } from "@/bim/ifc-source-properties";
 import { IfcImportPanel } from "@/components/ifc-import-panel";
 import { IfcLiteGeometryViewer } from "@/components/ifc-lite-geometry-viewer";
 import { IfcWebIfcEnginePanel } from "@/components/ifc-web-ifc-engine-panel";
@@ -23,6 +24,7 @@ type BimObjectCardProps = {
 export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedMapping }: BimObjectCardProps) {
   const [localMappings, setLocalMappings] = useState<IfcGuidMapping[]>([]);
   const [modelSession, setModelSession] = useState<IfcLocalModelSession | null>(null);
+  const [sourceProperties, setSourceProperties] = useState<IfcSourcePropertiesSnapshot | null>(null);
 
   useEffect(() => {
     setLocalMappings(loadIfcMappings());
@@ -41,6 +43,23 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
   }, [localMappings, suppliedMapping]);
   const relationshipTreeHref = `/relationship-tree?nexusSource=bim-overlay&nexusFocus=${pilot.object.id}`;
   const externalIdentity = ifcMapping?.ifcGlobalId ?? pilot.object.externalId;
+  const currentSourceProperties = sourceProperties && ifcMapping?.ifcGlobalId === sourceProperties.globalId
+    ? sourceProperties
+    : null;
+  const sourceFieldPreview = currentSourceProperties
+    ? [
+        ...currentSourceProperties.itemProperties,
+        ...currentSourceProperties.propertySets.flatMap((group) => group.properties.map((property) => ({
+          name: `${group.name} · ${property.name}`,
+          value: property.value,
+        }))),
+      ].slice(0, 6)
+    : [];
+
+  function handleModelSessionChange(session: IfcLocalModelSession | null) {
+    setModelSession(session);
+    setSourceProperties(null);
+  }
 
   return (
     <section className="rounded-3xl border border-primary/20 bg-card/65 p-4 md:p-6" aria-label={`${pilot.object.code} Nexus Object Card`}>
@@ -54,6 +73,9 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
           <span className={`rounded-full border px-3 py-1 text-[10px] font-bold ${ifcMapping ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-purple-400/30 bg-purple-400/10 text-purple-200"}`}>
             {ifcMapping ? "LOCAL IFC ID MAPPED" : "SYNTHETIC MODEL"}
           </span>
+          {currentSourceProperties && (
+            <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-[10px] font-bold text-sky-200">IFC SOURCE DATA LOADED</span>
+          )}
           <span className={`rounded-full border px-3 py-1 text-[10px] font-bold ${blocked ? "border-red-400/35 bg-red-400/10 text-red-300" : "border-cyan-400/35 bg-cyan-400/10 text-cyan-300"}`}>
             {blocked ? "BLOCKED" : `${readiness}% READINESS`}
           </span>
@@ -153,12 +175,45 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
         </div>
       </div>
 
+      {currentSourceProperties && (
+        <div className="mt-5 rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 text-sky-300"><Database className="h-4 w-4" /></div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-sky-200">IFC model source data · session only</p>
+                <p className="mt-1 text-xs font-semibold">{currentSourceProperties.entityType} · #{currentSourceProperties.stepId}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">{currentSourceProperties.propertySets.length} Psets · {currentSourceProperties.typeProperties.length} type records · {currentSourceProperties.materials.length} material records</p>
+              </div>
+            </div>
+            <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-[9px] font-bold text-sky-200">MODEL SOURCE ≠ NEXUS STATE</span>
+          </div>
+
+          {sourceFieldPreview.length > 0 && (
+            <dl className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {sourceFieldPreview.map((property, index) => (
+                <div key={`${property.name}-${index}`} className="rounded-xl border border-border/70 bg-background/40 p-3">
+                  <dt className="text-[9px] text-muted-foreground">{property.name}</dt>
+                  <dd className="mt-1 break-words text-[10px] font-semibold">{property.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+          <div className="mt-3 text-[9px] leading-relaxed text-muted-foreground">
+            <p className="break-all">Source: {currentSourceProperties.sourceFileName} · {currentSourceProperties.sourceSchema ?? "schema unknown"} · {currentSourceProperties.globalId}</p>
+            {currentSourceProperties.sourceFileSha256 && <p className="mt-1 break-all font-mono">SHA-256 {currentSourceProperties.sourceFileSha256}</p>}
+            <p className="mt-1">These values are read-only model context. They do not automatically change readiness, compliance, issue, inspection or as-built state.</p>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5">
         <IfcImportPanel
           pilots={[pilot]}
           mappings={localMappings}
           onMappingsChange={setLocalMappings}
-          onModelSessionChange={setModelSession}
+          onModelSessionChange={handleModelSessionChange}
           initialTargetId={pilot.object.id}
         />
       </div>
@@ -179,6 +234,7 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
               mappings={viewerMappings}
               currentNexusObjectId={pilot.object.id}
               onMappingsChange={setLocalMappings}
+              onSourcePropertiesChange={setSourceProperties}
             />
           </div>
         </>
@@ -187,7 +243,7 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-400/20 bg-purple-400/5 p-4">
         <div>
           <p className="text-xs font-semibold text-purple-200">Project Graph hand-off</p>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Open this Nexus Object ID in the Relationship Tree. The URL carries only the internal object ID and launch source.</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Open this Nexus Object ID in the Relationship Tree. IFC properties remain session-local and are not serialized into the hand-off URL.</p>
         </div>
         <Link href={relationshipTreeHref} className="inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-400/10 px-4 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-400/15">
           Open in Relationship Tree <Network className="h-4 w-4" />
