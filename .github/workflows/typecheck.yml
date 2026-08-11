@@ -49,10 +49,11 @@ jobs:
           BASE_PATH: /
         run: pnpm --filter @workspace/nosmo-nexus build
 
-      - name: Smoke test production server, routes, Work Wallet API and Cloud Storage API
+      - name: Smoke test production server, routes, Work Wallet API, Work Mode AI and Cloud Storage API
         env:
           PORT: 3000
           WORK_WALLET_DEMO_MODE: "true"
+          NEXUS_WORK_MODE_AI_DEMO_MODE: "true"
           NEXUS_CLOUD_STORAGE_DEMO_MODE: "true"
           NEXUS_CLOUD_STORAGE_PROVIDER_KIND: "s3-compatible"
         run: |
@@ -110,6 +111,32 @@ jobs:
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/integrations/work-wallet/demo-events \
             | grep 'ci-work-wallet-event-001' > /dev/null
+
+          curl --fail --silent --show-error \
+            http://127.0.0.1:3000/api/nexus/work-mode-ai/status \
+            | grep '"providerBoundary":"server-side-orchestrator"' > /dev/null
+
+          cat > /tmp/work-mode-ai-context.json <<'JSON'
+          {
+            "mode": "work",
+            "client": "android-native",
+            "surface": "ai-assistant",
+            "intent": "ask-nexus",
+            "aiContext": "android-work-discovery-v1",
+            "project": "riverside",
+            "acceptedSignals": 7,
+            "prompt": "Use the Android Work Mode context to identify the active project, likely work package, missing evidence and immediate next action."
+          }
+          JSON
+
+          work_mode_ai_status=$(curl --silent --show-error --output /tmp/work-mode-ai-response.json --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --data @/tmp/work-mode-ai-context.json \
+            http://127.0.0.1:3000/api/nexus/work-mode-ai/context)
+          test "$work_mode_ai_status" = "200"
+          grep '"status":"accepted"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"projectId":"RIVERSIDE_DEMO_PROJECT"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"modelExecution":"disabled-demo-boundary"' /tmp/work-mode-ai-response.json > /dev/null
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/nexus/cloud-storage/status \
