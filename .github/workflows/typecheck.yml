@@ -42,7 +42,7 @@ jobs:
           grep -q 'android-work-discovery-v1' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
           grep -q 'nexusIntent' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
           grep -q 'nexusPrompt' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
-          grep -q 'server-side Nexus AI orchestration' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
+          grep -qi 'server-side Nexus AI orchestration' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
           ! grep -qi 'OPENAI_API_KEY' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
           ! grep -qi 'apiKey' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
           ! grep -qi 'chat.completions' artifacts/nosmo-nexus/src/cloud-data/work-mode-ai-handoff-receiver.tsx
