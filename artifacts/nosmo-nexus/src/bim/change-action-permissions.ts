@@ -1,3 +1,8 @@
+import {
+  listProjectAccessContexts,
+  type ProjectAccessContext,
+} from "@/access/person-project-access-context";
+import type { ProjectFunction } from "@/access/access-resolver";
 import type { PersistedChangeDecisionCode, NexusChangeEventProjection } from "./change-event-persistence";
 
 export type ChangeActionIdentityAssurance =
@@ -5,28 +10,20 @@ export type ChangeActionIdentityAssurance =
   | "SYNTHETIC_DEMO"
   | "ATTESTED_ONLY";
 
-export type ChangeActionProjectFunction =
-  | "PROJECT_MANAGER"
-  | "SITE_MANAGER"
-  | "SUPERVISOR"
-  | "PACKAGE_LEAD"
-  | "DESIGN_COORDINATOR"
-  | "QA"
-  | "INSPECTOR"
-  | "PROCUREMENT_OWNER"
-  | "INSTALLER"
-  | "TEAM_MEMBER";
+export type ChangeActionProjectFunction = ProjectFunction;
 
 /**
- * Profession remains Person Card identity/competence context. It is deliberately
- * not used as an Action Engine authorisation grant. Project function and scope
- * are separate Person <-> Project participation facts.
+ * Action Engine actor context is resolved from Person Card + active Project
+ * Participation. Profession remains competence context and is deliberately not
+ * used as an operational authorisation grant.
  */
 export type ChangeActionActorContext = {
   personId: string;
   displayName: string;
   professions: string[];
   projectId: string;
+  participationId?: string;
+  activeProjectParticipation: boolean;
   projectFunctions: ChangeActionProjectFunction[];
   tradeScopes: string[];
   workPackageScopes: string[];
@@ -58,16 +55,46 @@ const REQUIRED_FUNCTIONS: Record<PersistedChangeDecisionCode, ChangeActionProjec
   RAISE_RFI: ["PROJECT_MANAGER", "SITE_MANAGER", "DESIGN_COORDINATOR", "PACKAGE_LEAD"],
   UPDATE_PROCUREMENT: ["PROJECT_MANAGER", "SITE_MANAGER", "PROCUREMENT_OWNER"],
   NEW_EVIDENCE_REQUIRED: ["PROJECT_MANAGER", "SITE_MANAGER", "PACKAGE_LEAD", "SUPERVISOR", "QA"],
-  RE_INSPECTION_REQUIRED: ["PROJECT_MANAGER", "SITE_MANAGER", "SUPERVISOR", "QA", "INSPECTOR"],
-  ACCEPT_AS_BUILT_DIFFERENCE: ["PROJECT_MANAGER", "SITE_MANAGER", "DESIGN_COORDINATOR", "QA", "INSPECTOR"],
+  RE_INSPECTION_REQUIRED: ["PROJECT_MANAGER", "SITE_MANAGER", "SUPERVISOR", "QA", "INSPECTOR", "QA_INSPECTOR"],
+  ACCEPT_AS_BUILT_DIFFERENCE: ["PROJECT_MANAGER", "SITE_MANAGER", "DESIGN_COORDINATOR", "QA", "INSPECTOR", "QA_INSPECTOR"],
 };
 
 const PROJECT_WIDE_FUNCTIONS = new Set<ChangeActionProjectFunction>([
+  "CLIENT_OWNER",
+  "PROJECT_DIRECTOR",
   "PROJECT_MANAGER",
   "SITE_MANAGER",
   "DESIGN_COORDINATOR",
   "QA",
+  "QA_INSPECTOR",
 ]);
+
+export const ACTION_ENGINE_DEMO_PROJECT_ID = "riverside-demo";
+
+function isPersistedChangeDecisionCode(value: string): value is PersistedChangeDecisionCode {
+  return Object.prototype.hasOwnProperty.call(REQUIRED_FUNCTIONS, value);
+}
+
+function normaliseExplicitDenyActions(values: string[] | undefined) {
+  return values?.filter(isPersistedChangeDecisionCode);
+}
+
+export function createChangeActionActorContext(context: ProjectAccessContext): ChangeActionActorContext {
+  const { personCard, participation, resolution } = context;
+  return {
+    personId: personCard.personId,
+    displayName: personCard.displayName,
+    professions: personCard.professions,
+    projectId: resolution.projectId,
+    participationId: participation?.participationId,
+    activeProjectParticipation: resolution.activeProjectParticipation,
+    projectFunctions: participation?.functions ?? resolution.projectFunctions,
+    tradeScopes: participation?.tradeScopes ?? resolution.tradeScopes,
+    workPackageScopes: participation?.workPackageScopes ?? resolution.workPackageScopes,
+    identityAssurance: participation?.identityAssurance ?? "ATTESTED_ONLY",
+    explicitDenyDecisions: normaliseExplicitDenyActions(participation?.explicitDenyActions),
+  };
+}
 
 function scopeAllows(actor: ChangeActionActorContext, event: NexusChangeEventProjection) {
   if (actor.projectFunctions.some((role) => PROJECT_WIDE_FUNCTIONS.has(role))) return true;
@@ -85,6 +112,10 @@ export function resolveChangeActionPermission(args: {
   const code = event.decision.code;
   const requiredFunctions = REQUIRED_FUNCTIONS[code];
   const reasons: string[] = [];
+
+  if (!actor.activeProjectParticipation) {
+    reasons.push("No active Person Card project participation record grants Action Engine authority.");
+  }
 
   if (actor.projectId !== projectId) {
     reasons.push("Actor participation belongs to a different project.");
@@ -122,76 +153,31 @@ export function resolveChangeActionPermission(args: {
 
   return {
     decisionCode: code,
-    allowed: reasons.length === 0,
+    allowed: reasons.length === 0 && executable,
     executable,
     reasons,
     requiredFunctions,
   };
 }
 
+export function resolveChangeActionPermissionFromProjectAccess(args: {
+  context: ProjectAccessContext;
+  event: NexusChangeEventProjection;
+  projectId: string;
+}) {
+  return resolveChangeActionPermission({
+    actor: createChangeActionActorContext(args.context),
+    event: args.event,
+    projectId: args.projectId,
+  });
+}
+
 /**
- * Synthetic Person Card / project-participation fixtures for Action Engine
- * validation only. Profession and project function are intentionally separate.
+ * Explicit synthetic demo fallback. Production execution must supply an
+ * authenticated Person Card identity and server-side project participation;
+ * these records exist only so the current browser-local WorkSuite demo can be
+ * exercised without inventing production auth.
  */
-export const ACTION_ENGINE_DEMO_ACTORS: ChangeActionActorContext[] = [
-  {
-    personId: "p-sitemgr",
-    displayName: "Sarah Wilson",
-    professions: ["CONSTRUCTION_MANAGER"],
-    projectId: "riverside-demo",
-    projectFunctions: ["SITE_MANAGER"],
-    tradeScopes: ["Electrical", "Mechanical & HVAC", "Plumbing & Public Health"],
-    workPackageScopes: [],
-    identityAssurance: "SYNTHETIC_DEMO",
-  },
-  {
-    personId: "p-elec-supervisor",
-    displayName: "S. Cole",
-    professions: ["ELECTRICIAN"],
-    projectId: "riverside-demo",
-    projectFunctions: ["SUPERVISOR"],
-    tradeScopes: ["Electrical"],
-    workPackageScopes: ["ELEC-L02-CONT-04"],
-    identityAssurance: "SYNTHETIC_DEMO",
-  },
-  {
-    personId: "p-hvac-supervisor",
-    displayName: "A. Reed",
-    professions: ["MECHANICAL_INSTALLER"],
-    projectId: "riverside-demo",
-    projectFunctions: ["SUPERVISOR"],
-    tradeScopes: ["Mechanical & HVAC"],
-    workPackageScopes: ["HVAC-L02-DUCT-07"],
-    identityAssurance: "SYNTHETIC_DEMO",
-  },
-  {
-    personId: "p-plumb-supervisor",
-    displayName: "K. Shah",
-    professions: ["PLUMBER"],
-    projectId: "riverside-demo",
-    projectFunctions: ["SUPERVISOR"],
-    tradeScopes: ["Plumbing & Public Health"],
-    workPackageScopes: ["PLB-L02-DRAIN-03"],
-    identityAssurance: "SYNTHETIC_DEMO",
-  },
-  {
-    personId: "p-architect",
-    displayName: "Priya Shah",
-    professions: ["ARCHITECT"],
-    projectId: "riverside-demo",
-    projectFunctions: ["DESIGN_COORDINATOR"],
-    tradeScopes: ["Electrical", "Mechanical & HVAC", "Plumbing & Public Health"],
-    workPackageScopes: [],
-    identityAssurance: "SYNTHETIC_DEMO",
-  },
-  {
-    personId: "p-elec-team",
-    displayName: "Electrical Team 03",
-    professions: ["ELECTRICAL_TEAM"],
-    projectId: "riverside-demo",
-    projectFunctions: ["TEAM_MEMBER"],
-    tradeScopes: ["Electrical"],
-    workPackageScopes: ["ELEC-L02-CONT-04"],
-    identityAssurance: "SYNTHETIC_DEMO",
-  },
-];
+export const ACTION_ENGINE_DEMO_ACTORS: ChangeActionActorContext[] = listProjectAccessContexts(ACTION_ENGINE_DEMO_PROJECT_ID)
+  .map(createChangeActionActorContext)
+  .filter((actor) => actor.identityAssurance === "SYNTHETIC_DEMO");
