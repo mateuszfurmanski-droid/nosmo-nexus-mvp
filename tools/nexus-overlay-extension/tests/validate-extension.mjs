@@ -48,6 +48,7 @@ const requiredContextFields = [
   "tradeContext",
   "selectedObjectType",
   "selectedObjectId",
+  "nexusNodeId",
   "sourceApplication",
   "sourceUrl",
   "sourcePageType",
@@ -79,6 +80,15 @@ assert(
   manifest.content_scripts[0].js?.includes("src/supply-request.js"),
   "Supply request component must be explicitly loaded by the Work Wallet content script"
 );
+assert(
+  manifest.content_scripts[0].js?.includes("src/tree-handoff.js"),
+  "Relationship Tree handoff component must be explicitly loaded by the Work Wallet content script"
+);
+assert(
+  manifest.content_scripts[0].js.indexOf("src/sidecar.js") < manifest.content_scripts[0].js.indexOf("src/tree-handoff.js") &&
+    manifest.content_scripts[0].js.indexOf("src/tree-handoff.js") < manifest.content_scripts[0].js.indexOf("src/content.js"),
+  "Tree handoff must load after sidecar and before content boot"
+);
 
 for (const field of requiredAdapterFields) {
   assert(Object.hasOwn(workWallet, field), `Work Wallet adapter missing field: ${field}`);
@@ -109,6 +119,7 @@ assert(
   contextFixture.contextSource !== "CONNECTOR_VERIFIED_CONTEXT",
   "Synthetic fixture must not be connector verified"
 );
+assert(contextFixture.nexusNodeId === "t-install", "Fixture must carry an explicit Nexus-internal focus node");
 
 assert(workWallet.adapter_id !== fixtureAdapter.adapter_id, "Adapter registry fixture IDs must be unique");
 assert(
@@ -137,9 +148,14 @@ assert(
   mockHtml.includes("../src/supply-request.js"),
   "Local mock must load the same supply request component as the real overlay"
 );
+assert(
+  mockHtml.includes("../src/tree-handoff.js"),
+  "Local mock must load the same Relationship Tree handoff component as the real overlay"
+);
 
 const runtimeSource = read("src/runtime.js");
 const supplySource = read("src/supply-request.js");
+const treeHandoffSource = read("src/tree-handoff.js");
 assert(
   runtimeSource.includes('supplyRequests: "nexusOverlaySupplyRequests"'),
   "Supply request drafts must use a dedicated local storage key"
@@ -152,12 +168,35 @@ assert(
   supplySource.includes("LOCAL DRAFT ONLY") && supplySource.includes("saveSupplyRequestDraft"),
   "Supply request UI must be explicitly local-only and use the controlled runtime writer"
 );
+assert(
+  treeHandoffSource.includes('["project|halifax-demo", "proj"]') &&
+    treeHandoffSource.includes('["person|person-demo-001", "p-mateusz"]') &&
+    treeHandoffSource.includes('["job|JOB-01", "t-install"]'),
+  "Tree handoff must use only the explicit synthetic mock mappings"
+);
+assert(
+  !treeHandoffSource.includes("PER-201") &&
+    !treeHandoffSource.includes("AUD-11") &&
+    !treeHandoffSource.includes("RAMS-01"),
+  "Unmapped permit, audit and risk records must not gain inferred Nexus node IDs"
+);
+assert(
+  treeHandoffSource.includes('searchParams.set("nexusSource", "work-wallet")') &&
+    treeHandoffSource.includes('searchParams.set("nexusFocus", nexusNodeId)'),
+  "Tree handoff must use the PKG-014 launch-context contract"
+);
+assert(
+  treeHandoffSource.includes('sourceUrl.origin !== "https://portal.work-wallet.com"') &&
+    treeHandoffSource.includes('sourceUrl.pathname.startsWith("/mock/")'),
+  "Automatic Nexus node mapping must remain restricted to the local synthetic Work Wallet mock"
+);
 
 const executableFiles = [
   "src/background.js",
   "src/runtime.js",
   "src/supply-request.js",
   "src/sidecar.js",
+  "src/tree-handoff.js",
   "src/content.js",
   "src/options/options.js",
   "dev/mock-work-wallet.js"
@@ -181,9 +220,10 @@ console.log("PKG-013 Nexus Overlay validator");
 console.log("PASS: Manifest V3 and least-privilege permissions");
 console.log("PASS: Work Wallet host is portal.work-wallet.com only");
 console.log("PASS: Work Wallet write capability is disabled");
-console.log("PASS: Context Packet fixture contract");
+console.log("PASS: Context Packet fixture contract with explicit Nexus node handoff");
 console.log("PASS: Universal adapter registry fixture");
 console.log("PASS: Manifest and local mock file references");
 console.log("PASS: Local mock is clearly labelled non-vendor");
 console.log("PASS: Supply request is local-draft only");
+console.log("PASS: Work Wallet to Relationship Tree mapping is explicit and fail-closed");
 console.log("PASS: No forbidden credential/session interception patterns");
