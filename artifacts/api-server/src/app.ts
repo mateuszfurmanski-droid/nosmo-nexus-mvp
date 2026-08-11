@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
+import { isNexusCorsOriginAllowed } from "./lib/nexus-cors";
 import { logger } from "./lib/logger";
 import { resolveNexusWebPublicDirectory } from "./lib/nexus-runtime-paths";
 import {
@@ -67,7 +68,14 @@ app.get("/health", async (_req, res) => {
 // Keep this before any generic Express body parser.
 app.use(workWalletRuntimeMiddleware);
 
-app.use(cors({ credentials: true, origin: true }));
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      callback(null, isNexusCorsOriginAllowed(origin) ? origin || false : false);
+    },
+  }),
+);
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
