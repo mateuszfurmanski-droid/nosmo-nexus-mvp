@@ -2,6 +2,7 @@
   const ADAPTER_ID = "work-wallet";
   const runtime = globalThis.NexusOverlayRuntime;
   const sidecar = globalThis.NexusOverlaySidecar;
+  const recordMapping = globalThis.NexusOverlayRecordMapping;
 
   if (!runtime || !sidecar) return;
 
@@ -60,16 +61,36 @@
   async function currentContext() {
     const existing = await runtime.getStoredContext();
     if (!existing) return null;
+
     const pageType = sourcePageType(location.href);
     const recordHint = routeRecordHint(location.href);
-    return runtime.normaliseContext({
+    const selectedObjectType = recordHint ? objectTypeForPage(pageType) : existing.selectedObjectType;
+    const selectedObjectId = recordHint || existing.selectedObjectId;
+
+    const priorNexusNodeStillApplies = Boolean(
+      recordHint &&
+      existing.externalRecordReference === recordHint &&
+      existing.selectedObjectType === selectedObjectType
+    );
+
+    const candidate = {
       ...existing,
+      nexusNodeId: priorNexusNodeStillApplies ? existing.nexusNodeId : null,
       sourceApplication: "WORK_WALLET",
       sourceUrl: safePortalUrl(location.href),
       sourcePageType: pageType,
-      selectedObjectType: recordHint ? objectTypeForPage(pageType) : existing.selectedObjectType,
-      selectedObjectId: recordHint || existing.selectedObjectId,
+      selectedObjectType,
+      selectedObjectId,
       externalRecordReference: recordHint
+    };
+
+    const mappedNexusNodeId = recordHint && recordMapping
+      ? await recordMapping.resolve(candidate)
+      : null;
+
+    return runtime.normaliseContext({
+      ...candidate,
+      nexusNodeId: mappedNexusNodeId || candidate.nexusNodeId
     });
   }
 
@@ -130,7 +151,8 @@
     if (areaName !== "local") return;
     if (
       changes[runtime.STORAGE_KEYS.context] ||
-      changes[runtime.STORAGE_KEYS.preferences]
+      changes[runtime.STORAGE_KEYS.preferences] ||
+      changes[recordMapping?.STORAGE_KEY]
     ) {
       await boot();
     }
