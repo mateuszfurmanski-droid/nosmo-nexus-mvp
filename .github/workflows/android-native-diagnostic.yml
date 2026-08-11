@@ -8,6 +8,12 @@ on:
     paths:
       - native/nexus-work-mode-native/**
       - .github/workflows/android-native-diagnostic.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - native/nexus-work-mode-native/**
+      - .github/workflows/android-native-diagnostic.yml
 
 permissions:
   contents: read
