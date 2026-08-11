@@ -1,5 +1,6 @@
 (() => {
   const runtime = globalThis.NexusOverlayRuntime;
+  const recordMapping = globalThis.NexusOverlayRecordMapping;
   const ADAPTER_ID = "work-wallet";
   const ACTIONS = [
     ["project_tree", "Project Tree"],
@@ -54,6 +55,52 @@
     );
   }
 
+  async function renderMappings() {
+    const host = $("mappingList");
+    if (!recordMapping) {
+      const empty = document.createElement("div");
+      empty.className = "mapping-empty";
+      empty.textContent = "Mapping registry unavailable.";
+      host.replaceChildren(empty);
+      return;
+    }
+
+    const mappings = await recordMapping.getMappings();
+    if (!mappings.length) {
+      const empty = document.createElement("div");
+      empty.className = "mapping-empty";
+      empty.textContent = "No local Work Wallet mappings saved.";
+      host.replaceChildren(empty);
+      return;
+    }
+
+    host.replaceChildren(
+      ...mappings.map((mapping) => {
+        const row = document.createElement("div");
+        row.className = "mapping-row";
+
+        const copy = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = `${mapping.externalRecordReference} → ${mapping.nexusNodeId}`;
+        const meta = document.createElement("span");
+        meta.textContent = `${mapping.projectId || "NO_PROJECT"} · ${mapping.selectedObjectType} · USER CONFIRMED LOCAL`;
+        copy.append(title, meta);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", async () => {
+          await recordMapping.removeMapping(mapping.id);
+          await renderMappings();
+          setStatus("Local mapping removed.");
+        });
+
+        row.append(copy, remove);
+        return row;
+      })
+    );
+  }
+
   async function load() {
     const context = await runtime.getStoredContext();
     const preference = await runtime.getAdapterPreference(ADAPTER_ID);
@@ -71,16 +118,44 @@
       "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree";
     $("adapterEnabled").checked = preference.enabled !== false;
 
+    $("mappingProjectId").value = context?.projectId || "";
+    $("mappingObjectType").value = context?.selectedObjectType || "";
+    $("mappingExternalReference").value = context?.externalRecordReference || "";
+    $("mappingNexusNodeId").value = "";
+
     renderActionChecks(
       context?.allowedActionKeys?.length
         ? context.allowedActionKeys
         : ACTIONS.map(([key]) => key)
     );
+    await renderMappings();
   }
 
   $("openMock").addEventListener("click", () => {
     window.open(chrome.runtime.getURL("dev/mock-work-wallet.html"), "_blank", "noopener,noreferrer");
   });
+
+  $("saveMapping").addEventListener("click", async () => {
+    if (!recordMapping) {
+      setStatus("Mapping registry unavailable.");
+      return;
+    }
+    try {
+      await recordMapping.setMapping({
+        projectId: $("mappingProjectId").value.trim() || null,
+        selectedObjectType: $("mappingObjectType").value.trim(),
+        externalRecordReference: $("mappingExternalReference").value.trim(),
+        nexusNodeId: $("mappingNexusNodeId").value.trim()
+      });
+      $("mappingNexusNodeId").value = "";
+      await renderMappings();
+      setStatus("Exact local Work Wallet → Nexus mapping saved.");
+    } catch (error) {
+      setStatus(error?.message || "Mapping could not be saved.");
+    }
+  });
+
+  $("refreshMappings").addEventListener("click", renderMappings);
 
   $("save").addEventListener("click", async () => {
     await runtime.setStoredContext({
