@@ -57,39 +57,45 @@ jobs:
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
 
-      - name: Verify native Work Mode handoff contract
+      - name: Verify native Work Mode AI handoff contract
         run: |
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
-          grep -q "nexusMode" "$MAIN"
-          grep -q "android-native" "$MAIN"
+          grep -q "Ask Nexus AI" "$MAIN"
+          grep -q "AI_CONTEXT_VERSION" "$MAIN"
+          grep -q "android-work-discovery-v1" "$MAIN"
+          grep -q "nexusIntent" "$MAIN"
+          grep -q "ask-nexus" "$MAIN"
+          grep -q "nexusAiContext" "$MAIN"
+          grep -q "ai-assistant" "$MAIN"
+          grep -q "server-side-only" "$MAIN"
           grep -q "relationship-tree" "$MAIN"
-          grep -q "Open Project World / Relationship Tree" "$MAIN"
           ! grep -q "nexus.html" "$MAIN"
 
       - name: Stage beta APK and Play bundle
         run: |
           mkdir -p android-native-work-mode
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.1.apk
-          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.1.aab
-          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.1.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.1.apk.sha256
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.aab
+          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.apk.sha256
           cp /tmp/badging.txt android-native-work-mode/APK_BADGING.txt
           cp /tmp/permissions.txt android-native-work-mode/APK_PERMISSIONS.txt
           {
             echo "NEXUS Work Mode Native"
-            echo "Version: 0.5.1-native"
+            echo "Version: 0.5.2-ai"
             echo "APK package: tech.nosmo.nexus.workmode.nativebeta"
             echo "Runtime: pure Android Java"
             echo "Discovery: Contacts + Calendar + Storage Access Framework folder picker + selected photos"
             echo "Review: selected-by-default work signals with user deselection"
-            echo "Work Mode: persistent active context + Relationship Tree work-mode handoff"
-            echo "Handoff: nexusMode=work, nexusClient=android-native, nexusProject=<slug>"
+            echo "AI: local bounded AI Context Packet + server-side Nexus model call boundary"
+            echo "Work Mode: Ask Nexus AI primary action + Relationship Tree Project World handoff"
+            echo "Handoff: nexusMode=work, nexusClient=android-native, nexusIntent=ask-nexus, nexusAiContext=android-work-discovery-v1"
             echo "Source: $GITHUB_SHA"
           } > android-native-work-mode/BUILD_INFO.txt
 
       - name: Upload native Work Mode beta
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-Native-v0.5.1
+          name: NEXUS-Work-Mode-Native-v0.5.2-ai
           path: android-native-work-mode/*
           if-no-files-found: error
           retention-days: 14
