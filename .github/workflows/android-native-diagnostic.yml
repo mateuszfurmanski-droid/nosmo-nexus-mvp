@@ -64,48 +64,47 @@ jobs:
           grep -q "classes.dex" /tmp/apk-files.txt
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
-          test -n "$AAPT"
-          test -n "$APKSIGNER"
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "package: name='tech.nosmo.nexus.workmode.native'" /tmp/badging.txt
-          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.MainActivity'" /tmp/badging.txt
+          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.AutoDiscoveryActivity'" /tmp/badging.txt
           grep -q "uses-permission: name='android.permission.READ_CONTACTS'" /tmp/badging.txt
           grep -q "uses-permission: name='android.permission.READ_CALENDAR'" /tmp/badging.txt
+          grep -q "uses-permission: name='android.permission.READ_MEDIA_IMAGES'" /tmp/badging.txt
+          grep -q "uses-permission: name='android.permission.MANAGE_EXTERNAL_STORAGE'" /tmp/badging.txt
           unzip -p "$APK" classes.dex > /tmp/classes.dex || true
           unzip -p "$APK" classes2.dex > /tmp/classes2.dex || true
           strings /tmp/classes.dex /tmp/classes2.dex | tee /tmp/dex-strings.txt
-          grep -q "PROJECT WORLD / RELATIONSHIP TREE" /tmp/dex-strings.txt
-          grep -q "workmode" /tmp/dex-strings.txt
-          grep -q "0.5.1" /tmp/dex-strings.txt
+          grep -q "SCAN PHONE + CONNECTED CLOUD" /tmp/dex-strings.txt
+          grep -q "PERSONAL CLOUD" /tmp/dex-strings.txt
+          grep -q "0.6.0" /tmp/dex-strings.txt
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/signing.txt
 
       - name: Stage Work Mode APK and Play bundle
         run: |
           mkdir -p android-native-build
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-build/NEXUS-Work-Mode-Native-v0.5.1.apk
-          cp native/nexus-work-mode-native/app/build/outputs/bundle/debug/app-debug.aab android-native-build/NEXUS-Work-Mode-Native-v0.5.1.aab
-          sha256sum android-native-build/NEXUS-Work-Mode-Native-v0.5.1.apk > android-native-build/NEXUS-Work-Mode-Native-v0.5.1.apk.sha256
-          sha256sum android-native-build/NEXUS-Work-Mode-Native-v0.5.1.aab > android-native-build/NEXUS-Work-Mode-Native-v0.5.1.aab.sha256
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-build/NEXUS-Work-Mode-Native-v0.6.0.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/debug/app-debug.aab android-native-build/NEXUS-Work-Mode-Native-v0.6.0.aab
+          sha256sum android-native-build/NEXUS-Work-Mode-Native-v0.6.0.apk > android-native-build/NEXUS-Work-Mode-Native-v0.6.0.apk.sha256
+          sha256sum android-native-build/NEXUS-Work-Mode-Native-v0.6.0.aab > android-native-build/NEXUS-Work-Mode-Native-v0.6.0.aab.sha256
           cp /tmp/badging.txt android-native-build/APK_BADGING.txt
           cp /tmp/signing.txt android-native-build/APK_SIGNING.txt
           {
             echo "NEXUS Work Mode Native"
-            echo "Version: 0.5.1-native"
+            echo "Version: 0.6.0-native"
             echo "Package: tech.nosmo.nexus.workmode.native"
             echo "Runtime: pure Android Java"
-            echo "Discovery: Contacts + Calendar + Android document-tree folder scan + selected photos"
-            echo "State: local SharedPreferences"
-            echo "Workspace bridge: world=workmode + active project + approved signal count"
-            echo "Brand: official NEXUS logo"
+            echo "Discovery: Contacts + Calendar + MediaStore photo index + optional MANAGE_EXTERNAL_STORAGE file index + persistent document-provider cloud source"
+            echo "Personal Cloud: persistent Android document-provider destination; accepted source files are copied and originals retained"
+            echo "Project World: workmode handoff with restored Relationship Tree runtime cache key"
             echo "Signing: stable NOSMO test key for repeat installs"
-            echo "AAB: included for Google Play Internal App Sharing"
+            echo "AAB: included for future Play distribution"
             echo "Source: $GITHUB_SHA"
           } > android-native-build/BUILD_INFO.txt
 
       - name: Upload Work Mode APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-Native-v0.5.1
+          name: NEXUS-Work-Mode-Native-v0.6.0
           path: android-native-build/*
           if-no-files-found: error
           retention-days: 14
