@@ -135,6 +135,10 @@ jobs:
           grep '"status":"accepted"' /tmp/work-mode-ai-response.json > /dev/null
           grep '"projectId":"RIVERSIDE_DEMO_PROJECT"' /tmp/work-mode-ai-response.json > /dev/null
           grep '"modelExecution":"disabled-demo-boundary"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"draftAction"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"mutationMode":"draft-only-no-mutation"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"executionBoundary":"worksuite-action-engine-required"' /tmp/work-mode-ai-response.json > /dev/null
+          grep '"workSuiteActionEngineApproval":true' /tmp/work-mode-ai-response.json > /dev/null
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/nexus/cloud-storage/status \
