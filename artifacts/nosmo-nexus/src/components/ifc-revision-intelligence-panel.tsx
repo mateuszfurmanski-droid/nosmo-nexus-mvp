@@ -74,13 +74,13 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
   const [comparing, setComparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentHasMappedGuid = Boolean(
+  const currentContainsMappedGuid = Boolean(
     mapping && currentSession.parsed.entities.some((entity) => entity.globalId === mapping.ifcGlobalId),
   );
   const structural = useMemo(() => {
-    if (!baselineSession || !mapping || !currentHasMappedGuid) return null;
+    if (!baselineSession || !mapping) return null;
     return compareIfcRevisionStructure(baselineSession, currentSession, mapping.ifcGlobalId);
-  }, [baselineSession, currentHasMappedGuid, currentSession, mapping]);
+  }, [baselineSession, currentSession, mapping]);
   const comparison = deepComparison ?? structural;
   const propertyDiffRead = Boolean(deepComparison?.propertyDiffRead);
   const impact = useMemo(
@@ -159,12 +159,12 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
         <span className="rounded-full border border-orange-400/25 bg-orange-400/10 px-3 py-1.5 text-[10px] font-bold text-orange-200">SESSION-ONLY DIFF</span>
       </div>
 
-      {!mapping || !currentHasMappedGuid ? (
+      {!mapping ? (
         <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
           <div>
-            <p className="font-semibold text-amber-100">Map the active IFC object first</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Revision intelligence needs a real GlobalId that exists in the active IFC and is explicitly bound to {pilot.object.id}.</p>
+            <p className="font-semibold text-amber-100">Map an IFC identity first</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Revision intelligence needs a real GlobalId explicitly bound to {pilot.object.id}. Once mapped, the same GlobalId remains the revision anchor even if a later IFC removes that object.</p>
           </div>
         </div>
       ) : (
@@ -192,10 +192,10 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
               <p className="mt-2 truncate text-sm font-semibold">{currentSession.fileName}</p>
               <p className="mt-1 text-[10px] text-muted-foreground">{currentSession.parsed.schema ?? "schema unknown"} · {bytesLabel(currentSession.fileSize)}</p>
               <p className="mt-1 truncate font-mono text-[9px] text-muted-foreground">{currentSession.sha256 ? `SHA ${currentSession.sha256.slice(0, 16)}…` : "SHA unavailable"}</p>
-              <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3">
-                <p className="text-[9px] uppercase text-emerald-200">Revision anchor</p>
+              <div className={`mt-4 rounded-xl border p-3 ${currentContainsMappedGuid ? "border-emerald-400/20 bg-emerald-400/5" : "border-red-400/20 bg-red-400/5"}`}>
+                <p className={`text-[9px] uppercase ${currentContainsMappedGuid ? "text-emerald-200" : "text-red-200"}`}>Revision anchor</p>
                 <p className="mt-1 break-all font-mono text-[10px] font-semibold">{mapping.ifcGlobalId}</p>
-                <p className="mt-1 text-[9px] text-muted-foreground">Nexus Object {pilot.object.id}</p>
+                <p className="mt-1 text-[9px] text-muted-foreground">{currentContainsMappedGuid ? `Present in active IFC · Nexus Object ${pilot.object.id}` : `Not present in active IFC · possible removal of ${pilot.object.id}`}</p>
               </div>
             </div>
           </div>
