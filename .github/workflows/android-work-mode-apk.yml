@@ -48,6 +48,69 @@ jobs:
         working-directory: native/nexus-work-mode
         run: npm run typecheck
 
+      - name: Build launcher icon from official NEXUS logo
+        run: |
+          mkdir -p native/nexus-work-mode/assets
+          curl -L --fail --retry 3 \
+            https://raw.githubusercontent.com/mateuszfurmanski-droid/NOSMO-website/main/assets/NEXUS_Logo.png \
+            -o /tmp/NEXUS_Logo.png
+          python -m pip install --quiet pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
+          source = Image.open('/tmp/NEXUS_Logo.png').convert('RGBA')
+          out = Path('native/nexus-work-mode/assets')
+          out.mkdir(parents=True, exist_ok=True)
+
+          def logo_with_transparency(image):
+              alpha = image.getchannel('A')
+              lo, hi = alpha.getextrema()
+              if lo < 250:
+                  return image
+              rgb = image.convert('RGB')
+              r, g, b = rgb.split()
+              lum = ImageChops.lighter(ImageChops.lighter(r, g), b)
+              mask = lum.point(lambda p: 0 if p < 12 else min(255, int((p - 12) * 1.7)))
+              result = image.copy()
+              result.putalpha(mask)
+              return result
+
+          mark = logo_with_transparency(source)
+
+          # Standard Android launcher icon: official NEXUS logo unchanged, only scaled and placed.
+          size = 1024
+          base = Image.new('RGBA', (size, size), '#030407')
+          glow = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          draw = ImageDraw.Draw(glow)
+          draw.ellipse((130, 250, 894, 1014), fill=(67, 228, 255, 34))
+          draw.ellipse((160, 10, 864, 714), fill=(245, 196, 0, 24))
+          glow = glow.filter(ImageFilter.GaussianBlur(110))
+          base = Image.alpha_composite(base, glow)
+
+          logo = mark.copy()
+          logo.thumbnail((850, 410), Image.Resampling.LANCZOS)
+          x = (size - logo.width) // 2
+          y = (size - logo.height) // 2
+          base.alpha_composite(logo, (x, y))
+
+          border = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          bd = ImageDraw.Draw(border)
+          bd.rounded_rectangle((26, 26, 998, 998), radius=220, outline=(255, 255, 255, 30), width=4)
+          bd.rounded_rectangle((38, 38, 986, 986), radius=210, outline=(245, 196, 0, 28), width=2)
+          base = Image.alpha_composite(base, border)
+          base.save(out / 'icon.png')
+
+          # Adaptive foreground: preserve the same official logo, with generous safe-zone padding.
+          foreground = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          adaptive = mark.copy()
+          adaptive.thumbnail((650, 320), Image.Resampling.LANCZOS)
+          ax = (size - adaptive.width) // 2
+          ay = (size - adaptive.height) // 2
+          foreground.alpha_composite(adaptive, (ax, ay))
+          foreground.save(out / 'adaptive-icon.png')
+          PY
+
       - name: Generate Android project
         working-directory: native/nexus-work-mode
         run: npx expo prebuild --platform android --clean
@@ -64,7 +127,8 @@ jobs:
           cp native/nexus-work-mode/android/app/build/outputs/apk/debug/app-debug.apk android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk
           sha256sum android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk > android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256
           {
-            echo "NOSMO Nexus Work Mode"
+            echo "NEXUS Work Mode"
+            echo "Brand: official NOSMO NEXUS logo"
             echo "Build: Android ARM64 debug APK"
             echo "Source: $GITHUB_SHA"
             echo "Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
@@ -81,15 +145,20 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish APK to branch when permitted
+      - name: Publish APK and official launcher assets to branch when permitted
         continue-on-error: true
         run: |
           git config user.name "nosmo-automation"
           git config user.email "actions@users.noreply.github.com"
-          git add android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256 android-builds/BUILD_INFO.txt
+          git add \
+            native/nexus-work-mode/assets/icon.png \
+            native/nexus-work-mode/assets/adaptive-icon.png \
+            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk \
+            android-builds/NOSMO-Nexus-Work-Mode-arm64-debug.apk.sha256 \
+            android-builds/BUILD_INFO.txt
           if git diff --cached --quiet; then
-            echo "APK output unchanged"
+            echo "APK and branding outputs unchanged"
             exit 0
           fi
-          git commit -m "Publish Nexus Work Mode Android APK"
+          git commit -m "Publish branded Nexus Work Mode Android build"
           git push origin HEAD:agent/android-work-mode-native
