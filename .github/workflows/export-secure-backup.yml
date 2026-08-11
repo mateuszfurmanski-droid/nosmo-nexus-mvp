@@ -35,9 +35,17 @@ jobs:
           sha256sum "${out}/${repo}.bundle" "${out}/${repo}-main-snapshot.tar.gz" > "${out}/SHA256SUMS.txt"
 
       - name: Upload secure backup artifact
+        id: upload-secure-backup
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: secure-backup-${{ github.event.repository.name }}
           path: ${{ runner.temp }}/secure-backup/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
+
+      - name: Warn when GitHub artifact quota blocks backup upload
+        if: steps.upload-secure-backup.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning title=Secure backup artifact not uploaded::The Git bundle and snapshot were created, but GitHub artifact storage quota blocked upload. This is a GitHub Actions storage/quota gate, not an Android build failure. Free artifact storage or rerun this workflow later if a downloadable backup artifact is required."
