@@ -14,12 +14,14 @@ const route = read("artifacts/api-server/src/routes/nexus-session.ts");
 const routerIndex = read("artifacts/api-server/src/routes/index.ts");
 
 assert(facade.includes('NEXUS_BROWSER_SESSION_SCHEMA = "nexus-browser-session/v1"'), "Missing session schema");
-assert(facade.includes('bindingStatus: "UNBOUND"'), "Authenticated Slice A session must remain UNBOUND");
-assert(facade.includes("personId: null"), "Slice A must not invent a canonical personId");
-assert(facade.includes("canIssueContextTicket: false"), "Slice A must not enable PKG-016 tickets");
+assert(facade.includes('bindingStatus: "UNBOUND"'), "Authenticated account without binding must remain UNBOUND");
+assert(facade.includes('bindingStatus: "BOUND"'), "Canonical Person binding must expose BOUND state");
+assert(facade.includes("personId: null"), "Unbound session must not invent a canonical personId");
+assert(facade.includes("personId: person.personId"), "Bound session must use canonical Person ID");
+assert(facade.includes("canIssueContextTicket: false"), "PKG-017 must not enable PKG-016 tickets before project authorization");
 assert(route.includes('router.get("/nexus/session"'), "Missing canonical session endpoint");
 assert(route.includes('res.setHeader("Cache-Control", "no-store")'), "Session endpoint must be no-store");
-assert(route.includes("res.status(401).json(payload)"), "Unauthenticated session endpoint must return 401");
+assert(route.includes("res.status(401).json(buildNexusBrowserSession(null))"), "Unauthenticated session endpoint must return 401");
 
 const sessionMount = routerIndex.indexOf("router.use(nexusSessionRouter)");
 const workspaceGate = routerIndex.indexOf("router.use(requireWorkspace)");
@@ -37,9 +39,9 @@ for (const [label, pattern] of forbiddenResponseSignals) {
   assert(!pattern.test(responseSource), `Canonical browser session facade must not expose ${label}`);
 }
 
-console.log("PKG-017 Slice A Nexus browser session validator");
-console.log("PASS: read-only canonical session endpoint");
-console.log("PASS: authenticated accounts remain UNBOUND until Person binding exists");
-console.log("PASS: no Context Ticket eligibility in Slice A");
+console.log("PKG-017 canonical Nexus browser session validator");
+console.log("PASS: unauthenticated, UNBOUND and BOUND session states remain explicit");
+console.log("PASS: canonical personId appears only after server-side Person binding");
+console.log("PASS: no Context Ticket eligibility before project authorization");
 console.log("PASS: no raw session/provider credential signals in browser session response code");
 console.log("PASS: endpoint is no-store and mounted before workspace authorization");
