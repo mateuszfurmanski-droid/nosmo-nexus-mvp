@@ -169,6 +169,7 @@ jobs:
           cmp /tmp/nexus-cloud-object.bin /tmp/nexus-cloud-readback.bin
 
       - name: Upload Nexus build
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: nosmo-nexus-web
