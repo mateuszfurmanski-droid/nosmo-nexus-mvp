@@ -48,7 +48,7 @@ export type IfcRevisionComparison = IfcRevisionStructuralComparison & {
 };
 
 export type IfcRevisionImpactItem = {
-  kind: "TASK" | "PEOPLE" | "READINESS" | "EVIDENCE" | "INSPECTION" | "AS_BUILT";
+  kind: "TASK" | "PEOPLE" | "MATERIALS" | "READINESS" | "EVIDENCE" | "INSPECTION" | "AS_BUILT";
   label: string;
   detail: string;
   action: string;
@@ -256,6 +256,12 @@ export function buildIfcRevisionImpact(
       label: `${pilot.work.assignedTeam} · ${pilot.work.supervisor}`,
       detail: "Assigned people are operationally linked to this Nexus Object ID.",
       action: "Surface the revision notice to the assigned team and supervisor; do not silently reassign work.",
+    },
+    {
+      kind: "MATERIALS",
+      label: `${pilot.work.packageId} material/procurement context`,
+      detail: "IFC type, Pset or material-reference changes may alter what the work package expects, but model material data is not a purchase order or verified site inventory.",
+      action: "Compare changed source material/type fields with Nexus material requirements and supplier records; do not rewrite quantities or orders automatically.",
     },
     {
       kind: "READINESS",
