@@ -213,10 +213,17 @@ export async function compareIfcRevisionProperties(
     return { ...structural, propertyDiffRead: false };
   }
 
-  const [baselineProperties, currentProperties] = await Promise.all([
-    loadIfcSourceProperties(baseline, structural.baselineEntity.stepId, globalId),
-    loadIfcSourceProperties(current, structural.currentEntity.stepId, globalId),
-  ]);
+  // Read sequentially so two WASM models are not resident at the same time on mobile.
+  const baselineProperties = await loadIfcSourceProperties(
+    baseline,
+    structural.baselineEntity.stepId,
+    globalId,
+  );
+  const currentProperties = await loadIfcSourceProperties(
+    current,
+    structural.currentEntity.stepId,
+    globalId,
+  );
   const changes = [...structural.changes, ...propertyChanges(baselineProperties, currentProperties)];
   const warnings = [
     ...structural.warnings,
