@@ -8,6 +8,7 @@ const SAFE_IDENTIFIER = /^[A-Za-z0-9_-]+$/;
 const MAX_SOURCE_LENGTH = 40;
 const MAX_FOCUS_LENGTH = 80;
 
+// Navigation context only: external Work Wallet record identifiers are never treated as Nexus node IDs.
 export function parseRelationshipTreeLaunchContext(
   search: string,
   validNodeIds: ReadonlySet<string>,
