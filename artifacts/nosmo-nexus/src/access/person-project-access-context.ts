@@ -12,6 +12,7 @@ import {
 export type PersonCard = {
   personId: string;
   displayName: string;
+  /** Stable professional identity derived from education, qualifications and competence. */
   professions: ProfessionKey[];
   qualifications?: string[];
   certifications?: string[];
@@ -22,14 +23,30 @@ export type ProjectParticipationRecord = {
   participationId: string;
   personId: string;
   projectId: string;
+  /** Function on this project only; does not redefine the person's profession. */
   functions: ProjectFunction[];
+  /** Work/package scope on this project only. */
   assignments: ProjectAssignment[];
   permissions?: ApplicationPermission[];
   responsibilities?: string[];
   company?: string;
   startsAt?: string;
   endsAt?: string;
+  /** @deprecated UI compatibility alias. Canonical source is `functions`. */
+  roles: ProjectFunction[];
+  /** @deprecated UI compatibility alias. Canonical source is `assignments`. */
+  trades: ProjectAssignment[];
 };
+
+type ProjectParticipationInput = Omit<ProjectParticipationRecord, "roles" | "trades">;
+
+function projectParticipation(input: ProjectParticipationInput): ProjectParticipationRecord {
+  return {
+    ...input,
+    roles: input.functions,
+    trades: input.assignments,
+  };
+}
 
 export type ProjectAccessContext = {
   personCard: PersonCard;
@@ -56,7 +73,7 @@ export const PERSON_CARDS: PersonCard[] = [
 ];
 
 export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
-  {
+  projectParticipation({
     participationId: "participation-halifax-multi",
     personId: "person-demo-multi-project",
     projectId: "halifax-demo",
@@ -64,8 +81,8 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
     assignments: ["GENERAL", "DOORS_FIRE"],
     responsibilities: ["Project coordination", "Doors & fire package"],
     company: "NOSMO Demo",
-  },
-  {
+  }),
+  projectParticipation({
     participationId: "participation-riverside-multi",
     personId: "person-demo-multi-project",
     projectId: "riverside-demo",
@@ -80,8 +97,8 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
     ],
     responsibilities: ["Door installation"],
     company: "NOSMO Demo",
-  },
-  {
+  }),
+  projectParticipation({
     participationId: "participation-halifax-electrician",
     personId: "person-demo-electrician",
     projectId: "halifax-demo",
@@ -89,7 +106,7 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
     assignments: ["ELECTRICAL"],
     responsibilities: ["Electrical commissioning"],
     company: "Electrical Demo Ltd",
-  },
+  }),
 ];
 
 function toResolverParticipation(record: ProjectParticipationRecord): ProjectParticipation {
