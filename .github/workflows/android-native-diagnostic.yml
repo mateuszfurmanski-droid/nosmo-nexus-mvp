@@ -87,6 +87,17 @@ jobs:
           grep -q "1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI" /tmp/dex-strings.txt
           grep -q "1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c" /tmp/dex-strings.txt
           grep -q "1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU" /tmp/dex-strings.txt
+          grep -q "10_PROJECT_WORLDS" /tmp/dex-strings.txt
+          grep -q "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" /tmp/dex-strings.txt
+          grep -q "RIVERSIDE_DEMO_PROJECT" /tmp/dex-strings.txt
+          grep -q "PHOTOS_SITE_EVIDENCE" /tmp/dex-strings.txt
+          grep -q "DOCUMENTS_PDF_OFFICE" /tmp/dex-strings.txt
+          grep -q "DRAWINGS_BIM_IFC" /tmp/dex-strings.txt
+          grep -q "PENDING_USER_APPROVAL" /tmp/dex-strings.txt
+          if grep -q "01_ESAFE_PROJECT_WORLD" /tmp/dex-strings.txt; then
+            echo "Stale pre-migration e-SAFE folder route found in APK; use 10_PROJECT_WORLDS/<projectId>/... instead."
+            exit 1
+          fi
           grep -q "0.7.0" /tmp/dex-strings.txt
           grep -q "e-SAFE-first discovery" /tmp/dex-strings.txt
           grep -q "no Tesco default" /tmp/dex-strings.txt
@@ -108,6 +119,8 @@ jobs:
             echo "Runtime: pure Android Java"
             echo "Launcher: native NexusShellActivity visual shell derived from the older NEXUS web prototype"
             echo "Nexus Cloud: canonical Google Drive map with Project Worlds, e-SAFE Catania, Riverside, Asset Index, Routing Rules and Migration Log"
+            echo "Canonical copy route: 00_NEXUS_PERSONAL_CLOUD/10_PROJECT_WORLDS/<projectId>/..."
+            echo "Legacy route blocked: 01_ESAFE_PROJECT_WORLD"
             echo "Discovery: Contacts + Calendar + MediaStore photo index + selected work photos + optional MANAGE_EXTERNAL_STORAGE file index + persistent document-provider cloud source"
             echo "Personal Cloud: persistent Google Drive folder through Android Storage Access Framework; accepted source files are copied and originals retained"
             echo "Project World: e-SAFE Project World handoff with Google Drive Personal Cloud provenance"
