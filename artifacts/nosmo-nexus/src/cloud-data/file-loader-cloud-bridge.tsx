@@ -23,6 +23,7 @@ import {
   type NexusFileUploadRequestDetailBase,
   type NexusQueuedUploadRecord,
 } from "./offline-upload-queue";
+import { resolveFileLoaderCloudRoute } from "./file-loader-drive-routing";
 import { createNexusStorageProvider } from "./storage-provider-resolver";
 import type { NexusStorageProvider } from "./storage-provider";
 
@@ -163,6 +164,11 @@ async function uploadToNexusCloudDataLayer(
   selectedId: string | undefined,
 ): Promise<UploadResult> {
   const projectId = detail.projectId;
+
+  // Re-run the same guard for online writes and offline queue replay. A stale
+  // queued record can never bypass the canonical project/world boundary.
+  resolveFileLoaderCloudRoute(projectId, detail.worldId);
+
   const sourceModule = detail.sourceModule ?? "file-loader";
   const uploadedByPersonId = detail.uploadedByPersonId ?? DEMO_UPLOADER_PERSON_ID;
   const participation = createDemoManagerParticipation(uploadedByPersonId, projectId);
@@ -318,6 +324,15 @@ export function NexusFileLoaderCloudBridge() {
         projectId,
       };
       delete (uploadDetail as FileUploadRequestDetail).files;
+
+      // Validate before creating an offline record; replay validates again.
+      try {
+        resolveFileLoaderCloudRoute(projectId, uploadDetail.worldId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Nexus Cloud project/world routing failed.";
+        for (const file of files) dispatchUploadFailure(file.name, message);
+        return;
+      }
 
       for (const file of files) {
         if (!isBrowserOnline()) {
