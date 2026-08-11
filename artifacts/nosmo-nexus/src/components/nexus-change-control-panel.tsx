@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   GitBranch,
+  PlayCircle,
   Save,
   ShieldCheck,
 } from "lucide-react";
@@ -18,6 +19,15 @@ import {
   persistChangeEvent,
   type NexusChangeEventProjection,
 } from "@/bim/change-event-persistence";
+import {
+  ACTION_ENGINE_DEMO_ACTORS,
+  resolveChangeActionPermission,
+} from "@/bim/change-action-permissions";
+import {
+  applyBoundChangeEventActions,
+  bindChangeEventToProject,
+  readChangeActionState,
+} from "@/bim/change-action-engine";
 import {
   NEXUS_CHANGE_DECISIONS,
   applySessionDecision,
@@ -35,6 +45,8 @@ type Props = {
   impact: IfcRevisionImpactItem[];
   geometryDiff?: IfcGeometryRevisionDiff | null;
 };
+
+const DEMO_PROJECT_ID = "riverside-demo";
 
 function sourceKey(session: IfcLocalModelSession) {
   return session.sha256 ?? `${session.fileName}:${session.fileSize}`;
@@ -62,6 +74,10 @@ export function NexusChangeControlPanel({
   const [deciderName, setDeciderName] = useState("");
   const [authorityConfirmed, setAuthorityConfirmed] = useState(false);
   const [persistedState, setPersistedState] = useState<"CREATED" | "UPDATED" | null>(null);
+  const [persistedProjection, setPersistedProjection] = useState<NexusChangeEventProjection | null>(null);
+  const [actionActorId, setActionActorId] = useState("");
+  const [actionSnapshotRevision, setActionSnapshotRevision] = useState<number | null>(null);
+  const [actionResult, setActionResult] = useState<string | null>(null);
 
   const resetKey = `${sourceKey(baselineSession)}:${sourceKey(currentSession)}:${globalId}:${comparison.reviewState}:${comparison.changes.length}`;
   useEffect(() => {
@@ -72,6 +88,10 @@ export function NexusChangeControlPanel({
     setDeciderName("");
     setAuthorityConfirmed(false);
     setPersistedState(null);
+    setPersistedProjection(null);
+    setActionActorId("");
+    setActionSnapshotRevision(null);
+    setActionResult(null);
   }, [resetKey]);
 
   const geometrySignals = useMemo(() => {
@@ -83,6 +103,18 @@ export function NexusChangeControlPanel({
     return signals;
   }, [geometryDiff]);
 
+  const actionActor = ACTION_ENGINE_DEMO_ACTORS.find((actor) => actor.personId === actionActorId);
+  const actionPermission = persistedProjection && actionActor
+    ? resolveChangeActionPermission({ actor: actionActor, event: persistedProjection, projectId: DEMO_PROJECT_ID })
+    : null;
+
+  function clearActionState() {
+    setPersistedProjection(null);
+    setActionActorId("");
+    setActionSnapshotRevision(null);
+    setActionResult(null);
+  }
+
   function createEvent() {
     setError(null);
     setSelectedDecision(null);
@@ -90,6 +122,7 @@ export function NexusChangeControlPanel({
     setDeciderName("");
     setAuthorityConfirmed(false);
     setPersistedState(null);
+    clearActionState();
     setChangeEvent(buildNexusChangeEvent({
       pilot,
       globalId,
@@ -104,6 +137,7 @@ export function NexusChangeControlPanel({
     if (!changeEvent || !selectedDecision) return;
     setError(null);
     setPersistedState(null);
+    clearActionState();
     setAuthorityConfirmed(false);
     setDeciderName("");
     try {
@@ -166,6 +200,7 @@ export function NexusChangeControlPanel({
   function persistDecision() {
     if (!changeEvent?.decision) return;
     setError(null);
+    setActionResult(null);
     if (!deciderName.trim()) {
       setError("Enter the person recording this decision before persistence.");
       return;
@@ -178,8 +213,39 @@ export function NexusChangeControlPanel({
     try {
       const result = persistChangeEvent(buildGraphProjection(changeEvent));
       setPersistedState(result.created ? "CREATED" : "UPDATED");
+      setPersistedProjection(result.event);
+      setActionSnapshotRevision(readChangeActionState().revision);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Change Event could not be persisted in browser-local project memory.");
+    }
+  }
+
+  function applyActionEngine() {
+    if (!persistedProjection || !actionActor || actionSnapshotRevision === null) return;
+    setError(null);
+    setActionResult(null);
+    try {
+      const binding = bindChangeEventToProject({
+        event: persistedProjection,
+        projectId: DEMO_PROJECT_ID,
+        // This Object Card is the current active project context. The Project
+        // Graph/server version will supply complete membership sets instead.
+        projectObjectIds: new Set([pilot.object.id]),
+        projectTaskIds: new Set([pilot.work.taskId]),
+      });
+      const result = applyBoundChangeEventActions({
+        binding,
+        actor: actionActor,
+        expectedStoreRevision: actionSnapshotRevision,
+      });
+      setActionSnapshotRevision(result.state.revision);
+      setActionResult(
+        result.alreadyApplied
+          ? `Already applied idempotently at Action Engine revision ${result.state.revision}.`
+          : `Applied by ${result.appliedEvent.actorName}. Action Engine revision is now ${result.state.revision}.`,
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Action Engine could not apply this Change Event.");
     }
   }
 
@@ -199,7 +265,7 @@ export function NexusChangeControlPanel({
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-sky-200">Nexus Change Control</p>
               <h3 className="mt-1 font-semibold">Turn revision intelligence into an authorised operational decision</h3>
               <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-                A Change Event binds the IFC revision evidence to the existing Nexus object, task, people and downstream review targets. Session decisions can now be written idempotently to browser-local Project Graph memory after an explicit authority attestation; operational propagation remains separate and preview-only.
+                A Change Event binds the IFC revision evidence to the existing Nexus object, task, people and downstream review targets. A persisted synthetic event can now enter the browser-local Action Engine only after a separate project-role/scope permission check.
               </p>
             </div>
           </div>
@@ -250,7 +316,7 @@ export function NexusChangeControlPanel({
             <>
               <div className="mt-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-sky-200">Primary decision</p>
-                <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">Choose the governing decision. Downstream actions are generated from it and remain preview-only until a later authorised propagation stage.</p>
+                <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">Choose the governing decision. Downstream actions are generated first as a review plan; actual execution is a separate Action Engine gate.</p>
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
                   {NEXUS_CHANGE_DECISIONS.map((decision) => {
                     const blocked = comparison.reviewState === "COMPARISON_BLOCKED" && decision.blockedWhenComparisonBlocked;
@@ -279,7 +345,7 @@ export function NexusChangeControlPanel({
               {decisionDefinition && (
                 <div className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/5 p-4">
                   <p className="text-[10px] font-semibold">{decisionDefinition.label}</p>
-                  <p className="mt-1 text-[9px] text-muted-foreground">Required authority: {decisionDefinition.authority}. This demo does not prove the current user holds that authority.</p>
+                  <p className="mt-1 text-[9px] text-muted-foreground">Required decision authority: {decisionDefinition.authority}. Decision authority and later action-execution authority are checked separately.</p>
                   <textarea
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
@@ -308,7 +374,7 @@ export function NexusChangeControlPanel({
 
               <div className="mt-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-200">Propagation plan</p>
-                <p className="mt-1 text-[9px] text-muted-foreground">Every action below is PREVIEW ONLY. Persisting the Change Event records the decision/audit envelope only; it does not execute these actions.</p>
+                <p className="mt-1 text-[9px] text-muted-foreground">This remains the human-readable plan. Only the explicitly supported targets below can later cross the separate Action Engine permission/concurrency gate.</p>
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
                   {changeEvent.decision.propagation.map((action, index) => (
                     <div key={`${action.target}-${action.record}-${index}`} className="rounded-xl border border-border bg-background/40 p-3">
@@ -329,14 +395,14 @@ export function NexusChangeControlPanel({
                   <div>
                     <p className="text-[10px] font-semibold text-indigo-100">Persist Change Event to browser-local Project Graph memory</p>
                     <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
-                      This is an explicit authority attestation, not authentication. Production persistence must resolve Person Card + project functional role + permission + audit identity before accepting the write.
+                      This is an explicit decision-authority attestation, not authentication. Persistence records the bounded Change Event envelope only.
                     </p>
                   </div>
                 </div>
                 <label className="mt-3 block text-[8px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Recording person</label>
                 <input
                   value={deciderName}
-                  onChange={(event) => { setDeciderName(event.target.value); setPersistedState(null); }}
+                  onChange={(event) => { setDeciderName(event.target.value); setPersistedState(null); clearActionState(); }}
                   maxLength={120}
                   placeholder="Name of authorised decision maker"
                   className="mt-1 w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-xs outline-none focus:border-indigo-400/50"
@@ -345,10 +411,10 @@ export function NexusChangeControlPanel({
                   <input
                     type="checkbox"
                     checked={authorityConfirmed}
-                    onChange={(event) => { setAuthorityConfirmed(event.target.checked); setPersistedState(null); }}
+                    onChange={(event) => { setAuthorityConfirmed(event.target.checked); setPersistedState(null); clearActionState(); }}
                     className="mt-0.5"
                   />
-                  <span>I confirm the recording person holds the required authority for this decision: <strong>{changeEvent.decision.authorityRequired}</strong>.</span>
+                  <span>I confirm the recording person holds the required decision authority: <strong>{changeEvent.decision.authorityRequired}</strong>.</span>
                 </label>
                 <button
                   type="button"
@@ -360,10 +426,75 @@ export function NexusChangeControlPanel({
                 </button>
                 {persistedState && (
                   <div className="mt-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-[9px] text-emerald-100">
-                    {persistedState === "CREATED" ? "Change Event created" : "Existing Change Event updated idempotently"} in `nosmo-change-events-v1`. Relationship Tree PR #40 reads the same bounded store and projects this ID into the graph/Timeline.
+                    {persistedState === "CREATED" ? "Change Event created" : "Existing Change Event updated idempotently"} in `nosmo-change-events-v1`. Relationship Tree PR #40 reads the same bounded event store.
                   </div>
                 )}
               </div>
+
+              {persistedProjection && (
+                <div className="mt-4 rounded-2xl border border-fuchsia-400/25 bg-fuchsia-400/5 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold text-fuchsia-100">Nexus Action Engine</p>
+                      <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">
+                        Execution is separate from the decision. The engine binds this event to the active synthetic project, verifies exact object/task membership, then resolves project function + trade/work-package scope. Profession alone grants nothing.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-fuchsia-400/25 bg-fuchsia-400/10 px-3 py-1 text-[8px] font-bold text-fuchsia-100">STORE REV {actionSnapshotRevision ?? "?"}</span>
+                  </div>
+
+                  <label className="mt-3 block text-[8px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Synthetic Person Card / project participation</label>
+                  <select
+                    value={actionActorId}
+                    onChange={(event) => { setActionActorId(event.target.value); setActionResult(null); }}
+                    className="mt-1 w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-xs outline-none focus:border-fuchsia-400/50"
+                  >
+                    <option value="">Select execution actor</option>
+                    {ACTION_ENGINE_DEMO_ACTORS.map((actor) => (
+                      <option key={actor.personId} value={actor.personId}>{actor.displayName} · {actor.projectFunctions.join(" / ")}</option>
+                    ))}
+                  </select>
+
+                  {actionActor && (
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      <div className="rounded-xl border border-border bg-background/35 p-3">
+                        <p className="text-[8px] uppercase text-muted-foreground">Person Card identity</p>
+                        <p className="mt-1 text-[10px] font-semibold">{actionActor.professions.join(" / ")}</p>
+                        <p className="mt-1 text-[8px] text-muted-foreground">Not an authority grant.</p>
+                      </div>
+                      <div className="rounded-xl border border-border bg-background/35 p-3">
+                        <p className="text-[8px] uppercase text-muted-foreground">Project function + scope</p>
+                        <p className="mt-1 text-[10px] font-semibold">{actionActor.projectFunctions.join(" / ")}</p>
+                        <p className="mt-1 text-[8px] text-muted-foreground">{actionActor.workPackageScopes.length ? actionActor.workPackageScopes.join(" · ") : "project-wide role"}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {actionPermission && (
+                    <div className={`mt-3 rounded-xl border p-3 text-[9px] ${actionPermission.allowed && actionPermission.executable ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-100" : "border-red-400/25 bg-red-400/10 text-red-100"}`}>
+                      <p className="font-bold">{actionPermission.allowed && actionPermission.executable ? "ALLOW" : "DENY"} · {actionPermission.decisionCode}</p>
+                      <p className="mt-1 opacity-80">Required project functions: {actionPermission.requiredFunctions.join(" / ")}</p>
+                      {actionPermission.reasons.length > 0 && <p className="mt-1 opacity-90">{actionPermission.reasons.join(" ")}</p>}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={applyActionEngine}
+                    disabled={!actionPermission?.allowed || !actionPermission.executable || actionSnapshotRevision === null}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-4 py-2 text-xs font-semibold text-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <PlayCircle className="h-4 w-4" /> Apply authorised action
+                  </button>
+
+                  {actionResult && (
+                    <div className="mt-3 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-[9px] text-emerald-100">{actionResult}</div>
+                  )}
+                  <p className="mt-3 text-[8px] leading-relaxed text-muted-foreground">
+                    Browser-local synthetic execution only. Procurement and as-built acceptance remain non-executable. Production requires authenticated Person Card identity, server-side project membership, tenant-aware audit persistence and connector-specific write contracts.
+                  </p>
+                </div>
+              )}
             </div>
           ) : null}
         </>
@@ -376,7 +507,7 @@ export function NexusChangeControlPanel({
       )}
 
       <p className="mt-4 text-[9px] leading-relaxed text-muted-foreground">
-        Change Control does not make BIM the Nexus source of truth for work state. It records why a human decided what to do about a model-source change, preserving revision provenance and existing operational history. Browser-local persistence is a development gate, not a production audit store.
+        Change Control does not make BIM the Nexus source of truth for work state. Decision persistence and action execution are separate gates; model-source provenance and prior operational history remain intact.
       </p>
     </section>
   );
