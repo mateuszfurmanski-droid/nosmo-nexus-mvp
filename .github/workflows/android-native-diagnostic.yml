@@ -1,0 +1,75 @@
+name: Build NEXUS Native Diagnostic APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-native-diagnostic
+    paths:
+      - native/nexus-work-mode-native/**
+      - .github/workflows/android-native-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-native-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build pure native debug APK
+        working-directory: native/nexus-work-mode-native
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify native launcher APK
+        run: |
+          APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          unzip -l "$APK" | tee /tmp/apk-files.txt
+          grep -q "classes.dex" /tmp/apk-files.txt
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          test -n "$AAPT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          grep -q "package: name='tech.nosmo.nexus.workmode.diagnostic'" /tmp/badging.txt
+          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.MainActivity'" /tmp/badging.txt
+
+      - name: Stage diagnostic APK
+        run: |
+          mkdir -p android-native-build
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-build/NEXUS-Native-Diagnostic-v0.4.0.apk
+          sha256sum android-native-build/NEXUS-Native-Diagnostic-v0.4.0.apk > android-native-build/NEXUS-Native-Diagnostic-v0.4.0.apk.sha256
+          cp /tmp/badging.txt android-native-build/APK_BADGING.txt
+          {
+            echo "NEXUS Native Diagnostic"
+            echo "Version: 0.4.0-native"
+            echo "Package: tech.nosmo.nexus.workmode.diagnostic"
+            echo "Runtime: pure Android Java Activity"
+            echo "Expo: none"
+            echo "React Native: none"
+            echo "Hermes/Metro: none"
+            echo "Purpose: isolate Android launcher/runtime from previous Expo app"
+            echo "Source: $GITHUB_SHA"
+          } > android-native-build/BUILD_INFO.txt
+
+      - name: Upload diagnostic APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Native-Diagnostic-v0.4.0
+          path: android-native-build/*
+          if-no-files-found: error
+          retention-days: 14
