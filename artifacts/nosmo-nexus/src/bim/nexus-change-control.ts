@@ -242,7 +242,7 @@ export function buildChangePropagation(
     actions.push({ target: "EVIDENCE", record: pilot.evidence.title, action: "Require evidence references sufficient for the authorised as-built acceptance decision; preserve older evidence unchanged.", mutationMode: "PREVIEW_ONLY" });
   }
 
-  if (impacted.has("READINESS") && decision.code !== "NO_IMPACT") {
+  if (impacted.has("READINESS")) {
     actions.push({
       target: "WORK",
       record: `${pilot.object.id} readiness`,
