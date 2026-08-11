@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import nexusSessionRouter from "./nexus-session";
+import nexusContextTicketsRouter from "./nexus-context-tickets";
 import projectsRouter from "./projects";
 import tasksRouter from "./tasks";
 import plansRouter from "./plans";
@@ -16,12 +17,13 @@ import { requireWorkspace } from "../middlewares/requireWorkspace";
 
 const router: IRouter = Router();
 
-// Public/bootstrap routes. nexusSessionRouter performs its own authenticated check
-// so an authenticated but canonically-unbound account can be reported without
-// requiring a workspace or inventing a Nexus personId.
+// Public/bootstrap and canonical identity routes. These routers perform their
+// own authentication/origin/authorization checks and must not depend on the
+// legacy workspace-owner gate.
 router.use(healthRouter);
 router.use(authRouter);
 router.use(nexusSessionRouter);
+router.use(nexusContextTicketsRouter);
 // Unauthenticated MVP file storage (upload + auto-processing). Public by design.
 router.use(filesRouter);
 
