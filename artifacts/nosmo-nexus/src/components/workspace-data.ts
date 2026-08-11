@@ -54,12 +54,20 @@ export const NODES: WorkspaceNode[] = [
   // Project
   { id: "proj", label: "Riverside Heights Demo", sublabel: "Active Synthetic Project", type: "project", Icon: FolderKanban },
 
-  // People
+  // Existing people
   { id: "p-mateusz", label: "Alex Carter", sublabel: "Joiner", type: "person", Icon: HardHat, company: "Demo Joinery Services" },
   { id: "p-sitemgr", label: "Sarah Wilson", sublabel: "Site Manager", type: "person", Icon: User, company: "Northbridge Construction Ltd" },
   { id: "p-architect", label: "Priya Shah", sublabel: "Project Architect", type: "person", Icon: Ruler, company: "ArcLine Studio" },
   { id: "p-client", label: "Daniel Brooks", sublabel: "Client Representative", type: "person", Icon: Building2, company: "Riverside Estates" },
   { id: "p-team", label: "Northbridge Site Team", sublabel: "Main Contractor", type: "person", Icon: Users, company: "Northbridge Construction Ltd" },
+
+  // Synthetic people/teams used by the canonical PKG-012 Object Cards.
+  { id: "p-elec-supervisor", label: "S. Cole", sublabel: "Electrical Supervisor", type: "person", Icon: HardHat, company: "Synthetic Electrical Contractor" },
+  { id: "p-elec-team", label: "Electrical Team 03", sublabel: "Electrical Team", type: "person", Icon: Users, company: "Synthetic Electrical Contractor" },
+  { id: "p-hvac-supervisor", label: "A. Reed", sublabel: "HVAC Supervisor", type: "person", Icon: HardHat, company: "Synthetic Mechanical Contractor" },
+  { id: "p-hvac-team", label: "HVAC Team 02", sublabel: "HVAC Team", type: "person", Icon: Users, company: "Synthetic Mechanical Contractor" },
+  { id: "p-plumb-supervisor", label: "K. Shah", sublabel: "Plumbing Supervisor", type: "person", Icon: HardHat, company: "Synthetic Plumbing Contractor" },
+  { id: "p-plumb-team", label: "Pipe Team 02", sublabel: "Plumbing Team", type: "person", Icon: Users, company: "Synthetic Plumbing Contractor" },
 
   // Documents
   { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: PdfFileIcon, receivedAt: "2026-07-08T09:20:00Z", documentDate: "2026-06-30" },
@@ -77,10 +85,10 @@ export const NODES: WorkspaceNode[] = [
   // Created by the manager but not yet assigned — demonstrates the PRE-TASK state.
   { id: "t-doorkits", label: "Prepare Level 1 Door Kits", sublabel: "Awaiting assignment", type: "task", Icon: CheckSquare },
 
-  // Multi-trade BIM installation tasks — synthetic PKG-012 pilot context.
-  { id: "t-bim-elec", label: "Install containment CT-E21", sublabel: "In Progress", type: "task", Icon: CheckSquare },
-  { id: "t-bim-hvac", label: "Install supply duct D-A12", sublabel: "To Do", type: "task", Icon: CheckSquare },
-  { id: "t-bim-plumb", label: "Install drainage branch SVP-B04", sublabel: "To Do", type: "task", Icon: CheckSquare },
+  // Canonical PKG-012 BIM installation tasks — IDs match the shared Object Cards.
+  { id: "TASK-E-214", label: "Install containment route", sublabel: "In Progress", type: "task", Icon: CheckSquare },
+  { id: "TASK-H-107", label: "Install supply duct assembly", sublabel: "To Do", type: "task", Icon: CheckSquare },
+  { id: "TASK-P-088", label: "Install drainage branch", sublabel: "To Do", type: "task", Icon: CheckSquare },
 
   // Canonical Nexus BIM objects. Geometry/revision remain owned by the model source.
   {
@@ -102,32 +110,32 @@ export const NODES: WorkspaceNode[] = [
     sublabel: "Mechanical & HVAC · 92% readiness",
     type: "object",
     Icon: Cuboid,
-    externalId: "IFC-7Ha20p",
-    revision: "P05",
+    externalId: "IFC-2fH91x",
+    revision: "P04",
     trade: "Mechanical & HVAC",
-    location: "L02 / Plant corridor / Grid B1-D1",
-    workPackage: "HVAC-L02-DUCT-02",
+    location: "L02 / North / Grid C4-D4",
+    workPackage: "HVAC-L02-DUCT-07",
     readiness: "92%",
   },
   {
     id: "NXS-MEP-008",
     label: "Drainage branch SVP-B04",
-    sublabel: "Plumbing & Public Health · 76% readiness",
+    sublabel: "Plumbing & Public Health · 79% readiness",
     type: "object",
     Icon: Cuboid,
-    externalId: "IFC-2Pk91s",
-    revision: "P03",
+    externalId: "IFC-0cV66p",
+    revision: "P04",
     trade: "Plumbing & Public Health",
-    location: "L01 / Core B / Riser 04",
-    workPackage: "PLMB-L01-DRAIN-03",
-    readiness: "76% conditional",
+    location: "L02 / Riser R1",
+    workPackage: "PLB-L02-DRAIN-03",
+    readiness: "79% conditional",
   },
 
-  // Static synthetic issue and inspection records linked to the same Object Cards.
-  { id: "iss-bim-ct", label: "CT-E21 route obstruction", sublabel: "Field difference · Open", type: "issue", Icon: AlertTriangle },
-  { id: "insp-bim-ct", label: "CT-E21 supervisor inspection", sublabel: "Evidence required", type: "inspection", Icon: ClipboardCheck },
-  { id: "insp-bim-hvac", label: "D-A12 supervisor inspection", sublabel: "Pending installation", type: "inspection", Icon: ClipboardCheck },
-  { id: "insp-bim-plumb", label: "SVP-B04 supervisor inspection", sublabel: "Pending installation", type: "inspection", Icon: ClipboardCheck },
+  // Synthetic issue/inspection records. IDs align with the canonical pilot where defined.
+  { id: "NXS-ISS-041", label: "CT-E21 route obstruction", sublabel: "Synthetic field difference · Open", type: "issue", Icon: AlertTriangle },
+  { id: "NXS-INSP-041", label: "CT-E21 supervisor inspection", sublabel: "Evidence required", type: "inspection", Icon: ClipboardCheck },
+  { id: "NXS-INSP-052", label: "D-A12 supervisor inspection", sublabel: "Pending installation", type: "inspection", Icon: ClipboardCheck },
+  { id: "NXS-INSP-063", label: "SVP-B04 supervisor inspection", sublabel: "Pending installation", type: "inspection", Icon: ClipboardCheck },
 ];
 
 /* Task involvement is the single source of relationships. Connecting a
@@ -154,16 +162,16 @@ export const TASK_LINKS: Record<string, { people: string[]; docs: string[] }> = 
     people: [], // unassigned — the manager assigns a worker at the gate
     docs: ["d-doorschedule", "d-groundfloor"],
   },
-  "t-bim-elec": {
-    people: ["p-team", "p-sitemgr"],
+  "TASK-E-214": {
+    people: ["p-elec-team", "p-elec-supervisor"],
     docs: ["d-bim-mep", "d-groundfloor"],
   },
-  "t-bim-hvac": {
-    people: ["p-team", "p-sitemgr"],
+  "TASK-H-107": {
+    people: ["p-hvac-team", "p-hvac-supervisor"],
     docs: ["d-bim-mep", "d-groundfloor"],
   },
-  "t-bim-plumb": {
-    people: ["p-team", "p-sitemgr"],
+  "TASK-P-088": {
+    people: ["p-plumb-team", "p-plumb-supervisor"],
     docs: ["d-bim-mep", "d-groundfloor"],
   },
 };
@@ -180,25 +188,25 @@ export type ObjectRelationship = {
    and design intent; these links belong to the Nexus operational graph. */
 export const OBJECT_LINKS: Record<string, ObjectRelationship> = {
   "NXS-MEP-003": {
-    task: "t-bim-elec",
-    people: ["p-team", "p-sitemgr"],
+    task: "TASK-E-214",
+    people: ["p-elec-team", "p-elec-supervisor"],
     docs: ["d-bim-mep", "d-groundfloor"],
-    issues: ["iss-bim-ct"],
-    inspections: ["insp-bim-ct"],
+    issues: ["NXS-ISS-041"],
+    inspections: ["NXS-INSP-041"],
   },
   "NXS-MEP-001": {
-    task: "t-bim-hvac",
-    people: ["p-team", "p-sitemgr"],
+    task: "TASK-H-107",
+    people: ["p-hvac-team", "p-hvac-supervisor"],
     docs: ["d-bim-mep", "d-groundfloor"],
     issues: [],
-    inspections: ["insp-bim-hvac"],
+    inspections: ["NXS-INSP-052"],
   },
   "NXS-MEP-008": {
-    task: "t-bim-plumb",
-    people: ["p-team", "p-sitemgr"],
+    task: "TASK-P-088",
+    people: ["p-plumb-team", "p-plumb-supervisor"],
     docs: ["d-bim-mep", "d-groundfloor"],
     issues: [],
-    inspections: ["insp-bim-plumb"],
+    inspections: ["NXS-INSP-063"],
   },
 };
 
@@ -208,6 +216,9 @@ export const PERSON_LINKS: [string, string][] = [
   ["p-team", "p-sitemgr"],
   ["p-team", "p-architect"],
   ["p-sitemgr", "p-client"],
+  ["p-elec-team", "p-elec-supervisor"],
+  ["p-hvac-team", "p-hvac-supervisor"],
+  ["p-plumb-team", "p-plumb-supervisor"],
 ];
 
 export const TYPE_STYLE: Record<NodeType, { chip: string; centerBorder: string }> = {
