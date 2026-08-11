@@ -23,6 +23,7 @@ import {
   type NexusFileUploadRequestDetailBase,
   type NexusQueuedUploadRecord,
 } from "./offline-upload-queue";
+import { resolveFileLoaderCloudRoute } from "./file-loader-drive-routing";
 import { createNexusStorageProvider } from "./storage-provider-resolver";
 import type { NexusStorageProvider } from "./storage-provider";
 
@@ -163,6 +164,12 @@ async function uploadToNexusCloudDataLayer(
   selectedId: string | undefined,
 ): Promise<UploadResult> {
   const projectId = detail.projectId;
+
+  // The same route guard runs for online uploads and for offline queue replay.
+  // Known Drive-managed Project Worlds fail closed if worldId is absent/wrong.
+  // Unknown projects remain on the provider-neutral storage boundary.
+  resolveFileLoaderCloudRoute(projectId, detail.worldId);
+
   const sourceModule = detail.sourceModule ?? "file-loader";
   const uploadedByPersonId = detail.uploadedByPersonId ?? DEMO_UPLOADER_PERSON_ID;
   const participation = createDemoManagerParticipation(uploadedByPersonId, projectId);
@@ -318,6 +325,16 @@ export function NexusFileLoaderCloudBridge() {
         projectId,
       };
       delete (uploadDetail as FileUploadRequestDetail).files;
+
+      // Validate before writing an offline record. The exact same validation is
+      // repeated during upload/queue replay so stale records cannot bypass it.
+      try {
+        resolveFileLoaderCloudRoute(projectId, uploadDetail.worldId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Nexus Cloud project/world routing failed.";
+        for (const file of files) dispatchUploadFailure(file.name, message);
+        return;
+      }
 
       for (const file of files) {
         if (!isBrowserOnline()) {
