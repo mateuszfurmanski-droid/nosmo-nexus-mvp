@@ -8,6 +8,7 @@ import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
 import { NexusFileLoaderCloudBridge } from "@/cloud-data/file-loader-cloud-bridge";
 import { NexusWorkModeAiHandoffReceiver } from "@/cloud-data/work-mode-ai-handoff-receiver";
+import { NexusWorkSuiteDraftActionInbox } from "@/cloud-data/worksuite-draft-action-inbox";
 
 // Pages
 import NexusLaunchpad from "@/pages/nexus-launchpad";
@@ -108,6 +109,7 @@ function App() {
             <AvailabilityProvider>
               <NexusFileLoaderCloudBridge />
               <NexusWorkModeAiHandoffReceiver />
+              <NexusWorkSuiteDraftActionInbox />
               <Router />
             </AvailabilityProvider>
           </WouterRouter>
