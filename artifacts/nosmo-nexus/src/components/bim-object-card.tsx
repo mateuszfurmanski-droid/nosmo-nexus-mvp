@@ -168,6 +168,7 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
             session={modelSession}
             mappings={viewerMappings}
             currentNexusObjectId={pilot.object.id}
+            onMappingsChange={setLocalMappings}
           />
         </div>
       )}
