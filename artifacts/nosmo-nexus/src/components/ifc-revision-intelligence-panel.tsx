@@ -22,6 +22,7 @@ import {
   type IfcRevisionComparison,
   type IfcRevisionReviewState,
 } from "@/bim/ifc-revision-intelligence";
+import { IfcGeometryRevisionDiffPanel } from "@/components/ifc-geometry-revision-diff-panel";
 
 type Props = {
   currentSession: IfcLocalModelSession;
@@ -200,7 +201,7 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
             </div>
           </div>
 
-          <p className="mt-3 text-[9px] leading-relaxed text-muted-foreground">Mobile guard: the two retained IFC text sessions are limited to {bytesLabel(MAX_REVISION_PAIR_BYTES)} combined. Deep WASM property reads are performed sequentially so both models are not open in WASM memory at the same time.</p>
+          <p className="mt-3 text-[9px] leading-relaxed text-muted-foreground">Mobile guard: the two retained IFC text sessions are limited to {bytesLabel(MAX_REVISION_PAIR_BYTES)} combined. Deep WASM property and geometry reads are performed sequentially so both models are not open in WASM memory at the same time.</p>
 
           {error && (
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-400/25 bg-red-400/10 p-3 text-xs text-red-100">
@@ -291,8 +292,17 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
                 </div>
               )}
 
+              {baselineSession && structural?.baselineEntity && structural.currentEntity && (
+                <IfcGeometryRevisionDiffPanel
+                  baselineSession={baselineSession}
+                  currentSession={currentSession}
+                  globalId={mapping.ifcGlobalId}
+                  pilot={pilot}
+                />
+              )}
+
               <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
-                Project-wide added/removed GlobalId counts are context only. Geometry movement, coordinate deltas and design intent still require an authorised model-comparison workflow before Nexus can treat them as verified design changes.
+                Project-wide added/removed GlobalId counts are context only. Geometry/coordinate output remains model-space review intelligence until checked against the authorised project coordinate/survey basis and trusted BIM viewer.
               </p>
             </>
           )}
