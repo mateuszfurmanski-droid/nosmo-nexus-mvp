@@ -5,7 +5,8 @@ import {
   type NexusCloudFileLoaderSelection,
 } from "@/cloud/nexus-cloud-file-loader-bridge";
 import type { NexusCloudProjectId, NexusCloudWorldId } from "@/cloud/nexus-cloud-drive-manifest";
-import type { NexusCloudSourceModule } from "@/cloud/nexus-cloud-pending-asset";
+
+type FileLoaderBridgeSourceModule = NonNullable<NexusCloudFileLoaderSelection["sourceModule"]>;
 
 const projectOptions: Array<{ projectId: NexusCloudProjectId; worldId: NexusCloudWorldId; label: string }> = [
   {
@@ -20,7 +21,7 @@ const projectOptions: Array<{ projectId: NexusCloudProjectId; worldId: NexusClou
   },
 ];
 
-const sourceModules: NexusCloudSourceModule[] = [
+const sourceModules: FileLoaderBridgeSourceModule[] = [
   "file-loader",
   "android-work-mode",
   "doorflow",
@@ -50,7 +51,7 @@ function splitGraphCandidates(value: string) {
 
 export function NexusCloudFileLoaderBridge() {
   const [projectKey, setProjectKey] = useState("NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA|esafe-demo");
-  const [sourceModule, setSourceModule] = useState<NexusCloudSourceModule>("file-loader");
+  const [sourceModule, setSourceModule] = useState<FileLoaderBridgeSourceModule>("file-loader");
   const [classification, setClassification] = useState<NexusCloudFileLoaderSelection["requestedClassification"]>("inbox");
   const [tradeId, setTradeId] = useState("");
   const [graphCandidates, setGraphCandidates] = useState("");
@@ -112,7 +113,7 @@ export function NexusCloudFileLoaderBridge() {
         </label>
         <label className="space-y-1 text-xs font-semibold">
           Source module
-          <select value={sourceModule} onChange={(event) => setSourceModule(event.target.value as NexusCloudSourceModule)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs">
+          <select value={sourceModule} onChange={(event) => setSourceModule(event.target.value as FileLoaderBridgeSourceModule)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs">
             {sourceModules.map((module) => <option key={module} value={module}>{module}</option>)}
           </select>
         </label>
