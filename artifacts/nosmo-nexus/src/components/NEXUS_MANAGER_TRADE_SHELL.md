@@ -8,3 +8,4 @@ This slice is stacked on the canonical PR45 Relationship Tree source.
 - Files are grouped by trade at the shell-navigation level; `nexus:file-upload-request` carries `projectId`, `worldId` and `tradeId` to the File Loader boundary.
 - Hiding navigation is not an authorization boundary. Production permissions must resolve authenticated Person Card + project functional role + project access.
 - `PersistentWorkspace`, e-SAFE hydration, Timeline, pinch/drag/pan/glide and specialist workflow code are outside this slice.
+- Preview publishing uses a source-native Vite build with `BASE_PATH=/apps/nexus-manager-preview/`.
