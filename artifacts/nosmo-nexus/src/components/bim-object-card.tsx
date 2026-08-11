@@ -1,6 +1,7 @@
 import { Link } from "wouter";
-import { BriefcaseBusiness, Cuboid, Network, ShieldCheck } from "lucide-react";
+import { BriefcaseBusiness, Cuboid, Fingerprint, Network, ShieldCheck } from "lucide-react";
 import type { InstallationPilot } from "@/bim/installation-pilots";
+import type { IfcGuidMapping } from "@/bim/ifc-mapping";
 
 const base = import.meta.env.BASE_URL;
 
@@ -8,10 +9,12 @@ type BimObjectCardProps = {
   pilot: InstallationPilot;
   readiness: number;
   blocked: boolean;
+  ifcMapping?: IfcGuidMapping;
 };
 
-export function BimObjectCard({ pilot, readiness, blocked }: BimObjectCardProps) {
+export function BimObjectCard({ pilot, readiness, blocked, ifcMapping }: BimObjectCardProps) {
   const relationshipTreeHref = `/relationship-tree?nexusSource=bim-overlay&nexusFocus=${pilot.object.id}`;
+  const externalIdentity = ifcMapping?.ifcGlobalId ?? pilot.object.externalId;
 
   return (
     <section className="rounded-3xl border border-primary/20 bg-card/65 p-4 md:p-6" aria-label={`${pilot.object.code} Nexus Object Card`}>
@@ -22,7 +25,9 @@ export function BimObjectCard({ pilot, readiness, blocked }: BimObjectCardProps)
           <p className="mt-2 text-sm text-muted-foreground">One shared object component for Electrical, HVAC and Plumbing. Trade data changes; the Nexus object contract does not.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-[10px] font-bold text-purple-200">SYNTHETIC MODEL</span>
+          <span className={`rounded-full border px-3 py-1 text-[10px] font-bold ${ifcMapping ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-purple-400/30 bg-purple-400/10 text-purple-200"}`}>
+            {ifcMapping ? "LOCAL IFC ID MAPPED" : "SYNTHETIC MODEL"}
+          </span>
           <span className={`rounded-full border px-3 py-1 text-[10px] font-bold ${blocked ? "border-red-400/35 bg-red-400/10 text-red-300" : "border-cyan-400/35 bg-cyan-400/10 text-cyan-300"}`}>
             {blocked ? "BLOCKED" : `${readiness}% READINESS`}
           </span>
@@ -40,14 +45,35 @@ export function BimObjectCard({ pilot, readiness, blocked }: BimObjectCardProps)
           </div>
           <dl className="mt-5 grid grid-cols-2 gap-3 text-xs">
             <div><dt className="text-muted-foreground">Nexus Object ID</dt><dd className="mt-1 font-semibold">{pilot.object.id}</dd></div>
-            <div><dt className="text-muted-foreground">External model ID</dt><dd className="mt-1 font-semibold">{pilot.object.externalId}</dd></div>
-            <div><dt className="text-muted-foreground">Revision</dt><dd className="mt-1 font-semibold">{pilot.object.revision}</dd></div>
+            <div><dt className="text-muted-foreground">{ifcMapping ? "IFC GlobalId" : "Fixture external ID"}</dt><dd className="mt-1 break-all font-semibold">{externalIdentity}</dd></div>
+            <div><dt className="text-muted-foreground">Pilot revision</dt><dd className="mt-1 font-semibold">{pilot.object.revision}</dd></div>
             <div><dt className="text-muted-foreground">System</dt><dd className="mt-1 font-semibold">{pilot.object.system}</dd></div>
             <div className="col-span-2"><dt className="text-muted-foreground">Location</dt><dd className="mt-1 font-semibold">{pilot.object.location}</dd></div>
           </dl>
-          <p className="mt-5 rounded-xl border border-purple-400/20 bg-purple-400/5 p-3 text-xs leading-relaxed text-muted-foreground">
-            Geometry, GUID, coordinates, revision and design intent remain model-source responsibilities. Nexus never silently overwrites them.
-          </p>
+
+          {ifcMapping ? (
+            <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-xs leading-relaxed">
+              <div className="flex items-start gap-2">
+                <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-emerald-200">Mapped source identity</p>
+                  <p className="mt-1 break-all font-mono text-[10px] text-foreground">{ifcMapping.ifcEntityType} #{ifcMapping.ifcStepId} · {ifcMapping.ifcGlobalId}</p>
+                  <p className="mt-1 truncate text-[10px] text-muted-foreground">{ifcMapping.ifcName ?? ifcMapping.ifcTag ?? "Unnamed IFC object"} · {ifcMapping.sourceFileName} · {ifcMapping.sourceSchema ?? "schema unknown"}</p>
+                  {ifcMapping.sourceFileSha256 && <p className="mt-1 font-mono text-[9px] text-muted-foreground">SHA-256 {ifcMapping.sourceFileSha256.slice(0, 16)}…</p>}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-5 rounded-xl border border-purple-400/20 bg-purple-400/5 p-3 text-xs leading-relaxed text-muted-foreground">
+              Geometry, GUID, coordinates, revision and design intent remain model-source responsibilities. The external ID above is still a synthetic pilot fixture until a local IFC GlobalId is explicitly mapped.
+            </p>
+          )}
+
+          {ifcMapping && (
+            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
+              Mapping proves identity linkage only. It does not import geometry, validate coordinates, certify the authoring revision or transfer design authority to Nexus.
+            </p>
+          )}
         </div>
 
         <div className="rounded-2xl border border-primary/20 bg-background/45 p-5">
