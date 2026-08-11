@@ -102,6 +102,14 @@ const resolver = fs.readFileSync(
   path.join(root, "artifacts/api-server/src/lib/nexus-project-authorization.ts"),
   "utf8",
 );
+const bootstrap = fs.readFileSync(
+  path.join(root, "lib/db/scripts/bootstrap-nexus-project-participation.mjs"),
+  "utf8",
+);
+const dbPackage = fs.readFileSync(
+  path.join(root, "lib/db/package.json"),
+  "utf8",
+);
 
 assert(
   projectSchema.includes('nexusProjectId: varchar("nexus_project_id"'),
@@ -129,5 +137,35 @@ assert(
 );
 assert(!/profession|qualification/i.test(resolver), "profession must not grant shared server project access");
 assert(!/email|providerSubject/i.test(resolver), "email/provider subject must not grant project authority");
+
+assert(
+  dbPackage.includes('"bootstrap-nexus-project-participation"'),
+  "development Project Participation bootstrap command missing",
+);
+assert(
+  bootstrap.includes('process.env.NODE_ENV === "production"'),
+  "project bootstrap must refuse production",
+);
+assert(
+  bootstrap.includes('NEXUS_DEV_PROJECT_AUTH_BOOTSTRAP !== "true"'),
+  "project bootstrap must require explicit opt-in",
+);
+assert(
+  bootstrap.includes('NEXUS_DEV_PROJECT_DB_ID'),
+  "project bootstrap must require exact DB project row",
+);
+assert(
+  bootstrap.includes('NEXUS_DEV_PROJECT_ID'),
+  "project bootstrap must require canonical Nexus project ID",
+);
+assert(
+  bootstrap.includes("already mapped to a different Nexus project ID"),
+  "project bootstrap must reject remapping an existing project identity",
+);
+assert(
+  bootstrap.includes("An active participation already exists"),
+  "project bootstrap must reject ambiguous active participation creation",
+);
+assert(!/email|providerSubject/i.test(bootstrap), "project bootstrap must not infer authority from email/provider subject");
 
 console.log("PASS validate-nexus-project-authorization");
