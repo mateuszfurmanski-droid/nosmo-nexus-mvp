@@ -149,15 +149,15 @@ export function resolveProjectAccess(
   const isProjectManager = projectFunctions.some((projectFunction) => PROJECT_MANAGER_FUNCTIONS.has(projectFunction));
 
   if (participation) {
-    SHARED_APPS.forEach((app) => {
-      allow(decisions[app], "Active Project Participation grants shared project access.");
-    });
+    SHARED_APPS.forEach((app) =>
+      allow(decisions[app], "Active Project Participation grants shared project access."),
+    );
 
     if (isProjectManager) {
       // This comes from the project appointment, not from changing the person's profession.
-      ALL_APPS.forEach((app) => {
-        allow(decisions[app], "Project management function grants broad project oversight.");
-      });
+      ALL_APPS.forEach((app) =>
+        allow(decisions[app], "Project management function grants broad project oversight."),
+      );
       allow(decisions.trades, "Project management function may inspect/filter trade work.");
     } else {
       deny(decisions.trades, "Trades control requires an appointed project management function.");
