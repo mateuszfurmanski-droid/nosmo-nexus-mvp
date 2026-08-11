@@ -26,44 +26,47 @@ export interface IfcRendererAdapter<TScene = unknown> {
   load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions): Promise<TScene> | TScene;
 }
 
-export const liteStepRenderer: IfcRendererAdapter<IfcLiteGeometryResult> = {
-  id: "lite-step",
+export const liteStepRenderer = {
+  id: "lite-step" as const,
   label: "Nexus Lite STEP Geometry",
-  runtime: "bundled",
+  runtime: "bundled" as const,
   capabilities: {
     geometry: true,
     selectionByGlobalId: true,
     selectionByStepId: true,
     propertyRead: false,
-    geometryCoverage: "controlled-subset",
+    geometryCoverage: "controlled-subset" as const,
   },
-  load(session, options) {
+  load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions) {
     return extractIfcLiteGeometry(session.text, session.parsed, {
       targetStepId: options?.targetStepId,
       maxObjects: options?.maxObjects ?? 120,
       maxTriangles: options?.maxTriangles ?? 6000,
     });
   },
-};
+} satisfies IfcRendererAdapter<IfcLiteGeometryResult>;
 
-export const webIfcWasmRenderer: IfcRendererAdapter<IfcLiteGeometryResult> = {
-  id: "web-ifc-wasm",
+export const webIfcWasmRenderer = {
+  id: "web-ifc-wasm" as const,
   label: `web-ifc WASM ${WEB_IFC_VERSION}`,
-  runtime: "pinned-network-development",
+  runtime: "pinned-network-development" as const,
   capabilities: {
     geometry: true,
     selectionByGlobalId: true,
     selectionByStepId: true,
     propertyRead: true,
-    geometryCoverage: "full-engine",
+    geometryCoverage: "full-engine" as const,
   },
-  load(session, options) {
+  load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions) {
     return loadWebIfcGeometry(session, options);
   },
-};
+} satisfies IfcRendererAdapter<IfcLiteGeometryResult>;
 
 export const IFC_RENDERERS = [liteStepRenderer, webIfcWasmRenderer] as const;
 
+export function getIfcRendererAdapter(): typeof liteStepRenderer;
+export function getIfcRendererAdapter(id: "lite-step"): typeof liteStepRenderer;
+export function getIfcRendererAdapter(id: "web-ifc-wasm"): typeof webIfcWasmRenderer;
 export function getIfcRendererAdapter(id: IfcRendererBackendId = "lite-step") {
   return id === "web-ifc-wasm" ? webIfcWasmRenderer : liteStepRenderer;
 }
