@@ -34,10 +34,26 @@
         <label>Person label<input id="personLabel" placeholder="Demo User"></label>
         <label>Role context<input id="roleContext" placeholder="Manager"></label>
         <label>Trade context<input id="tradeContext" placeholder="Joinery"></label>
-        <label>Selected object type<input id="selectedObjectType" placeholder="door"></label>
-        <label>Selected object ID<input id="selectedObjectId" placeholder="D-001"></label>
+        <label>Selected object type<input id="selectedObjectType" placeholder="job"></label>
+        <label>Selected object ID<input id="selectedObjectId" placeholder="JOB-01"></label>
       </div>
       <label>Return route<input id="returnRoute" value="https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree"></label>
+    </section>
+
+    <section>
+      <h2>Explicit Work Wallet → Nexus mapping</h2>
+      <p class="hint">Optional local mapping for testing a real Work Wallet record without API access. Nexus uses an exact match only: project + object type + external record reference → Nexus node ID. Nothing is written back to Work Wallet.</p>
+      <div class="grid">
+        <label>Project ID<input id="mappingProjectId" placeholder="halifax-demo"></label>
+        <label>Object type<input id="mappingObjectType" placeholder="job"></label>
+        <label>External record reference<input id="mappingExternalReference" placeholder="JOB-847"></label>
+        <label>Nexus node ID<input id="mappingNexusNodeId" placeholder="t-install"></label>
+      </div>
+      <div class="buttons compact-buttons">
+        <button id="saveMapping" class="primary">Save exact mapping</button>
+        <button id="refreshMappings">Refresh mappings</button>
+      </div>
+      <div id="mappingList" class="mapping-list"></div>
     </section>
 
     <section>
@@ -58,6 +74,7 @@
     <p id="status" role="status"></p>
   </main>
   <script src="../runtime.js"></script>
+  <script src="../record-mapping.js"></script>
   <script src="options.js"></script>
 </body>
 </html>
