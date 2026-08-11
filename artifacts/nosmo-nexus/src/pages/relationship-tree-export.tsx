@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import FolderDock from "@/components/folder-dock";
 import PersistentWorkspace from "@/components/persistent-workspace";
 import { NODES } from "@/components/workspace-data";
+import { applyPersistedChangeEventsToProjectGraph } from "@/relationship-tree/change-event-project-graph-extension";
 import { parseRelationshipTreeLaunchContext } from "@/relationship-tree/launch-context";
 
 export default function RelationshipTreeExport() {
+  applyPersistedChangeEventsToProjectGraph();
   const validNodeIds = new Set(NODES.map((node) => node.id));
   const launchContext = parseRelationshipTreeLaunchContext(window.location.search, validNodeIds);
 
