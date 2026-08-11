@@ -55,7 +55,7 @@ function slug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function tradeNodeId(trade: EsafeTrade) {
+export function esafeTradeNodeId(trade: EsafeTrade) {
   return `esafe-trade-${slug(trade)}`;
 }
 
@@ -153,7 +153,10 @@ function timelinePreviews(timeline: EsafeTimelineState) {
   return [...previews.values()];
 }
 
-export function buildEsafeProjectGraph(timeline: EsafeTimelineState): EsafeProjectGraph {
+export function buildEsafeProjectGraph(
+  timeline: EsafeTimelineState,
+  activeTrade: EsafeTrade | null = null,
+): EsafeProjectGraph {
   const visibleIds = new Set(timeline.visibleRecordIds);
   const previews = timelinePreviews(timeline)
     .filter((preview) => visibleIds.has(preview.id))
@@ -163,7 +166,7 @@ export function buildEsafeProjectGraph(timeline: EsafeTimelineState): EsafeProje
     {
       id: ESAFE_PROJECT_NODE_ID,
       label: "e-SAFE Catania Real Pilot",
-      sublabel: `${timeline.visibleRecordCount}/${ESAFE_SOURCE_RECORD_COUNT} records · ${timeline.visibleFileCount}/${ESAFE_SOURCE_FILE_COUNT} files · ${timeline.phase}`,
+      sublabel: `${timeline.visibleRecordCount}/${ESAFE_SOURCE_RECORD_COUNT} records · ${timeline.visibleFileCount}/${ESAFE_SOURCE_FILE_COUNT} files · ${activeTrade ?? timeline.phase}`,
       type: "project",
       Icon: FolderKanban,
     },
@@ -174,11 +177,12 @@ export function buildEsafeProjectGraph(timeline: EsafeTimelineState): EsafeProje
     if (!allTradeRecords.length) continue;
 
     const visibleTradeCount = allTradeRecords.filter((record) => visibleIds.has(record.id)).length;
-    const tradeId = tradeNodeId(trade);
+    const tradeId = esafeTradeNodeId(trade);
+    const focused = trade === activeTrade;
     nodes.push({
       id: tradeId,
       label: trade,
-      sublabel: `${visibleTradeCount}/${allTradeRecords.length} records visible`,
+      sublabel: `${focused ? "FOCUSED · " : ""}${visibleTradeCount}/${allTradeRecords.length} records visible`,
       type: "module",
       Icon: tradeIcon[trade],
       graphParentId: ESAFE_PROJECT_NODE_ID,
@@ -186,7 +190,7 @@ export function buildEsafeProjectGraph(timeline: EsafeTimelineState): EsafeProje
 
     const latestTradePreviews = previews
       .filter((record) => inferEsafeTrade(record) === trade)
-      .slice(0, 3);
+      .slice(0, activeTrade === null ? 1 : focused ? 4 : 0);
 
     for (const record of latestTradePreviews) {
       nodes.push({
