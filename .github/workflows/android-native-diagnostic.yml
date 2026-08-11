@@ -77,7 +77,16 @@ jobs:
           strings /tmp/classes.dex /tmp/classes2.dex | tee /tmp/dex-strings.txt
           grep -q "One memory for the construction ecosystem" /tmp/dex-strings.txt
           grep -q "SCAN PHONE + CONNECTED CLOUD" /tmp/dex-strings.txt
-          grep -q "GOOGLE DRIVE PERSONAL CLOUD" /tmp/dex-strings.txt
+          grep -q "NEXUS CLOUD / GOOGLE DRIVE" /tmp/dex-strings.txt
+          grep -q "PROJECT WORLDS" /tmp/dex-strings.txt
+          grep -q "e-SAFE CATANIA" /tmp/dex-strings.txt
+          grep -q "RIVERSIDE" /tmp/dex-strings.txt
+          grep -q "ASSET INDEX" /tmp/dex-strings.txt
+          grep -q "ROUTING RULES" /tmp/dex-strings.txt
+          grep -q "MIGRATION LOG" /tmp/dex-strings.txt
+          grep -q "1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI" /tmp/dex-strings.txt
+          grep -q "1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c" /tmp/dex-strings.txt
+          grep -q "1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU" /tmp/dex-strings.txt
           grep -q "0.7.0" /tmp/dex-strings.txt
           grep -q "e-SAFE-first discovery" /tmp/dex-strings.txt
           grep -q "no Tesco default" /tmp/dex-strings.txt
@@ -98,6 +107,7 @@ jobs:
             echo "Package: tech.nosmo.nexus.workmode.native"
             echo "Runtime: pure Android Java"
             echo "Launcher: native NexusShellActivity visual shell derived from the older NEXUS web prototype"
+            echo "Nexus Cloud: canonical Google Drive map with Project Worlds, e-SAFE Catania, Riverside, Asset Index, Routing Rules and Migration Log"
             echo "Discovery: Contacts + Calendar + MediaStore photo index + selected work photos + optional MANAGE_EXTERNAL_STORAGE file index + persistent document-provider cloud source"
             echo "Personal Cloud: persistent Google Drive folder through Android Storage Access Framework; accepted source files are copied and originals retained"
             echo "Project World: e-SAFE Project World handoff with Google Drive Personal Cloud provenance"
