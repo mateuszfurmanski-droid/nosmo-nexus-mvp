@@ -25,6 +25,7 @@ import {
 } from "@/bim/ifc-revision-intelligence";
 import { IfcGeometryRevisionDiffPanel } from "@/components/ifc-geometry-revision-diff-panel";
 import { NexusChangeControlPanel } from "@/components/nexus-change-control-panel";
+import { WorkSuiteHoldReleasePanel } from "@/components/work-suite-hold-release-panel";
 
 type Props = {
   currentSession: IfcLocalModelSession;
@@ -319,8 +320,10 @@ export function IfcRevisionIntelligencePanel({ currentSession, mapping, pilot }:
                 />
               )}
 
+              <WorkSuiteHoldReleasePanel pilot={pilot} />
+
               <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">
-                Project-wide added/removed GlobalId counts are context only. Geometry/coordinate output remains model-space review intelligence until checked against the authorised project coordinate/survey basis and trusted BIM viewer. Change Control records a human decision preview; graph/timeline persistence is a separate authorised stage.
+                Project-wide added/removed GlobalId counts are context only. Geometry/coordinate output remains model-space review intelligence until checked against the authorised project coordinate/survey basis and trusted BIM viewer. Change Control decision, WorkSuite action application and compensating release are separate authorised gates; browser-local execution remains development-only.
               </p>
             </>
           )}
