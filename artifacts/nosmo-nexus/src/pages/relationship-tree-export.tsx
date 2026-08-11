@@ -1,9 +1,12 @@
 import FolderDock from "@/components/folder-dock";
+import { NexusGraphCompatibilityBridge } from "@/components/nexus-graph-compatibility-bridge";
+import { NexusProjectShell } from "@/components/nexus-project-shell";
 import PersistentWorkspace from "@/components/persistent-workspace";
 
 export default function RelationshipTreeExport() {
   return (
-    <div className="relative min-h-[100dvh]">
+    <NexusProjectShell>
+      <NexusGraphCompatibilityBridge />
       <style>{`
         [data-control][class*="bottom-3 left-3 right-3 z-50"] {
           display: none !important;
@@ -15,6 +18,6 @@ export default function RelationshipTreeExport() {
 
       <PersistentWorkspace />
       <FolderDock selectedLinks={0} onOpenWorkflow={() => undefined} />
-    </div>
+    </NexusProjectShell>
   );
 }
