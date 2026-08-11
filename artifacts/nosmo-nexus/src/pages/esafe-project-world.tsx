@@ -1,6 +1,7 @@
 import { ArrowLeft, FolderKanban } from "lucide-react";
 import { useLocation } from "wouter";
 import { EsafeProjectWorldTimeline } from "@/components/esafe-project-world-timeline";
+import "@/project-worlds/esafe/invariants";
 
 export default function EsafeProjectWorld() {
   const [, navigate] = useLocation();
