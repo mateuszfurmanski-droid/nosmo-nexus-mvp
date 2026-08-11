@@ -25,6 +25,7 @@ import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import CardMaker from "@/pages/card-maker";
 import Plans from "@/pages/plans";
+import NexusCloudFileLoader from "@/pages/nexus-cloud-file-loader";
 import Integrations from "@/pages/integrations";
 import SafetyConnector from "@/pages/safety-connector";
 import WorkWalletBridge from "@/pages/work-wallet-bridge";
@@ -63,6 +64,7 @@ function AppLayoutRoutes() {
           <Route path="/communication-hub" component={CommunicationHub} />
           <Route path="/bim-overlay" component={BimOverlay} />
           <Route path="/external-tools" component={ExternalTools} />
+          <Route path="/nexus-cloud/file-loader" component={NexusCloudFileLoader} />
 
           <Route path="/projects/:id" component={ProjectDetail} />
           <Route path="/projects" component={Projects} />

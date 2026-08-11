@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Layers, FileText, Search, Eye, Download, CheckCircle2, Loader2, UploadCloud, FolderKanban } from "lucide-react";
 import { DOCUMENTS, PROJECTS, getPerson } from "@/demo/data";
@@ -66,13 +67,14 @@ export default function Plans() {
               className="pl-9 pr-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all w-full sm:w-64"
             />
           </div>
-          <button
+          <Link
+            href="/nexus-cloud/file-loader"
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-            title="Plan upload arrives in V1"
+            title="Prepare Nexus Cloud metadata before upload"
             data-testid="button-upload-plan"
           >
             <UploadCloud className="w-4 h-4" /> Upload
-          </button>
+          </Link>
         </div>
       </div>
 
