@@ -10,6 +10,7 @@ export interface NexusStorageRuntimeConfig {
   providerKind: NexusStorageProviderKind;
   displayName: string;
   apiBasePath?: string;
+  apiKey?: string;
 }
 
 function readEnvValue(key: string) {
@@ -29,6 +30,7 @@ export function readNexusStorageRuntimeConfig(): NexusStorageRuntimeConfig {
       providerKind: providerKind === "azure-blob" || providerKind === "microsoft-365" || providerKind === "custom" ? providerKind : "s3-compatible",
       displayName: readEnvValue("VITE_NEXUS_STORAGE_DISPLAY_NAME") ?? "Nexus API Object Storage",
       apiBasePath: apiBasePath ?? "/api/nexus/cloud-storage",
+      apiKey: readEnvValue("VITE_NEXUS_STORAGE_API_KEY"),
     };
   }
 
@@ -47,6 +49,7 @@ export function createNexusStorageProvider(config: NexusStorageRuntimeConfig = r
       providerKind: config.providerKind === "local-dev" ? "s3-compatible" : config.providerKind,
       displayName: config.displayName,
       apiBasePath: config.apiBasePath ?? "/api/nexus/cloud-storage",
+      apiKey: config.apiKey,
     };
     return new NexusApiStorageProvider(apiConfig);
   }
