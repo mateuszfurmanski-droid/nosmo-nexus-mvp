@@ -24,6 +24,12 @@ export type ChangeActionCompensationAuditEntry = {
   code: ChangeActionCompensationCode;
   actorId: string;
   actorName: string;
+  participationId?: string;
+  identityAssurance?: ChangeActionActorContext["identityAssurance"];
+  authoritySource?: ChangeActionActorContext["authoritySource"];
+  projectFunctions?: ChangeActionActorContext["projectFunctions"];
+  tradeScopes?: string[];
+  workPackageScopes?: string[];
   target: "TIMELINE" | "WORK";
   recordId: string;
   action: string;
@@ -43,6 +49,12 @@ export type ChangeActionReleaseRecord = {
   sourceHoldUpdatedAt: string;
   actorId: string;
   actorName: string;
+  participationId?: string;
+  identityAssurance?: ChangeActionActorContext["identityAssurance"];
+  authoritySource?: ChangeActionActorContext["authoritySource"];
+  projectFunctions?: ChangeActionActorContext["projectFunctions"];
+  tradeScopes?: string[];
+  workPackageScopes?: string[];
   reason: string;
   appliedAt: string;
   auditIds: string[];
@@ -176,6 +188,12 @@ function appendAudit(
       code: release.code,
       actorId: release.actorId,
       actorName: release.actorName,
+      participationId: release.participationId,
+      identityAssurance: release.identityAssurance,
+      authoritySource: release.authoritySource,
+      projectFunctions: release.projectFunctions,
+      tradeScopes: release.tradeScopes,
+      workPackageScopes: release.workPackageScopes,
       target,
       recordId,
       action,
@@ -342,6 +360,12 @@ export function applyReleaseHoldCompensation(args: {
     sourceHoldUpdatedAt: hold.updatedAt,
     actorId: actor.personId,
     actorName: actor.displayName,
+    participationId: actor.participationId,
+    identityAssurance: actor.identityAssurance,
+    authoritySource: actor.authoritySource,
+    projectFunctions: actor.projectFunctions,
+    tradeScopes: actor.tradeScopes,
+    workPackageScopes: actor.workPackageScopes,
     reason: reason.slice(0, 1000),
     appliedAt,
   };
