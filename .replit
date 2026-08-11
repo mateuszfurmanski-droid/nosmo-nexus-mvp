@@ -3,8 +3,8 @@ modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 [deployment]
 router = "application"
 deploymentTarget = "autoscale"
-build = "pnpm install --frozen-lockfile && pnpm --filter @workspace/nosmo-nexus build"
-run = "pnpm --filter @workspace/scripts serve-nexus"
+build = "pnpm install --frozen-lockfile && pnpm --filter @workspace/nosmo-nexus build && pnpm --filter @workspace/api-server build"
+run = "pnpm --filter @workspace/api-server start"
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
