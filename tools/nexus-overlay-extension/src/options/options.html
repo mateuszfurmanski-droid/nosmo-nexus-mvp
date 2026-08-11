@@ -20,8 +20,22 @@
 
     <section>
       <h2>No Work Wallet account?</h2>
-      <p class="hint">Open the local mock portal to test the Nexus launcher, sidecar, route continuity and demo context without logging in to Work Wallet. The mock runs as an extension-owned page and adds no extra site permission.</p>
+      <p class="hint">Open the local mock portal to test the Nexus launcher, sidecar, route continuity and demo context without logging in to Work Wallet. The mock runs as an extension-owned page.</p>
       <button id="openMock" class="primary">Open local Work Wallet mock</button>
+    </section>
+
+    <section>
+      <h2>Connector verification — development</h2>
+      <p class="hint">Choose the Nexus API used by the mock's “Verify via Nexus Connector” button. The extension never stores or sends the server-to-server integration key. Localhost is the default development target.</p>
+      <label>Connector API
+        <select id="connectorApiBase">
+          <option value="http://127.0.0.1:3000">Local Nexus server — http://127.0.0.1:3000</option>
+          <option value="https://nosmotechnology.co.uk">NOSMO Nexus host — https://nosmotechnology.co.uk</option>
+        </select>
+      </label>
+      <div class="buttons compact-buttons">
+        <button id="saveConnectorApi" class="primary">Save connector target</button>
+      </div>
     </section>
 
     <section>
@@ -75,6 +89,7 @@
   </main>
   <script src="../runtime.js"></script>
   <script src="../record-mapping.js"></script>
+  <script src="../connector-context.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

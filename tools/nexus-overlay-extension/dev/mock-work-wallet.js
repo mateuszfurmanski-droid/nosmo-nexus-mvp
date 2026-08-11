@@ -2,6 +2,7 @@
   const runtime = globalThis.NexusOverlayRuntime;
   const sidecar = globalThis.NexusOverlaySidecar;
   const recordMapping = globalThis.NexusOverlayRecordMapping;
+  const connectorContext = globalThis.NexusOverlayConnectorContext;
   const ADAPTER_ID = "work-wallet";
 
   if (!runtime || !sidecar) return;
@@ -130,7 +131,7 @@
     $("labStatus").textContent = text;
     window.setTimeout(() => {
       if ($("labStatus").textContent === text) $("labStatus").textContent = "";
-    }, 2600);
+    }, 3200);
   }
 
   function renderMockPage() {
@@ -179,20 +180,36 @@
     const existing = await runtime.getStoredContext();
     if (!existing) return null;
     const detected = pageContext();
+    const sameVerifiedRecord =
+      existing.contextSource === "CONNECTOR_VERIFIED_CONTEXT" &&
+      existing.externalRecordReference === detected.externalRecordReference &&
+      existing.selectedObjectType === detected.selectedObjectType;
+
     const candidate = runtime.normaliseContext({
       ...existing,
       ...detected,
-      nexusNodeId: null,
+      nexusNodeId: sameVerifiedRecord ? existing.nexusNodeId : null,
+      contextSchema: sameVerifiedRecord ? existing.contextSchema : null,
+      verificationSource: sameVerifiedRecord ? existing.verificationSource : null,
+      verifiedAt: sameVerifiedRecord ? existing.verifiedAt : null,
+      sourceEventId: sameVerifiedRecord ? existing.sourceEventId : null,
+      contextSource:
+        existing.contextSource === "CONNECTOR_VERIFIED_CONTEXT" && !sameVerifiedRecord
+          ? "USER_CONFIRMED_CONTEXT"
+          : existing.contextSource,
       sourceApplication: "WORK_WALLET",
       sourceUrl: syntheticPortalUrl(),
       sourcePageType: pageType()
     });
-    const mappedNexusNodeId = recordMapping
+
+    const mappedNexusNodeId = !sameVerifiedRecord && recordMapping
       ? await recordMapping.resolve(candidate)
       : null;
     return runtime.normaliseContext({
       ...candidate,
-      nexusNodeId: mappedNexusNodeId || candidate.nexusNodeId
+      nexusNodeId: sameVerifiedRecord
+        ? existing.nexusNodeId
+        : mappedNexusNodeId || candidate.nexusNodeId
     });
   }
 
@@ -274,6 +291,36 @@
     setLabStatus("Halifax demo context seeded.");
   }
 
+  async function verifyViaConnector() {
+    if (!connectorContext) {
+      setLabStatus("Connector context module unavailable.");
+      return;
+    }
+    try {
+      let current = await overlayContext();
+      if (!current) {
+        await seedContext();
+        current = await overlayContext();
+      }
+      const verified = await connectorContext.verifyDemoContext(current);
+      const merged = connectorContext.mergeVerifiedContext(current, verified);
+      await runtime.setStoredContext(merged);
+      await runtime.logDiagnostic("CONNECTOR_CONTEXT_VERIFIED", {
+        adapterId: ADAPTER_ID,
+        sourceUrl: syntheticPortalUrl(),
+        contextSource: "CONNECTOR_VERIFIED_CONTEXT"
+      });
+      await bootOverlay();
+      setLabStatus(
+        verified.nexusNodeId
+          ? `Connector verified ${verified.externalRecordReference} → ${verified.nexusNodeId}.`
+          : `Connector verified ${verified.externalRecordReference}; no Nexus node mapping.`
+      );
+    } catch (error) {
+      setLabStatus(`Connector verification unavailable: ${error?.message || "unknown error"}`);
+    }
+  }
+
   document.querySelectorAll("#mockNav button").forEach((button) => {
     button.addEventListener("click", () => {
       location.hash = button.dataset.route;
@@ -281,6 +328,7 @@
   });
 
   $("seedContext").addEventListener("click", seedContext);
+  $("verifyConnector").addEventListener("click", verifyViaConnector);
   $("clearContext").addEventListener("click", async () => {
     await runtime.clearStoredContext();
     await bootOverlay();

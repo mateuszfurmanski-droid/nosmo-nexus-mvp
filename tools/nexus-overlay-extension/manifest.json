@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "description": "Development prototype of the NOSMO Nexus sidecar runtime for approved external web applications.",
   "permissions": ["storage"],
-  "host_permissions": ["https://portal.work-wallet.com/*"],
+  "host_permissions": [
+    "https://portal.work-wallet.com/*",
+    "https://nosmotechnology.co.uk/*",
+    "http://127.0.0.1:3000/*"
+  ],
   "background": {
     "service_worker": "src/background.js"
   },

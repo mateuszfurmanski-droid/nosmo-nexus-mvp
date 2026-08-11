@@ -48,6 +48,10 @@
       sourceUrl: value.sourceUrl || location.href,
       sourcePageType: value.sourcePageType || null,
       externalRecordReference: value.externalRecordReference || null,
+      contextSchema: value.contextSchema || null,
+      verificationSource: value.verificationSource || null,
+      verifiedAt: value.verifiedAt || null,
+      sourceEventId: value.sourceEventId || null,
       returnRoute:
         value.returnRoute ||
         "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree",
@@ -67,6 +71,12 @@
   function contextStatus(context) {
     if (!context?.projectId && !context?.personId) {
       return { label: "NO NEXUS CONTEXT", tone: "muted" };
+    }
+    if (
+      context.developmentContext === true &&
+      context.contextSource === "CONNECTOR_VERIFIED_CONTEXT"
+    ) {
+      return { label: "DEMO / CONNECTOR VERIFIED", tone: "success" };
     }
     if (context.developmentContext) {
       return { label: "DEMO / LOCAL CONTEXT", tone: "warning" };
