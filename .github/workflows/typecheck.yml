@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate PKG-015/016/017 connector, ticket, CORS, identity, project and runtime boundaries
+      - name: Validate PKG-015/016/017 connector, ticket, bootstrap, CORS, identity, project and runtime boundaries
         run: |
           node scripts/src/validate-work-wallet-context.mjs
           node scripts/src/validate-nexus-browser-session.mjs
@@ -57,6 +57,7 @@ jobs:
           node scripts/src/validate-unified-nexus-runtime.mjs
           node scripts/src/validate-nexus-context-ticket.mjs
           node scripts/src/validate-nexus-cors.mjs
+          node scripts/src/validate-nexus-context-ticket-bootstrap.mjs
 
       - name: Typecheck workspace
         run: pnpm run typecheck
@@ -80,7 +81,7 @@ jobs:
           NEXUS_CI_CONTEXT_TICKET_FIXTURE: "true"
         run: node lib/db/scripts/seed-pkg016-context-ticket-ci.mjs
 
-      - name: Smoke test unified production runtime with connector context and single-use ticket
+      - name: Smoke test unified production runtime with bootstrap, connector context and single-use ticket
         env:
           PORT: 3000
           NODE_ENV: test
@@ -125,6 +126,31 @@ jobs:
             --header 'Access-Control-Request-Headers: content-type' \
             http://127.0.0.1:3000/api/nexus/context-tickets/exchange || true
           ! tr -d '\r' < /tmp/cors-denied.headers | grep -F 'Access-Control-Allow-Origin:' > /dev/null
+
+          bootstrap_query='adapterId=work-wallet&projectId=halifax-demo&externalRecordReference=PER-201&extensionId=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&requestId=bootstraprequest0001'
+
+          curl --silent --show-error --dump-header /tmp/bootstrap-unauth.headers --output /dev/null \
+            "http://127.0.0.1:3000/api/nexus/context-tickets/bootstrap?$bootstrap_query"
+          tr -d '\r' < /tmp/bootstrap-unauth.headers | grep -F 'HTTP/1.1 302 Found' > /dev/null
+          tr -d '\r' < /tmp/bootstrap-unauth.headers | grep -F 'Location: /api/login?returnTo=' > /dev/null
+
+          invalid_bootstrap_status=$(curl --silent --show-error --output /tmp/bootstrap-invalid.txt --write-out '%{http_code}' \
+            --cookie 'sid=ci-session-pkg016' \
+            'http://127.0.0.1:3000/api/nexus/context-tickets/bootstrap?adapterId=work-wallet&projectId=halifax-demo&externalRecordReference=PER-201&extensionId=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&requestId=bootstraprequest0002')
+          test "$invalid_bootstrap_status" = "400"
+
+          bootstrap_status=$(curl --silent --show-error --dump-header /tmp/bootstrap.headers --output /tmp/bootstrap.html --write-out '%{http_code}' \
+            --cookie 'sid=ci-session-pkg016' \
+            "http://127.0.0.1:3000/api/nexus/context-tickets/bootstrap?$bootstrap_query")
+          test "$bootstrap_status" = "200"
+          tr -d '\r' < /tmp/bootstrap.headers | grep -F 'Cache-Control: no-store' > /dev/null
+          tr -d '\r' < /tmp/bootstrap.headers | grep -F 'X-Frame-Options: DENY' > /dev/null
+          tr -d '\r' < /tmp/bootstrap.headers | grep -F 'Referrer-Policy: no-referrer' > /dev/null
+          tr -d '\r' < /tmp/bootstrap.headers | grep -F 'Cross-Origin-Opener-Policy: same-origin' > /dev/null
+          tr -d '\r' < /tmp/bootstrap.headers | grep -F "default-src 'none'" > /dev/null
+          grep -F 'chrome.runtime.sendMessage(extensionId, message' /tmp/bootstrap.html > /dev/null
+          grep -F 'requestId = "bootstraprequest0001"' /tmp/bootstrap.html > /dev/null
+          ! grep -E '"ticket":"[A-Za-z0-9_-]{43}"' /tmp/bootstrap.html > /dev/null
 
           session_status=$(curl --silent --show-error --output /tmp/nexus-session.json --write-out '%{http_code}' \
             --cookie 'sid=ci-session-pkg016' \
