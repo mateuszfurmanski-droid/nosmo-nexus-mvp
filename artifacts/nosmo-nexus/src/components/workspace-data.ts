@@ -9,13 +9,15 @@ import {
   ShieldCheck,
   FolderKanban,
   AlertTriangle,
+  Cuboid,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   PdfFileIcon,
   XlsxFileIcon,
 } from "./file-icon-components";
 
-export type NodeType = "person" | "task" | "document" | "project" | "issue";
+export type NodeType = "person" | "task" | "document" | "project" | "issue" | "object" | "inspection";
 
 type WorkspaceIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -31,6 +33,13 @@ export interface WorkspaceNode {
   receivedAt?: string;
   /** Date carried by the document itself; intentionally separate from receivedAt. */
   documentDate?: string;
+  /** Optional BIM/model provenance retained without turning Nexus into the design source. */
+  externalId?: string;
+  revision?: string;
+  trade?: string;
+  location?: string;
+  workPackage?: string;
+  readiness?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -58,14 +67,67 @@ export const NODES: WorkspaceNode[] = [
   { id: "d-siteinstructions", label: "Site Instructions", sublabel: "PDF", type: "document", Icon: PdfFileIcon, receivedAt: "2026-07-25T07:35:00Z", documentDate: "2026-07-24" },
   { id: "d-snaglist", label: "Snag List", sublabel: "XLSX", type: "document", Icon: XlsxFileIcon, receivedAt: "2026-08-08T10:05:00Z", documentDate: "2026-08-08" },
   { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "PDF", type: "document", Icon: PdfFileIcon, receivedAt: "2026-08-02T15:10:00Z", documentDate: "2026-07-31" },
+  { id: "d-bim-mep", label: "Coordinated MEP Model P04", sublabel: "BIM coordination reference", type: "document", Icon: PdfFileIcon, receivedAt: "2026-08-10T16:40:00Z", documentDate: "2026-08-10" },
 
-  // Tasks
+  // Existing tasks
   { id: "t-install", label: "Install Doors – Level 1", sublabel: "In Progress", type: "task", Icon: CheckSquare },
   { id: "t-snag", label: "Snag Fixes", sublabel: "To Do", type: "task", Icon: CheckSquare },
   { id: "t-fire", label: "Fire Door Adjustments", sublabel: "To Do", type: "task", Icon: CheckSquare },
   { id: "t-walkthrough", label: "Site Walkthrough", sublabel: "Scheduled", type: "task", Icon: CheckSquare },
   // Created by the manager but not yet assigned — demonstrates the PRE-TASK state.
   { id: "t-doorkits", label: "Prepare Level 1 Door Kits", sublabel: "Awaiting assignment", type: "task", Icon: CheckSquare },
+
+  // Multi-trade BIM installation tasks — synthetic PKG-012 pilot context.
+  { id: "t-bim-elec", label: "Install containment CT-E21", sublabel: "In Progress", type: "task", Icon: CheckSquare },
+  { id: "t-bim-hvac", label: "Install supply duct D-A12", sublabel: "To Do", type: "task", Icon: CheckSquare },
+  { id: "t-bim-plumb", label: "Install drainage branch SVP-B04", sublabel: "To Do", type: "task", Icon: CheckSquare },
+
+  // Canonical Nexus BIM objects. Geometry/revision remain owned by the model source.
+  {
+    id: "NXS-MEP-003",
+    label: "Cable tray route CT-E21",
+    sublabel: "Electrical · 84% readiness",
+    type: "object",
+    Icon: Cuboid,
+    externalId: "IFC-4eT77m",
+    revision: "P04",
+    trade: "Electrical",
+    location: "L02 / North / Grid D2-F2",
+    workPackage: "ELEC-L02-CONT-04",
+    readiness: "84% conditional",
+  },
+  {
+    id: "NXS-MEP-001",
+    label: "Supply duct assembly D-A12",
+    sublabel: "Mechanical & HVAC · 92% readiness",
+    type: "object",
+    Icon: Cuboid,
+    externalId: "IFC-7Ha20p",
+    revision: "P05",
+    trade: "Mechanical & HVAC",
+    location: "L02 / Plant corridor / Grid B1-D1",
+    workPackage: "HVAC-L02-DUCT-02",
+    readiness: "92%",
+  },
+  {
+    id: "NXS-MEP-008",
+    label: "Drainage branch SVP-B04",
+    sublabel: "Plumbing & Public Health · 76% readiness",
+    type: "object",
+    Icon: Cuboid,
+    externalId: "IFC-2Pk91s",
+    revision: "P03",
+    trade: "Plumbing & Public Health",
+    location: "L01 / Core B / Riser 04",
+    workPackage: "PLMB-L01-DRAIN-03",
+    readiness: "76% conditional",
+  },
+
+  // Static synthetic issue and inspection records linked to the same Object Cards.
+  { id: "iss-bim-ct", label: "CT-E21 route obstruction", sublabel: "Field difference · Open", type: "issue", Icon: AlertTriangle },
+  { id: "insp-bim-ct", label: "CT-E21 supervisor inspection", sublabel: "Evidence required", type: "inspection", Icon: ClipboardCheck },
+  { id: "insp-bim-hvac", label: "D-A12 supervisor inspection", sublabel: "Pending installation", type: "inspection", Icon: ClipboardCheck },
+  { id: "insp-bim-plumb", label: "SVP-B04 supervisor inspection", sublabel: "Pending installation", type: "inspection", Icon: ClipboardCheck },
 ];
 
 /* Task involvement is the single source of relationships. Connecting a
@@ -92,6 +154,52 @@ export const TASK_LINKS: Record<string, { people: string[]; docs: string[] }> = 
     people: [], // unassigned — the manager assigns a worker at the gate
     docs: ["d-doorschedule", "d-groundfloor"],
   },
+  "t-bim-elec": {
+    people: ["p-team", "p-sitemgr"],
+    docs: ["d-bim-mep", "d-groundfloor"],
+  },
+  "t-bim-hvac": {
+    people: ["p-team", "p-sitemgr"],
+    docs: ["d-bim-mep", "d-groundfloor"],
+  },
+  "t-bim-plumb": {
+    people: ["p-team", "p-sitemgr"],
+    docs: ["d-bim-mep", "d-groundfloor"],
+  },
+};
+
+export type ObjectRelationship = {
+  task: string;
+  people: string[];
+  docs: string[];
+  issues: string[];
+  inspections: string[];
+};
+
+/* BIM objects are normal Project Graph nodes. The model source keeps geometry
+   and design intent; these links belong to the Nexus operational graph. */
+export const OBJECT_LINKS: Record<string, ObjectRelationship> = {
+  "NXS-MEP-003": {
+    task: "t-bim-elec",
+    people: ["p-team", "p-sitemgr"],
+    docs: ["d-bim-mep", "d-groundfloor"],
+    issues: ["iss-bim-ct"],
+    inspections: ["insp-bim-ct"],
+  },
+  "NXS-MEP-001": {
+    task: "t-bim-hvac",
+    people: ["p-team", "p-sitemgr"],
+    docs: ["d-bim-mep", "d-groundfloor"],
+    issues: [],
+    inspections: ["insp-bim-hvac"],
+  },
+  "NXS-MEP-008": {
+    task: "t-bim-plumb",
+    people: ["p-team", "p-sitemgr"],
+    docs: ["d-bim-mep", "d-groundfloor"],
+    issues: [],
+    inspections: ["insp-bim-plumb"],
+  },
 };
 
 /* Direct people relationships (team membership, client liaison). */
@@ -108,14 +216,18 @@ export const TYPE_STYLE: Record<NodeType, { chip: string; centerBorder: string }
   task: { chip: "bg-emerald-500/15 text-emerald-400", centerBorder: "border-emerald-500" },
   document: { chip: "bg-amber-500/15 text-amber-400", centerBorder: "border-amber-500" },
   issue: { chip: "bg-red-500/15 text-red-400", centerBorder: "border-red-500" },
+  object: { chip: "bg-purple-500/15 text-purple-300", centerBorder: "border-purple-500" },
+  inspection: { chip: "bg-cyan-500/15 text-cyan-300", centerBorder: "border-cyan-500" },
 };
 
 export const TYPE_ORDER: Record<NodeType, number> = {
   issue: -1,
-  person: 0,
-  task: 1,
-  document: 2,
-  project: 3,
+  object: 0,
+  person: 1,
+  task: 2,
+  inspection: 3,
+  document: 4,
+  project: 5,
 };
 
 export const ISSUE_ICON = AlertTriangle;
@@ -260,7 +372,7 @@ export function taskWorker(taskId: string): string {
 }
 
 /* Build relationships from the single source: project hub + task involvement
-   (with shared doc<->person derivation) + direct person links. */
+   (with shared doc<->person derivation) + direct person links + BIM objects. */
 export function buildAdjacency(): Record<string, string[]> {
   const map: Record<string, Set<string>> = {};
   for (const node of NODES) map[node.id] = new Set();
@@ -288,6 +400,16 @@ export function buildAdjacency(): Record<string, string[]> {
         if (pa && pb) link(pa, pb);
       }
     }
+  }
+
+  // BIM object relationships belong to the operational Project Graph. These
+  // links do not change geometry or model revision; they connect field work.
+  for (const [objectId, refs] of Object.entries(OBJECT_LINKS)) {
+    link(objectId, refs.task);
+    for (const personId of refs.people) link(objectId, personId);
+    for (const docId of refs.docs) link(objectId, docId);
+    for (const issueId of refs.issues) link(objectId, issueId);
+    for (const inspectionId of refs.inspections) link(objectId, inspectionId);
   }
 
   for (const [a, b] of PERSON_LINKS) link(a, b);
