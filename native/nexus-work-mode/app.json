@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "NOSMO Nexus Work Mode",
+    "slug": "nosmo-nexus-work-mode",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "nosmonexus",
+    "android": {
+      "package": "tech.nosmo.nexus.workmode",
+      "versionCode": 1,
+      "permissions": [
+        "READ_CONTACTS",
+        "READ_CALENDAR"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Nexus to discover work contacts you explicitly approve."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Nexus to find project-related calendar events you explicitly approve."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Nexus to review work photos you choose to share with Work Mode."
+        }
+      ],
+      "expo-document-picker"
+    ],
+    "extra": {
+      "productLayer": "Construction Operating Layer",
+      "privacyMode": "local-first-explicit-permission"
+    }
+  }
+}
