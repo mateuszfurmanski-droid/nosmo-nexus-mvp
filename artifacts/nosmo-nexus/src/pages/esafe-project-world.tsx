@@ -1,29 +1,40 @@
-import { ArrowLeft, FolderKanban } from "lucide-react";
-import { useLocation } from "wouter";
+import { useState } from "react";
+import { Clock3 } from "lucide-react";
 import { EsafeProjectWorldTimeline } from "@/components/esafe-project-world-timeline";
+import { NexusGraphCommandBridge } from "@/components/nexus-graph-command-bridge";
+import { NexusProjectShell } from "@/components/nexus-project-shell";
+import PersistentWorkspace from "@/components/persistent-workspace";
 import "@/project-worlds/esafe/invariants";
 
 export default function EsafeProjectWorld() {
-  const [, navigate] = useLocation();
+  const [timelineOpen, setTimelineOpen] = useState(true);
 
   return (
-    <div className="min-h-[100dvh] bg-[#06101c] text-slate-100">
-      <nav className="fixed inset-x-0 top-0 z-[2070] flex h-[82px] items-center justify-between border-b border-slate-700/60 bg-[#06101c]/98 px-3 shadow-[0_8px_28px_rgba(0,0,0,.24)] backdrop-blur-xl">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-slate-900/75 px-3 py-2.5 text-left text-slate-100"
-        >
-          <ArrowLeft className="h-4 w-4 text-cyan-300" />
-          <span><strong className="block text-[10px] uppercase tracking-[0.08em]">Nexus</strong><small className="block text-[8px] text-slate-500">Relationship Tree</small></span>
-        </button>
-        <div className="flex items-center gap-2 text-right">
-          <span><strong className="block text-[10px] uppercase tracking-[0.08em]">Project World</strong><small className="block text-[8px] text-slate-500">e-SAFE Catania</small></span>
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-cyan-300/20 bg-cyan-400/10 text-cyan-300"><FolderKanban className="h-4 w-4" /></span>
-        </div>
-      </nav>
+    <NexusProjectShell>
+      <NexusGraphCommandBridge />
+      <style>{`
+        [data-control][class*="bottom-3 left-3 right-3 z-50"] {
+          display: none !important;
+        }
+        [data-control][class*="bottom-3 left-3 z-40"] {
+          display: none !important;
+        }
+      `}</style>
 
-      <EsafeProjectWorldTimeline onClose={() => navigate("/")} />
-    </div>
+      <PersistentWorkspace />
+
+      {!timelineOpen && (
+        <button
+          data-control
+          type="button"
+          onClick={() => setTimelineOpen(true)}
+          className="fixed bottom-4 right-4 z-[2060] inline-flex items-center gap-2 rounded-2xl border border-cyan-300/30 bg-[#07131f]/95 px-4 py-3 text-xs font-bold text-cyan-100 shadow-2xl backdrop-blur-xl"
+        >
+          <Clock3 className="h-4 w-4" /> e-SAFE Timeline
+        </button>
+      )}
+
+      {timelineOpen && <EsafeProjectWorldTimeline onClose={() => setTimelineOpen(false)} />}
+    </NexusProjectShell>
   );
 }
