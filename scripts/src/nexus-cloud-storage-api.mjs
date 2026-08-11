@@ -11,6 +11,34 @@ const allowedProviderKinds = new Set([
   "custom",
 ]);
 
+export const NEXUS_CLOUD_STORAGE_PROJECT_WORLD_GUARD_SCHEMA =
+  "nexus-cloud-storage-project-world-server-guard/v1";
+
+const driveManagedProjectWorlds = new Map([
+  [
+    "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA",
+    {
+      projectId: "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA",
+      worldId: "esafe-demo",
+      displayName: "e-SAFE Catania",
+      pendingGraphLinkFolderId: "1Pb1F_2PYtRt3YwhGFNdCLBK03s9TPbGZ",
+    },
+  ],
+  [
+    "RIVERSIDE_DEMO_PROJECT",
+    {
+      projectId: "RIVERSIDE_DEMO_PROJECT",
+      worldId: "dev",
+      displayName: "Riverside",
+      pendingGraphLinkFolderId: "1ffW9qCJQKCpAI4T9YJsYjWDdwpxCwHgw",
+    },
+  ],
+]);
+
+function folderUrl(id) {
+  return `https://drive.google.com/drive/folders/${id}`;
+}
+
 function json(response, status, body) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -46,6 +74,42 @@ function parseProviderKind(value) {
   return allowedProviderKinds.has(value) ? value : "s3-compatible";
 }
 
+function resolveProjectWorldGuard(projectId, worldId) {
+  const managedProject = driveManagedProjectWorlds.get(projectId);
+  const suppliedWorldId = typeof worldId === "string" ? worldId.trim() : "";
+
+  if (!managedProject) {
+    return {
+      mode: "provider-neutral",
+      schema: NEXUS_CLOUD_STORAGE_PROJECT_WORLD_GUARD_SCHEMA,
+      projectId,
+      worldId: suppliedWorldId || undefined,
+    };
+  }
+
+  if (!suppliedWorldId) {
+    throw new Error(`NEXUS_CLOUD_WORLD_REQUIRED:${projectId}`);
+  }
+
+  if (suppliedWorldId !== managedProject.worldId) {
+    throw new Error(
+      `NEXUS_CLOUD_PROJECT_WORLD_MISMATCH:${projectId}:${suppliedWorldId}:${managedProject.worldId}`,
+    );
+  }
+
+  return {
+    mode: "drive-managed",
+    schema: NEXUS_CLOUD_STORAGE_PROJECT_WORLD_GUARD_SCHEMA,
+    projectId: managedProject.projectId,
+    worldId: managedProject.worldId,
+    displayName: managedProject.displayName,
+    classificationStatus: "pending_graph_link",
+    targetFolderName: "01_PENDING_GRAPH_LINK",
+    targetFolderId: managedProject.pendingGraphLinkFolderId,
+    targetFolderUrl: folderUrl(managedProject.pendingGraphLinkFolderId),
+  };
+}
+
 function cloudStorageStatus() {
   const providerKind = parseProviderKind(process.env.NEXUS_CLOUD_STORAGE_PROVIDER_KIND ?? "s3-compatible");
   return {
@@ -53,6 +117,12 @@ function cloudStorageStatus() {
     demoMode: process.env.NEXUS_CLOUD_STORAGE_DEMO_MODE !== "false",
     providerBoundary: "nexus-api",
     providerKind,
+    projectWorldGuard: NEXUS_CLOUD_STORAGE_PROJECT_WORLD_GUARD_SCHEMA,
+    guardedProjectWorlds: Array.from(driveManagedProjectWorlds.values()).map((project) => ({
+      projectId: project.projectId,
+      worldId: project.worldId,
+      pendingGraphLinkFolderId: project.pendingGraphLinkFolderId,
+    })),
     storedObjects: objects.size,
   };
 }
@@ -102,6 +172,7 @@ function decodeMetadata(request) {
   if (!scope || !checksum) throw new Error("MISSING_REQUIRED_FIELDS");
 
   const projectId = requiredString(scope, "projectId");
+  const worldId = optionalString(scope, "worldId");
   const assetId = requiredString(scope, "assetId");
   const fileId = requiredString(scope, "fileId");
   const objectKey = requiredString(record, "objectKey");
@@ -118,13 +189,17 @@ function decodeMetadata(request) {
   }
   if (checksumAlgorithm !== "sha256") throw new Error("UNSUPPORTED_CHECKSUM_ALGORITHM");
 
+  const projectWorld = resolveProjectWorldGuard(projectId, worldId);
+
   return {
     scope: {
       tenantId: optionalString(scope, "tenantId"),
       projectId,
+      worldId: projectWorld.worldId,
       assetId,
       fileId,
     },
+    projectWorld,
     objectKey,
     filename,
     mimeType,
@@ -138,17 +213,21 @@ function decodeMetadata(request) {
 
 function normaliseReadRequest(url) {
   const projectId = url.searchParams.get("projectId")?.trim();
+  const worldId = url.searchParams.get("worldId")?.trim() || undefined;
   const assetId = url.searchParams.get("assetId")?.trim();
   const fileId = url.searchParams.get("fileId")?.trim();
   const objectKey = url.searchParams.get("objectKey")?.trim();
   const tenantId = url.searchParams.get("tenantId")?.trim() || undefined;
 
   if (!projectId || !assetId || !fileId || !objectKey) throw new Error("MISSING_REQUIRED_FIELDS");
-  return { tenantId, projectId, assetId, fileId, objectKey };
+
+  const projectWorld = resolveProjectWorldGuard(projectId, worldId);
+  return { tenantId, projectId, worldId: projectWorld.worldId, assetId, fileId, objectKey, projectWorld };
 }
 
 function objectMatchesScope(record, readRequest) {
   return record.scope.projectId === readRequest.projectId
+    && (record.scope.worldId ?? "") === (readRequest.worldId ?? "")
     && record.scope.assetId === readRequest.assetId
     && record.scope.fileId === readRequest.fileId
     && record.objectKey === readRequest.objectKey
@@ -161,6 +240,11 @@ function storeObject(record) {
 
   const oldest = objects.keys().next().value;
   if (typeof oldest === "string") objects.delete(oldest);
+}
+
+function errorStatus(code) {
+  if (code === "PAYLOAD_TOO_LARGE") return 413;
+  return 400;
 }
 
 async function putObject(request, response) {
@@ -197,14 +281,14 @@ async function putObject(request, response) {
 
     json(response, 201, {
       storage: record.storage,
+      projectWorld: record.projectWorld,
       sizeBytes: record.sizeBytes,
       checksum: record.checksum,
       writtenAt: record.writtenAt,
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "INVALID_REQUEST";
-    const status = code === "PAYLOAD_TOO_LARGE" ? 413 : 400;
-    json(response, status, { error: code });
+    json(response, errorStatus(code), { error: code });
   }
 }
 
@@ -222,14 +306,18 @@ function getObject(request, response, url) {
       return;
     }
 
-    response.writeHead(200, {
+    const headers = {
       "Content-Type": record.mimeType,
       "Cache-Control": "private, no-store",
       "X-Nexus-Storage-Provider": record.storage.providerKind,
+      "X-Nexus-Project-Id": record.scope.projectId,
       "X-Nexus-Asset-Id": record.scope.assetId,
       "X-Nexus-File-Id": record.scope.fileId,
       "X-Nexus-Checksum-Sha256": record.checksum.value,
-    });
+    };
+    if (record.scope.worldId) headers["X-Nexus-World-Id"] = record.scope.worldId;
+
+    response.writeHead(200, headers);
     response.end(record.content);
   } catch (error) {
     const code = error instanceof Error ? error.message : "INVALID_REQUEST";
@@ -252,7 +340,11 @@ function deleteObject(request, response, url) {
     }
 
     objects.delete(readRequest.objectKey);
-    json(response, 200, { status: "deleted", objectKey: readRequest.objectKey });
+    json(response, 200, {
+      status: "deleted",
+      objectKey: readRequest.objectKey,
+      projectWorld: record.projectWorld,
+    });
   } catch (error) {
     const code = error instanceof Error ? error.message : "INVALID_REQUEST";
     json(response, 400, { error: code });
