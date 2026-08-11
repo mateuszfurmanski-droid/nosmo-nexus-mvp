@@ -19,7 +19,13 @@ public class NexusShellActivity extends Activity {
     private static final String VERSION_LABEL = "0.7.0";
     private static final String NEXUS_URL = "https://nosmotechnology.co.uk/nexus.html";
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/?world=esafe-demo&project=e-SAFE%20Project%20World&source=android-v070&personalCloud=google-drive&runtime=restored";
-    private static final String GOOGLE_DRIVE_PERSONAL_CLOUD_URL = "https://drive.google.com/drive/folders/1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0";
+    private static final String NEXUS_CLOUD_URL = "https://drive.google.com/drive/folders/1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0";
+    private static final String PROJECT_WORLDS_URL = "https://drive.google.com/drive/folders/1gCa35DoMCOioIdZbpYETvseEhA_D3n_Q";
+    private static final String ESAFE_CATANIA_URL = "https://drive.google.com/drive/folders/1Zu80-Yj9RocZJlBDXKXxId9ZRnn9EcOE";
+    private static final String RIVERSIDE_URL = "https://drive.google.com/drive/folders/1_6fUF-W--i3lbtNpZRkhaU142ExI1k-g";
+    private static final String ASSET_INDEX_URL = "https://docs.google.com/spreadsheets/d/1vZYrSX5kcgOH5izENzGwdL7wMLgbHIQNUJi9dfMuTEI/edit?usp=drivesdk";
+    private static final String ROUTING_RULES_URL = "https://docs.google.com/document/d/1ylZRQU-m1GbYVNMGFvu3FKMamXEyvGHv8XVf_kKsd6c/edit?usp=drivesdk";
+    private static final String MIGRATION_LOG_URL = "https://docs.google.com/document/d/1ExuBm_62o-sSj0AhVUj_3IX56Tauc3zN6q3uFok86rU/edit?usp=drivesdk";
 
     private static final int BG = Color.rgb(3, 4, 7);
     private static final int PANEL = Color.rgb(10, 15, 24);
@@ -53,6 +59,7 @@ public class NexusShellActivity extends Activity {
         addKicker(root, "CONSTRUCTION OPERATING SYSTEM");
         addHero(root);
         addPrimaryActions(root);
+        addNexusCloudActions(root);
         addModuleCards(root);
         addBoundaryNote(root);
 
@@ -84,7 +91,7 @@ public class NexusShellActivity extends Activity {
         root.addView(title, fullWidthWrap());
 
         TextView intro = text(
-                "NEXUS connects phone discovery, Google Drive Personal Cloud, e-SAFE Project World and site evidence into one Work Mode shell.",
+                "NEXUS connects phone discovery, Nexus Cloud, Google Drive Project Worlds, e-SAFE Catania, Asset Index and site evidence into one Work Mode shell.",
                 15, MUTED, false);
         intro.setGravity(Gravity.CENTER);
         intro.setLineSpacing(0f, 1.16f);
@@ -94,7 +101,7 @@ public class NexusShellActivity extends Activity {
     }
 
     private void addPrimaryActions(LinearLayout root) {
-        TextView scan = primaryTile("SCAN PHONE + CONNECTED CLOUD", "Open the native Work Mode scanner and route approved files into Google Drive Personal Cloud.");
+        TextView scan = primaryTile("SCAN PHONE + CONNECTED CLOUD", "Open the native Work Mode scanner and route approved files into Nexus Cloud / Google Drive Personal Cloud.");
         scan.setOnClickListener(v -> startActivity(new Intent(this, AutoDiscoveryActivity.class)));
         root.addView(scan, fullWidth(dp(86)));
 
@@ -102,8 +109,32 @@ public class NexusShellActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.addView(smallAction("PROJECT WORLD", () -> openUrl(TREE_URL)), equalCell());
-        row.addView(smallAction("PERSONAL CLOUD", () -> openUrl(GOOGLE_DRIVE_PERSONAL_CLOUD_URL)), equalCell());
+        row.addView(smallAction("NEXUS CLOUD", () -> openUrl(NEXUS_CLOUD_URL)), equalCell());
         root.addView(row, fullWidth(dp(62)));
+    }
+
+    private void addNexusCloudActions(LinearLayout root) {
+        addKicker(root, "NEXUS CLOUD / GOOGLE DRIVE");
+
+        TextView summary = text(
+                "Canonical cloud map: Project Worlds, e-SAFE Catania, Riverside, Asset Index, Routing Rules and Migration Log.",
+                13, MUTED, false);
+        summary.setGravity(Gravity.CENTER);
+        summary.setLineSpacing(0f, 1.14f);
+        root.addView(summary, fullWidthWrap());
+
+        root.addView(actionRow(
+                smallAction("PROJECT WORLDS", () -> openUrl(PROJECT_WORLDS_URL)),
+                smallAction("e-SAFE CATANIA", () -> openUrl(ESAFE_CATANIA_URL))),
+                fullWidth(dp(62)));
+        root.addView(actionRow(
+                smallAction("RIVERSIDE", () -> openUrl(RIVERSIDE_URL)),
+                smallAction("ASSET INDEX", () -> openUrl(ASSET_INDEX_URL))),
+                fullWidth(dp(62)));
+        root.addView(actionRow(
+                smallAction("ROUTING RULES", () -> openUrl(ROUTING_RULES_URL)),
+                smallAction("MIGRATION LOG", () -> openUrl(MIGRATION_LOG_URL))),
+                fullWidth(dp(62)));
     }
 
     private void addModuleCards(LinearLayout root) {
@@ -115,7 +146,7 @@ public class NexusShellActivity extends Activity {
                 GOLD), fullWidthWrap());
         root.addView(card(
                 "02",
-                "GOOGLE DRIVE PERSONAL CLOUD",
+                "NEXUS CLOUD / GOOGLE DRIVE",
                 "Storage Access Framework route into NOSMO / 03_NEXUS / 00_NEXUS_PERSONAL_CLOUD. Full Drive crawling remains OAuth/API work.",
                 CYAN), fullWidthWrap());
         root.addView(card(
@@ -123,6 +154,11 @@ public class NexusShellActivity extends Activity {
                 "e-SAFE-first discovery",
                 "Photos, PDF/Office docs and BIM/IFC/drawings are separated into review routes before Project Graph linking.",
                 GREEN), fullWidthWrap());
+        root.addView(card(
+                "04",
+                "Asset Index + Routing Rules",
+                "Cloud documents become the current map of what exists, where it routes and what must be reviewed before Project Graph linking.",
+                CYAN), fullWidthWrap());
 
         TextView openNexus = secondaryButton("OPEN WEB NEXUS SHELL");
         openNexus.setOnClickListener(v -> openUrl(NEXUS_URL));
@@ -131,12 +167,21 @@ public class NexusShellActivity extends Activity {
 
     private void addBoundaryNote(LinearLayout root) {
         TextView note = text(
-                "Native Android beta " + VERSION_LABEL + " · visual shell restored from the older NEXUS web prototype · originals are not deleted · no WhatsApp/Gmail private database scraping.",
+                "Native Android beta " + VERSION_LABEL + " · visual shell restored from the older NEXUS web prototype · Nexus Cloud map connected · originals are not deleted · no WhatsApp/Gmail private database scraping.",
                 11, Color.rgb(112, 126, 142), false);
         note.setGravity(Gravity.CENTER);
         note.setLineSpacing(0f, 1.18f);
         note.setPadding(dp(6), dp(20), dp(6), dp(8));
         root.addView(note, fullWidthWrap());
+    }
+
+    private LinearLayout actionRow(TextView left, TextView right) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.addView(left, equalCell());
+        row.addView(right, equalCell());
+        return row;
     }
 
     private TextView primaryTile(String title, String body) {
