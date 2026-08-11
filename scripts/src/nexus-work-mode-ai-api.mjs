@@ -3,6 +3,8 @@ import { timingSafeEqual } from "node:crypto";
 const maxBodyBytes = 64 * 1024;
 const WORK_MODE_AI_CONTEXT = "android-work-discovery-v1";
 const WORK_MODE_INTENT = "ask-nexus";
+const DRAFT_EXECUTION_BOUNDARY = "worksuite-action-engine-required";
+const DRAFT_MUTATION_MODE = "draft-only-no-mutation";
 
 function json(response, status, body) {
   response.writeHead(status, {
@@ -42,6 +44,7 @@ function workModeAiStatus() {
     providerBoundary: "server-side-orchestrator",
     modelExecution: "disabled-demo-boundary",
     contextVersion: WORK_MODE_AI_CONTEXT,
+    draftExecutionBoundary: DRAFT_EXECUTION_BOUNDARY,
     frontendApiKeys: false,
   };
 }
@@ -101,14 +104,6 @@ function canonicalProjectFromAlias(value) {
     };
   }
 
-  if (slug === "riverside-demo-project") {
-    return {
-      projectId: "RIVERSIDE_DEMO_PROJECT",
-      worldId: "dev",
-      displayName: "Riverside Demo Project World",
-    };
-  }
-
   return {
     projectId: optionalString({ value }, "value", "UNRESOLVED_ANDROID_WORK_CONTEXT"),
     worldId: undefined,
@@ -116,11 +111,57 @@ function canonicalProjectFromAlias(value) {
   };
 }
 
+function draftKindForAction(actionId) {
+  if (actionId === "focus-project-world") return "FOCUS_PROJECT_WORLD";
+  if (actionId === "check-missing-evidence") return "REQUEST_MISSING_EVIDENCE_REVIEW";
+  if (actionId === "open-doorflow-if-relevant") return "OPEN_DOORFLOW_CONTEXT";
+  return "SUMMARISE_WORK_CONTEXT";
+}
+
+function buildWorkSuiteDraftAction(payload, projectRoute, action) {
+  const requestedProject = optionalString(payload, "requestedProject", optionalString(payload, "project", "UNRESOLVED_ANDROID_WORK_CONTEXT"));
+  const acceptedSignals = optionalNumber(payload, "acceptedSignals", 0);
+
+  return {
+    draftId: `workmode-ai:${projectRoute.projectId}:${action.id}`,
+    status: "draft",
+    mutationMode: DRAFT_MUTATION_MODE,
+    executionBoundary: DRAFT_EXECUTION_BOUNDARY,
+    source: "android-work-mode-ai-boundary",
+    actionKind: draftKindForAction(action.id),
+    proposedAction: {
+      actionId: action.id,
+      title: action.title,
+      target: action.target,
+      detail: action.detail,
+    },
+    scope: {
+      projectId: projectRoute.projectId,
+      worldId: projectRoute.worldId,
+      requestedProject,
+      acceptedSignals,
+      contextVersion: WORK_MODE_AI_CONTEXT,
+    },
+    authorityRequired: {
+      authenticatedPerson: true,
+      activeProjectParticipation: true,
+      projectFunctionOrExplicitScope: action.requiresAuthority,
+      denyOverrideCheck: true,
+      workSuiteActionEngineApproval: true,
+    },
+    audit: {
+      origin: "Android Work Mode AI handoff",
+      modelExecution: "disabled-demo-boundary",
+      note: "Draft envelope only. Do not execute or mutate until WorkSuite Action Engine resolves permissions.",
+    },
+  };
+}
+
 function buildNextActions(payload, projectRoute) {
   const acceptedSignals = optionalNumber(payload, "acceptedSignals", 0);
   const signalLabel = acceptedSignals === 1 ? "approved signal" : "approved signals";
 
-  return [
+  const actions = [
     {
       id: "summarise-work-context",
       title: "Summarise approved context",
@@ -150,6 +191,12 @@ function buildNextActions(payload, projectRoute) {
       requiresAuthority: true,
     },
   ];
+
+  return actions.map((action) => ({
+    ...action,
+    executionMode: "intent-only-no-mutation",
+    draftAction: buildWorkSuiteDraftAction(payload, projectRoute, action),
+  }));
 }
 
 function summarise(payload, projectRoute) {
