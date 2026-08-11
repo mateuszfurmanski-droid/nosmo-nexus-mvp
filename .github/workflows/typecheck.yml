@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate PKG-017 identity boundaries
+        run: |
+          node scripts/src/validate-nexus-browser-session.mjs
+          node scripts/src/validate-nexus-person-binding.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
