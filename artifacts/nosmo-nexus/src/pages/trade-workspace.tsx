@@ -1,5 +1,5 @@
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, ArrowRight, BriefcaseBusiness, Layers3 } from "lucide-react";
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Cuboid, Layers3 } from "lucide-react";
 import { CommunicationStrip } from "@/components/communication-strip";
 import { ExternalToolStrip } from "@/components/external-tool-strip";
 import { getTradeDefinition, type TradeStatus, type TradeTool } from "@/config/trades";
@@ -9,6 +9,16 @@ const statusStyle: Record<TradeStatus, string> = {
   DEMO: "border-cyan-400/35 bg-cyan-400/10 text-cyan-300",
   "IN DEVELOPMENT": "border-amber-400/30 bg-amber-400/10 text-amber-300",
   "PARTNER VALIDATION": "border-purple-400/35 bg-purple-400/10 text-purple-300",
+};
+
+const electricalBimPilot: TradeTool = {
+  name: "Electrical BIM Installation Layer",
+  description: "Model object to task, assigned team, readiness, Work Wallet gate, evidence, inspection and as-built context for electrical installation.",
+  status: "DEMO",
+  href: "/bim-overlay?trade=electrical&object=NXS-MEP-003",
+  linkType: "internal",
+  icon: Cuboid,
+  note: "Electrical end-to-end overlay pilot",
 };
 
 function ToolCard({ tool }: { tool: TradeTool }) {
@@ -66,6 +76,9 @@ export default function TradeWorkspace() {
   }
 
   const TradeIcon = trade.icon;
+  const tools = tradeId === "electrical"
+    ? [trade.tools[0], electricalBimPilot, ...trade.tools.slice(1)]
+    : trade.tools;
 
   return (
     <div className="space-y-7 pb-8">
@@ -114,7 +127,7 @@ export default function TradeWorkspace() {
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {trade.tools.map((tool) => <ToolCard key={tool.name} tool={tool} />)}
+          {tools.map((tool) => <ToolCard key={tool.name} tool={tool} />)}
         </div>
       </section>
 
