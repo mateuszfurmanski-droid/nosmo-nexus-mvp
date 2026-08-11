@@ -6,16 +6,14 @@ import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { resolveNexusWebPublicDirectory } from "./lib/nexus-runtime-paths";
 import {
   getWorkWalletRuntimeStatus,
   workWalletRuntimeMiddleware,
 } from "./lib/work-wallet-runtime";
 
 const app: Express = express();
-const publicDirectory = path.resolve(
-  process.cwd(),
-  "artifacts/nosmo-nexus/dist/public",
-);
+const publicDirectory = resolveNexusWebPublicDirectory();
 
 app.use(
   pinoHttp({
