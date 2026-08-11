@@ -13,6 +13,7 @@
       "matches": ["https://portal.work-wallet.com/*"],
       "js": [
         "src/runtime.js",
+        "src/record-mapping.js",
         "src/supply-request.js",
         "src/sidecar.js",
         "src/tree-handoff.js",
