@@ -12,6 +12,8 @@ Canonical flow:
 - Project participation / project function / scope permission resolver.
 - Provider-neutral `NexusStorageProvider` boundary.
 - `LocalDevNexusStorageProvider` backed by IndexedDB for development only.
+- `NexusApiStorageProvider` for production-style browser-to-Nexus-API uploads.
+- Runtime provider resolver controlled by `VITE_NEXUS_STORAGE_MODE`.
 - Durable browser-side offline upload queue backed by IndexedDB.
 - Global File Loader bridge that listens for `nexus:file-upload-request`.
 - Stable asset IDs derived from project scope + SHA-256 checksum.
@@ -21,11 +23,31 @@ Canonical flow:
 
 The local-dev provider is not production cloud storage. It exists so the UI and modules bind to the provider-neutral contract instead of server-local folders or a vendor SDK.
 
+The Nexus API provider is the browser-side boundary for S3-compatible, Azure Blob, Microsoft 365 / SharePoint or custom storage. The browser sends the asset blob and metadata to Nexus API endpoints; it does not import vendor SDKs, hold storage credentials, or generate provider-specific object paths itself. The server-side Nexus adapter must enforce permission, write audit, choose the concrete provider and return a `NexusStorageObjectRef`.
+
 The offline queue is a client-side durability layer for weak signal/mobile conditions. It preserves the selected file blob and upload context until the browser reports connectivity again, then retries through the same provider-neutral upload path. It is not a separate module storage system and it does not bypass the asset permission resolver.
 
 Production providers must implement the same `NexusStorageProvider` interface for S3-compatible storage, Azure Blob, Microsoft 365 / SharePoint or a customer-owned storage estate.
 
 Nexus owns metadata, Project Graph relationships, permissions and audit. Binary may live in a customer/provider storage account.
+
+## Runtime switch
+
+Default development mode stays local-only:
+
+```bash
+VITE_NEXUS_STORAGE_MODE=local-dev
+```
+
+Production-style browser boundary:
+
+```bash
+VITE_NEXUS_STORAGE_MODE=nexus-api
+VITE_NEXUS_STORAGE_PROVIDER_KIND=s3-compatible # or azure-blob / microsoft-365 / custom
+VITE_NEXUS_STORAGE_API_BASE_PATH=/api/nexus/cloud-storage
+```
+
+UI/modules do not change when this switch changes. Only the provider resolver changes the implementation behind `NexusStorageProvider`.
 
 ## Permission rule
 
