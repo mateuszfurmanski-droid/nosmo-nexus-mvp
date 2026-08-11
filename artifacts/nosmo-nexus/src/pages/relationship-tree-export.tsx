@@ -30,16 +30,18 @@ export default function RelationshipTreeExport() {
         [data-control][class*="bottom-3 left-3 z-40"] { display: none !important; }
 
         /* Individual people: Messenger-style circle + loose name/project-role text. */
+        [data-node-id^="p-"] > button { width: 150px !important; gap: 4px !important; }
         [data-node-id^="p-"] > button > span:first-child {
           border-radius: 9999px !important;
           overflow: hidden !important;
-          background: radial-gradient(circle at 50% 35%, rgba(148,163,184,.26), rgba(30,41,59,.92)) !important;
-          border-color: rgba(103,232,249,.55) !important;
+          background: radial-gradient(circle at 50% 34%, rgba(148,163,184,.22), rgba(30,41,59,.96)) !important;
+          border-color: rgba(103,232,249,.5) !important;
           box-shadow: 0 8px 28px rgba(0,0,0,.42), 0 0 0 3px rgba(34,211,238,.08) !important;
         }
         [data-node-id^="p-"] > button > span:first-child > span:first-child {
           background: transparent !important;
           color: rgba(226,232,240,.82) !important;
+          border-radius: 9999px !important;
         }
         [data-node-id^="p-"] > button > span:nth-child(2) {
           display: block !important;
@@ -51,24 +53,11 @@ export default function RelationshipTreeExport() {
           font-weight: 700 !important;
           text-shadow: 0 1px 5px rgba(0,0,0,.75) !important;
         }
-        [data-node-id^="p-"] > button > span:nth-child(3) {
-          display: none !important;
-        }
-        [data-node-id^="p-"] > button {
-          width: 150px !important;
-          gap: 4px !important;
-        }
+        [data-node-id^="p-"] > button > span:nth-child(3) { display: none !important; }
 
-        /* Demo photo only where a photo is explicitly available; all others show the neutral no-photo icon. */
-        [data-node-id="p-mateusz"] > button > span:first-child {
-          background-image: url("https://i.pravatar.cc/240?u=nexus-demo-person") !important;
-          background-position: center !important;
-          background-size: cover !important;
-          background-repeat: no-repeat !important;
-        }
-        [data-node-id="p-mateusz"] > button > span:first-child > span:first-child { opacity: 0 !important; }
+        /* No invented faces: missing photos use the existing neutral person icon in the circle. */
 
-        /* Project-role labels are loose text beneath the circle, never baked into Person identity. */
+        /* Project-role labels are loose text beneath the name, never baked into Person identity. */
         [data-node-id="p-mateusz"] > button::after { content: "System Architect"; }
         [data-node-id="p-sitemgr"] > button::after { content: "Site Manager"; }
         [data-node-id="p-architect"] > button::after { content: "Project Architect"; }
