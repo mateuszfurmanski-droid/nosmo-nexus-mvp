@@ -57,9 +57,10 @@ jobs:
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
 
-      - name: Verify native Work Mode AI handoff contract
+      - name: Verify native Work Mode AI blue handoff contract
         run: |
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
+          GRADLE="native/nexus-work-mode-native/app/build.gradle"
           grep -q "Ask Nexus AI" "$MAIN"
           grep -q "AI_CONTEXT_VERSION" "$MAIN"
           grep -q "android-work-discovery-v1" "$MAIN"
@@ -68,22 +69,28 @@ jobs:
           grep -q "nexusAiContext" "$MAIN"
           grep -q "ai-assistant" "$MAIN"
           grep -q "server-side-only" "$MAIN"
+          grep -q "BLUE NEXUS" "$MAIN"
+          grep -q "theme=blue-nexus" "$MAIN"
+          grep -q "Color.rgb(38, 132, 255)" "$MAIN"
           grep -q "relationship-tree" "$MAIN"
+          grep -q "0.5.3-blue" "$GRADLE"
           ! grep -q "nexus.html" "$MAIN"
+          ! grep -q "Color.rgb(245, 196, 0)" "$MAIN"
 
       - name: Stage beta APK and Play bundle
         run: |
           mkdir -p android-native-work-mode
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.apk
-          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.aab
-          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.2-ai.apk.sha256
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.aab
+          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.apk.sha256
           cp /tmp/badging.txt android-native-work-mode/APK_BADGING.txt
           cp /tmp/permissions.txt android-native-work-mode/APK_PERMISSIONS.txt
           {
             echo "NEXUS Work Mode Native"
-            echo "Version: 0.5.2-ai"
+            echo "Version: 0.5.3-blue"
             echo "APK package: tech.nosmo.nexus.workmode.nativebeta"
             echo "Runtime: pure Android Java"
+            echo "Theme: blue Nexus visual system"
             echo "Discovery: Contacts + Calendar + Storage Access Framework folder picker + selected photos"
             echo "Review: selected-by-default work signals with user deselection"
             echo "AI: local bounded AI Context Packet + server-side Nexus model call boundary"
@@ -95,7 +102,7 @@ jobs:
       - name: Upload native Work Mode beta
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-Native-v0.5.2-ai
+          name: NEXUS-Work-Mode-Native-v0.5.3-blue
           path: android-native-work-mode/*
           if-no-files-found: error
           retention-days: 14
