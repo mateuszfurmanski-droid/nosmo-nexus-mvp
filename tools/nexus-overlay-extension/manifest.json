@@ -9,6 +9,12 @@
     "https://nosmotechnology.co.uk/*",
     "http://127.0.0.1:3000/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://nosmotechnology.co.uk/api/nexus/context-tickets/bootstrap*",
+      "http://127.0.0.1:3000/api/nexus/context-tickets/bootstrap*"
+    ]
+  },
   "background": {
     "service_worker": "src/background.js"
   },
@@ -18,9 +24,11 @@
       "js": [
         "src/runtime.js",
         "src/record-mapping.js",
+        "src/connector-context.js",
         "src/supply-request.js",
         "src/sidecar.js",
         "src/tree-handoff.js",
+        "src/context-ticket.js",
         "src/content.js"
       ],
       "run_at": "document_idle"
