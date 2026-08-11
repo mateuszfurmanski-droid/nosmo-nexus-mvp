@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck workspace
         run: pnpm run typecheck
 
+      - name: Smoke test Nexus Cloud upload-session plan
+        run: pnpm --filter @workspace/api-server smoke:nexus-cloud-upload-session
+
       - name: Build Nexus web application
         env:
           PORT: 4173
