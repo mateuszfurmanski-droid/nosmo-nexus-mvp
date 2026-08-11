@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "wouter";
-import { Box, ExternalLink, Focus, Link2, Loader2, Minus, Plus, Rotate3D, ShieldAlert, TriangleAlert } from "lucide-react";
+import { ExternalLink, Focus, Link2, Loader2, Minus, Plus, Rotate3D, ShieldAlert, TriangleAlert } from "lucide-react";
 import type { IfcLiteGeometryResult, IfcLiteMesh, Vec3 } from "@/bim/ifc-lite-geometry";
 import { webIfcWasmRenderer } from "@/bim/ifc-renderer-adapter";
+import type { IfcSourcePropertiesSnapshot } from "@/bim/ifc-source-properties";
 import { WEB_IFC_VERSION } from "@/bim/ifc-web-ifc-runtime";
 import {
   saveIfcMappings,
@@ -10,6 +11,7 @@ import {
   type IfcGuidMapping,
   type IfcLocalModelSession,
 } from "@/bim/ifc-mapping";
+import { IfcSourcePropertiesPanel } from "@/components/ifc-source-properties-panel";
 
 type ProjectedPoint = { x: number; y: number; depth: number };
 type ProjectedFace = { key: string; mesh: IfcLiteMesh; points: string; depth: number };
@@ -19,6 +21,7 @@ type Props = {
   mappings: IfcGuidMapping[];
   currentNexusObjectId: string;
   onMappingsChange: (mappings: IfcGuidMapping[]) => void;
+  onSourcePropertiesChange?: (snapshot: IfcSourcePropertiesSnapshot | null) => void;
 };
 
 function sourceMatches(mapping: IfcGuidMapping, session: IfcLocalModelSession) {
@@ -65,7 +68,13 @@ function sceneBounds(meshes: IfcLiteMesh[]) {
   };
 }
 
-export function IfcWebIfcEnginePanel({ session, mappings, currentNexusObjectId, onMappingsChange }: Props) {
+export function IfcWebIfcEnginePanel({
+  session,
+  mappings,
+  currentNexusObjectId,
+  onMappingsChange,
+  onSourcePropertiesChange,
+}: Props) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [geometry, setGeometry] = useState<IfcLiteGeometryResult | null>(null);
@@ -114,6 +123,7 @@ export function IfcWebIfcEnginePanel({ session, mappings, currentNexusObjectId, 
     setEnabled(true);
     setLoading(true);
     setError(null);
+    onSourcePropertiesChange?.(null);
     try {
       const result = await webIfcWasmRenderer.load(session, {
         targetStepId: currentMapping?.ifcStepId,
@@ -184,6 +194,7 @@ export function IfcWebIfcEnginePanel({ session, mappings, currentNexusObjectId, 
       suppressClickRef.current = false;
       return;
     }
+    onSourcePropertiesChange?.(null);
     setSelectedGlobalId(mesh.globalId);
   }
 
@@ -194,7 +205,7 @@ export function IfcWebIfcEnginePanel({ session, mappings, currentNexusObjectId, 
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-fuchsia-300">Full IFC engine · development gate</p>
           <h2 className="mt-1 font-semibold">web-ifc WASM {WEB_IFC_VERSION}</h2>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            Optional full-engine geometry backend. Nexus downloads the pinned renderer runtime/WASM only after you enable it. The selected IFC model remains browser-local and is not uploaded by this panel.
+            Optional full-engine geometry and model-source reader. Nexus downloads the pinned renderer runtime/WASM only after you enable it. The selected IFC model remains browser-local and is not uploaded by this panel.
           </p>
         </div>
         <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-[10px] font-bold text-amber-200">DEV NETWORK RUNTIME</span>
@@ -234,12 +245,12 @@ export function IfcWebIfcEnginePanel({ session, mappings, currentNexusObjectId, 
 
       {geometry && geometry.meshes.length > 0 && (
         <>
-          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="overflow-hidden rounded-2xl border border-border bg-background/65">
               <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
                 <span className="inline-flex items-center gap-2 text-[10px] text-muted-foreground"><Rotate3D className="h-3.5 w-3.5" /> Drag to rotate · tap to select</span>
                 <div className="flex items-center gap-1">
-                  {currentMapping && <button type="button" onClick={() => setSelectedGlobalId(currentMapping.ifcGlobalId)} className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 p-1.5 text-emerald-200" aria-label="Focus mapped object"><Focus className="h-3.5 w-3.5" /></button>}
+                  {currentMapping && <button type="button" onClick={() => { onSourcePropertiesChange?.(null); setSelectedGlobalId(currentMapping.ifcGlobalId); }} className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 p-1.5 text-emerald-200" aria-label="Focus mapped object"><Focus className="h-3.5 w-3.5" /></button>}
                   <button type="button" onClick={() => setZoom((value) => Math.max(0.35, value / 1.2))} className="rounded-lg border border-border bg-secondary/40 p-1.5" aria-label="Zoom out"><Minus className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => setZoom((value) => Math.min(4, value * 1.2))} className="rounded-lg border border-border bg-secondary/40 p-1.5" aria-label="Zoom in"><Plus className="h-3.5 w-3.5" /></button>
                 </div>
@@ -275,20 +286,29 @@ export function IfcWebIfcEnginePanel({ session, mappings, currentNexusObjectId, 
                   ) : (
                     <button type="button" onClick={mapSelected} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-400/30 bg-indigo-400/10 px-3 py-2 text-[10px] font-semibold text-indigo-100"><Link2 className="h-3.5 w-3.5" /> Map to {currentNexusObjectId}</button>
                   )}
+
+                  <IfcSourcePropertiesPanel
+                    session={session}
+                    mesh={selectedMesh}
+                    mappedNexusObjectId={selectedMapping?.nexusObjectId}
+                    currentNexusObjectId={currentNexusObjectId}
+                    onCurrentObjectSnapshotChange={onSourcePropertiesChange}
+                  />
                 </>
               )}
             </aside>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className="mt-3 grid gap-2 sm:grid-cols-4">
             <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">web-ifc objects</p><p className="mt-1 text-sm font-semibold">{geometry.renderedObjectCount}</p></div>
             <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Triangles</p><p className="mt-1 text-sm font-semibold">{geometry.renderedTriangleCount.toLocaleString()}</p></div>
-            <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Identity contract</p><p className="mt-1 text-xs font-semibold">GlobalId ↔ Nexus Object</p></div>
+            <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Identity</p><p className="mt-1 text-xs font-semibold">GlobalId ↔ Nexus Object</p></div>
+            <div className="rounded-xl border border-border bg-background/35 p-3"><p className="text-[9px] uppercase text-muted-foreground">Source properties</p><p className="mt-1 text-xs font-semibold">Read-only · session</p></div>
           </div>
           {geometry.warnings.length > 0 && <p className="mt-3 rounded-xl border border-amber-400/15 bg-amber-400/5 p-3 text-[10px] text-muted-foreground">{geometry.warnings.join(" ")}</p>}
         </>
       )}
 
-      <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">Development renderer only. It is not a design-validation, clash-detection, calibration or compliance engine. Production packaging/self-hosting of the runtime remains a separate release gate.</p>
+      <p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">Development renderer only. IFC properties remain model-source data. Nexus does not promote them to readiness, compliance or installation truth automatically. Production packaging/self-hosting of the runtime remains a separate release gate.</p>
     </section>
   );
 }
