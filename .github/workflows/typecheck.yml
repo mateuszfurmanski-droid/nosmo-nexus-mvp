@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate Nexus Google Drive routing
+        run: node scripts/src/validate-nexus-google-drive-routing.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
