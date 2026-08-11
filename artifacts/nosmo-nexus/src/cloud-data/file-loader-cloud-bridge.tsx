@@ -165,8 +165,6 @@ async function uploadToNexusCloudDataLayer(
 ): Promise<UploadResult> {
   const projectId = detail.projectId;
 
-  // Re-run the same guard for online writes and offline queue replay. A stale
-  // queued record can never bypass the canonical project/world boundary.
   resolveFileLoaderCloudRoute(projectId, detail.worldId);
 
   const sourceModule = detail.sourceModule ?? "file-loader";
@@ -190,7 +188,7 @@ async function uploadToNexusCloudDataLayer(
   if (!permission.allowed) throw new Error(permission.reason);
 
   const stored = await provider.putObject({
-    scope: { projectId, assetId, fileId },
+    scope: { projectId, worldId: detail.worldId, assetId, fileId },
     objectKey,
     content: file.content,
     filename: file.name,
@@ -325,7 +323,6 @@ export function NexusFileLoaderCloudBridge() {
       };
       delete (uploadDetail as FileUploadRequestDetail).files;
 
-      // Validate before creating an offline record; replay validates again.
       try {
         resolveFileLoaderCloudRoute(projectId, uploadDetail.worldId);
       } catch (error) {
