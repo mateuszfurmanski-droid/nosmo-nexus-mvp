@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import FolderDock from "@/components/folder-dock";
 import PersistentWorkspace from "@/components/persistent-workspace";
+import "@/relationship-tree/change-event-project-graph-extension";
 import { NODES } from "@/components/workspace-data";
 import { parseRelationshipTreeLaunchContext } from "@/relationship-tree/launch-context";
 
