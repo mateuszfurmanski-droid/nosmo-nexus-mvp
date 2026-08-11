@@ -67,7 +67,7 @@ jobs:
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           grep -q "package: name='tech.nosmo.nexus.workmode.native'" /tmp/badging.txt
           grep -q "versionName='0.7.0-native-test'" /tmp/badging.txt
-          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.AutoDiscoveryActivity'" /tmp/badging.txt
+          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.NexusShellActivity'" /tmp/badging.txt
           grep -q "uses-permission: name='android.permission.READ_CONTACTS'" /tmp/badging.txt
           grep -q "uses-permission: name='android.permission.READ_CALENDAR'" /tmp/badging.txt
           grep -q "uses-permission: name='android.permission.READ_MEDIA_IMAGES'" /tmp/badging.txt
@@ -75,6 +75,7 @@ jobs:
           unzip -p "$APK" classes.dex > /tmp/classes.dex || true
           unzip -p "$APK" classes2.dex > /tmp/classes2.dex || true
           strings /tmp/classes.dex /tmp/classes2.dex | tee /tmp/dex-strings.txt
+          grep -q "One memory for the construction ecosystem" /tmp/dex-strings.txt
           grep -q "SCAN PHONE + CONNECTED CLOUD" /tmp/dex-strings.txt
           grep -q "GOOGLE DRIVE PERSONAL CLOUD" /tmp/dex-strings.txt
           grep -q "0.7.0" /tmp/dex-strings.txt
@@ -96,6 +97,7 @@ jobs:
             echo "Version: 0.7.0-native"
             echo "Package: tech.nosmo.nexus.workmode.native"
             echo "Runtime: pure Android Java"
+            echo "Launcher: native NexusShellActivity visual shell derived from the older NEXUS web prototype"
             echo "Discovery: Contacts + Calendar + MediaStore photo index + selected work photos + optional MANAGE_EXTERNAL_STORAGE file index + persistent document-provider cloud source"
             echo "Personal Cloud: persistent Google Drive folder through Android Storage Access Framework; accepted source files are copied and originals retained"
             echo "Project World: e-SAFE Project World handoff with Google Drive Personal Cloud provenance"
