@@ -11,6 +11,7 @@ import type { IfcSourcePropertiesSnapshot } from "@/bim/ifc-source-properties";
 import { IfcImportPanel } from "@/components/ifc-import-panel";
 import { IfcLiteGeometryViewer } from "@/components/ifc-lite-geometry-viewer";
 import { IfcWebIfcEnginePanel } from "@/components/ifc-web-ifc-engine-panel";
+import { IfcRevisionIntelligencePanel } from "@/components/ifc-revision-intelligence-panel";
 
 const base = import.meta.env.BASE_URL;
 
@@ -237,13 +238,20 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedM
               onSourcePropertiesChange={setSourceProperties}
             />
           </div>
+          <div className="mt-5">
+            <IfcRevisionIntelligencePanel
+              currentSession={modelSession}
+              mapping={ifcMapping}
+              pilot={pilot}
+            />
+          </div>
         </>
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-400/20 bg-purple-400/5 p-4">
         <div>
           <p className="text-xs font-semibold text-purple-200">Project Graph hand-off</p>
-          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Open this Nexus Object ID in the Relationship Tree. IFC properties remain session-local and are not serialized into the hand-off URL.</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">Open this Nexus Object ID in the Relationship Tree. IFC properties and revision comparison remain session-local and are not serialized into the hand-off URL.</p>
         </div>
         <Link href={relationshipTreeHref} className="inline-flex items-center gap-2 rounded-full border border-purple-400/30 bg-purple-400/10 px-4 py-2.5 text-xs font-semibold text-purple-200 hover:bg-purple-400/15">
           Open in Relationship Tree <Network className="h-4 w-4" />
