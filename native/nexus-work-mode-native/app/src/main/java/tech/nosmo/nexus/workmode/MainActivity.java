@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
 
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
     private static final String DOORFLOW_URL = "https://nosmotechnology.co.uk/doorflow.html";
+    private static final String AI_CONTEXT_VERSION = "android-work-discovery-v1";
 
     private final ArrayList<Signal> signals = new ArrayList<>();
     private final Set<String> dedupe = new HashSet<>();
@@ -86,21 +87,25 @@ public class MainActivity extends Activity {
     private void showWelcome() {
         LinearLayout root = page();
         addBrand(root);
-        addTitle(root, "Work Mode");
+        addTitle(root, "AI Work Mode");
         addBody(root,
-                "NEXUS prepares a work context from Android sources you approve. Start with contacts and calendar, then add a project folder or selected work photos.");
-        addStatus(root, "READY", GREEN);
+                "NEXUS prepares an AI-ready work context from Android sources you approve. Start with contacts and calendar, then add a project folder or selected work photos.");
+        addStatus(root, "AI CONTEXT READY", GREEN);
 
         Button start = primaryButton("Start discovery");
         start.setOnClickListener(v -> startDiscovery());
         root.addView(start, fullWidth(dp(60)));
 
-        Button tree = secondaryButton("Open Relationship Tree");
+        Button ai = secondaryButton("Ask Nexus AI");
+        ai.setOnClickListener(v -> openUrl(aiAssistantUrl("home")));
+        root.addView(ai, fullWidth(dp(56)));
+
+        Button tree = secondaryButton("Open Project World");
         tree.setOnClickListener(v -> openUrl(workTreeUrl("home")));
         root.addView(tree, fullWidth(dp(56)));
 
         addSmall(root,
-                "Privacy boundary: no Accessibility Service, no WhatsApp/Gmail database scraping, no unrestricted storage crawl. Contacts and Calendar use Android permissions. Files and photos use system pickers.");
+                "Privacy boundary: no AI key in this APK, no Accessibility Service, no WhatsApp/Gmail database scraping, no unrestricted storage crawl. AI inference must run in Nexus web/backend after this app hands off an AI context packet.");
         setPage(root);
     }
 
@@ -364,10 +369,10 @@ public class MainActivity extends Activity {
     private void showReview() {
         LinearLayout root = page();
         addBrand(root);
-        addTitle(root, "Discovery Review");
+        addTitle(root, "AI Discovery Review");
         addBody(root, signals.isEmpty()
                 ? "No strong work signals found yet. Add a project folder or selected photos."
-                : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work.");
+                : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work. Nexus AI will receive a bounded handoff packet, not raw phone data.");
         addStatus(root, selectedCount() + " SELECTED", GREEN);
 
         Button folder = secondaryButton("+ Add / scan work folder");
@@ -398,11 +403,18 @@ public class MainActivity extends Activity {
             addSmall(root, "+ " + (signals.size() - shown) + " more signals retained in this scan.");
         }
 
-        Button start = primaryButton("Accept + start Work Mode");
-        start.setOnClickListener(v -> enableWorkMode());
-        root.addView(start, fullWidth(dp(62)));
+        Button ask = primaryButton("Ask Nexus AI with this context");
+        ask.setOnClickListener(v -> {
+            persistAiContext();
+            openUrl(aiAssistantUrl("review"));
+        });
+        root.addView(ask, fullWidth(dp(62)));
 
-        Button tree = secondaryButton("Preview in Relationship Tree");
+        Button start = secondaryButton("Accept + start Work Mode");
+        start.setOnClickListener(v -> enableWorkMode());
+        root.addView(start, fullWidth(dp(54)));
+
+        Button tree = secondaryButton("Preview Project World");
         tree.setOnClickListener(v -> openUrl(workTreeUrl("review")));
         root.addView(tree, fullWidth(dp(54)));
 
@@ -420,16 +432,27 @@ public class MainActivity extends Activity {
                 .putString("activeProject", project)
                 .putInt("acceptedSignals", accepted)
                 .putString("signalSummary", selectedSummary())
+                .putString("aiContextPacket", aiContextPacket(project, accepted))
                 .apply();
-        Toast.makeText(this, "NEXUS Work Mode ON", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "NEXUS AI Work Mode ON", Toast.LENGTH_LONG).show();
         showWorkMode();
+    }
+
+    private void persistAiContext() {
+        String project = inferProject();
+        prefs.edit()
+                .putString("activeProject", project)
+                .putInt("acceptedSignals", selectedCount())
+                .putString("signalSummary", selectedSummary())
+                .putString("aiContextPacket", aiContextPacket(project, selectedCount()))
+                .apply();
     }
 
     private void showWorkMode() {
         LinearLayout root = page();
         addBrand(root);
-        addTitle(root, "WORK MODE");
-        addStatus(root, "ON", GREEN);
+        addTitle(root, "AI WORK MODE");
+        addStatus(root, "AI READY", GREEN);
 
         String project = prefs.getString("activeProject", "Unassigned work");
         int accepted = prefs.getInt("acceptedSignals", 0);
@@ -441,9 +464,13 @@ public class MainActivity extends Activity {
             addSmall(root, summary);
         }
 
-        Button tree = primaryButton("Open Project World / Relationship Tree");
+        Button ask = primaryButton("Ask Nexus AI");
+        ask.setOnClickListener(v -> openUrl(aiAssistantUrl("work-mode")));
+        root.addView(ask, fullWidth(dp(62)));
+
+        Button tree = secondaryButton("Open Project World");
         tree.setOnClickListener(v -> openUrl(workTreeUrl("project-world")));
-        root.addView(tree, fullWidth(dp(62)));
+        root.addView(tree, fullWidth(dp(54)));
 
         Button files = secondaryButton("Add evidence photos");
         files.setOnClickListener(v -> choosePhotos());
@@ -469,7 +496,7 @@ public class MainActivity extends Activity {
         });
         root.addView(off, fullWidth(dp(54)));
 
-        addSmall(root, "Native Android beta 0.5.1 · accepted context stays local on this device in this build. Relationship Tree receives a work-mode handoff URL only.");
+        addSmall(root, "Native Android beta 0.5.2-ai · this app prepares the AI context packet. Nexus web/backend owns the model call and must enforce project permissions.");
         setPage(root);
     }
 
@@ -486,13 +513,65 @@ public class MainActivity extends Activity {
                 .toString();
     }
 
+    private String aiAssistantUrl(String surface) {
+        String project = prefs == null ? inferProject() : prefs.getString("activeProject", inferProject());
+        int accepted = prefs == null ? selectedCount() : prefs.getInt("acceptedSignals", selectedCount());
+        return Uri.parse(TREE_URL).buildUpon()
+                .appendQueryParameter("nexusMode", "work")
+                .appendQueryParameter("nexusClient", "android-native")
+                .appendQueryParameter("nexusSurface", "ai-assistant")
+                .appendQueryParameter("nexusIntent", "ask-nexus")
+                .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
+                .appendQueryParameter("nexusProject", slug(project))
+                .appendQueryParameter("acceptedSignals", String.valueOf(accepted))
+                .appendQueryParameter("signalTypes", sourceBreakdown())
+                .appendQueryParameter("nexusPrompt", aiPrompt(surface))
+                .build()
+                .toString();
+    }
+
     private String doorflowUrl() {
         return Uri.parse(DOORFLOW_URL).buildUpon()
                 .appendQueryParameter("nexusMode", "work")
                 .appendQueryParameter("nexusClient", "android-native")
                 .appendQueryParameter("nexusProject", slug(prefs.getString("activeProject", "Unassigned work")))
+                .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
                 .build()
                 .toString();
+    }
+
+    private String aiPrompt(String surface) {
+        return "Use the Android Work Mode context to identify the active project, likely work package, missing evidence, immediate next action, and the best Nexus Project Graph node to open. Surface=" + surface + ". Do not treat phone discovery as authority; resolve project permissions in Nexus.";
+    }
+
+    private String aiContextPacket(String project, int accepted) {
+        return "version=" + AI_CONTEXT_VERSION +
+                "; client=android-native" +
+                "; project=" + slug(project) +
+                "; acceptedSignals=" + accepted +
+                "; signalTypes=" + sourceBreakdown() +
+                "; modelCall=server-side-only";
+    }
+
+    private String sourceBreakdown() {
+        int contacts = 0;
+        int calendar = 0;
+        int files = 0;
+        int photos = 0;
+        int other = 0;
+        for (Signal signal : signals) {
+            if (!signal.selected) continue;
+            if ("CONTACT".equals(signal.source)) contacts++;
+            else if ("CALENDAR".equals(signal.source)) calendar++;
+            else if ("FILE".equals(signal.source)) files++;
+            else if ("PHOTO".equals(signal.source)) photos++;
+            else other++;
+        }
+        if (signals.isEmpty() && prefs != null) {
+            String packet = prefs.getString("aiContextPacket", "");
+            if (!packet.isEmpty()) return "persisted-local-packet";
+        }
+        return "contact:" + contacts + ",calendar:" + calendar + ",file:" + files + ",photo:" + photos + ",other:" + other;
     }
 
     private String inferProject() {
