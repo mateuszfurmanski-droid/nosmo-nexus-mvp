@@ -101,7 +101,11 @@ jobs:
             http://127.0.0.1:3000/api/integrations/work-wallet/demo-events \
             | grep 'ci-work-wallet-event-001' > /dev/null
 
+      # PR validation must remain a hard code gate on typecheck/build/smoke only.
+      # Build artifacts are still uploaded on main/manual runs, but PRs skip upload
+      # so repository-level artifact quota does not turn valid code red.
       - name: Upload Nexus build
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: nosmo-nexus-web
