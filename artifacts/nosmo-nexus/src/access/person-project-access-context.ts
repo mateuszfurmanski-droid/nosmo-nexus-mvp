@@ -57,7 +57,7 @@ export type ProjectAccessContext = {
 export const PERSON_CARDS: PersonCard[] = [
   {
     personId: "person-demo-multi-project",
-    displayName: "Demo Multi-project Worker",
+    displayName: "Alex Carter",
     professions: ["JOINER", "CONSTRUCTION_MANAGER"],
     qualifications: ["Carpentry & Joinery", "Construction Management", "CSCS"],
     certifications: ["Fire door awareness"],
