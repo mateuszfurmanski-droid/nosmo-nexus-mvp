@@ -1,4 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import {
+  nexusCloudDriveManifestStatus,
+  resolveNexusServerCloudRoute,
+} from "./nexus-cloud-drive-route-policy.mjs";
 
 const maxBodyBytes = 32 * 1024 * 1024;
 const maxObjects = 200;
@@ -54,6 +58,7 @@ function cloudStorageStatus() {
     providerBoundary: "nexus-api",
     providerKind,
     storedObjects: objects.size,
+    driveRouting: nexusCloudDriveManifestStatus(),
   };
 }
 
@@ -102,6 +107,7 @@ function decodeMetadata(request) {
   if (!scope || !checksum) throw new Error("MISSING_REQUIRED_FIELDS");
 
   const projectId = requiredString(scope, "projectId");
+  const worldId = optionalString(scope, "worldId");
   const assetId = requiredString(scope, "assetId");
   const fileId = requiredString(scope, "fileId");
   const objectKey = requiredString(record, "objectKey");
@@ -118,10 +124,14 @@ function decodeMetadata(request) {
   }
   if (checksumAlgorithm !== "sha256") throw new Error("UNSUPPORTED_CHECKSUM_ALGORITHM");
 
+  // Server authority: do not trust a browser-only routing decision.
+  resolveNexusServerCloudRoute(projectId, worldId);
+
   return {
     scope: {
       tenantId: optionalString(scope, "tenantId"),
       projectId,
+      worldId,
       assetId,
       fileId,
     },
@@ -138,17 +148,20 @@ function decodeMetadata(request) {
 
 function normaliseReadRequest(url) {
   const projectId = url.searchParams.get("projectId")?.trim();
+  const worldId = url.searchParams.get("worldId")?.trim() || undefined;
   const assetId = url.searchParams.get("assetId")?.trim();
   const fileId = url.searchParams.get("fileId")?.trim();
   const objectKey = url.searchParams.get("objectKey")?.trim();
   const tenantId = url.searchParams.get("tenantId")?.trim() || undefined;
 
   if (!projectId || !assetId || !fileId || !objectKey) throw new Error("MISSING_REQUIRED_FIELDS");
-  return { tenantId, projectId, assetId, fileId, objectKey };
+  resolveNexusServerCloudRoute(projectId, worldId);
+  return { tenantId, projectId, worldId, assetId, fileId, objectKey };
 }
 
 function objectMatchesScope(record, readRequest) {
   return record.scope.projectId === readRequest.projectId
+    && (record.scope.worldId ?? "") === (readRequest.worldId ?? "")
     && record.scope.assetId === readRequest.assetId
     && record.scope.fileId === readRequest.fileId
     && record.objectKey === readRequest.objectKey
