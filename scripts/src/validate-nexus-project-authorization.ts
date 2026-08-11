@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   evaluateNexusProjectParticipationAccess,
   isSafeNexusProjectId,
@@ -87,7 +88,8 @@ assert(isSafeNexusProjectId("halifax-demo"), "canonical project ID must be accep
 assert(!isSafeNexusProjectId("../halifax"), "path-like project ID must be rejected");
 assert(!isSafeNexusProjectId(""), "empty project ID must be rejected");
 
-const root = process.cwd();
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, "../..");
 const projectSchema = fs.readFileSync(
   path.join(root, "lib/db/src/schema/projects.ts"),
   "utf8",
