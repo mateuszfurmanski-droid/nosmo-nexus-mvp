@@ -13,12 +13,48 @@ type WorkModeAiHandoffContext = {
   prompt: string;
 };
 
+type WorkSuiteDraftActionEnvelope = {
+  draftId: string;
+  status: string;
+  mutationMode: string;
+  executionBoundary: string;
+  source: string;
+  actionKind: string;
+  proposedAction: {
+    actionId: string;
+    title: string;
+    target: string;
+    detail: string;
+  };
+  scope: {
+    projectId: string;
+    worldId?: string;
+    requestedProject: string;
+    acceptedSignals: number;
+    contextVersion: string;
+  };
+  authorityRequired: {
+    authenticatedPerson: boolean;
+    activeProjectParticipation: boolean;
+    projectFunctionOrExplicitScope: boolean;
+    denyOverrideCheck: boolean;
+    workSuiteActionEngineApproval: boolean;
+  };
+  audit: {
+    origin: string;
+    modelExecution: string;
+    note: string;
+  };
+};
+
 type WorkModeAiServerAction = {
   id: string;
   title: string;
   detail: string;
   target: string;
   requiresAuthority: boolean;
+  executionMode: "intent-only-no-mutation";
+  draftAction: WorkSuiteDraftActionEnvelope;
 };
 
 type WorkModeAiServerResponse = {
@@ -43,6 +79,7 @@ type WorkModeAiServerResponse = {
 
 const WORK_MODE_AI_CONTEXT = "android-work-discovery-v1";
 const WORK_MODE_INTENT = "ask-nexus";
+const WORKSUITE_DRAFT_BOUNDARY = "worksuite-action-engine-required";
 
 function readParam(params: URLSearchParams, key: string) {
   const value = params.get(key);
@@ -153,12 +190,15 @@ function dispatchWorkModeAiNextActionIntent(
   serverSummary: WorkModeAiServerResponse | null,
 ) {
   const canonical = canonicalProjectFor(context);
+  const draftAction = action.draftAction;
   window.dispatchEvent(new CustomEvent("nexus:work-mode-ai-next-action", {
     detail: {
       actionId: action.id,
       title: action.title,
       target: action.target,
       requiresAuthority: action.requiresAuthority,
+      executionMode: action.executionMode,
+      draftAction,
       projectId: canonical.projectId,
       worldId: canonical.worldId,
       requestedProjectId: canonical.requestedProjectId,
@@ -168,6 +208,18 @@ function dispatchWorkModeAiNextActionIntent(
       modelExecution: serverSummary?.modelExecution ?? "disabled-demo-boundary",
       source: "work-mode-ai-overlay",
       status: "intent-only-no-mutation",
+    },
+  }));
+
+  window.dispatchEvent(new CustomEvent("nexus:worksuite-draft-action-proposed", {
+    detail: {
+      draftAction,
+      projectId: canonical.projectId,
+      worldId: canonical.worldId,
+      requestedProjectId: canonical.requestedProjectId,
+      source: "work-mode-ai-overlay",
+      status: "draft-only-no-mutation",
+      executionBoundary: draftAction.executionBoundary || WORKSUITE_DRAFT_BOUNDARY,
     },
   }));
 }
@@ -197,6 +249,7 @@ function runNextActionIntent(
         worldId: canonical.worldId,
         requestedProjectId: canonical.requestedProjectId,
         acceptedSignals: context.acceptedSignals,
+        draftAction: action.draftAction,
         source: "work-mode-ai-overlay",
         status: "draft-intent-only-no-mutation",
       },
@@ -265,7 +318,7 @@ export function NexusWorkModeAiHandoffReceiver() {
 
   const handleNextAction = (action: WorkModeAiServerAction) => {
     runNextActionIntent(context, action, serverSummary);
-    setLastIntentQueued(action.title);
+    setLastIntentQueued(`${action.title} → ${action.draftAction.draftId}`);
   };
 
   return (
@@ -338,6 +391,9 @@ export function NexusWorkModeAiHandoffReceiver() {
                       <div>
                         <strong className="block text-cyan-100">{action.title}</strong>
                         <span className="text-slate-400">{action.detail}</span>
+                        <span className="mt-1 block text-[9px] text-slate-500">
+                          Draft: {action.draftAction.draftId} · {action.draftAction.executionBoundary}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -357,7 +413,7 @@ export function NexusWorkModeAiHandoffReceiver() {
               </div>
               {lastIntentQueued && (
                 <p className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 px-2 py-1 text-[10px] text-cyan-100">
-                  Queued UI intent: {lastIntentQueued}. No backend mutation was executed.
+                  WorkSuite draft action proposed: {lastIntentQueued}. No backend mutation was executed.
                 </p>
               )}
             </div>
