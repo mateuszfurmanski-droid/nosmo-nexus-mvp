@@ -1,11 +1,15 @@
-export type RelationshipTreeLaunchSource = "work-wallet" | "bim-overlay";
+export type RelationshipTreeLaunchSource = "work-wallet" | "bim-overlay" | "change-control";
 
 export type RelationshipTreeLaunchContext = {
   source: RelationshipTreeLaunchSource;
   focusNodeId: string;
 };
 
-const APPROVED_SOURCES = new Set<RelationshipTreeLaunchSource>(["work-wallet", "bim-overlay"]);
+const APPROVED_SOURCES = new Set<RelationshipTreeLaunchSource>([
+  "work-wallet",
+  "bim-overlay",
+  "change-control",
+]);
 const SAFE_IDENTIFIER = /^[A-Za-z0-9_-]+$/;
 const MAX_SOURCE_LENGTH = 40;
 const MAX_FOCUS_LENGTH = 80;
