@@ -1,6 +1,6 @@
-import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { NextFunction, Request, Response } from "express";
+import { resolveWorkWalletRuntimeModulePath } from "./nexus-runtime-paths";
 
 export type WorkWalletRuntimeStatus = {
   gatewayConfigured: boolean;
@@ -20,11 +20,7 @@ type WorkWalletRuntimeModule = {
 let runtimeModulePromise: Promise<WorkWalletRuntimeModule> | null = null;
 
 function runtimeModuleUrl(): string {
-  const modulePath = path.resolve(
-    process.cwd(),
-    "scripts/src/work-wallet-api.mjs",
-  );
-  return pathToFileURL(modulePath).href;
+  return pathToFileURL(resolveWorkWalletRuntimeModulePath()).href;
 }
 
 async function getWorkWalletRuntimeModule(): Promise<WorkWalletRuntimeModule> {
