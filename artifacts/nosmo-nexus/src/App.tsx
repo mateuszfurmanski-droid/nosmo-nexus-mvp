@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/layout";
 import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
+import { NexusFileLoaderCloudBridge } from "@/cloud-data/file-loader-cloud-bridge";
 
 // Pages
 import NexusLaunchpad from "@/pages/nexus-launchpad";
@@ -104,6 +105,7 @@ function App() {
         <FocusProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <AvailabilityProvider>
+              <NexusFileLoaderCloudBridge />
               <Router />
             </AvailabilityProvider>
           </WouterRouter>
