@@ -3,16 +3,16 @@ import {
   type AccessResolution,
   type ApplicationPermission,
   type PersonAccessProfile,
+  type ProfessionKey,
+  type ProjectAssignment,
+  type ProjectFunction,
   type ProjectParticipation,
-  type ProjectRole,
-  type TradeKey,
 } from "./access-resolver";
 
 export type PersonCard = {
   personId: string;
   displayName: string;
-  primaryTrade?: string;
-  professions?: string[];
+  professions: ProfessionKey[];
   qualifications?: string[];
   certifications?: string[];
   competences?: string[];
@@ -22,8 +22,8 @@ export type ProjectParticipationRecord = {
   participationId: string;
   personId: string;
   projectId: string;
-  roles: ProjectRole[];
-  trades: TradeKey[];
+  functions: ProjectFunction[];
+  assignments: ProjectAssignment[];
   permissions?: ApplicationPermission[];
   responsibilities?: string[];
   company?: string;
@@ -41,18 +41,16 @@ export const PERSON_CARDS: PersonCard[] = [
   {
     personId: "person-demo-multi-project",
     displayName: "Demo Multi-project Worker",
-    primaryTrade: "Joinery",
-    professions: ["Joiner", "Site Supervisor"],
-    qualifications: ["CSCS"],
+    professions: ["JOINER", "CONSTRUCTION_MANAGER"],
+    qualifications: ["Carpentry & Joinery", "Construction Management", "CSCS"],
     certifications: ["Fire door awareness"],
     competences: ["Doors", "Second fix", "Site coordination"],
   },
   {
     personId: "person-demo-electrician",
     displayName: "Demo Electrician",
-    primaryTrade: "Electrical",
-    professions: ["Electrician"],
-    qualifications: ["Electrical installation"],
+    professions: ["ELECTRICIAN"],
+    qualifications: ["Electrical Installation"],
     competences: ["Electrical commissioning"],
   },
 ];
@@ -62,8 +60,8 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
     participationId: "participation-halifax-multi",
     personId: "person-demo-multi-project",
     projectId: "halifax-demo",
-    roles: ["PROJECT_MANAGER"],
-    trades: ["GENERAL", "DOORS_FIRE"],
+    functions: ["PROJECT_MANAGER"],
+    assignments: ["GENERAL", "DOORS_FIRE"],
     responsibilities: ["Project coordination", "Doors & fire package"],
     company: "NOSMO Demo",
   },
@@ -71,8 +69,8 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
     participationId: "participation-riverside-multi",
     personId: "person-demo-multi-project",
     projectId: "riverside-demo",
-    roles: ["TRADE"],
-    trades: ["DOORS_FIRE"],
+    functions: ["INSTALLER"],
+    assignments: ["DOORS_FIRE"],
     permissions: [
       {
         app: "electrical",
@@ -87,8 +85,8 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
     participationId: "participation-halifax-electrician",
     personId: "person-demo-electrician",
     projectId: "halifax-demo",
-    roles: ["TRADE"],
-    trades: ["ELECTRICAL"],
+    functions: ["COMMISSIONING_ENGINEER"],
+    assignments: ["ELECTRICAL"],
     responsibilities: ["Electrical commissioning"],
     company: "Electrical Demo Ltd",
   },
@@ -97,8 +95,8 @@ export const PROJECT_PARTICIPATIONS: ProjectParticipationRecord[] = [
 function toResolverParticipation(record: ProjectParticipationRecord): ProjectParticipation {
   return {
     projectId: record.projectId,
-    roles: record.roles,
-    trades: record.trades,
+    functions: record.functions,
+    assignments: record.assignments,
     permissions: record.permissions,
   };
 }
@@ -121,6 +119,10 @@ export function resolvePersonProjectAccess(personId: string, projectId: string):
   const profile: PersonAccessProfile = {
     personId: personCard.personId,
     displayName: personCard.displayName,
+    professions: personCard.professions,
+    qualifications: personCard.qualifications,
+    certifications: personCard.certifications,
+    competences: personCard.competences,
     participations: participation ? [toResolverParticipation(participation)] : [],
   };
 
