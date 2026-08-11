@@ -19,36 +19,11 @@ import {
   ISSUER_URL,
   type SessionData,
 } from "../lib/auth";
+import { getRequestOrigin, isSameOriginRequest } from "../lib/request-origin";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 
 const router: IRouter = Router();
-
-function getOrigin(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host =
-    req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
-  return `${proto}://${host}`;
-}
-
-function isSameOrigin(req: Request): boolean {
-  const expected = getOrigin(req);
-  const origin = req.headers["origin"];
-  if (origin) {
-    return origin === expected;
-  }
-  // Fall back to Referer when Origin is absent (e.g. same-origin navigations).
-  const referer = req.headers["referer"];
-  if (referer) {
-    try {
-      return new URL(referer).origin === expected;
-    } catch {
-      return false;
-    }
-  }
-  // No Origin or Referer — reject to be safe.
-  return false;
-}
 
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
@@ -99,7 +74,6 @@ async function upsertUser(claims: Record<string, unknown>) {
       },
     })
     .returning();
-  // Create the user's workspace (and starter project) on first login.
   await ensureWorkspace(user.id, user.firstName);
   return user;
 }
@@ -114,7 +88,7 @@ router.get("/auth/user", (req: Request, res: Response) => {
 
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const callbackUrl = `${getRequestOrigin(req)}/api/callback`;
 
   const returnTo = getSafeReturnTo(req.query.returnTo);
 
@@ -141,11 +115,9 @@ router.get("/login", async (req: Request, res: Response) => {
   res.redirect(redirectTo.href);
 });
 
-// Query params are not validated because the OIDC provider may include
-// parameters not expressed in the schema.
 router.get("/callback", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const callbackUrl = `${getRequestOrigin(req)}/api/callback`;
 
   const codeVerifier = req.cookies?.code_verifier;
   const nonce = req.cookies?.nonce;
@@ -210,13 +182,13 @@ router.get("/callback", async (req: Request, res: Response) => {
 });
 
 router.post("/logout", async (req: Request, res: Response) => {
-  if (!isSameOrigin(req)) {
+  if (!isSameOriginRequest(req)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
 
   const config = await getOidcConfig();
-  const origin = getOrigin(req);
+  const origin = getRequestOrigin(req);
 
   const sid = getSessionId(req);
   await clearSession(res, sid);
