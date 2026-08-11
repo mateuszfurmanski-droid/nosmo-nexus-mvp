@@ -12,6 +12,10 @@ import {
   getWorkWalletRuntimeStatus,
   workWalletRuntimeMiddleware,
 } from "./lib/work-wallet-runtime";
+import {
+  getNexusCloudStorageRuntimeStatus,
+  nexusCloudStorageRuntimeMiddleware,
+} from "./lib/nexus-cloud-storage-runtime";
 
 const app: Express = express();
 const publicDirectory = resolveNexusWebPublicDirectory();
@@ -54,18 +58,19 @@ app.get("/health", async (_req, res) => {
       status: "ok",
       service: "nosmo-nexus-unified-runtime",
       workWallet: await getWorkWalletRuntimeStatus(),
+      cloudStorage: await getNexusCloudStorageRuntimeStatus(),
     });
   } catch {
     res.status(503).json({
       status: "degraded",
       service: "nosmo-nexus-unified-runtime",
-      error: "WORK_WALLET_RUNTIME_UNAVAILABLE",
+      error: "NEXUS_RUNTIME_DEPENDENCY_UNAVAILABLE",
     });
   }
 });
 
-// The existing Work Wallet gateway owns its raw request body and 64 KB limit.
-// Keep this before any generic Express body parser.
+// Work Wallet owns its raw webhook body and server-to-server integration key.
+// Keep it first and before every generic body parser.
 app.use(workWalletRuntimeMiddleware);
 
 app.use(
@@ -77,9 +82,19 @@ app.use(
   }),
 );
 app.use(cookieParser());
+
+// Resolve the existing Nexus session before Cloud binary handling. authMiddleware
+// reads only cookies/session state and never consumes req.body.
+app.use(authMiddleware);
+
+// Cloud storage owns arbitrary binary request bodies. Its middleware performs
+// canonical Person + Project Participation authorization before delegating to
+// the shared storage handler, so no browser storage API key is needed.
+app.use(nexusCloudStorageRuntimeMiddleware);
+
+// Generic parsers are intentionally after raw Work Wallet and Cloud handlers.
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-app.use(authMiddleware);
 
 app.use("/api", router);
 
