@@ -33,7 +33,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate Nexus Google Drive routing
-        run: node scripts/src/validate-nexus-google-drive-routing.mjs
+        run: |
+          node scripts/src/validate-nexus-google-drive-routing.mjs
+          pnpm --filter @workspace/scripts exec tsx ../artifacts/nosmo-nexus/src/cloud-data/validate-file-loader-drive-routing.ts
 
       - name: Validate Android Work Mode AI handoff receiver
         run: node scripts/src/validate-work-mode-ai-handoff.mjs
