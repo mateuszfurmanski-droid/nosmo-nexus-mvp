@@ -63,7 +63,10 @@ function recordNodeId(recordId: string) {
   return `esafe-record-${recordId}`;
 }
 
-function tradeForRecord(record: Pick<EsafeRecord, "title" | "category">): EsafeTrade {
+// The current e-SAFE publication model does not expose a canonical trade field.
+// Until a source-native trade attribute exists, use conservative title-based inference
+// and keep Project / General as the fallback rather than inventing a specialist trade.
+export function inferEsafeTrade(record: Pick<EsafeRecord, "title" | "category">): EsafeTrade {
   const value = record.title.toLowerCase();
 
   if (
@@ -167,7 +170,7 @@ export function buildEsafeProjectGraph(timeline: EsafeTimelineState): EsafeProje
   ];
 
   for (const trade of ESAFE_TRADES) {
-    const allTradeRecords = ESAFE_RECORDS.filter((record) => tradeForRecord(record) === trade);
+    const allTradeRecords = ESAFE_RECORDS.filter((record) => inferEsafeTrade(record) === trade);
     if (!allTradeRecords.length) continue;
 
     const visibleTradeCount = allTradeRecords.filter((record) => visibleIds.has(record.id)).length;
@@ -182,7 +185,7 @@ export function buildEsafeProjectGraph(timeline: EsafeTimelineState): EsafeProje
     });
 
     const latestTradePreviews = previews
-      .filter((record) => tradeForRecord(record) === trade)
+      .filter((record) => inferEsafeTrade(record) === trade)
       .slice(0, 3);
 
     for (const record of latestTradePreviews) {
