@@ -48,7 +48,7 @@ assert(generic.mode === "provider-neutral", "unknown project must not be guessed
 const cloudRootId = nexusCloudDriveManifest.roots.cloudRoot.id;
 assert(esafe.targetFolderId !== cloudRootId, "e-SAFE must never target the global Cloud root");
 assert(riverside.targetFolderId !== cloudRootId, "Riverside must never target the global Cloud root");
-assert(esafe.targetFolderId !== riverside.targetFolderId, "e-SAFE and Riverside pending folders must be distinct");
+assert(String(esafe.targetFolderId) !== String(riverside.targetFolderId), "e-SAFE and Riverside pending folders must be distinct");
 
 const esafeAlias = resolveNexusGoogleDriveProjectRouteFromAlias("e-safe");
 assert(esafeAlias?.route.projectId === "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA", "existing e-SAFE Android alias must survive reconciliation");
