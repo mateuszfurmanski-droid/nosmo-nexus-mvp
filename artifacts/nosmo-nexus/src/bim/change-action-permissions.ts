@@ -10,6 +10,12 @@ export type ChangeActionIdentityAssurance =
   | "SYNTHETIC_DEMO"
   | "ATTESTED_ONLY";
 
+export type ChangeActionAuthoritySource =
+  | "AUTHENTICATED_PERSON_PROJECT_PARTICIPATION"
+  | "SYNTHETIC_DEMO_PROJECT_PARTICIPATION"
+  | "ATTESTED_PROJECT_PARTICIPATION"
+  | "NO_ACTIVE_PROJECT_PARTICIPATION";
+
 export type ChangeActionProjectFunction = ProjectFunction;
 
 /**
@@ -28,6 +34,7 @@ export type ChangeActionActorContext = {
   tradeScopes: string[];
   workPackageScopes: string[];
   identityAssurance: ChangeActionIdentityAssurance;
+  authoritySource: ChangeActionAuthoritySource;
   explicitDenyDecisions?: PersistedChangeDecisionCode[];
 };
 
@@ -79,19 +86,32 @@ function normaliseExplicitDenyActions(values: string[] | undefined) {
   return values?.filter(isPersistedChangeDecisionCode);
 }
 
+function resolveAuthoritySource(args: {
+  activeProjectParticipation: boolean;
+  identityAssurance: ChangeActionIdentityAssurance;
+}): ChangeActionAuthoritySource {
+  if (!args.activeProjectParticipation) return "NO_ACTIVE_PROJECT_PARTICIPATION";
+  if (args.identityAssurance === "AUTHENTICATED") return "AUTHENTICATED_PERSON_PROJECT_PARTICIPATION";
+  if (args.identityAssurance === "SYNTHETIC_DEMO") return "SYNTHETIC_DEMO_PROJECT_PARTICIPATION";
+  return "ATTESTED_PROJECT_PARTICIPATION";
+}
+
 export function createChangeActionActorContext(context: ProjectAccessContext): ChangeActionActorContext {
   const { personCard, participation, resolution } = context;
+  const identityAssurance: ChangeActionIdentityAssurance = participation?.identityAssurance ?? "ATTESTED_ONLY";
+  const activeProjectParticipation = resolution.activeProjectParticipation;
   return {
     personId: personCard.personId,
     displayName: personCard.displayName,
     professions: personCard.professions,
     projectId: resolution.projectId,
     participationId: participation?.participationId,
-    activeProjectParticipation: resolution.activeProjectParticipation,
+    activeProjectParticipation,
     projectFunctions: participation?.functions ?? resolution.projectFunctions,
     tradeScopes: participation?.tradeScopes ?? resolution.tradeScopes,
     workPackageScopes: participation?.workPackageScopes ?? resolution.workPackageScopes,
-    identityAssurance: participation?.identityAssurance ?? "ATTESTED_ONLY",
+    identityAssurance,
+    authoritySource: resolveAuthoritySource({ activeProjectParticipation, identityAssurance }),
     explicitDenyDecisions: normaliseExplicitDenyActions(participation?.explicitDenyActions),
   };
 }
@@ -180,4 +200,4 @@ export function resolveChangeActionPermissionFromProjectAccess(args: {
  */
 export const ACTION_ENGINE_DEMO_ACTORS: ChangeActionActorContext[] = listProjectAccessContexts(ACTION_ENGINE_DEMO_PROJECT_ID)
   .map(createChangeActionActorContext)
-  .filter((actor) => actor.identityAssurance === "SYNTHETIC_DEMO");
+  .filter((actor) => actor.authoritySource === "SYNTHETIC_DEMO_PROJECT_PARTICIPATION");
