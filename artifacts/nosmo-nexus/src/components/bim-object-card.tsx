@@ -1,7 +1,12 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { BriefcaseBusiness, Cuboid, Fingerprint, Network, ShieldCheck } from "lucide-react";
 import type { InstallationPilot } from "@/bim/installation-pilots";
-import type { IfcGuidMapping } from "@/bim/ifc-mapping";
+import {
+  loadIfcMappings,
+  type IfcGuidMapping,
+} from "@/bim/ifc-mapping";
+import { IfcImportPanel } from "@/components/ifc-import-panel";
 
 const base = import.meta.env.BASE_URL;
 
@@ -12,7 +17,17 @@ type BimObjectCardProps = {
   ifcMapping?: IfcGuidMapping;
 };
 
-export function BimObjectCard({ pilot, readiness, blocked, ifcMapping }: BimObjectCardProps) {
+export function BimObjectCard({ pilot, readiness, blocked, ifcMapping: suppliedMapping }: BimObjectCardProps) {
+  const [localMappings, setLocalMappings] = useState<IfcGuidMapping[]>([]);
+
+  useEffect(() => {
+    setLocalMappings(loadIfcMappings());
+  }, []);
+
+  const ifcMapping = useMemo(
+    () => suppliedMapping ?? localMappings.find((mapping) => mapping.nexusObjectId === pilot.object.id),
+    [localMappings, pilot.object.id, suppliedMapping],
+  );
   const relationshipTreeHref = `/relationship-tree?nexusSource=bim-overlay&nexusFocus=${pilot.object.id}`;
   const externalIdentity = ifcMapping?.ifcGlobalId ?? pilot.object.externalId;
 
@@ -125,6 +140,15 @@ export function BimObjectCard({ pilot, readiness, blocked, ifcMapping }: BimObje
           </div>
           <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">UNKNOWN remains UNKNOWN. Work Wallet references in these pilots are synthetic readiness context, not live vendor records.</p>
         </div>
+      </div>
+
+      <div className="mt-5">
+        <IfcImportPanel
+          pilots={[pilot]}
+          mappings={localMappings}
+          onMappingsChange={setLocalMappings}
+          initialTargetId={pilot.object.id}
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-400/20 bg-purple-400/5 p-4">
