@@ -1,5 +1,6 @@
 import { extractIfcLiteGeometry, type IfcLiteGeometryResult } from "./ifc-lite-geometry";
 import type { IfcLocalModelSession } from "./ifc-mapping";
+import { loadWebIfcGeometry, WEB_IFC_VERSION } from "./ifc-web-ifc-runtime";
 
 export type IfcRendererBackendId = "lite-step" | "web-ifc-wasm";
 
@@ -21,12 +22,14 @@ export interface IfcRendererAdapter<TScene = unknown> {
   id: IfcRendererBackendId;
   label: string;
   capabilities: IfcRendererCapabilities;
-  load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions): TScene;
+  runtime: "bundled" | "pinned-network-development";
+  load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions): Promise<TScene> | TScene;
 }
 
 export const liteStepRenderer: IfcRendererAdapter<IfcLiteGeometryResult> = {
   id: "lite-step",
   label: "Nexus Lite STEP Geometry",
+  runtime: "bundled",
   capabilities: {
     geometry: true,
     selectionByGlobalId: true,
@@ -43,19 +46,24 @@ export const liteStepRenderer: IfcRendererAdapter<IfcLiteGeometryResult> = {
   },
 };
 
-export const plannedWebIfcRenderer = {
-  id: "web-ifc-wasm" as const,
-  label: "web-ifc WASM",
+export const webIfcWasmRenderer: IfcRendererAdapter<IfcLiteGeometryResult> = {
+  id: "web-ifc-wasm",
+  label: `web-ifc WASM ${WEB_IFC_VERSION}`,
+  runtime: "pinned-network-development",
   capabilities: {
     geometry: true,
     selectionByGlobalId: true,
     selectionByStepId: true,
     propertyRead: true,
-    geometryCoverage: "full-engine" as const,
+    geometryCoverage: "full-engine",
   },
-  status: "PLANNED_ADAPTER" as const,
+  load(session, options) {
+    return loadWebIfcGeometry(session, options);
+  },
 };
 
-export function getIfcRendererAdapter() {
-  return liteStepRenderer;
+export const IFC_RENDERERS = [liteStepRenderer, webIfcWasmRenderer] as const;
+
+export function getIfcRendererAdapter(id: IfcRendererBackendId = "lite-step") {
+  return id === "web-ifc-wasm" ? webIfcWasmRenderer : liteStepRenderer;
 }
