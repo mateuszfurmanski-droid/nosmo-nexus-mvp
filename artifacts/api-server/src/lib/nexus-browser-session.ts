@@ -16,6 +16,11 @@ type ExistingAuthUser = {
   lastName?: string | null;
 };
 
+type ResolvedCanonicalPerson = {
+  personId: string;
+  displayName?: string | null;
+};
+
 function displayName(user: ExistingAuthUser): string | null {
   const value = [user.firstName, user.lastName]
     .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
@@ -25,15 +30,18 @@ function displayName(user: ExistingAuthUser): string | null {
 }
 
 /**
- * PKG-017 Slice A.
+ * PKG-017 canonical browser-session facade.
  *
- * This facade intentionally does not expose the existing provider subject / users.id
- * as a canonical Nexus personId. Until the provider identity is explicitly bound to a
- * persisted Nexus Person, an authenticated account remains UNBOUND and cannot receive
- * a PKG-016 external Context Ticket.
+ * Provider account identity and canonical Nexus person identity remain separate.
+ * A BOUND state is returned only after the server-side IdentityBinding resolver
+ * resolves the authenticated provider subject to a persisted Nexus Person.
+ *
+ * PKG-016 ticket issue deliberately remains disabled even for a bound person until
+ * server-side Project Participation authorization is implemented and approved.
  */
 export function buildNexusBrowserSession(
   user?: ExistingAuthUser | null,
+  person?: ResolvedCanonicalPerson | null,
 ): NexusBrowserSession {
   if (!user) {
     return {
@@ -42,6 +50,17 @@ export function buildNexusBrowserSession(
       personId: null,
       bindingStatus: "UNAUTHENTICATED",
       displayName: null,
+      canIssueContextTicket: false,
+    };
+  }
+
+  if (person?.personId) {
+    return {
+      schema: NEXUS_BROWSER_SESSION_SCHEMA,
+      authenticated: true,
+      personId: person.personId,
+      bindingStatus: "BOUND",
+      displayName: person.displayName?.trim() || displayName(user),
       canIssueContextTicket: false,
     };
   }
