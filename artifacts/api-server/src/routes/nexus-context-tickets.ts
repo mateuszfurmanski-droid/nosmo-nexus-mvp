@@ -1,6 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { getSessionId } from "../lib/auth";
 import {
+  buildContextTicketBootstrapReturnTo,
+  parseContextTicketBootstrapRequest,
+  sendContextTicketBootstrapPage,
+} from "../lib/nexus-context-ticket-bootstrap";
+import {
   consumeNexusContextTicket,
   isSafeExternalRecordReference,
   issueNexusContextTicket,
@@ -67,6 +72,29 @@ async function requireLiveConnectorContext(
   if (context.verificationSource !== "WORK_WALLET") return null;
   return context;
 }
+
+router.get(
+  "/nexus/context-tickets/bootstrap",
+  (req: Request, res: Response) => {
+    noStore(res);
+
+    const bootstrap = parseContextTicketBootstrapRequest(
+      req.query as Record<string, unknown>,
+    );
+    if (!bootstrap) {
+      res.status(400).type("text/plain").send("Invalid Nexus connector bootstrap request.");
+      return;
+    }
+
+    if (!req.isAuthenticated()) {
+      const returnTo = buildContextTicketBootstrapReturnTo(bootstrap);
+      res.redirect(302, `/api/login?returnTo=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+
+    sendContextTicketBootstrapPage(res, bootstrap);
+  },
+);
 
 router.post("/nexus/context-tickets", async (req: Request, res: Response) => {
   noStore(res);
