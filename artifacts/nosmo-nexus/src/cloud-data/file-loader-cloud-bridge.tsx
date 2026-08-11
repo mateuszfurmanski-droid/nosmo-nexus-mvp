@@ -13,7 +13,6 @@ import {
 } from "./nexus-asset-contracts";
 import { computeSha256, upsertNexusAssetRegistryEntry } from "./asset-registry";
 import { createDemoManagerParticipation, resolveNexusAssetPermission } from "./asset-permissions";
-import { LocalDevNexusStorageProvider } from "./local-dev-storage-provider";
 import {
   enqueueNexusOfflineUpload,
   markNexusOfflineUploadFailed,
@@ -24,6 +23,7 @@ import {
   type NexusFileUploadRequestDetailBase,
   type NexusQueuedUploadRecord,
 } from "./offline-upload-queue";
+import { createNexusStorageProvider } from "./storage-provider-resolver";
 import type { NexusStorageProvider } from "./storage-provider";
 
 const DEMO_UPLOADER_PERSON_ID = "person-demo-nexus-manager";
@@ -248,7 +248,7 @@ async function uploadToNexusCloudDataLayer(
 }
 
 export function NexusFileLoaderCloudBridge() {
-  const provider = useMemo(() => new LocalDevNexusStorageProvider(), []);
+  const provider = useMemo(() => createNexusStorageProvider(), []);
   const selectedNodeRef = useRef<string | undefined>(undefined);
   const drainingQueueRef = useRef(false);
 
