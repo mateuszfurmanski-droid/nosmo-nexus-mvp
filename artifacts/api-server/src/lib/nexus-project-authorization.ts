@@ -2,19 +2,14 @@ import {
   db,
   nexusProjectParticipationsTable,
   projectsTable,
-  type NexusProjectApplicationPermission,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
-
-export type NexusServerApplicationKey = "work-wallet";
-
-export type NexusProjectAuthorizationReason =
-  | "PROJECT_AUTH_DISABLED"
-  | "INVALID_PROJECT_ID"
-  | "PROJECT_NOT_FOUND"
-  | "NO_ACTIVE_PARTICIPATION"
-  | "EXPLICIT_APPLICATION_DENY"
-  | "ACTIVE_PARTICIPATION_SHARED_ACCESS";
+import {
+  evaluateNexusProjectParticipationAccess,
+  isSafeNexusProjectId,
+  type NexusProjectAuthorizationReason,
+  type NexusServerApplicationKey,
+} from "./nexus-project-access-policy";
 
 export type NexusProjectApplicationAccessDecision = {
   allowed: boolean;
@@ -38,35 +33,6 @@ export function getNexusProjectAuthorizationMode(): "disabled" | "postgres" {
     : "disabled";
 }
 
-function safeProjectId(value: string): boolean {
-  return /^[A-Za-z0-9._:-]{1,96}$/.test(value);
-}
-
-function validAt(
-  status: string,
-  startsAt: Date | null,
-  endsAt: Date | null,
-  now: Date,
-): boolean {
-  if (status !== "ACTIVE") return false;
-  if (startsAt && startsAt.getTime() > now.getTime()) return false;
-  if (endsAt && endsAt.getTime() <= now.getTime()) return false;
-  return true;
-}
-
-function permissionsFor(
-  value: NexusProjectApplicationPermission[] | null | undefined,
-): NexusProjectApplicationPermission[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (permission): permission is NexusProjectApplicationPermission =>
-      permission != null &&
-      typeof permission === "object" &&
-      typeof permission.app === "string" &&
-      (permission.effect === "allow" || permission.effect === "deny"),
-  );
-}
-
 function deny(
   personId: string,
   nexusProjectId: string,
@@ -87,9 +53,9 @@ function deny(
 /**
  * First server-side Project Participation authorization boundary.
  *
- * This intentionally mirrors the existing shared-access rule for Work Wallet:
- * an active participation grants shared project access unless an explicit deny
- * exists. Profession/qualification/provider identity never grants this access.
+ * The DB layer resolves only an exact canonical Nexus project ID and exact
+ * canonical Person ID. Policy is delegated to nexus-project-access-policy so
+ * the active-participation / explicit-deny rule is independently testable.
  */
 export async function resolveNexusProjectApplicationAccess(
   personId: string,
@@ -101,7 +67,7 @@ export async function resolveNexusProjectApplicationAccess(
     return deny(personId, nexusProjectId, application, "PROJECT_AUTH_DISABLED");
   }
 
-  if (!safeProjectId(nexusProjectId)) {
+  if (!isSafeNexusProjectId(nexusProjectId)) {
     return deny(personId, nexusProjectId, application, "INVALID_PROJECT_ID");
   }
 
@@ -137,41 +103,29 @@ export async function resolveNexusProjectApplicationAccess(
       )
       .limit(20);
 
-    const active = rows.filter((row) =>
-      validAt(row.status, row.startsAt, row.endsAt, now),
+    const result = evaluateNexusProjectParticipationAccess(
+      rows.map((row) => ({
+        participationId: row.participationId,
+        status: row.status,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        applicationPermissions: row.applicationPermissions,
+      })),
+      application,
+      now,
     );
 
-    if (active.length === 0) {
-      return deny(personId, nexusProjectId, application, "NO_ACTIVE_PARTICIPATION");
-    }
-    if (active.length !== 1) {
+    if (result.reason === "AMBIGUOUS_ACTIVE_PARTICIPATION") {
       throw new NexusProjectAuthorizationStoreUnavailableError();
     }
 
-    const participation = active[0]!;
-    const permissions = permissionsFor(participation.applicationPermissions);
-    const explicitDeny = permissions.some(
-      (permission) =>
-        permission.app === application && permission.effect === "deny",
-    );
-
-    if (explicitDeny) {
-      return deny(
-        personId,
-        nexusProjectId,
-        application,
-        "EXPLICIT_APPLICATION_DENY",
-        participation.participationId,
-      );
-    }
-
     return {
-      allowed: true,
+      allowed: result.allowed,
       personId,
       nexusProjectId,
-      participationId: participation.participationId,
+      participationId: result.participationId,
       application,
-      reason: "ACTIVE_PARTICIPATION_SHARED_ACCESS",
+      reason: result.reason,
     };
   } catch (error) {
     if (error instanceof NexusProjectAuthorizationStoreUnavailableError) {
