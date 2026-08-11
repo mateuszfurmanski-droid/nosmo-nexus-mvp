@@ -1,0 +1,4 @@
+NOSMO Nexus Work Mode
+Build: Android ARM64 debug APK
+Source: 340274d71e6949df402f537970a31ff7deb6cd18
+Built: 2026-08-11T03:31:39Z
