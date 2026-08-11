@@ -12,7 +12,23 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_ci
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -32,11 +48,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate PKG-017 identity and project authorization boundaries
+      - name: Validate PKG-017 identity, project authorization and runtime boundaries
         run: |
           node scripts/src/validate-nexus-browser-session.mjs
           node scripts/src/validate-nexus-person-binding.mjs
           pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/validate-nexus-project-authorization.ts
+          node scripts/src/validate-unified-nexus-runtime.mjs
 
       - name: Typecheck workspace
         run: pnpm run typecheck
@@ -47,17 +64,24 @@ jobs:
           BASE_PATH: /
         run: pnpm --filter @workspace/nosmo-nexus build
 
-      - name: Smoke test production server, routes and Work Wallet API
+      - name: Build canonical API server
+        run: pnpm --filter @workspace/api-server build
+
+      - name: Apply disposable CI database schema
+        run: pnpm --filter @workspace/db push
+
+      - name: Smoke test unified production runtime
         env:
           PORT: 3000
+          NODE_ENV: test
           WORK_WALLET_DEMO_MODE: "true"
         run: |
-          pnpm --filter @workspace/scripts serve-nexus > /tmp/nexus-server.log 2>&1 &
+          pnpm --filter @workspace/api-server start > /tmp/nexus-unified-server.log 2>&1 &
           server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/nexus-server.log' EXIT
+          trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/nexus-unified-server.log' EXIT
 
           ready=0
-          for attempt in $(seq 1 20); do
+          for attempt in $(seq 1 40); do
             if curl --fail --silent --show-error http://127.0.0.1:3000/health > /dev/null; then
               ready=1
               break
@@ -66,12 +90,15 @@ jobs:
           done
 
           test "$ready" = "1"
-          curl --fail --silent --show-error http://127.0.0.1:3000/ > /dev/null
-          curl --fail --silent --show-error http://127.0.0.1:3000/modules > /dev/null
-          curl --fail --silent --show-error http://127.0.0.1:3000/workspace > /dev/null
-          curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector > /dev/null
-          curl --fail --silent --show-error http://127.0.0.1:3000/safety-connector-demo > /dev/null
-          curl --fail --silent --show-error http://127.0.0.1:3000/electrical-commissioning/ > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/api/healthz | grep '"status":"ok"' > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/ | grep '<div id="root"' > /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/relationship-tree | grep '<div id="root"' > /dev/null
+
+          session_status=$(curl --silent --show-error --output /tmp/nexus-session.json --write-out '%{http_code}' \
+            http://127.0.0.1:3000/api/nexus/session)
+          test "$session_status" = "401"
+          grep '"bindingStatus":"UNAUTHENTICATED"' /tmp/nexus-session.json > /dev/null
+          grep '"canIssueContextTicket":false' /tmp/nexus-session.json > /dev/null
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/integrations/work-wallet/status \
