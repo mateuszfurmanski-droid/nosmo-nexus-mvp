@@ -47,9 +47,20 @@ public class AutoDiscoveryActivity extends Activity {
     private static final int REQ_ALL_FILES = 64;
 
     private static final String PREFS = "nexus_work_mode";
+    private static final String VERSION_LABEL = "0.7.0";
+    private static final String PRIMARY_PROJECT = "e-SAFE Project World";
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
-    private static final String DOORFLOW_URL = "https://nosmotechnology.co.uk/doorflow.html";
     private static final String NEXUS_URL = "https://nosmotechnology.co.uk/nexus.html";
+    private static final String GOOGLE_DRIVE_PERSONAL_CLOUD_URL = "https://drive.google.com/drive/folders/1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0";
+
+    private static final String ROUTE_ESAFE_PHOTO = "ESAFE_PHOTOS_SITE_EVIDENCE";
+    private static final String ROUTE_ESAFE_DOCUMENT = "ESAFE_DOCUMENTS_PDF_OFFICE";
+    private static final String ROUTE_ESAFE_BIM = "ESAFE_DRAWINGS_BIM_IFC";
+    private static final String ROUTE_UNCLEAR_PHOTO = "REVIEW_UNCLEAR_PHOTOS";
+    private static final String ROUTE_OTHER_PROJECT = "OTHER_PROJECT_CANDIDATE";
+    private static final String ROUTE_CONTACT_REVIEW = "CONTACTS_CALENDAR_REVIEW";
+    private static final String ROUTE_GENERAL_REVIEW = "INBOX_REVIEW";
+    private static final String ROUTE_PRIVATE = "PRIVATE_DO_NOT_UPLOAD";
 
     private final ArrayList<Signal> signals = new ArrayList<>();
     private final Set<String> workDays = new HashSet<>();
@@ -57,20 +68,29 @@ public class AutoDiscoveryActivity extends Activity {
     private SharedPreferences prefs;
     private boolean workMode;
     private boolean editingContext;
-    private String activeProject = "Unassigned work";
+    private String activeProject = PRIMARY_PROJECT;
     private int acceptedSignals;
     private String personalCloudTree = "";
     private String cloudSourceTree = "";
 
-    private final String[] strongProjectTerms = new String[]{
-            "tesco", "halifax", "lloyds", "riverside", "nosmo", "nexus", "project", "site"
+    private final String[] esafeProjectTerms = new String[]{
+            "e-safe", "esafe", "catania", "seismic", "retrofit", "zenodo", "etna", "survey",
+            "pilot dataset", "project world", "bim", "ifc", "nexus project world"
+    };
+    private final String[] otherProjectTerms = new String[]{
+            "tesco", "halifax", "lloyds", "riverside", "trinity road", "lbg", "sainsbury", "asda",
+            "morrisons", "aldi", "lidl", "project", "site"
     };
     private final String[] tradeTerms = new String[]{
             "construction", "joiner", "joinery", "carpenter", "carpentry", "manager", "engineer",
-            "electric", "electrical", "door", "fire door", "bim", "drawing", "dwg", "rvt", "ifc",
+            "electric", "electrical", "door", "fire door", "drawing", "dwg", "rvt", "ifc",
             "snag", "inspection", "induction", "permit", "procore", "hilti", "work wallet", "fabstation",
             "contractor", "subcontract", "ceiling", "commission", "fitout", "fit out", "installation",
-            "doorset", "ironmongery", "drylining", "plumbing", "hvac", "qa", "qc"
+            "doorset", "ironmongery", "drylining", "plumbing", "hvac", "qa", "qc", "certificate",
+            "drawing", "plan", "method statement", "risk assessment", "ramS", "handover", "as built"
+    };
+    private final String[] privateTerms = new String[]{
+            "selfie", "family", "holiday", "vacation", "food", "restaurant", "party", "birthday", "private"
     };
     private final String[] workExtensions = new String[]{
             ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".dwg", ".dxf", ".ifc", ".rvt",
@@ -89,17 +109,23 @@ public class AutoDiscoveryActivity extends Activity {
 
     private void loadState() {
         workMode = prefs.getBoolean("workMode", false);
-        activeProject = prefs.getString("activeProject", "Unassigned work");
+        String storedProject = prefs.getString("activeProject", PRIMARY_PROJECT);
+        activeProject = safe(storedProject, PRIMARY_PROJECT);
         acceptedSignals = prefs.getInt("acceptedSignals", 0);
+        if (activeProject.toLowerCase(Locale.ROOT).contains("tesco")) {
+            activeProject = PRIMARY_PROJECT;
+            acceptedSignals = 0;
+            workMode = false;
+        }
         personalCloudTree = prefs.getString("personalCloudTree", "");
         cloudSourceTree = prefs.getString("cloudSourceTree", "");
         Set<String> copied = prefs.getStringSet("personalCloudCopiedUris", Collections.emptySet());
         if (copied != null) copiedUris.addAll(copied);
-        String encoded = prefs.getString("signalsV3", "");
+        String encoded = prefs.getString("signalsV4", prefs.getString("signalsV3", ""));
         if (!encoded.isEmpty()) {
             for (String line : encoded.split("\\n")) {
                 Signal signal = Signal.decode(line);
-                if (signal != null) signals.add(signal);
+                if (signal != null && !ROUTE_PRIVATE.equals(signal.route)) signals.add(signal);
             }
         }
     }
@@ -114,7 +140,7 @@ public class AutoDiscoveryActivity extends Activity {
                 .putBoolean("workMode", workMode)
                 .putString("activeProject", activeProject)
                 .putInt("acceptedSignals", acceptedSignals)
-                .putString("signalsV3", encoded.toString())
+                .putString("signalsV4", encoded.toString())
                 .putString("personalCloudTree", personalCloudTree)
                 .putString("cloudSourceTree", cloudSourceTree)
                 .putStringSet("personalCloudCopiedUris", new HashSet<>(copiedUris))
@@ -134,32 +160,32 @@ public class AutoDiscoveryActivity extends Activity {
         on.setGravity(Gravity.CENTER);
         root.addView(on, fullWidth(dp(48)));
 
-        addSection(root, "ACTIVE CONTEXT");
-        TextView project = text(activeProject, 20, Color.rgb(190, 201, 214), false);
+        addSection(root, "ACTIVE PROJECT WORLD");
+        TextView project = text(PRIMARY_PROJECT, 20, Color.rgb(190, 201, 214), false);
         project.setGravity(Gravity.CENTER);
         root.addView(project, fullWidth(dp(44)));
-        TextView count = text(acceptedSignals + " approved work signals", 16, Color.rgb(190, 201, 214), false);
+        TextView count = text(acceptedSignals + " approved discovery artefacts", 16, Color.rgb(190, 201, 214), false);
         count.setGravity(Gravity.CENTER);
         root.addView(count, fullWidth(dp(38)));
 
         TextView cloud = panelText(personalCloudTree.isEmpty()
-                ? "PERSONAL CLOUD · not connected"
-                : "PERSONAL CLOUD · connected · " + copiedUris.size() + " source items copied");
+                ? "GOOGLE DRIVE PERSONAL CLOUD · choose 00_NEXUS_PERSONAL_CLOUD"
+                : "GOOGLE DRIVE PERSONAL CLOUD · connected · " + copiedUris.size() + " source items copied");
         root.addView(cloud, fullWidthWrap());
 
-        Button world = primaryButton("PROJECT WORLD / RELATIONSHIP TREE");
+        Button world = primaryButton("OPEN e-SAFE PROJECT WORLD");
         world.setOnClickListener(v -> openProjectWorld());
         root.addView(world, fullWidth(dp(68)));
 
-        Button doorflow = secondaryButton("DOORFLOW");
-        doorflow.setOnClickListener(v -> openUrl(DOORFLOW_URL));
-        root.addView(doorflow, fullWidth(dp(58)));
+        Button drive = secondaryButton("OPEN GOOGLE DRIVE STRUCTURE");
+        drive.setOnClickListener(v -> openUrl(GOOGLE_DRIVE_PERSONAL_CLOUD_URL));
+        root.addView(drive, fullWidth(dp(58)));
 
         Button nexus = secondaryButton("OPEN NEXUS");
         nexus.setOnClickListener(v -> openUrl(NEXUS_URL));
         root.addView(nexus, fullWidth(dp(58)));
 
-        Button update = secondaryButton("UPDATE / RESCAN WORK CONTEXT");
+        Button update = secondaryButton("UPDATE / RESCAN DISCOVERY");
         update.setOnClickListener(v -> { editingContext = true; render(); });
         root.addView(update, fullWidth(dp(58)));
 
@@ -173,7 +199,7 @@ public class AutoDiscoveryActivity extends Activity {
         root.addView(off, fullWidth(dp(58)));
 
         TextView footer = text(
-                "Native Android beta 0.6.0 · phone-wide shared-media index + optional all-files index + persistent cloud folders.",
+                "Native Android beta " + VERSION_LABEL + " · e-SAFE-first discovery · Google Drive Personal Cloud routing · no Tesco default.",
                 11, Color.rgb(112, 126, 142), false);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(dp(8), dp(18), dp(8), dp(12));
@@ -187,13 +213,24 @@ public class AutoDiscoveryActivity extends Activity {
         addTitle(root, "WORK MODE");
 
         TextView intro = text(
-                "NEXUS indexes the work context Android lets you approve: contacts, calendar, the accessible photo library, shared files and connected cloud folders. High-confidence items are preselected; originals stay where they are.",
+                "NEXUS routes approved phone discoveries into Google Drive Personal Cloud. e-SAFE is the only active Project World; unclear photos, contacts/calendar and other-project candidates are separated for review. Originals stay where they are.",
                 14, Color.rgb(190, 201, 214), false);
         intro.setGravity(Gravity.CENTER);
         intro.setLineSpacing(0f, 1.16f);
         root.addView(intro, fullWidthWrap());
 
-        addSection(root, "1 · AUTOMATIC DISCOVERY");
+        addSection(root, "1 · GOOGLE DRIVE PERSONAL CLOUD");
+        root.addView(panelText("Target root: NOSMO / 03_NEXUS / 00_NEXUS_PERSONAL_CLOUD\nPhysical provider: Google Drive. Android writes through the selected Drive folder using Storage Access Framework until the full Drive OAuth/API connector is added."), fullWidthWrap());
+
+        Button openDrive = secondaryButton("OPEN OFFICIAL DRIVE STRUCTURE");
+        openDrive.setOnClickListener(v -> openUrl(GOOGLE_DRIVE_PERSONAL_CLOUD_URL));
+        root.addView(openDrive, fullWidth(dp(56)));
+
+        Button personalCloud = secondaryButton(personalCloudTree.isEmpty() ? "+ CONNECT GOOGLE DRIVE PERSONAL CLOUD" : "GOOGLE DRIVE PERSONAL CLOUD · CONNECTED");
+        personalCloud.setOnClickListener(v -> chooseTree(REQ_PERSONAL_CLOUD));
+        root.addView(personalCloud, fullWidth(dp(56)));
+
+        addSection(root, "2 · AUTOMATIC DISCOVERY");
 
         Button scan = primaryButton("SCAN PHONE + CONNECTED CLOUD");
         scan.setOnClickListener(v -> requestAndScan());
@@ -207,22 +244,23 @@ public class AutoDiscoveryActivity extends Activity {
         cloudSource.setOnClickListener(v -> chooseTree(REQ_CLOUD_SOURCE));
         root.addView(cloudSource, fullWidth(dp(56)));
 
-        Button personalCloud = secondaryButton(personalCloudTree.isEmpty() ? "+ SET PERSONAL CLOUD DESTINATION" : "PERSONAL CLOUD · CONNECTED");
-        personalCloud.setOnClickListener(v -> chooseTree(REQ_PERSONAL_CLOUD));
-        root.addView(personalCloud, fullWidth(dp(56)));
-
-        addSection(root, "2 · DISCOVERY REVIEW");
+        addSection(root, "3 · DISCOVERY REVIEW");
         if (signals.isEmpty()) {
             root.addView(panelText("No current discovery. Run the scan. Android may ask once for Contacts, Calendar, Photos and—if you enable it—special all-files access."), fullWidthWrap());
         } else {
-            int high = 0;
+            int esafe = 0;
+            int unclear = 0;
+            int other = 0;
             int review = 0;
             for (Signal s : signals) {
-                if (s.confidence >= 82) high++; else review++;
+                if (s.route.startsWith("ESAFE_")) esafe++;
+                else if (ROUTE_UNCLEAR_PHOTO.equals(s.route)) unclear++;
+                else if (ROUTE_OTHER_PROJECT.equals(s.route)) other++;
+                else review++;
             }
-            root.addView(panelText(signals.size() + " likely work signals · " + high + " high confidence selected · " + review + " need review"), fullWidthWrap());
+            root.addView(panelText(signals.size() + " discovery signals · " + esafe + " e-SAFE · " + unclear + " unclear photos · " + other + " other projects · " + review + " review"), fullWidthWrap());
 
-            int shown = Math.min(60, signals.size());
+            int shown = Math.min(70, signals.size());
             for (int i = 0; i < shown; i++) {
                 Signal signal = signals.get(i);
                 CheckBox check = new CheckBox(this);
@@ -232,7 +270,7 @@ public class AutoDiscoveryActivity extends Activity {
                 check.setPadding(dp(6), dp(7), dp(6), dp(7));
                 check.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(245, 196, 0)));
                 String detail = signal.detail.isEmpty() ? "" : "\n" + signal.detail;
-                check.setText(signal.category + " · " + signal.title + detail + " · " + signal.confidence + "%");
+                check.setText(signal.category + " · " + signal.title + detail + "\nroute: " + signal.route + " · " + signal.confidence + "% · " + signal.inferredProject);
                 check.setOnCheckedChangeListener((buttonView, isChecked) -> signal.accepted = isChecked);
                 root.addView(check, fullWidthWrap());
             }
@@ -242,8 +280,8 @@ public class AutoDiscoveryActivity extends Activity {
             }
         }
 
-        addSection(root, "3 · PERSONAL CLOUD + WORK MODE");
-        Button accept = primaryButton("ACCEPT + COPY WORK FILES + START WORK MODE");
+        addSection(root, "4 · ACCEPT + COPY");
+        Button accept = primaryButton("ACCEPT + COPY TO GOOGLE DRIVE + START WORK MODE");
         accept.setOnClickListener(v -> acceptCopyAndStart());
         root.addView(accept, fullWidth(dp(68)));
 
@@ -252,7 +290,7 @@ public class AutoDiscoveryActivity extends Activity {
         root.addView(clear, fullWidth(dp(52)));
 
         TextView privacy = text(
-                "NEXUS copies accepted files; it does not delete originals. Private databases of WhatsApp, Gmail and other apps remain outside the scan. Full Google Drive/OneDrive account crawling still requires their OAuth APIs.",
+                "NEXUS does not delete originals. It does not scrape WhatsApp/Gmail private databases. Google Drive folder access here is SAF write access to the selected folder; full account crawling still requires Google Drive OAuth/API.",
                 11, Color.rgb(112, 126, 142), false);
         privacy.setGravity(Gravity.CENTER);
         privacy.setPadding(dp(6), dp(18), dp(6), dp(14));
@@ -289,7 +327,7 @@ public class AutoDiscoveryActivity extends Activity {
         if (!cloudSourceTree.isEmpty()) scanTree(Uri.parse(cloudSourceTree), "CLOUD", 0, new int[]{0});
         dedupeAndSort();
         persist();
-        Toast.makeText(this, "NEXUS indexed " + signals.size() + " likely work signals", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "NEXUS indexed " + signals.size() + " discovery signals", Toast.LENGTH_LONG).show();
         render();
     }
 
@@ -319,7 +357,7 @@ public class AutoDiscoveryActivity extends Activity {
                 int points = weightedScore(name + " " + extra);
                 if (points < 2) continue;
                 int confidence = confidence(points, 55);
-                signals.add(new Signal("CONTACT", name, extra, confidence, confidence >= 82, "", ""));
+                addSignal("CONTACT", name, extra, confidence, false, "", "");
             }
         } catch (Exception ignored) { }
     }
@@ -342,7 +380,7 @@ public class AutoDiscoveryActivity extends Activity {
                 if (points < 2) continue;
                 workDays.add(dayKey(start));
                 int confidence = confidence(points, 58);
-                signals.add(new Signal("CALENDAR", title, location, confidence, confidence >= 82, "", ""));
+                addSignal("CALENDAR", title, location, confidence, false, "", "");
             }
         } catch (Exception ignored) { }
     }
@@ -367,14 +405,16 @@ public class AutoDiscoveryActivity extends Activity {
                 String mime = safe(c.getString(4), "image/jpeg");
                 String path = Build.VERSION.SDK_INT >= 29 ? safe(c.getString(5), "") : "";
                 long when = taken > 0 ? taken : modifiedSeconds * 1000L;
-                int points = weightedScore(name + " " + path);
+                String text = name + " " + path;
+                int points = weightedScore(text);
                 if (when > 0 && workDays.contains(dayKey(when))) points += 4;
-                if (containsAny((name + " " + path).toLowerCase(Locale.ROOT), new String[]{"site", "project", "door", "snag", "drawing", "inspection", "tesco", "halifax", "lloyds"})) points += 3;
+                if (containsAny(text.toLowerCase(Locale.ROOT), esafeProjectTerms)) points += 5;
+                if (containsAny(text.toLowerCase(Locale.ROOT), tradeTerms)) points += 3;
                 if (points < 4) continue;
                 int confidence = confidence(points, 52);
                 Uri uri = ContentUris.withAppendedId(collection, id);
-                String reason = workDays.contains(dayKey(when)) ? "Matches work-day timeline" : "Matched work/project metadata";
-                signals.add(new Signal("PHOTO", name, reason, confidence, confidence >= 82, uri.toString(), mime));
+                String reason = workDays.contains(dayKey(when)) ? "Matches work-day timeline" : "Matched construction/project metadata";
+                addSignal("PHOTO", name, reason, confidence, confidence >= 82, uri.toString(), mime);
             }
         } catch (Exception ignored) { }
     }
@@ -399,7 +439,7 @@ public class AutoDiscoveryActivity extends Activity {
                 int points = weightedScore(name + " " + path) + 3;
                 int confidence = confidence(points, 58);
                 Uri uri = ContentUris.withAppendedId(collection, id);
-                signals.add(new Signal("FILE", name, clean(path), confidence, confidence >= 82, uri.toString(), mime));
+                addSignal("FILE", name, clean(path), confidence, confidence >= 82, uri.toString(), mime);
             }
         } catch (Exception ignored) { }
     }
@@ -426,7 +466,7 @@ public class AutoDiscoveryActivity extends Activity {
             if (requestCode == REQ_PERSONAL_CLOUD) personalCloudTree = tree.toString();
             else cloudSourceTree = tree.toString();
             persist();
-            Toast.makeText(this, requestCode == REQ_PERSONAL_CLOUD ? "Personal Cloud destination connected" : "Cloud source connected", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, requestCode == REQ_PERSONAL_CLOUD ? "Google Drive Personal Cloud connected" : "Cloud source connected", Toast.LENGTH_LONG).show();
             render();
         }
     }
@@ -458,7 +498,7 @@ public class AutoDiscoveryActivity extends Activity {
                 if (points < 4) continue;
                 int confidence = confidence(points, 60);
                 Uri item = DocumentsContract.buildDocumentUriUsingTree(tree, childId);
-                signals.add(new Signal(source + " FILE", name, "Connected cloud/document provider", confidence, confidence >= 82, item.toString(), mime));
+                addSignal(source + " FILE", name, "Connected cloud/document provider", confidence, confidence >= 82, item.toString(), mime);
             }
         } catch (Exception ignored) { }
     }
@@ -493,12 +533,12 @@ public class AutoDiscoveryActivity extends Activity {
         int selected = 0;
         for (Signal signal : signals) if (signal.accepted) selected++;
         if (selected == 0 && acceptedSignals == 0) {
-            Toast.makeText(this, "No work context selected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No discovery artefacts selected", Toast.LENGTH_SHORT).show();
             return;
         }
         if (selected > 0) {
             acceptedSignals = selected;
-            activeProject = inferProject();
+            activeProject = PRIMARY_PROJECT;
         }
         int copied = 0;
         int failed = 0;
@@ -515,7 +555,7 @@ public class AutoDiscoveryActivity extends Activity {
         editingContext = false;
         persist();
         if (personalCloudTree.isEmpty()) {
-            Toast.makeText(this, "Work Mode ON · connect Personal Cloud to copy files", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Work Mode ON · connect Google Drive Personal Cloud to copy files", Toast.LENGTH_LONG).show();
         } else {
             Toast.makeText(this, "Work Mode ON · copied " + copied + " items" + (failed > 0 ? " · " + failed + " failed" : ""), Toast.LENGTH_LONG).show();
         }
@@ -523,12 +563,14 @@ public class AutoDiscoveryActivity extends Activity {
     }
 
     private boolean copyToPersonalCloud(Signal signal) {
+        if (ROUTE_PRIVATE.equals(signal.route)) return false;
         try {
             Uri tree = Uri.parse(personalCloudTree);
-            String rootId = DocumentsContract.getTreeDocumentId(tree);
-            Uri parent = DocumentsContract.buildDocumentUriUsingTree(tree, rootId);
+            String[] destinationPath = destinationPathFor(signal);
+            Uri parent = ensureFolder(tree, destinationPath);
+            if (parent == null) return false;
             String mime = signal.mime.isEmpty() ? "application/octet-stream" : signal.mime;
-            String name = safeFileName(signal.title);
+            String name = makeDestinationFileName(signal);
             Uri target = DocumentsContract.createDocument(getContentResolver(), parent, mime, name);
             if (target == null) return false;
             try (InputStream in = getContentResolver().openInputStream(Uri.parse(signal.sourceUri));
@@ -539,28 +581,133 @@ public class AutoDiscoveryActivity extends Activity {
                 while ((n = in.read(buffer)) >= 0) out.write(buffer, 0, n);
                 out.flush();
             }
+            writeProvenanceManifest(tree, signal, target.toString(), folderPath(destinationPath));
             return true;
         } catch (Exception ignored) {
             return false;
         }
     }
 
-    private String inferProject() {
-        StringBuilder text = new StringBuilder();
-        for (Signal s : signals) if (s.accepted) text.append(' ').append(s.title).append(' ').append(s.detail);
-        String lower = text.toString().toLowerCase(Locale.ROOT);
-        if (lower.contains("tesco")) return "Tesco Work";
-        if (lower.contains("halifax")) return "Halifax Project";
-        if (lower.contains("lloyds")) return "Lloyds Project";
-        if (lower.contains("riverside")) return "Riverside Project";
-        if (lower.contains("nosmo") || lower.contains("nexus")) return "NOSMO / Nexus";
-        return activeProject.equals("Unassigned work") ? "Detected work context" : activeProject;
+    private Uri ensureFolder(Uri tree, String[] folders) {
+        try {
+            String parentId = DocumentsContract.getTreeDocumentId(tree);
+            if (folders.length == 0) return DocumentsContract.buildDocumentUriUsingTree(tree, parentId);
+            for (String folder : folders) {
+                String existing = findChildFolderId(tree, parentId, folder);
+                if (existing == null) {
+                    Uri parent = DocumentsContract.buildDocumentUriUsingTree(tree, parentId);
+                    Uri created = DocumentsContract.createDocument(getContentResolver(), parent, DocumentsContract.Document.MIME_TYPE_DIR, folder);
+                    if (created == null) return null;
+                    parentId = DocumentsContract.getDocumentId(created);
+                } else {
+                    parentId = existing;
+                }
+            }
+            return DocumentsContract.buildDocumentUriUsingTree(tree, parentId);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String findChildFolderId(Uri tree, String parentId, String folderName) {
+        Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId);
+        String[] projection = new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE};
+        try (Cursor c = getContentResolver().query(children, projection, null, null, null)) {
+            if (c == null) return null;
+            while (c.moveToNext()) {
+                String id = c.getString(0);
+                String name = safe(c.getString(1), "");
+                String mime = safe(c.getString(2), "");
+                if (folderName.equals(name) && DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) return id;
+            }
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    private void writeProvenanceManifest(Uri tree, Signal signal, String targetUri, String destinationPath) {
+        try {
+            Uri auditFolder = ensureFolder(tree, new String[]{"90_AUDIT_PROVENANCE"});
+            if (auditFolder == null) return;
+            String manifestName = "nexus-provenance-" + Math.abs(signal.sourceUri.hashCode()) + ".txt";
+            Uri manifest = DocumentsContract.createDocument(getContentResolver(), auditFolder, "text/plain", manifestName);
+            if (manifest == null) return;
+            try (OutputStream out = getContentResolver().openOutputStream(manifest, "w")) {
+                if (out == null) return;
+                String body = provenanceText(signal, targetUri, destinationPath);
+                out.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                out.flush();
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private String provenanceText(Signal signal, String targetUri, String destinationPath) {
+        return "nexusProvenanceVersion=work-mode-v0.7\n"
+                + "source=android-work-mode\n"
+                + "physicalCloudProvider=google-drive\n"
+                + "sourceUri=" + signal.sourceUri + "\n"
+                + "targetUri=" + targetUri + "\n"
+                + "destinationPath=" + destinationPath + "\n"
+                + "discoveredAt=" + signal.discoveredAt + "\n"
+                + "copiedAt=" + System.currentTimeMillis() + "\n"
+                + "category=" + signal.category + "\n"
+                + "title=" + signal.title + "\n"
+                + "mime=" + signal.mime + "\n"
+                + "confidence=" + signal.confidence + "\n"
+                + "userAccepted=" + signal.accepted + "\n"
+                + "inferredProject=" + signal.inferredProject + "\n"
+                + "route=" + signal.route + "\n"
+                + "projectGraphLinkStatus=PENDING_USER_APPROVAL\n"
+                + "originalDeleted=false\n";
+    }
+
+    private String[] destinationPathFor(Signal signal) {
+        if (ROUTE_ESAFE_PHOTO.equals(signal.route)) return new String[]{"01_ESAFE_PROJECT_WORLD", "02_PHOTOS_SITE_EVIDENCE"};
+        if (ROUTE_ESAFE_DOCUMENT.equals(signal.route)) return new String[]{"01_ESAFE_PROJECT_WORLD", "03_DOCUMENTS_PDF_OFFICE"};
+        if (ROUTE_ESAFE_BIM.equals(signal.route)) return new String[]{"01_ESAFE_PROJECT_WORLD", "04_DRAWINGS_BIM_IFC"};
+        if (ROUTE_UNCLEAR_PHOTO.equals(signal.route)) return new String[]{"02_REVIEW_UNCLEAR_PHOTOS"};
+        if (ROUTE_OTHER_PROJECT.equals(signal.route)) return new String[]{"03_OTHER_PROJECT_CANDIDATES", safeFolderName(signal.inferredProject)};
+        if (ROUTE_CONTACT_REVIEW.equals(signal.route)) return new String[]{"04_CONTACTS_CALENDAR_REVIEW"};
+        if (ROUTE_PRIVATE.equals(signal.route)) return new String[]{"05_PRIVATE_DO_NOT_UPLOAD"};
+        return new String[]{"00_INBOX_FROM_ANDROID_WORK_MODE"};
+    }
+
+    private void addSignal(String category, String title, String detail, int confidence, boolean suggestedAccepted, String sourceUri, String mime) {
+        String route = classifyRoute(category, title, detail, mime);
+        if (ROUTE_PRIVATE.equals(route)) return;
+        String project = inferProjectForSignal(title + " " + detail + " " + mime, route);
+        boolean accepted = suggestedAccepted && !ROUTE_CONTACT_REVIEW.equals(route) && !ROUTE_GENERAL_REVIEW.equals(route);
+        signals.add(new Signal(category, title, detail, confidence, accepted, sourceUri, mime, route, project, System.currentTimeMillis()));
+    }
+
+    private String classifyRoute(String category, String title, String detail, String mime) {
+        String text = (safe(title, "") + " " + safe(detail, "") + " " + safe(mime, "")).toLowerCase(Locale.ROOT);
+        if (containsAny(text, privateTerms)) return ROUTE_PRIVATE;
+        if ("CONTACT".equals(category) || "CALENDAR".equals(category)) return ROUTE_CONTACT_REVIEW;
+        if (containsAny(text, esafeProjectTerms)) {
+            if ("PHOTO".equals(category)) return ROUTE_ESAFE_PHOTO;
+            if (isBimOrDrawing(title, mime)) return ROUTE_ESAFE_BIM;
+            return ROUTE_ESAFE_DOCUMENT;
+        }
+        if (containsAny(text, otherProjectTerms)) return ROUTE_OTHER_PROJECT;
+        if ("PHOTO".equals(category)) return ROUTE_UNCLEAR_PHOTO;
+        return ROUTE_GENERAL_REVIEW;
+    }
+
+    private String inferProjectForSignal(String text, String route) {
+        String lower = safe(text, "").toLowerCase(Locale.ROOT);
+        if (route.startsWith("ESAFE_")) return PRIMARY_PROJECT;
+        if (lower.contains("tesco")) return "PROJECT_TESCO_REVIEW";
+        if (lower.contains("halifax") || lower.contains("lloyds") || lower.contains("trinity road") || lower.contains("lbg")) return "PROJECT_HALIFAX_LLOYDS_REVIEW";
+        if (lower.contains("riverside")) return "PROJECT_RIVERSIDE_REVIEW";
+        if (ROUTE_OTHER_PROJECT.equals(route)) return "PROJECT_CANDIDATE_REVIEW";
+        return "UNASSIGNED_REVIEW";
     }
 
     private int weightedScore(String text) {
         String lower = safe(text, "").toLowerCase(Locale.ROOT);
         int score = 0;
-        for (String term : strongProjectTerms) if (lower.contains(term)) score += 4;
+        for (String term : esafeProjectTerms) if (lower.contains(term)) score += 5;
+        for (String term : otherProjectTerms) if (lower.contains(term)) score += 3;
         for (String term : tradeTerms) if (lower.contains(term)) score += 2;
         return score;
     }
@@ -574,6 +721,12 @@ public class AutoDiscoveryActivity extends Activity {
         if (weightedScore(lower + " " + safe(mime, "")) >= 2) return true;
         for (String ext : workExtensions) if (lower.endsWith(ext)) return true;
         return false;
+    }
+
+    private boolean isBimOrDrawing(String name, String mime) {
+        String lower = (safe(name, "") + " " + safe(mime, "")).toLowerCase(Locale.ROOT);
+        return lower.endsWith(".dwg") || lower.endsWith(".dxf") || lower.endsWith(".ifc") || lower.endsWith(".rvt")
+                || lower.endsWith(".nwd") || lower.endsWith(".nwc") || lower.contains("drawing") || lower.contains("bim") || lower.contains("ifc");
     }
 
     private boolean containsAny(String text, String[] terms) {
@@ -599,10 +752,11 @@ public class AutoDiscoveryActivity extends Activity {
 
     private void openProjectWorld() {
         Uri url = Uri.parse(TREE_URL).buildUpon()
-                .appendQueryParameter("world", "workmode")
-                .appendQueryParameter("project", activeProject)
+                .appendQueryParameter("world", "esafe-demo")
+                .appendQueryParameter("project", PRIMARY_PROJECT)
                 .appendQueryParameter("signals", String.valueOf(acceptedSignals))
-                .appendQueryParameter("source", "android-v060")
+                .appendQueryParameter("source", "android-v070")
+                .appendQueryParameter("personalCloud", "google-drive")
                 .appendQueryParameter("runtime", "restored")
                 .build();
         openUrl(url.toString());
@@ -716,6 +870,22 @@ public class AutoDiscoveryActivity extends Activity {
         return cleaned.length() > 120 ? cleaned.substring(0, 120) : cleaned;
     }
 
+    private String safeFolderName(String value) {
+        String cleaned = safe(value, "PROJECT_CANDIDATE_REVIEW").replaceAll("[\\\\/:*?\"<>|]", "_").replaceAll("\\s+", "_");
+        return cleaned.length() > 90 ? cleaned.substring(0, 90) : cleaned;
+    }
+
+    private String makeDestinationFileName(Signal signal) {
+        String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.UK).format(new Date());
+        return stamp + "_" + signal.route + "_" + safeFileName(signal.title);
+    }
+
+    private String folderPath(String[] parts) {
+        StringBuilder out = new StringBuilder("00_NEXUS_PERSONAL_CLOUD");
+        for (String part : parts) out.append('/').append(part);
+        return out.toString();
+    }
+
     private static class Signal {
         final String category;
         final String title;
@@ -724,8 +894,11 @@ public class AutoDiscoveryActivity extends Activity {
         boolean accepted;
         final String sourceUri;
         final String mime;
+        final String route;
+        final String inferredProject;
+        final long discoveredAt;
 
-        Signal(String category, String title, String detail, int confidence, boolean accepted, String sourceUri, String mime) {
+        Signal(String category, String title, String detail, int confidence, boolean accepted, String sourceUri, String mime, String route, String inferredProject, long discoveredAt) {
             this.category = category;
             this.title = title;
             this.detail = detail;
@@ -733,18 +906,24 @@ public class AutoDiscoveryActivity extends Activity {
             this.accepted = accepted;
             this.sourceUri = sourceUri == null ? "" : sourceUri;
             this.mime = mime == null ? "" : mime;
+            this.route = route == null ? ROUTE_GENERAL_REVIEW : route;
+            this.inferredProject = inferredProject == null ? "UNASSIGNED_REVIEW" : inferredProject;
+            this.discoveredAt = discoveredAt <= 0 ? System.currentTimeMillis() : discoveredAt;
         }
 
         String encode() {
-            return Uri.encode(category) + "|" + Uri.encode(title) + "|" + Uri.encode(detail) + "|" + confidence + "|" + (accepted ? "1" : "0") + "|" + Uri.encode(sourceUri) + "|" + Uri.encode(mime);
+            return Uri.encode(category) + "|" + Uri.encode(title) + "|" + Uri.encode(detail) + "|" + confidence + "|" + (accepted ? "1" : "0") + "|" + Uri.encode(sourceUri) + "|" + Uri.encode(mime) + "|" + Uri.encode(route) + "|" + Uri.encode(inferredProject) + "|" + discoveredAt;
         }
 
         static Signal decode(String line) {
             if (line == null || line.trim().isEmpty()) return null;
             String[] parts = line.split("\\|", -1);
-            if (parts.length != 7) return null;
             try {
-                return new Signal(Uri.decode(parts[0]), Uri.decode(parts[1]), Uri.decode(parts[2]), Integer.parseInt(parts[3]), "1".equals(parts[4]), Uri.decode(parts[5]), Uri.decode(parts[6]));
+                if (parts.length == 7) {
+                    return new Signal(Uri.decode(parts[0]), Uri.decode(parts[1]), Uri.decode(parts[2]), Integer.parseInt(parts[3]), "1".equals(parts[4]), Uri.decode(parts[5]), Uri.decode(parts[6]), ROUTE_GENERAL_REVIEW, "UNASSIGNED_REVIEW", System.currentTimeMillis());
+                }
+                if (parts.length != 10) return null;
+                return new Signal(Uri.decode(parts[0]), Uri.decode(parts[1]), Uri.decode(parts[2]), Integer.parseInt(parts[3]), "1".equals(parts[4]), Uri.decode(parts[5]), Uri.decode(parts[6]), Uri.decode(parts[7]), Uri.decode(parts[8]), Long.parseLong(parts[9]));
             } catch (Exception ignored) { return null; }
         }
     }
