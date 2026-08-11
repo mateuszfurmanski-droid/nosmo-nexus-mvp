@@ -13,6 +13,7 @@ import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
 import FirstRun from "@/pages/first-run";
 import RelationshipTreeExport from "@/pages/relationship-tree-export";
+import EsafeProjectWorld from "@/pages/esafe-project-world";
 import PersonCardDemo from "@/pages/person-card-demo";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
@@ -41,6 +42,11 @@ function Router() {
       <Route path="/" component={RelationshipTreeExport} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
+
+      {/* Source-native Project Worlds run full-screen and return to the canonical tree. */}
+      <Route path="/project-worlds/esafe" component={EsafeProjectWorld} />
+      <Route path="/apps/nexus-esafe-demo/" component={EsafeProjectWorld} />
+      <Route path="/apps/nexus-esafe-demo" component={EsafeProjectWorld} />
 
       {/* Specialist full-screen workflows intentionally run without the standard app layout. */}
       <Route path="/first-run" component={FirstRun} />
