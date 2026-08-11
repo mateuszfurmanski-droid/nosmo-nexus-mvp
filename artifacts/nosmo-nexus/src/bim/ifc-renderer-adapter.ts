@@ -54,7 +54,7 @@ export const webIfcWasmRenderer = {
     geometry: true,
     selectionByGlobalId: true,
     selectionByStepId: true,
-    propertyRead: true,
+    propertyRead: false,
     geometryCoverage: "full-engine" as const,
   },
   load(session: IfcLocalModelSession, options?: IfcRendererLoadOptions) {
