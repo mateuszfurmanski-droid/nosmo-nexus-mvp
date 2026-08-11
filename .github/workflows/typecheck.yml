@@ -32,10 +32,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate PKG-017 identity boundaries
+      - name: Validate PKG-017 identity and project authorization boundaries
         run: |
           node scripts/src/validate-nexus-browser-session.mjs
           node scripts/src/validate-nexus-person-binding.mjs
+          pnpm exec tsx scripts/src/validate-nexus-project-authorization.ts
 
       - name: Typecheck workspace
         run: pnpm run typecheck
