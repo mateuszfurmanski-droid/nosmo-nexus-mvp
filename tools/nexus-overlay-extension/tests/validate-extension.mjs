@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -77,12 +78,21 @@ assert(
   "Content script match must equal the Work Wallet host permission"
 );
 assert(
+  manifest.content_scripts[0].js?.includes("src/record-mapping.js"),
+  "Explicit record mapping registry must be loaded by the Work Wallet content script"
+);
+assert(
   manifest.content_scripts[0].js?.includes("src/supply-request.js"),
   "Supply request component must be explicitly loaded by the Work Wallet content script"
 );
 assert(
   manifest.content_scripts[0].js?.includes("src/tree-handoff.js"),
   "Relationship Tree handoff component must be explicitly loaded by the Work Wallet content script"
+);
+assert(
+  manifest.content_scripts[0].js.indexOf("src/runtime.js") < manifest.content_scripts[0].js.indexOf("src/record-mapping.js") &&
+    manifest.content_scripts[0].js.indexOf("src/record-mapping.js") < manifest.content_scripts[0].js.indexOf("src/content.js"),
+  "Record mapping must load after runtime and before content boot"
 );
 assert(
   manifest.content_scripts[0].js.indexOf("src/sidecar.js") < manifest.content_scripts[0].js.indexOf("src/tree-handoff.js") &&
@@ -133,7 +143,9 @@ const referencedFiles = [
   ...(manifest.content_scripts?.flatMap((entry) => entry.js || []) || []),
   "dev/mock-work-wallet.html",
   "dev/mock-work-wallet.css",
-  "dev/mock-work-wallet.js"
+  "dev/mock-work-wallet.js",
+  "tests/validate-tree-handoff.mjs",
+  "tests/validate-record-mapping.mjs"
 ].filter(Boolean);
 for (const relative of referencedFiles) {
   assert(fs.existsSync(path.join(root, relative)), `Required extension file missing: ${relative}`);
@@ -145,6 +157,10 @@ assert(
   "Local mock must be clearly labelled as non-vendor test harness"
 );
 assert(
+  mockHtml.includes("../src/record-mapping.js"),
+  "Local mock must load the same explicit record mapping registry as the real overlay"
+);
+assert(
   mockHtml.includes("../src/supply-request.js"),
   "Local mock must load the same supply request component as the real overlay"
 );
@@ -153,9 +169,23 @@ assert(
   "Local mock must load the same Relationship Tree handoff component as the real overlay"
 );
 
+const optionsHtml = read("src/options/options.html");
+assert(
+  optionsHtml.includes("Explicit Work Wallet → Nexus mapping") &&
+    optionsHtml.includes("mappingExternalReference") &&
+    optionsHtml.includes("mappingNexusNodeId"),
+  "Options must expose explicit local record mapping controls"
+);
+assert(
+  optionsHtml.includes("../record-mapping.js"),
+  "Options must load the explicit record mapping registry"
+);
+
 const runtimeSource = read("src/runtime.js");
+const mappingSource = read("src/record-mapping.js");
 const supplySource = read("src/supply-request.js");
 const treeHandoffSource = read("src/tree-handoff.js");
+const contentSource = read("src/content.js");
 assert(
   runtimeSource.includes('supplyRequests: "nexusOverlaySupplyRequests"'),
   "Supply request drafts must use a dedicated local storage key"
@@ -167,6 +197,22 @@ assert(
 assert(
   supplySource.includes("LOCAL DRAFT ONLY") && supplySource.includes("saveSupplyRequestDraft"),
   "Supply request UI must be explicitly local-only and use the controlled runtime writer"
+);
+assert(
+  mappingSource.includes('const STORAGE_KEY = "nexusOverlayRecordMappings"') &&
+    mappingSource.includes('confirmation: "USER_CONFIRMED_LOCAL_MAPPING"'),
+  "Record mappings must use dedicated local storage and explicit user-confirmation metadata"
+);
+assert(
+  mappingSource.includes("entry.id === exactId") &&
+    !mappingSource.includes("startsWith(externalRecordReference") &&
+    !mappingSource.includes("includes(externalRecordReference"),
+  "Record mapping must resolve by exact key rather than fuzzy/partial external reference matching"
+);
+assert(
+  contentSource.includes("recordMapping.resolve(candidate)") &&
+    contentSource.includes("priorNexusNodeStillApplies"),
+  "Real Work Wallet context must use exact local mappings and clear stale node focus across route changes"
 );
 assert(
   treeHandoffSource.includes('["project|halifax-demo", "proj"]') &&
@@ -194,6 +240,7 @@ assert(
 const executableFiles = [
   "src/background.js",
   "src/runtime.js",
+  "src/record-mapping.js",
   "src/supply-request.js",
   "src/sidecar.js",
   "src/tree-handoff.js",
@@ -222,8 +269,18 @@ console.log("PASS: Work Wallet host is portal.work-wallet.com only");
 console.log("PASS: Work Wallet write capability is disabled");
 console.log("PASS: Context Packet fixture contract with explicit Nexus node handoff");
 console.log("PASS: Universal adapter registry fixture");
-console.log("PASS: Manifest and local mock file references");
+console.log("PASS: Manifest, options and local mock file references");
 console.log("PASS: Local mock is clearly labelled non-vendor");
 console.log("PASS: Supply request is local-draft only");
-console.log("PASS: Work Wallet to Relationship Tree mapping is explicit and fail-closed");
+console.log("PASS: Work Wallet to Relationship Tree handoff is explicit and fail-closed");
+console.log("PASS: Local Work Wallet record mapping is explicit exact-match only");
 console.log("PASS: No forbidden credential/session interception patterns");
+
+for (const behaviouralTest of [
+  "tests/validate-tree-handoff.mjs",
+  "tests/validate-record-mapping.mjs"
+]) {
+  execFileSync(process.execPath, [path.join(root, behaviouralTest)], { stdio: "inherit" });
+}
+
+console.log("PASS: Behavioral handoff and record-mapping validators");
