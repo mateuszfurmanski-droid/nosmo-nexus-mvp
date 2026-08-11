@@ -30,20 +30,52 @@ export default function RelationshipTreeExport() {
         [data-control][class*="bottom-3 left-3 z-40"] { display: none !important; }
 
         /* Individual people: Messenger-style circle + loose name/project-role text. */
-        [data-node-id^="p-"] > button { width: 150px !important; gap: 4px !important; }
-        [data-node-id^="p-"] > button > span:first-child {
+        :is(
+          [data-node-id="p-mateusz"],
+          [data-node-id="p-sitemgr"],
+          [data-node-id="p-architect"],
+          [data-node-id="p-client"],
+          [data-node-id="p-elec-supervisor"],
+          [data-node-id="p-hvac-supervisor"],
+          [data-node-id="p-plumb-supervisor"]
+        ) > button { width: 150px !important; gap: 4px !important; }
+        :is(
+          [data-node-id="p-mateusz"],
+          [data-node-id="p-sitemgr"],
+          [data-node-id="p-architect"],
+          [data-node-id="p-client"],
+          [data-node-id="p-elec-supervisor"],
+          [data-node-id="p-hvac-supervisor"],
+          [data-node-id="p-plumb-supervisor"]
+        ) > button > span:first-child {
           border-radius: 9999px !important;
           overflow: hidden !important;
           background: radial-gradient(circle at 50% 34%, rgba(148,163,184,.22), rgba(30,41,59,.96)) !important;
           border-color: rgba(103,232,249,.5) !important;
           box-shadow: 0 8px 28px rgba(0,0,0,.42), 0 0 0 3px rgba(34,211,238,.08) !important;
         }
-        [data-node-id^="p-"] > button > span:first-child > span:first-child {
+        :is(
+          [data-node-id="p-mateusz"],
+          [data-node-id="p-sitemgr"],
+          [data-node-id="p-architect"],
+          [data-node-id="p-client"],
+          [data-node-id="p-elec-supervisor"],
+          [data-node-id="p-hvac-supervisor"],
+          [data-node-id="p-plumb-supervisor"]
+        ) > button > span:first-child > span:first-child {
           background: transparent !important;
           color: rgba(226,232,240,.82) !important;
           border-radius: 9999px !important;
         }
-        [data-node-id^="p-"] > button > span:nth-child(2) {
+        :is(
+          [data-node-id="p-mateusz"],
+          [data-node-id="p-sitemgr"],
+          [data-node-id="p-architect"],
+          [data-node-id="p-client"],
+          [data-node-id="p-elec-supervisor"],
+          [data-node-id="p-hvac-supervisor"],
+          [data-node-id="p-plumb-supervisor"]
+        ) > button > span:nth-child(2) {
           display: block !important;
           max-width: 150px !important;
           margin-top: 2px !important;
@@ -53,7 +85,15 @@ export default function RelationshipTreeExport() {
           font-weight: 700 !important;
           text-shadow: 0 1px 5px rgba(0,0,0,.75) !important;
         }
-        [data-node-id^="p-"] > button > span:nth-child(3) { display: none !important; }
+        :is(
+          [data-node-id="p-mateusz"],
+          [data-node-id="p-sitemgr"],
+          [data-node-id="p-architect"],
+          [data-node-id="p-client"],
+          [data-node-id="p-elec-supervisor"],
+          [data-node-id="p-hvac-supervisor"],
+          [data-node-id="p-plumb-supervisor"]
+        ) > button > span:nth-child(3) { display: none !important; }
 
         /* No invented faces: missing photos use the existing neutral person icon in the circle. */
 
@@ -65,7 +105,15 @@ export default function RelationshipTreeExport() {
         [data-node-id="p-elec-supervisor"] > button::after { content: "Electrical Supervisor"; }
         [data-node-id="p-hvac-supervisor"] > button::after { content: "HVAC Supervisor"; }
         [data-node-id="p-plumb-supervisor"] > button::after { content: "Plumbing Supervisor"; }
-        [data-node-id^="p-"] > button::after {
+        :is(
+          [data-node-id="p-mateusz"],
+          [data-node-id="p-sitemgr"],
+          [data-node-id="p-architect"],
+          [data-node-id="p-client"],
+          [data-node-id="p-elec-supervisor"],
+          [data-node-id="p-hvac-supervisor"],
+          [data-node-id="p-plumb-supervisor"]
+        ) > button::after {
           display: block;
           max-width: 150px;
           color: rgb(148 163 184);
@@ -76,19 +124,31 @@ export default function RelationshipTreeExport() {
           text-shadow: 0 1px 4px rgba(0,0,0,.7);
         }
 
-        /* Teams are not people: restore their original tile presentation. */
-        [data-node-id="p-electrical"] > button,
-        [data-node-id="p-hvac"] > button,
-        [data-node-id="p-plumbing"] > button { width: 138px !important; gap: 8px !important; }
-        [data-node-id="p-electrical"] > button > span:first-child,
-        [data-node-id="p-hvac"] > button > span:first-child,
-        [data-node-id="p-plumbing"] > button > span:first-child { border-radius: 1rem !important; overflow: visible !important; background: hsl(var(--card)) !important; }
-        [data-node-id="p-electrical"] > button > span:nth-child(3),
-        [data-node-id="p-hvac"] > button > span:nth-child(3),
-        [data-node-id="p-plumbing"] > button > span:nth-child(3) { display: block !important; }
-        [data-node-id="p-electrical"] > button::after,
-        [data-node-id="p-hvac"] > button::after,
-        [data-node-id="p-plumbing"] > button::after { content: none !important; }
+        /* Teams are not people: keep them as graph tiles even if their ids start with p-. */
+        :is(
+          [data-node-id="p-team"],
+          [data-node-id="p-elec-team"],
+          [data-node-id="p-hvac-team"],
+          [data-node-id="p-plumb-team"]
+        ) > button { width: 138px !important; gap: 8px !important; }
+        :is(
+          [data-node-id="p-team"],
+          [data-node-id="p-elec-team"],
+          [data-node-id="p-hvac-team"],
+          [data-node-id="p-plumb-team"]
+        ) > button > span:first-child { border-radius: 1rem !important; overflow: visible !important; background: hsl(var(--card)) !important; }
+        :is(
+          [data-node-id="p-team"],
+          [data-node-id="p-elec-team"],
+          [data-node-id="p-hvac-team"],
+          [data-node-id="p-plumb-team"]
+        ) > button > span:nth-child(3) { display: block !important; }
+        :is(
+          [data-node-id="p-team"],
+          [data-node-id="p-elec-team"],
+          [data-node-id="p-hvac-team"],
+          [data-node-id="p-plumb-team"]
+        ) > button::after { content: none !important; }
       `}</style>
 
       <PersistentWorkspace />
