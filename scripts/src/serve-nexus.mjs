@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleNexusCloudStorageApi, nexusCloudStorageStatus } from "./nexus-cloud-storage-api.mjs";
 import { handleNexusWorkModeAiApi, nexusWorkModeAiStatus } from "./nexus-work-mode-ai-api.mjs";
+import { handleWorkSuiteDraftPermissionApi, workSuiteDraftPermissionStatus } from "./worksuite-draft-permission-api.mjs";
 import { handleWorkWalletApi, workWalletStatus } from "./work-wallet-api.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -115,12 +116,17 @@ const server = createServer(async (request, response) => {
       service: "nosmo-nexus-web",
       cloudStorage: nexusCloudStorageStatus(),
       workModeAi: nexusWorkModeAiStatus(),
+      workSuiteDraftPermissions: workSuiteDraftPermissionStatus(),
       workWallet: workWalletStatus(),
     });
     return;
   }
 
   if (await handleNexusWorkModeAiApi(request, response, url)) {
+    return;
+  }
+
+  if (await handleWorkSuiteDraftPermissionApi(request, response, url)) {
     return;
   }
 
@@ -184,11 +190,13 @@ const server = createServer(async (request, response) => {
 server.listen(port, "0.0.0.0", () => {
   const cloudStorage = nexusCloudStorageStatus();
   const workModeAi = nexusWorkModeAiStatus();
+  const workSuiteDraftPermissions = workSuiteDraftPermissionStatus();
   const status = workWalletStatus();
   console.log(`NOSMO Nexus web server listening on 0.0.0.0:${port}`);
   console.log(`Serving ${publicDirectory}`);
   console.log(`Nexus cloud storage boundary: ${cloudStorage.providerBoundary}/${cloudStorage.providerKind}`);
   console.log(`Nexus Work Mode AI boundary: ${workModeAi.providerBoundary}/${workModeAi.modelExecution}`);
+  console.log(`WorkSuite draft permission boundary: ${workSuiteDraftPermissions.providerBoundary}/${workSuiteDraftPermissions.executionBoundary}`);
   console.log(`Work Wallet gateway configured: ${status.gatewayConfigured}`);
   console.log(`Work Wallet demo mode: ${status.demoMode}`);
 });
