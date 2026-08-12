@@ -62,15 +62,21 @@ jobs:
           trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/nexus-server.log' EXIT
 
           ready=0
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent --show-error http://127.0.0.1:3000/health > /dev/null; then
+          for attempt in $(seq 1 60); do
+            health_status=$(curl --silent --output /tmp/nexus-health.json --write-out '%{http_code}' http://127.0.0.1:3000/health || true)
+            if [ "$health_status" = "200" ]; then
               ready=1
               break
             fi
             sleep 0.5
           done
 
-          test "$ready" = "1"
+          if [ "$ready" != "1" ]; then
+            echo "Nexus server did not become ready"
+            cat /tmp/nexus-server.log
+            exit 1
+          fi
+
           curl --fail --silent --show-error http://127.0.0.1:3000/ > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/modules > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/workspace > /dev/null
