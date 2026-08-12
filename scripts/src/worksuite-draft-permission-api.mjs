@@ -75,11 +75,18 @@ function normaliseDraftAction(value) {
   const draftAction = asRecord(value);
   if (!draftAction) throw new Error("INVALID_DRAFT_ACTION");
 
-  const id = optionalString(draftAction, "id");
-  const projectId = optionalString(draftAction, "projectId");
+  const scope = asRecord(draftAction.scope) ?? {};
+  const proposedAction = asRecord(draftAction.proposedAction) ?? {};
+  const authorityRequired = asRecord(draftAction.authorityRequired) ?? {};
+
+  const id = optionalString(draftAction, "id") || optionalString(draftAction, "draftId");
+  const projectId = optionalString(draftAction, "projectId") || optionalString(scope, "projectId");
+  const worldId = optionalString(draftAction, "worldId") || optionalString(scope, "worldId") || undefined;
   const mutationMode = optionalString(draftAction, "mutationMode");
   const executionBoundary = optionalString(draftAction, "executionBoundary");
-  const approvalRequired = optionalBoolean(draftAction, "workSuiteActionEngineApproval", false);
+  const approvalRequired =
+    optionalBoolean(draftAction, "workSuiteActionEngineApproval", false) ||
+    optionalBoolean(authorityRequired, "workSuiteActionEngineApproval", false);
 
   if (!id) throw new Error("MISSING_DRAFT_ACTION_ID");
   if (!projectId) throw new Error("MISSING_PROJECT_ID");
@@ -89,13 +96,16 @@ function normaliseDraftAction(value) {
 
   return {
     id,
-    title: optionalString(draftAction, "title", id),
+    title: optionalString(draftAction, "title") || optionalString(proposedAction, "title", id),
+    actionKind: optionalString(draftAction, "actionKind") || optionalString(proposedAction, "actionId"),
     projectId,
-    worldId: optionalString(draftAction, "worldId") || undefined,
+    worldId,
+    requestedProject: optionalString(scope, "requestedProject") || undefined,
     mutationMode,
     executionBoundary,
     workSuiteActionEngineApproval: approvalRequired,
     authorityRequirements: optionalArray(draftAction, "authorityRequirements"),
+    authorityRequired,
   };
 }
 
