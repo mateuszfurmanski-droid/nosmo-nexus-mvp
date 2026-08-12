@@ -8,6 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "smoke:nexus-cloud-upload-session": "pnpm run build && node --enable-source-maps ./dist/smoke/nexus-cloud-upload-session-plan.mjs",
+    "smoke:nexus-cloud-asset-index-row-plan": "pnpm run build && node --enable-source-maps ./dist/smoke/nexus-cloud-asset-index-row-plan.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
