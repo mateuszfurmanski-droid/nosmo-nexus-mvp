@@ -36,12 +36,24 @@ assert(inbox.includes("nexus:worksuite-draft-action-proposed"), "WorkSuite draft
 assert(inbox.includes("draft-only-no-mutation"), "WorkSuite draft inbox must enforce non-mutating draft envelopes");
 assert(inbox.includes("worksuite-action-engine-required"), "WorkSuite draft inbox must preserve Action Engine boundary");
 assert(inbox.includes("Review required"), "WorkSuite draft inbox must show review-required status");
+assert(inbox.includes("Needs review"), "WorkSuite draft inbox must show resolver needs-review status");
+assert(inbox.includes("Ready for approval"), "WorkSuite draft inbox must show resolver ready-for-approval status");
+assert(inbox.includes("Blocked"), "WorkSuite draft inbox must show resolver blocked status");
+assert(inbox.includes("/api/nexus/worksuite/draft-actions/validate"), "WorkSuite draft inbox must call the permission resolver endpoint");
+assert(inbox.includes("browser-review-context-pending"), "WorkSuite draft inbox must use pending browser actor context, not fake authority");
+assert(inbox.includes("authenticatedPerson: false"), "WorkSuite draft inbox must not invent authenticated browser authority");
+assert(inbox.includes("activeProjectParticipation: false"), "WorkSuite draft inbox must not invent Project Participation authority");
 assert(inbox.includes("Requires Project Participation before mutation"), "WorkSuite draft inbox authority warning missing");
 assert(inbox.includes("does not execute WorkSuite Action Engine mutations"), "WorkSuite draft inbox execution guard copy missing");
+assert(inbox.includes("mutationExecution"), "WorkSuite draft inbox must surface resolver non-mutation flag");
+assert(inbox.includes("approvalExecuted"), "WorkSuite draft inbox must surface resolver non-approval flag");
+assert(inbox.includes("graphMutation"), "WorkSuite draft inbox must surface resolver graph non-mutation flag");
+assert(inbox.includes("fileWrite"), "WorkSuite draft inbox must surface resolver file-write guard flag");
 assert(!/\bexecute\s*\(/i.test(inbox), "WorkSuite draft inbox must not execute actions");
 assert(!/\bmutate\s*\(/i.test(inbox), "WorkSuite draft inbox must not mutate actions");
 assert(!/\bapprove\s*\(/i.test(inbox), "WorkSuite draft inbox must not approve actions");
-assert(!/fetch\(/i.test(inbox), "WorkSuite draft inbox must not call backend APIs in this slice");
+assert(!/\/api\/nexus\/cloud-storage\/objects/i.test(inbox), "WorkSuite draft inbox must not write files");
+assert(!/\/api\/integrations\/work-wallet\/demo-events/i.test(inbox), "WorkSuite draft inbox must not emit Work Wallet events");
 
 assert(server.includes("draftAction"), "server must return draftAction envelopes");
 assert(server.includes("buildWorkSuiteDraftAction"), "server draft envelope builder missing");
