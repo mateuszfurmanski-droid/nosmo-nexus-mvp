@@ -38,6 +38,37 @@ export default function EsafeProjectWorld() {
     >
       <NexusGraphCommandBridge />
       <style>{`
+        html,
+        body,
+        #root {
+          width: 100% !important;
+          min-height: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+          overflow: hidden !important;
+          overscroll-behavior: none !important;
+          background: #eaf7fb !important;
+        }
+
+        #root > * {
+          min-height: 100dvh !important;
+          background: #eaf7fb !important;
+        }
+
+        @supports (height: 100dvh) {
+          html,
+          body,
+          #root {
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+          }
+        }
+
+        [class*="fixed"][class*="bottom-"] {
+          transform: translateZ(0);
+          -webkit-transform: translateZ(0);
+        }
+
         [data-control][class*="bottom-3 left-3 right-3 z-50"],
         [data-control][class*="bottom-3 left-3 z-40"],
         [data-control][class*="absolute left-3 top-3 z-50"],
