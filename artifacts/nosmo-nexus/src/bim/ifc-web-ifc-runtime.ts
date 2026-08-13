@@ -3,8 +3,36 @@ import type { IfcLocalModelSession } from "./ifc-mapping";
 import type { IfcRendererLoadOptions } from "./ifc-renderer-adapter";
 
 export const WEB_IFC_VERSION = "0.0.77";
-export const WEB_IFC_RUNTIME_URL = `https://cdn.jsdelivr.net/npm/web-ifc@${WEB_IFC_VERSION}/web-ifc-api-iife.js`;
-export const WEB_IFC_WASM_URL = `https://cdn.jsdelivr.net/npm/web-ifc@${WEB_IFC_VERSION}/web-ifc.wasm`;
+export type WebIfcRuntimeDelivery = "local-self-hosted" | "pinned-network-development";
+
+export const WEB_IFC_LOCAL_ASSET_ROOT = `${import.meta.env.BASE_URL}vendor/web-ifc/${WEB_IFC_VERSION}/`;
+export const WEB_IFC_LOCAL_RUNTIME_URL = `${WEB_IFC_LOCAL_ASSET_ROOT}web-ifc-api-iife.js`;
+export const WEB_IFC_LOCAL_WASM_URL = `${WEB_IFC_LOCAL_ASSET_ROOT}web-ifc.wasm`;
+
+export const WEB_IFC_DEVELOPMENT_RUNTIME_URL = `https://cdn.jsdelivr.net/npm/web-ifc@${WEB_IFC_VERSION}/web-ifc-api-iife.js`;
+export const WEB_IFC_DEVELOPMENT_WASM_URL = `https://cdn.jsdelivr.net/npm/web-ifc@${WEB_IFC_VERSION}/web-ifc.wasm`;
+
+const requestedDevelopmentDelivery = import.meta.env.VITE_WEB_IFC_RUNTIME_DELIVERY === "local-self-hosted"
+  ? "local-self-hosted"
+  : "pinned-network-development";
+
+/**
+ * Production is deliberately fail-closed to same-origin assets. A production build
+ * must never fall back to jsDelivr or another third-party runtime host. Development
+ * keeps the existing pinned-network opt-in until the package-manager-generated
+ * web-ifc dependency/lockfile and copied JS/WASM assets land in the next slice.
+ */
+export const WEB_IFC_RUNTIME_DELIVERY: WebIfcRuntimeDelivery = import.meta.env.PROD
+  ? "local-self-hosted"
+  : requestedDevelopmentDelivery;
+
+export const WEB_IFC_RUNTIME_URL = WEB_IFC_RUNTIME_DELIVERY === "local-self-hosted"
+  ? WEB_IFC_LOCAL_RUNTIME_URL
+  : WEB_IFC_DEVELOPMENT_RUNTIME_URL;
+
+export const WEB_IFC_WASM_URL = WEB_IFC_RUNTIME_DELIVERY === "local-self-hosted"
+  ? WEB_IFC_LOCAL_WASM_URL
+  : WEB_IFC_DEVELOPMENT_WASM_URL;
 
 type WebIfcVector<T> = {
   size(): number;
@@ -78,7 +106,8 @@ export function ensureWebIfcRuntime() {
   if (runtimePromise) return runtimePromise;
 
   runtimePromise = new Promise<WebIfcGlobal>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[data-nosmo-web-ifc="${WEB_IFC_VERSION}"]`);
+    const deliveryKey = `${WEB_IFC_VERSION}:${WEB_IFC_RUNTIME_DELIVERY}`;
+    const existing = document.querySelector<HTMLScriptElement>(`script[data-nosmo-web-ifc="${deliveryKey}"]`);
     const script = existing ?? document.createElement("script");
 
     const finish = () => {
@@ -99,9 +128,14 @@ export function ensureWebIfcRuntime() {
     script.async = true;
     script.crossOrigin = "anonymous";
     script.referrerPolicy = "no-referrer";
-    script.dataset.nosmoWebIfc = WEB_IFC_VERSION;
+    script.dataset.nosmoWebIfc = deliveryKey;
     script.addEventListener("load", finish, { once: true });
-    script.addEventListener("error", () => reject(new Error("Pinned web-ifc runtime failed to load.")), { once: true });
+    script.addEventListener("error", () => {
+      const source = WEB_IFC_RUNTIME_DELIVERY === "local-self-hosted"
+        ? `same-origin web-ifc ${WEB_IFC_VERSION} assets at ${WEB_IFC_LOCAL_ASSET_ROOT}`
+        : `pinned development web-ifc ${WEB_IFC_VERSION} runtime`;
+      reject(new Error(`Unable to load ${source}. Lite STEP remains available.`));
+    }, { once: true });
     document.head.appendChild(script);
   }).catch((error) => {
     runtimePromise = null;
