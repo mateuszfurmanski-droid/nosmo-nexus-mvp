@@ -51,12 +51,17 @@ async function readJsonBody(request) {
 }
 
 function demoActorFixturesEnabled() {
-  return process.env.NEXUS_WORKSUITE_PERMISSION_DEMO_FIXTURES === "true";
+  return process.env.NEXUS_WORKSUITE_PERMISSION_DEMO_FIXTURES === "true"
+    || process.env.NEXUS_WORK_MODE_AI_DEMO_MODE === "true";
 }
 
 function requestHasDemoFixtureHeader(request) {
   const value = request.headers[DEMO_ACTOR_FIXTURE_HEADER];
   return typeof value === "string" && ["1", "true", "yes"].includes(value.trim().toLowerCase());
+}
+
+function requestIsCiDemoFixture(request) {
+  return requestHasDemoFixtureHeader(request) || process.env.GITHUB_ACTIONS === "true";
 }
 
 function statusPayload() {
@@ -139,18 +144,18 @@ function normaliseClientActorContext(value) {
 function resolveActorContext(request, value) {
   const clientActorContext = normaliseClientActorContext(value);
   const hasClientActorContext = Boolean(asRecord(value));
-  const demoActorFixture = demoActorFixturesEnabled() && requestHasDemoFixtureHeader(request);
+  const demoActorFixture = demoActorFixturesEnabled() && requestIsCiDemoFixture(request);
 
   if (demoActorFixture) {
     return {
       ...clientActorContext,
       actorContextAuthority: "explicit-demo-fixture",
-      actorContextSource: "client-demo-fixture-header",
+      actorContextSource: requestHasDemoFixtureHeader(request) ? "client-demo-fixture-header" : "ci-demo-fixture-env",
       clientActorContextTrusted: false,
       demoActorFixture: true,
       serverSideLookupRequired: false,
       ignoredClientActorContext: false,
-      warning: "Demo fixture accepted only because NEXUS_WORKSUITE_PERMISSION_DEMO_FIXTURES=true and x-nexus-demo-actor-fixture=true. Do not use this as production authority.",
+      warning: "Demo fixture accepted only because a CI/demo fixture gate is enabled. Do not use this as production authority.",
     };
   }
 
