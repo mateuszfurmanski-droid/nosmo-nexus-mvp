@@ -1,3 +1,4 @@
+import type { ComponentType, SVGProps } from "react";
 import {
   User,
   Users,
@@ -5,24 +6,31 @@ import {
   Ruler,
   Building2,
   CheckSquare,
-  FileText,
-  FileSpreadsheet,
   ShieldCheck,
   FolderKanban,
   AlertTriangle,
-  type LucideIcon,
 } from "lucide-react";
+import {
+  PdfFileIcon,
+  XlsxFileIcon,
+} from "./file-icon-components";
 
 export type NodeType = "person" | "task" | "document" | "project" | "issue";
+
+type WorkspaceIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 export interface WorkspaceNode {
   id: string;
   label: string;
   sublabel: string;
   type: NodeType;
-  Icon: LucideIcon;
+  Icon: WorkspaceIcon;
   /** Organisation a person belongs to — drives company grouping in the layout. */
   company?: string;
+  /** When Nexus received this object. Radial Timeline uses this for document distance from project centre. */
+  receivedAt?: string;
+  /** Date carried by the document itself; intentionally separate from receivedAt. */
+  documentDate?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -45,11 +53,11 @@ export const NODES: WorkspaceNode[] = [
   { id: "p-team", label: "Northbridge Site Team", sublabel: "Main Contractor", type: "person", Icon: Users, company: "Northbridge Construction Ltd" },
 
   // Documents
-  { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: FileText },
-  { id: "d-doorschedule", label: "Door Schedule", sublabel: "Excel", type: "document", Icon: FileSpreadsheet },
-  { id: "d-siteinstructions", label: "Site Instructions", sublabel: "PDF", type: "document", Icon: FileText },
-  { id: "d-snaglist", label: "Snag List", sublabel: "Excel", type: "document", Icon: FileSpreadsheet },
-  { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "PDF", type: "document", Icon: ShieldCheck },
+  { id: "d-groundfloor", label: "Ground Floor Plans", sublabel: "PDF", type: "document", Icon: PdfFileIcon, receivedAt: "2026-07-08T09:20:00Z", documentDate: "2026-06-30" },
+  { id: "d-doorschedule", label: "Door Schedule", sublabel: "XLSX", type: "document", Icon: XlsxFileIcon, receivedAt: "2026-07-16T13:45:00Z", documentDate: "2026-07-10" },
+  { id: "d-siteinstructions", label: "Site Instructions", sublabel: "PDF", type: "document", Icon: PdfFileIcon, receivedAt: "2026-07-25T07:35:00Z", documentDate: "2026-07-24" },
+  { id: "d-snaglist", label: "Snag List", sublabel: "XLSX", type: "document", Icon: XlsxFileIcon, receivedAt: "2026-08-08T10:05:00Z", documentDate: "2026-08-08" },
+  { id: "d-firecerts", label: "Fire Door Certificates", sublabel: "PDF", type: "document", Icon: PdfFileIcon, receivedAt: "2026-08-02T15:10:00Z", documentDate: "2026-07-31" },
 
   // Tasks
   { id: "t-install", label: "Install Doors – Level 1", sublabel: "In Progress", type: "task", Icon: CheckSquare },
