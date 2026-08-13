@@ -41,7 +41,6 @@ public class MainActivity extends Activity {
     private static final int BG = Color.rgb(4, 12, 28);
     private static final int PANEL = Color.rgb(9, 27, 55);
     private static final int PANEL_SOFT = Color.rgb(12, 38, 76);
-    private static final int BLUE = Color.rgb(38, 132, 255);
     private static final int BLUE_DARK = Color.rgb(18, 82, 168);
     private static final int CYAN = Color.rgb(78, 203, 255);
     private static final int TEXT = Color.rgb(235, 246, 255);
@@ -123,13 +122,11 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("nexus_work_mode", MODE_PRIVATE);
-        applySystemBars();
-
-        if (prefs.getBoolean("workMode", false)) {
-            showWorkMode();
-        } else {
-            showWelcome();
+        if (!prefs.contains("workMode")) {
+            prefs.edit().putBoolean("workMode", true).apply();
         }
+        applySystemBars();
+        showWorkMode();
     }
 
     private void applySystemBars() {
@@ -178,333 +175,14 @@ public class MainActivity extends Activity {
         showWorkMode();
     }
 
-    private void showWelcome() {
-        LinearLayout root = page();
-        addBrand(root);
-        addTitle(root, "AI Work Mode");
-        addBody(root, "NEXUS prepares an AI-ready work context from Android sources you approve. Start with contacts and calendar, then add a project folder or selected work photos.");
-        addStatus(root, "BLUE NEXUS · AI CONTEXT READY", theme().accent);
-
-        Button start = primaryButton("Start discovery");
-        start.setOnClickListener(v -> startDiscovery());
-        root.addView(start, fullWidth(dp(60)));
-
-        Button ai = secondaryButton("Ask Nexus AI");
-        ai.setOnClickListener(v -> openUrl(aiAssistantUrl("home")));
-        root.addView(ai, fullWidth(dp(56)));
-
-        Button tree = secondaryButton("Open Project World");
-        tree.setOnClickListener(v -> openUrl(workTreeUrl("home")));
-        root.addView(tree, fullWidth(dp(56)));
-
-        addSmall(root, "Privacy boundary: no AI key in this APK, no Accessibility Service, no WhatsApp/Gmail database scraping, no unrestricted storage crawl. AI inference must run in Nexus web/backend after this app hands off an AI context packet.");
-        setPage(root);
-    }
-
-    private void startDiscovery() {
-        ArrayList<String> missing = new ArrayList<>();
-        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            missing.add(Manifest.permission.READ_CONTACTS);
-        }
-        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            missing.add(Manifest.permission.READ_CALENDAR);
-        }
-
-        if (!missing.isEmpty()) {
-            requestPermissions(missing.toArray(new String[0]), REQ_DISCOVERY_PERMISSIONS);
-        } else {
-            scanPhoneSources();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQ_DISCOVERY_PERMISSIONS) {
-            scanPhoneSources();
-        }
-    }
-
-    private void scanPhoneSources() {
-        signals.clear();
-        dedupe.clear();
-
-        int contacts = 0;
-        int calendar = 0;
-        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            contacts = scanContacts();
-        }
-        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) {
-            calendar = scanCalendar();
-        }
-
-        Toast.makeText(this, "Phone scan: " + contacts + " contacts, " + calendar + " calendar signals", Toast.LENGTH_LONG).show();
-        showReview();
-    }
-
-    private int scanContacts() {
-        int before = signals.size();
-        ContentResolver resolver = getContentResolver();
-
-        String[] orgProjection = new String[]{ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME, ContactsContract.CommonDataKinds.Organization.COMPANY, ContactsContract.CommonDataKinds.Organization.TITLE};
-        String selection = ContactsContract.Data.MIMETYPE + "=?";
-        String[] args = new String[]{ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE};
-
-        try (Cursor cursor = resolver.query(ContactsContract.Data.CONTENT_URI, orgProjection, selection, args, null)) {
-            if (cursor != null) {
-                int nameIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME);
-                int companyIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.COMPANY);
-                int titleIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.TITLE);
-                while (cursor.moveToNext() && signals.size() < 250) {
-                    String name = value(cursor, nameIx);
-                    String company = value(cursor, companyIx);
-                    String title = value(cursor, titleIx);
-                    String joined = joinNonEmpty(name, company, title);
-                    if (joined.isEmpty()) continue;
-                    int score = workScore(joined);
-                    if (score < 45 && company.isEmpty() && title.isEmpty()) continue;
-                    addSignal("CONTACT", nonEmpty(name, company, "Work contact"), joinNonEmpty(company, title), Math.max(score, 55));
-                }
-            }
-        } catch (Exception ignored) {
-        }
-
-        String[] contactProjection = new String[]{ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
-        try (Cursor cursor = resolver.query(ContactsContract.Contacts.CONTENT_URI, contactProjection, null, null, null)) {
-            if (cursor != null) {
-                int nameIx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY);
-                while (cursor.moveToNext() && signals.size() < 300) {
-                    String name = value(cursor, nameIx);
-                    if (name.isEmpty()) continue;
-                    int score = workScore(name);
-                    if (score >= 60) {
-                        addSignal("CONTACT", name, "Matched work/project keywords", score);
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return signals.size() - before;
-    }
-
-    private int scanCalendar() {
-        int before = signals.size();
-        long now = System.currentTimeMillis();
-        long from = now - (120L * 24L * 60L * 60L * 1000L);
-        long to = now + (180L * 24L * 60L * 60L * 1000L);
-
-        String[] projection = new String[]{CalendarContract.Events.TITLE, CalendarContract.Events.EVENT_LOCATION, CalendarContract.Events.DESCRIPTION, CalendarContract.Events.DTSTART};
-        String selection = CalendarContract.Events.DTSTART + ">=? AND " + CalendarContract.Events.DTSTART + "<=?";
-        String[] args = new String[]{String.valueOf(from), String.valueOf(to)};
-
-        try (Cursor cursor = getContentResolver().query(CalendarContract.Events.CONTENT_URI, projection, selection, args, CalendarContract.Events.DTSTART + " DESC")) {
-            if (cursor != null) {
-                int titleIx = cursor.getColumnIndex(CalendarContract.Events.TITLE);
-                int locationIx = cursor.getColumnIndex(CalendarContract.Events.EVENT_LOCATION);
-                int descriptionIx = cursor.getColumnIndex(CalendarContract.Events.DESCRIPTION);
-                while (cursor.moveToNext() && signals.size() < 450) {
-                    String title = value(cursor, titleIx);
-                    String location = value(cursor, locationIx);
-                    String description = value(cursor, descriptionIx);
-                    String joined = joinNonEmpty(title, location, description);
-                    if (joined.isEmpty()) continue;
-                    int score = workScore(joined);
-                    if (score >= 45 || (!location.isEmpty() && score >= 30)) {
-                        addSignal("CALENDAR", nonEmpty(title, "Work calendar event"), joinNonEmpty(location, trim(description, 80)), Math.max(score, 50));
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return signals.size() - before;
-    }
-
-    private void chooseWorkFolder() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-        startActivityForResult(intent, REQ_WORK_FOLDER);
-    }
-
-    private void choosePhotos() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.setType("image/*");
-        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        startActivityForResult(intent, REQ_PHOTOS);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null) return;
-
-        if (requestCode == REQ_WORK_FOLDER && data.getData() != null) {
-            Uri treeUri = data.getData();
-            try {
-                getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                prefs.edit().putString("workFolderUri", treeUri.toString()).apply();
-            } catch (Exception ignored) {
-            }
-            int found = scanFolder(treeUri);
-            Toast.makeText(this, "Folder scan: " + found + " likely work files", Toast.LENGTH_LONG).show();
-            showReview();
-        } else if (requestCode == REQ_PHOTOS) {
-            int count = addPickedPhotos(data);
-            Toast.makeText(this, count + " photos added", Toast.LENGTH_SHORT).show();
-            showReview();
-        }
-    }
-
-    private int scanFolder(Uri treeUri) {
-        int before = signals.size();
-        try {
-            String rootId = DocumentsContract.getTreeDocumentId(treeUri);
-            scanFolderChildren(treeUri, rootId, 0, "");
-        } catch (Exception ignored) {
-        }
-        return signals.size() - before;
-    }
-
-    private void scanFolderChildren(Uri treeUri, String parentId, int depth, String path) {
-        if (depth > 2 || signals.size() >= 650) return;
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId);
-        String[] projection = new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE};
-
-        try (Cursor cursor = getContentResolver().query(childrenUri, projection, null, null, null)) {
-            if (cursor == null) return;
-            int idIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            while (cursor.moveToNext() && signals.size() < 650) {
-                String id = value(cursor, idIx);
-                String name = value(cursor, nameIx);
-                String mime = value(cursor, mimeIx);
-                if (name.isEmpty()) continue;
-                String nextPath = path.isEmpty() ? name : path + "/" + name;
-                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
-                    if (depth < 2) scanFolderChildren(treeUri, id, depth + 1, nextPath);
-                } else if (likelyWorkFile(name)) {
-                    int score = Math.max(workScore(nextPath), 60);
-                    addSignal("FILE", name, trim(path, 100), score);
-                }
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private int addPickedPhotos(Intent data) {
-        int before = signals.size();
-        ClipData clip = data.getClipData();
-        if (clip != null) {
-            for (int i = 0; i < clip.getItemCount(); i++) {
-                Uri uri = clip.getItemAt(i).getUri();
-                addSignal("PHOTO", displayName(uri), "Selected work evidence", 70);
-            }
-        } else if (data.getData() != null) {
-            Uri uri = data.getData();
-            addSignal("PHOTO", displayName(uri), "Selected work evidence", 70);
-        }
-        return signals.size() - before;
-    }
-
-    private String displayName(Uri uri) {
-        String result = "Selected photo";
-        String[] projection = new String[]{OpenableColumns.DISPLAY_NAME};
-        try (Cursor cursor = getContentResolver().query(uri, projection, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int ix = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                String value = value(cursor, ix);
-                if (!value.isEmpty()) result = value;
-            }
-        } catch (Exception ignored) {
-        }
-        return result;
-    }
-
-    private void showReview() {
-        LinearLayout root = page();
-        addBrand(root);
-        addTitle(root, "AI Discovery Review");
-        addBody(root, signals.isEmpty() ? "No strong work signals found yet. Add a project folder or selected photos." : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work. Nexus AI will receive a bounded handoff packet, not raw phone data.");
-        addStatus(root, selectedCount() + " SELECTED", theme().accent);
-
-        Button folder = secondaryButton("+ Add / scan work folder");
-        folder.setOnClickListener(v -> chooseWorkFolder());
-        root.addView(folder, fullWidth(dp(54)));
-
-        Button photos = secondaryButton("+ Add work photos");
-        photos.setOnClickListener(v -> choosePhotos());
-        root.addView(photos, fullWidth(dp(54)));
-
-        addSection(root, "FOUND CONTEXT");
-        int shown = 0;
-        for (Signal signal : signals) {
-            if (shown >= 80) break;
-            CheckBox box = new CheckBox(this);
-            box.setText(signal.source + " · " + signal.title + (signal.detail.isEmpty() ? "" : "\n" + signal.detail) + "\nconfidence " + signal.confidence + "%");
-            box.setTextColor(theme().text);
-            box.setTextSize(14);
-            box.setChecked(signal.selected);
-            box.setPadding(dp(4), dp(8), dp(4), dp(8));
-            box.setOnCheckedChangeListener((buttonView, isChecked) -> signal.selected = isChecked);
-            root.addView(box, wrapHeight());
-            shown++;
-        }
-        if (signals.size() > shown) addSmall(root, "+ " + (signals.size() - shown) + " more signals retained in this scan.");
-
-        Button ask = primaryButton("Ask Nexus AI with this context");
-        ask.setOnClickListener(v -> {
-            persistAiContext();
-            openUrl(aiAssistantUrl("review"));
-        });
-        root.addView(ask, fullWidth(dp(62)));
-
-        Button start = secondaryButton("Accept + start Work Mode");
-        start.setOnClickListener(v -> enableWorkMode());
-        root.addView(start, fullWidth(dp(54)));
-
-        Button tree = secondaryButton("Preview Project World");
-        tree.setOnClickListener(v -> openUrl(workTreeUrl("review")));
-        root.addView(tree, fullWidth(dp(54)));
-
-        Button rescan = secondaryButton("Rescan phone");
-        rescan.setOnClickListener(v -> startDiscovery());
-        root.addView(rescan, fullWidth(dp(54)));
-        setPage(root);
-    }
-
-    private void enableWorkMode() {
-        String project = inferProject();
-        int accepted = selectedCount();
-        prefs.edit()
-                .putBoolean("workMode", true)
-                .putString("activeProject", project)
-                .putInt("acceptedSignals", accepted)
-                .putString("signalSummary", selectedSummary())
-                .putString("aiContextPacket", aiContextPacket(project, accepted))
-                .apply();
-        Toast.makeText(this, "NEXUS Work Mode ON", Toast.LENGTH_LONG).show();
-        showWorkMode();
-    }
-
-    private void persistAiContext() {
-        String project = inferProject();
-        prefs.edit()
-                .putString("activeProject", project)
-                .putInt("acceptedSignals", selectedCount())
-                .putString("signalSummary", selectedSummary())
-                .putString("aiContextPacket", aiContextPacket(project, selectedCount()))
-                .apply();
-    }
-
     private void showWorkMode() {
         LinearLayout root = page();
         addWorkModeHero(root);
-        addLauncherGrid(root);
+        addKnowledgeVacuumPanel(root);
+        addAppShortcutGrid(root);
         addThemeSwitcher(root);
         addValueBar(root);
-        addSmall(root, "Native Android beta 0.5.4-launcher-shell · Visual theme system: Blue, Light, Steel/Gold plus Cyan, Gold, Laser Green accents. Apps open normally; Nexus web/backend owns AI model calls and project permission enforcement.");
+        addSmall(root, "NEXUS Work Mode Layer · Android Home-capable shell · Knowledge Vacuum prepares local work context. No AI key in APK. No Accessibility Service. No WhatsApp/Gmail database scraping. No unrestricted storage crawl.");
         setPage(root);
     }
 
@@ -530,15 +208,15 @@ public class MainActivity extends Activity {
         root.addView(title, wrapHeight());
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("One tap. Total focus.");
+        subtitle.setText("Android work layer. One tap. Total focus.");
         subtitle.setTextColor(t.muted);
         subtitle.setTextSize(15);
         subtitle.setGravity(Gravity.CENTER);
-        subtitle.setPadding(0, 0, 0, dp(18));
+        subtitle.setPadding(0, 0, 0, dp(14));
         root.addView(subtitle, wrapHeight());
 
         TextView status = new TextView(this);
-        status.setText("◈  Nexus Work Mode Active");
+        status.setText("◈  Work Mode Layer Active");
         status.setTextColor(t.text);
         status.setTextSize(13);
         status.setTypeface(Typeface.DEFAULT_BOLD);
@@ -546,7 +224,7 @@ public class MainActivity extends Activity {
         status.setPadding(dp(12), dp(9), dp(12), dp(9));
         status.setBackground(rounded(t.accentSoft, dp(24), t.accent, 1));
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
-        statusLp.setMargins(dp(22), dp(4), dp(22), dp(12));
+        statusLp.setMargins(dp(22), dp(4), dp(22), dp(10));
         root.addView(status, statusLp);
 
         String project = prefs.getString("activeProject", "Unassigned work");
@@ -556,15 +234,88 @@ public class MainActivity extends Activity {
         context.setTextColor(t.accent);
         context.setTextSize(12);
         context.setGravity(Gravity.CENTER);
-        context.setPadding(0, 0, 0, dp(12));
+        context.setPadding(0, 0, 0, dp(10));
         root.addView(context, wrapHeight());
     }
 
-    private void addLauncherGrid(LinearLayout root) {
-        addTileRow(root, launcherTile("N", "Nexus", () -> openUrl(aiAssistantUrl("work-mode-launcher"))), launcherTile("WA", "WhatsApp", () -> openPackageOrWeb("com.whatsapp", "https://wa.me/")), launcherTile("TEL", "Phone", () -> openIntent(new Intent(Intent.ACTION_DIAL))));
-        addTileRow(root, launcherTile("CAM", "Camera", this::openCamera), launcherTile("MAP", "Maps", () -> openIntent(new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=construction%20site")))), launcherTile("GM", "Gmail", () -> openPackageOrWeb("com.google.android.gm", "mailto:")));
-        addTileRow(root, launcherTile("XLS", "Excel", () -> openPackageOrWeb("com.microsoft.office.excel", "https://www.office.com/launch/excel")), launcherTile("DOC", "Docs", () -> openPackageOrWeb("com.google.android.apps.docs.editors.docs", "https://docs.google.com/document/")), launcherTile("DRV", "Drive", () -> openPackageOrWeb("com.google.android.apps.docs", "https://drive.google.com/")));
-        addTileRow(root, launcherTile("T", "Teams", () -> openPackageOrWeb("com.microsoft.teams", "https://teams.microsoft.com/")), launcherTile("DF", "DoorFlow", () -> openUrl(doorflowUrl())), launcherTile("NX", "Nexus Portal", () -> openUrl(workTreeUrl("nexus-portal"))));
+    private void addKnowledgeVacuumPanel(LinearLayout root) {
+        ThemeProfile t = theme();
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        panel.setBackground(rounded(t.panelSoft, dp(t.radius), t.accent, 1));
+
+        TextView title = new TextView(this);
+        title.setText("KNOWLEDGE VACUUM");
+        title.setTextColor(t.accent);
+        title.setTextSize(12);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setLetterSpacing(0.12f);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, wrapHeight());
+
+        TextView body = new TextView(this);
+        body.setText("Phone → approved work signals → Nexus context. Start here after installing from Google Play / Google apps.");
+        body.setTextColor(t.muted);
+        body.setTextSize(12);
+        body.setGravity(Gravity.CENTER);
+        body.setPadding(0, dp(4), 0, dp(10));
+        panel.addView(body, wrapHeight());
+
+        addFunctionRow(panel,
+                functionTile("SCAN", "Scan Phone", this::startDiscovery),
+                functionTile("FOLD", "Add Folder", this::chooseWorkFolder),
+                functionTile("PHOTO", "Add Photos", this::choosePhotos));
+        addFunctionRow(panel,
+                functionTile("ASK", "Ask Nexus", () -> openUrl(aiAssistantUrl("knowledge-vacuum"))),
+                functionTile("TREE", "Project World", () -> openUrl(workTreeUrl("knowledge-vacuum"))),
+                functionTile("DF", "DoorFlow", () -> openUrl(doorflowUrl())));
+
+        LinearLayout.LayoutParams lp = fullWidth(dp(234));
+        lp.setMargins(0, dp(4), 0, dp(10));
+        root.addView(panel, lp);
+    }
+
+    private Button functionTile(String icon, String label, Runnable action) {
+        ThemeProfile t = theme();
+        Button tile = new Button(this);
+        tile.setText(icon + "\n" + label);
+        tile.setAllCaps(false);
+        tile.setTextColor(t.text);
+        tile.setTextSize(12);
+        tile.setTypeface(Typeface.DEFAULT_BOLD);
+        tile.setGravity(Gravity.CENTER);
+        tile.setPadding(dp(4), dp(6), dp(4), dp(6));
+        tile.setBackground(rounded(t.raised, dp(t.radius), t.accent, 1));
+        tile.setOnClickListener(v -> action.run());
+        return tile;
+    }
+
+    private void addFunctionRow(LinearLayout root, Button left, Button middle, Button right) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(0, 0, 0, dp(8));
+        row.addView(left, tileLp(0));
+        row.addView(middle, tileLp(dp(10)));
+        row.addView(right, tileLp(0));
+        root.addView(row, fullWidth(dp(78)));
+    }
+
+    private void addAppShortcutGrid(LinearLayout root) {
+        addSection(root, "APP SHORTCUTS");
+        addTileRow(root,
+                launcherTile("WA", "WhatsApp", () -> openPackageOrWeb("com.whatsapp", "https://wa.me/")),
+                launcherTile("TEL", "Phone", () -> openIntent(new Intent(Intent.ACTION_DIAL))),
+                launcherTile("CAM", "Camera", this::openCamera));
+        addTileRow(root,
+                launcherTile("MAP", "Maps", () -> openIntent(new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=construction%20site")))),
+                launcherTile("GM", "Gmail", () -> openPackageOrWeb("com.google.android.gm", "mailto:")),
+                launcherTile("XLS", "Excel", () -> openPackageOrWeb("com.microsoft.office.excel", "https://www.office.com/launch/excel")));
+        addTileRow(root,
+                launcherTile("DOC", "Docs", () -> openPackageOrWeb("com.google.android.apps.docs.editors.docs", "https://docs.google.com/document/")),
+                launcherTile("DRV", "Drive", () -> openPackageOrWeb("com.google.android.apps.docs", "https://drive.google.com/")),
+                launcherTile("T", "Teams", () -> openPackageOrWeb("com.microsoft.teams", "https://teams.microsoft.com/")));
     }
 
     private Button launcherTile(String icon, String label, Runnable action) {
@@ -652,9 +403,9 @@ public class MainActivity extends Activity {
         row.setGravity(Gravity.CENTER);
         row.setPadding(dp(8), dp(10), dp(8), dp(10));
         row.setBackground(rounded(t.panelSoft, dp(22), t.border, 1));
-        row.addView(valueChip("One Tap", "Instant transition"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        row.addView(valueChip("Distraction Free", "Work-first shell"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        row.addView(valueChip("Secure", "Project context"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("One Tap", "Work home"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("Vacuum", "Approved context"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("Secure", "No scrape"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         LinearLayout.LayoutParams lp = fullWidth(dp(82));
         lp.setMargins(0, dp(8), 0, dp(10));
         root.addView(row, lp);
@@ -669,6 +420,272 @@ public class MainActivity extends Activity {
         chip.setGravity(Gravity.CENTER);
         chip.setLineSpacing(dp(1), 1.0f);
         return chip;
+    }
+
+    private void showReview() {
+        LinearLayout root = page();
+        addBrand(root);
+        addTitle(root, "Knowledge Vacuum Review");
+        addBody(root, signals.isEmpty() ? "No strong work signals found yet. Add a project folder or selected photos." : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work. Nexus AI receives a bounded context packet, not raw phone data.");
+        addStatus(root, selectedCount() + " SELECTED", theme().accent);
+
+        Button folder = secondaryButton("+ Add / scan work folder");
+        folder.setOnClickListener(v -> chooseWorkFolder());
+        root.addView(folder, fullWidth(dp(54)));
+
+        Button photos = secondaryButton("+ Add work photos");
+        photos.setOnClickListener(v -> choosePhotos());
+        root.addView(photos, fullWidth(dp(54)));
+
+        addSection(root, "FOUND CONTEXT");
+        int shown = 0;
+        for (Signal signal : signals) {
+            if (shown >= 80) break;
+            CheckBox box = new CheckBox(this);
+            box.setText(signal.source + " · " + signal.title + (signal.detail.isEmpty() ? "" : "\n" + signal.detail) + "\nconfidence " + signal.confidence + "%");
+            box.setTextColor(theme().text);
+            box.setTextSize(14);
+            box.setChecked(signal.selected);
+            box.setPadding(dp(4), dp(8), dp(4), dp(8));
+            box.setOnCheckedChangeListener((buttonView, isChecked) -> signal.selected = isChecked);
+            root.addView(box, wrapHeight());
+            shown++;
+        }
+        if (signals.size() > shown) addSmall(root, "+ " + (signals.size() - shown) + " more signals retained in this scan.");
+
+        Button accept = primaryButton("Accept + return to Work Mode");
+        accept.setOnClickListener(v -> enableWorkMode());
+        root.addView(accept, fullWidth(dp(62)));
+
+        Button ask = secondaryButton("Ask Nexus AI with this context");
+        ask.setOnClickListener(v -> {
+            persistAiContext();
+            openUrl(aiAssistantUrl("knowledge-vacuum-review"));
+        });
+        root.addView(ask, fullWidth(dp(54)));
+
+        Button tree = secondaryButton("Preview Project World");
+        tree.setOnClickListener(v -> openUrl(workTreeUrl("knowledge-vacuum-review")));
+        root.addView(tree, fullWidth(dp(54)));
+        setPage(root);
+    }
+
+    private void startDiscovery() {
+        ArrayList<String> missing = new ArrayList<>();
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_CONTACTS);
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_CALENDAR);
+
+        if (!missing.isEmpty()) requestPermissions(missing.toArray(new String[0]), REQ_DISCOVERY_PERMISSIONS);
+        else scanPhoneSources();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_DISCOVERY_PERMISSIONS) scanPhoneSources();
+    }
+
+    private void scanPhoneSources() {
+        signals.clear();
+        dedupe.clear();
+        int contacts = 0;
+        int calendar = 0;
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) contacts = scanContacts();
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) calendar = scanCalendar();
+        Toast.makeText(this, "Knowledge Vacuum: " + contacts + " contacts, " + calendar + " calendar signals", Toast.LENGTH_LONG).show();
+        showReview();
+    }
+
+    private int scanContacts() {
+        int before = signals.size();
+        ContentResolver resolver = getContentResolver();
+        String[] orgProjection = new String[]{ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME, ContactsContract.CommonDataKinds.Organization.COMPANY, ContactsContract.CommonDataKinds.Organization.TITLE};
+        String selection = ContactsContract.Data.MIMETYPE + "=?";
+        String[] args = new String[]{ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE};
+
+        try (Cursor cursor = resolver.query(ContactsContract.Data.CONTENT_URI, orgProjection, selection, args, null)) {
+            if (cursor != null) {
+                int nameIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME);
+                int companyIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.COMPANY);
+                int titleIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.TITLE);
+                while (cursor.moveToNext() && signals.size() < 250) {
+                    String name = value(cursor, nameIx);
+                    String company = value(cursor, companyIx);
+                    String title = value(cursor, titleIx);
+                    String joined = joinNonEmpty(name, company, title);
+                    if (joined.isEmpty()) continue;
+                    int score = workScore(joined);
+                    if (score < 45 && company.isEmpty() && title.isEmpty()) continue;
+                    addSignal("CONTACT", nonEmpty(name, company, "Work contact"), joinNonEmpty(company, title), Math.max(score, 55));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        String[] contactProjection = new String[]{ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
+        try (Cursor cursor = resolver.query(ContactsContract.Contacts.CONTENT_URI, contactProjection, null, null, null)) {
+            if (cursor != null) {
+                int nameIx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY);
+                while (cursor.moveToNext() && signals.size() < 300) {
+                    String name = value(cursor, nameIx);
+                    if (name.isEmpty()) continue;
+                    int score = workScore(name);
+                    if (score >= 60) addSignal("CONTACT", name, "Matched work/project keywords", score);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return signals.size() - before;
+    }
+
+    private int scanCalendar() {
+        int before = signals.size();
+        long now = System.currentTimeMillis();
+        long from = now - (120L * 24L * 60L * 60L * 1000L);
+        long to = now + (180L * 24L * 60L * 60L * 1000L);
+        String[] projection = new String[]{CalendarContract.Events.TITLE, CalendarContract.Events.EVENT_LOCATION, CalendarContract.Events.DESCRIPTION, CalendarContract.Events.DTSTART};
+        String selection = CalendarContract.Events.DTSTART + ">=? AND " + CalendarContract.Events.DTSTART + "<=?";
+        String[] args = new String[]{String.valueOf(from), String.valueOf(to)};
+
+        try (Cursor cursor = getContentResolver().query(CalendarContract.Events.CONTENT_URI, projection, selection, args, CalendarContract.Events.DTSTART + " DESC")) {
+            if (cursor != null) {
+                int titleIx = cursor.getColumnIndex(CalendarContract.Events.TITLE);
+                int locationIx = cursor.getColumnIndex(CalendarContract.Events.EVENT_LOCATION);
+                int descriptionIx = cursor.getColumnIndex(CalendarContract.Events.DESCRIPTION);
+                while (cursor.moveToNext() && signals.size() < 450) {
+                    String title = value(cursor, titleIx);
+                    String location = value(cursor, locationIx);
+                    String description = value(cursor, descriptionIx);
+                    String joined = joinNonEmpty(title, location, description);
+                    if (joined.isEmpty()) continue;
+                    int score = workScore(joined);
+                    if (score >= 45 || (!location.isEmpty() && score >= 30)) addSignal("CALENDAR", nonEmpty(title, "Work calendar event"), joinNonEmpty(location, trim(description, 80)), Math.max(score, 50));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return signals.size() - before;
+    }
+
+    private void chooseWorkFolder() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        startActivityForResult(intent, REQ_WORK_FOLDER);
+    }
+
+    private void choosePhotos() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("image/*");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivityForResult(intent, REQ_PHOTOS);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null) return;
+        if (requestCode == REQ_WORK_FOLDER && data.getData() != null) {
+            Uri treeUri = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                prefs.edit().putString("workFolderUri", treeUri.toString()).apply();
+            } catch (Exception ignored) {
+            }
+            int found = scanFolder(treeUri);
+            Toast.makeText(this, "Knowledge Vacuum folder scan: " + found + " likely work files", Toast.LENGTH_LONG).show();
+            showReview();
+        } else if (requestCode == REQ_PHOTOS) {
+            int count = addPickedPhotos(data);
+            Toast.makeText(this, count + " photos added", Toast.LENGTH_SHORT).show();
+            showReview();
+        }
+    }
+
+    private int scanFolder(Uri treeUri) {
+        int before = signals.size();
+        try {
+            String rootId = DocumentsContract.getTreeDocumentId(treeUri);
+            scanFolderChildren(treeUri, rootId, 0, "");
+        } catch (Exception ignored) {
+        }
+        return signals.size() - before;
+    }
+
+    private void scanFolderChildren(Uri treeUri, String parentId, int depth, String path) {
+        if (depth > 2 || signals.size() >= 650) return;
+        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId);
+        String[] projection = new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE};
+        try (Cursor cursor = getContentResolver().query(childrenUri, projection, null, null, null)) {
+            if (cursor == null) return;
+            int idIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+            int nameIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+            int mimeIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
+            while (cursor.moveToNext() && signals.size() < 650) {
+                String id = value(cursor, idIx);
+                String name = value(cursor, nameIx);
+                String mime = value(cursor, mimeIx);
+                if (name.isEmpty()) continue;
+                String nextPath = path.isEmpty() ? name : path + "/" + name;
+                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
+                    if (depth < 2) scanFolderChildren(treeUri, id, depth + 1, nextPath);
+                } else if (likelyWorkFile(name)) {
+                    int score = Math.max(workScore(nextPath), 60);
+                    addSignal("FILE", name, trim(path, 100), score);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private int addPickedPhotos(Intent data) {
+        int before = signals.size();
+        ClipData clip = data.getClipData();
+        if (clip != null) {
+            for (int i = 0; i < clip.getItemCount(); i++) addSignal("PHOTO", displayName(clip.getItemAt(i).getUri()), "Selected work evidence", 70);
+        } else if (data.getData() != null) {
+            addSignal("PHOTO", displayName(data.getData()), "Selected work evidence", 70);
+        }
+        return signals.size() - before;
+    }
+
+    private String displayName(Uri uri) {
+        String result = "Selected photo";
+        String[] projection = new String[]{OpenableColumns.DISPLAY_NAME};
+        try (Cursor cursor = getContentResolver().query(uri, projection, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int ix = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                String value = value(cursor, ix);
+                if (!value.isEmpty()) result = value;
+            }
+        } catch (Exception ignored) {
+        }
+        return result;
+    }
+
+    private void enableWorkMode() {
+        String project = inferProject();
+        int accepted = selectedCount();
+        prefs.edit()
+                .putBoolean("workMode", true)
+                .putString("activeProject", project)
+                .putInt("acceptedSignals", accepted)
+                .putString("signalSummary", selectedSummary())
+                .putString("aiContextPacket", aiContextPacket(project, accepted))
+                .apply();
+        Toast.makeText(this, "NEXUS Work Mode Layer ON", Toast.LENGTH_LONG).show();
+        showWorkMode();
+    }
+
+    private void persistAiContext() {
+        String project = inferProject();
+        prefs.edit()
+                .putString("activeProject", project)
+                .putInt("acceptedSignals", selectedCount())
+                .putString("signalSummary", selectedSummary())
+                .putString("aiContextPacket", aiContextPacket(project, selectedCount()))
+                .apply();
     }
 
     private void openCamera() {
@@ -704,8 +721,8 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("nexusSurface", surface)
                 .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("acceptedSignals", String.valueOf(accepted))
-                .build()
-                .toString();
+                .appendQueryParameter("knowledgeVacuum", "android-local-review")
+                .build().toString();
     }
 
     private String aiAssistantUrl(String surface) {
@@ -720,9 +737,9 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("acceptedSignals", String.valueOf(accepted))
                 .appendQueryParameter("signalTypes", sourceBreakdown())
+                .appendQueryParameter("knowledgeVacuum", "android-local-review")
                 .appendQueryParameter("nexusPrompt", aiPrompt(surface))
-                .build()
-                .toString();
+                .build().toString();
     }
 
     private String doorflowUrl() {
@@ -732,17 +749,17 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("nexusClient", "android-native")
                 .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
-                .build()
-                .toString();
+                .appendQueryParameter("knowledgeVacuum", "android-local-review")
+                .build().toString();
     }
 
     private String aiPrompt(String surface) {
-        return "Use the Android Work Mode context to identify the active project, likely work package, missing evidence, immediate next action, and the best Nexus Project Graph node to open. Surface=" + surface + ". Do not treat phone discovery as authority; resolve project permissions in Nexus.";
+        return "Use the Android Work Mode Layer and Knowledge Vacuum context to identify the active project, likely work package, missing evidence, immediate next action, and the best Nexus Project Graph node to open. Surface=" + surface + ". Do not treat phone discovery as authority; resolve project permissions in Nexus.";
     }
 
     private String aiContextPacket(String project, int accepted) {
         ThemeProfile t = theme();
-        return "version=" + AI_CONTEXT_VERSION + "; client=android-native" + "; theme=blue-nexus" + "; visualTheme=" + t.id + "; visualAccent=" + t.accentId + "; project=" + slug(project) + "; acceptedSignals=" + accepted + "; signalTypes=" + sourceBreakdown() + "; modelCall=server-side-only";
+        return "version=" + AI_CONTEXT_VERSION + "; client=android-native" + "; theme=blue-nexus" + "; visualTheme=" + t.id + "; visualAccent=" + t.accentId + "; layer=work-mode-home" + "; knowledgeVacuum=android-local-review" + "; project=" + slug(project) + "; acceptedSignals=" + accepted + "; signalTypes=" + sourceBreakdown() + "; modelCall=server-side-only";
     }
 
     private String sourceBreakdown() {
@@ -827,9 +844,7 @@ public class MainActivity extends Activity {
 
     private boolean likelyWorkFile(String name) {
         String n = name == null ? "" : name.toLowerCase(Locale.UK);
-        if (n.endsWith(".pdf") || n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".docx") || n.endsWith(".pptx") || n.endsWith(".ifc") || n.endsWith(".dwg") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png")) {
-            return true;
-        }
+        if (n.endsWith(".pdf") || n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".docx") || n.endsWith(".pptx") || n.endsWith(".ifc") || n.endsWith(".dwg") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png")) return true;
         return workScore(n) >= 45;
     }
 
@@ -846,9 +861,7 @@ public class MainActivity extends Activity {
     }
 
     private String nonEmpty(String... values) {
-        for (String value : values) {
-            if (value != null && !value.trim().isEmpty()) return value.trim();
-        }
+        for (String value : values) if (value != null && !value.trim().isEmpty()) return value.trim();
         return "";
     }
 
@@ -968,13 +981,8 @@ public class MainActivity extends Activity {
         root.addView(small, wrapHeight());
     }
 
-    private Button primaryButton(String text) {
-        return button(text, true);
-    }
-
-    private Button secondaryButton(String text) {
-        return button(text, false);
-    }
+    private Button primaryButton(String text) { return button(text, true); }
+    private Button secondaryButton(String text) { return button(text, false); }
 
     private Button button(String text, boolean primary) {
         ThemeProfile t = theme();
