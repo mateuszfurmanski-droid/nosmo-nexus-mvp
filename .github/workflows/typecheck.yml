@@ -29,6 +29,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Validate web-ifc production delivery boundary
+        run: node scripts/validate-web-ifc-runtime-delivery.mjs
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
