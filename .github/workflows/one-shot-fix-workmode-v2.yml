@@ -1,0 +1,50 @@
+name: One-shot fix Work Mode v2 typecheck
+
+on:
+  push:
+    branches:
+      - agent/android-work-mode-native
+    paths:
+      - .github/workflows/one-shot-fix-workmode-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/android-work-mode-native
+          fetch-depth: 0
+      - name: Fix v2 TypeScript compatibility
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('native/nexus-work-mode/src/AppV2.tsx')
+          text = app.read_text()
+          if 'fontWeight: "850"' not in text:
+              raise SystemExit('Expected fontWeight marker not found')
+          text = text.replace('fontWeight: "850"', 'fontWeight: "800"')
+          app.write_text(text)
+
+          discovery = Path('native/nexus-work-mode/src/discovery.ts')
+          text = discovery.read_text()
+          old = 'const root = await Directory.pickDirectoryAsync();'
+          new = 'const root = (await Directory.pickDirectoryAsync()) as unknown as Directory;'
+          if old not in text:
+              raise SystemExit('Expected directory picker marker not found')
+          discovery.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "nosmo-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add native/nexus-work-mode/src/AppV2.tsx native/nexus-work-mode/src/discovery.ts
+          git commit -m "Fix Work Mode v2 typecheck"
+          git push origin HEAD:agent/android-work-mode-native

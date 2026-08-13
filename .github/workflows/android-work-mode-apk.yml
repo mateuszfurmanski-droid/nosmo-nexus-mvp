@@ -1,0 +1,160 @@
+name: Build Nexus Work Mode APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-work-mode-native
+    paths:
+      - native/nexus-work-mode/**
+      - .github/workflows/android-work-mode-apk.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - native/nexus-work-mode/**
+      - .github/workflows/android-work-mode-apk.yml
+
+permissions:
+  contents: write
+
+jobs:
+  android-release-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/android-work-mode-native
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install native dependencies
+        working-directory: native/nexus-work-mode
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck native app
+        working-directory: native/nexus-work-mode
+        run: npm run typecheck
+
+      - name: Build launcher icon from official NEXUS logo
+        run: |
+          mkdir -p native/nexus-work-mode/assets
+          curl -L --fail --retry 3 \
+            https://raw.githubusercontent.com/mateuszfurmanski-droid/NOSMO-website/main/assets/NEXUS_Logo.png \
+            -o /tmp/NEXUS_Logo.png
+          python -m pip install --quiet pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
+          source = Image.open('/tmp/NEXUS_Logo.png').convert('RGBA')
+          out = Path('native/nexus-work-mode/assets')
+          out.mkdir(parents=True, exist_ok=True)
+
+          def logo_with_transparency(image):
+              alpha = image.getchannel('A')
+              lo, hi = alpha.getextrema()
+              if lo < 250:
+                  return image
+              rgb = image.convert('RGB')
+              r, g, b = rgb.split()
+              lum = ImageChops.lighter(ImageChops.lighter(r, g), b)
+              mask = lum.point(lambda p: 0 if p < 12 else min(255, int((p - 12) * 1.7)))
+              result = image.copy()
+              result.putalpha(mask)
+              return result
+
+          mark = logo_with_transparency(source)
+          size = 1024
+          base = Image.new('RGBA', (size, size), '#030407')
+          glow = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          draw = ImageDraw.Draw(glow)
+          draw.ellipse((130, 250, 894, 1014), fill=(67, 228, 255, 34))
+          draw.ellipse((160, 10, 864, 714), fill=(245, 196, 0, 24))
+          glow = glow.filter(ImageFilter.GaussianBlur(110))
+          base = Image.alpha_composite(base, glow)
+          logo = mark.copy()
+          logo.thumbnail((850, 410), Image.Resampling.LANCZOS)
+          base.alpha_composite(logo, ((size - logo.width)//2, (size - logo.height)//2))
+          border = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          bd = ImageDraw.Draw(border)
+          bd.rounded_rectangle((26, 26, 998, 998), radius=220, outline=(255, 255, 255, 30), width=4)
+          bd.rounded_rectangle((38, 38, 986, 986), radius=210, outline=(245, 196, 0, 28), width=2)
+          Image.alpha_composite(base, border).save(out / 'icon.png')
+
+          foreground = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          adaptive = mark.copy()
+          adaptive.thumbnail((650, 320), Image.Resampling.LANCZOS)
+          foreground.alpha_composite(adaptive, ((size-adaptive.width)//2, (size-adaptive.height)//2))
+          foreground.save(out / 'adaptive-icon.png')
+          PY
+
+      - name: Generate Android project
+        working-directory: native/nexus-work-mode
+        run: npx expo prebuild --platform android --clean
+
+      - name: Build standalone ARM64 release APK
+        working-directory: native/nexus-work-mode/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      - name: Verify release APK exists
+        run: |
+          test -f native/nexus-work-mode/android/app/build/outputs/apk/release/app-release.apk
+          ls -lh native/nexus-work-mode/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Stage APK
+        run: |
+          mkdir -p android-builds
+          cp native/nexus-work-mode/android/app/build/outputs/apk/release/app-release.apk android-builds/NEXUS-Work-Mode-arm64-release.apk
+          sha256sum android-builds/NEXUS-Work-Mode-arm64-release.apk > android-builds/NEXUS-Work-Mode-arm64-release.apk.sha256
+          {
+            echo "NEXUS Work Mode"
+            echo "Brand: official NOSMO NEXUS logo"
+            echo "Build: standalone Android ARM64 RELEASE APK"
+            echo "JavaScript bundle: embedded in release build"
+            echo "Source: $GITHUB_SHA"
+            echo "Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } > android-builds/BUILD_INFO.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Work-Mode-Release-APK
+          path: |
+            android-builds/NEXUS-Work-Mode-arm64-release.apk
+            android-builds/NEXUS-Work-Mode-arm64-release.apk.sha256
+            android-builds/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish release APK and launcher assets to branch when permitted
+        continue-on-error: true
+        run: |
+          git config user.name "nosmo-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            native/nexus-work-mode/assets/icon.png \
+            native/nexus-work-mode/assets/adaptive-icon.png \
+            android-builds/NEXUS-Work-Mode-arm64-release.apk \
+            android-builds/NEXUS-Work-Mode-arm64-release.apk.sha256 \
+            android-builds/BUILD_INFO.txt
+          if git diff --cached --quiet; then
+            echo "Release APK output unchanged"
+            exit 0
+          fi
+          git commit -m "Publish standalone Nexus Work Mode release APK"
+          git push origin HEAD:agent/android-work-mode-native

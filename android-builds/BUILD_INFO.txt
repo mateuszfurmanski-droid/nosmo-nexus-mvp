@@ -1,0 +1,6 @@
+NEXUS Work Mode
+Brand: official NOSMO NEXUS logo
+Build: standalone Android ARM64 RELEASE APK
+JavaScript bundle: embedded in release build
+Source: 781de6e9a5a173cfcf2e8bb034dbf1d567026d3f
+Built: 2026-08-11T06:22:30Z
