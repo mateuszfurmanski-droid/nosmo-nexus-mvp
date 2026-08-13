@@ -1,0 +1,80 @@
+name: Patch Android phone source UX
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/android-native-diagnostic
+    paths:
+      - .github/workflows/patch-android-phone-source-ux.yml
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: agent/android-native-diagnostic
+  TARGET_FILE: native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/AutoDiscoveryActivity.java
+
+jobs:
+  patch-phone-source-ux:
+    if: github.ref == 'refs/heads/agent/android-native-diagnostic'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+
+      - name: Patch phone source UX
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/AutoDiscoveryActivity.java')
+          text = path.read_text()
+
+          old = '''        Button cloudSource = secondaryButton(cloudSourceTree.isEmpty() ? "+ CONNECT CLOUD SOURCE" : "CLOUD SOURCE · CONNECTED");
+          cloudSource.setOnClickListener(v -> chooseTree(REQ_CLOUD_SOURCE));
+          root.addView(cloudSource, fullWidth(dp(56)));
+          '''
+
+          new = '''        Button cloudSource = secondaryButton(hasAllFilesAccess()
+                  ? "PHONE SOURCE · WHOLE Z FOLD5 ENABLED"
+                  : (cloudSourceTree.isEmpty() ? "+ CONNECT CLOUD SOURCE" : "CLOUD SOURCE · CONNECTED"));
+          cloudSource.setOnClickListener(v -> {
+              if (hasAllFilesAccess()) {
+                  Toast.makeText(this, "Whole phone source is already enabled by Full File Scan", Toast.LENGTH_LONG).show();
+                  scanEverything();
+              } else {
+                  chooseTree(REQ_CLOUD_SOURCE);
+              }
+          });
+          root.addView(cloudSource, fullWidth(dp(56)));
+          '''
+
+          if old not in text:
+              if 'PHONE SOURCE · WHOLE Z FOLD5 ENABLED' in text:
+                  print('AutoDiscoveryActivity.java already patched.')
+                  raise SystemExit(0)
+              raise SystemExit('Target cloud source block not found; refusing broad rewrite.')
+
+          path.write_text(text.replace(old, new))
+          PY
+
+      - name: Remove one-shot patch workflow
+        shell: bash
+        run: rm -f .github/workflows/patch-android-phone-source-ux.yml
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/AutoDiscoveryActivity.java .github/workflows/patch-android-phone-source-ux.yml
+          git commit -m 'Fix whole-phone source picker UX'
+          git push origin HEAD:${TARGET_BRANCH}
