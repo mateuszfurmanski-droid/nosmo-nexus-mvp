@@ -25,3 +25,7 @@ Riverside and e-SAFE are different data inputs for the same Relationship Tree co
 ## Cloud boundary
 
 Nexus Cloud / Google Drive remains storage + metadata + AssetLink infrastructure. It does not own Relationship Tree layout or add competing tree UI.
+
+## Validation checkpoint
+
+A fresh commit on this recovery branch is used to request a new GitHub Actions run after earlier jobs failed before checkout with `steps=null` / `BlobNotFound`. No product behaviour is changed by this checkpoint.
