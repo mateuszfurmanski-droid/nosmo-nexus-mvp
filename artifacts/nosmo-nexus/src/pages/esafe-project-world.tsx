@@ -39,7 +39,9 @@ export default function EsafeProjectWorld() {
       <NexusGraphCommandBridge />
       <style>{`
         [data-control][class*="bottom-3 left-3 right-3 z-50"],
-        [data-control][class*="bottom-3 left-3 z-40"] {
+        [data-control][class*="bottom-3 left-3 z-40"],
+        [data-control][class*="absolute left-3 top-3 z-50"],
+        [data-control][class*="absolute left-1/2 top-3 z-40"] {
           display: none !important;
         }
 
