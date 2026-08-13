@@ -244,8 +244,17 @@ public class AutoDiscoveryActivity extends Activity {
         files.setOnClickListener(v -> requestAllFilesAccess());
         root.addView(files, fullWidth(dp(56)));
 
-        Button cloudSource = secondaryButton(cloudSourceTree.isEmpty() ? "+ CONNECT CLOUD SOURCE" : "CLOUD SOURCE · CONNECTED");
-        cloudSource.setOnClickListener(v -> chooseTree(REQ_CLOUD_SOURCE));
+        Button cloudSource = secondaryButton(hasAllFilesAccess()
+                ? "PHONE SOURCE · WHOLE Z FOLD5 ENABLED"
+                : (cloudSourceTree.isEmpty() ? "+ CONNECT CLOUD SOURCE" : "CLOUD SOURCE · CONNECTED"));
+        cloudSource.setOnClickListener(v -> {
+            if (hasAllFilesAccess()) {
+                Toast.makeText(this, "Whole phone source is already enabled by Full File Scan", Toast.LENGTH_LONG).show();
+                scanEverything();
+            } else {
+                chooseTree(REQ_CLOUD_SOURCE);
+            }
+        });
         root.addView(cloudSource, fullWidth(dp(56)));
 
         addSection(root, "3 · DISCOVERY REVIEW");
