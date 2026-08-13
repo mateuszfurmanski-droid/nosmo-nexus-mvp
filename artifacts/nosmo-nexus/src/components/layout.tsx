@@ -1,27 +1,17 @@
-import { useState, useEffect, useMemo, createContext, useContext } from "react";
+import { useEffect, useMemo, useState, createContext, useContext } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  AppWindow,
   Bell,
-  BriefcaseBusiness,
   CheckSquare,
-  Cuboid,
-  Files,
   FolderKanban,
   Home,
-  LayoutGrid,
-  Network,
   Search,
-  Settings,
-  ShieldCheck,
   Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { AskNexus } from "@/components/ask-nexus";
 import { SearchPalette } from "@/components/search-palette";
-import { CommunicationStrip } from "@/components/communication-strip";
-import { FocusableEntity } from "@/focus/focusable-entity";
 
 interface ShellContextValue {
   openHub: () => void;
@@ -38,19 +28,9 @@ type NavigationItem = {
 const navigation: NavigationItem[] = [
   { label: "Home", href: "/", icon: Home },
   { label: "Projects", href: "/projects", icon: FolderKanban },
-  { label: "Trades", href: "/trades", icon: BriefcaseBusiness },
-  { label: "Personal InfoCard", href: "/people", icon: Users },
-  { label: "Work Wallet", href: "/safety-connector", icon: ShieldCheck },
-  { label: "FabStation / BIM", href: "/bim-overlay", icon: Cuboid },
-  { label: "External Tools", href: "/external-tools", icon: AppWindow },
+  { label: "People", href: "/people", icon: Users },
   { label: "Tasks", href: "/tasks", icon: CheckSquare },
-  { label: "Documents", href: "/plans", icon: Files },
-  { label: "System Map", href: "/system-map", icon: Network },
-  { label: "Settings", href: "/settings", icon: Settings },
 ];
-
-const mobileRoutes = new Set(["/", "/projects", "/trades", "/people", "/tasks"]);
-const mobileNavigation = navigation.filter((item) => mobileRoutes.has(item.href));
 
 const ShellContext = createContext<ShellContextValue | null>(null);
 
@@ -62,39 +42,26 @@ export function useShell() {
 
 function isActiveRoute(current: string, href: string) {
   if (href === "/") return current === "/" || current === "/modules";
-  return current === href || current.startsWith(`${href}/`) || current.startsWith(`${href}?`);
+  return current === href || current.startsWith(`${href}/`);
 }
 
-function NavigationLink({ item, current, compact = false }: { item: NavigationItem; current: string; compact?: boolean }) {
+function NavLink({ item, current, compact = false }: { item: NavigationItem; current: string; compact?: boolean }) {
   const Icon = item.icon;
   const active = isActiveRoute(current, item.href);
-  const mobileLabel = item.label === "Personal InfoCard" ? "InfoCard" : item.label;
 
   return (
     <Link
       href={item.href}
       aria-label={item.label}
-      title={item.label}
-      data-testid={`nav-${item.label.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-")}`}
-      className={
-        compact
-          ? `flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition-colors ${
-              active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`
-          : `group relative flex h-11 w-11 items-center justify-center rounded-xl border transition-all ${
-              active
-                ? "border-primary/40 bg-primary/15 text-primary shadow-[0_0_18px_rgba(0,255,255,0.12)]"
-                : "border-transparent text-muted-foreground hover:border-border hover:bg-secondary hover:text-foreground"
-            }`
+      data-testid={`nav-${item.label.toLowerCase()}`}
+      className={compact
+        ? `flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-semibold transition-colors ${active ? "bg-primary/15 text-primary" : "text-muted-foreground"}`
+        : `group relative flex h-12 w-12 items-center justify-center rounded-2xl border transition-all ${active ? "border-primary/35 bg-primary/15 text-primary shadow-[0_0_24px_rgba(0,255,255,.12)]" : "border-transparent text-muted-foreground hover:border-border hover:bg-secondary hover:text-foreground"}`
       }
     >
-      <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
-      {compact && <span className="max-w-full truncate">{mobileLabel}</span>}
-      {!compact && (
-        <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-lg group-hover:block">
-          {item.label}
-        </span>
-      )}
+      <Icon className={compact ? "h-5 w-5" : "h-5 w-5"} />
+      {compact && <span>{item.label}</span>}
+      {!compact && <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-xl group-hover:block">{item.label}</span>}
     </Link>
   );
 }
@@ -112,108 +79,74 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setSearchOpen((value) => !value);
+        setSearchOpen(true);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const shell = useMemo<ShellContextValue>(
-    () => ({
-      openHub: () => navigate("/"),
-      openAskNexus: () => setAskNexusOpen(true),
-      openSearch: () => setSearchOpen(true),
-    }),
-    [navigate],
-  );
+  const shell = useMemo<ShellContextValue>(() => ({
+    openHub: () => navigate("/"),
+    openAskNexus: () => setAskNexusOpen(true),
+    openSearch: () => setSearchOpen(true),
+  }), [navigate]);
 
   return (
     <ShellContext.Provider value={shell}>
       <div className="flex min-h-[100dvh] flex-col bg-background text-foreground selection:bg-primary/30 dark">
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-md md:gap-4 md:px-6">
-          <Link href="/" data-testid="link-home" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary shadow-[0_0_15px_rgba(0,255,255,0.3)]">
-              <span className="text-sm font-bold text-primary-foreground">N</span>
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/88 px-4 backdrop-blur-xl md:px-6">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="NOSMO Nexus home">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/35 bg-primary/15 text-sm font-black text-primary shadow-[0_0_20px_rgba(0,255,255,.18)]">N</div>
+            <div className="hidden sm:block">
+              <p className="text-sm font-bold leading-none">NOSMO Nexus</p>
+              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[.18em] text-muted-foreground">Work operating system</p>
             </div>
-            <span className="hidden text-sm font-bold leading-none tracking-tight text-foreground sm:inline">NOSMO Nexus™</span>
           </Link>
 
           <button
-            onClick={() => navigate("/")}
-            data-testid="button-header-menu"
-            className="flex shrink-0 items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 md:px-4"
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="ml-1 flex min-w-0 max-w-xl flex-1 items-center gap-3 rounded-full border border-border bg-secondary/45 px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
           >
-            <LayoutGrid className="h-4 w-4" />
-            <span className="hidden sm:inline">Menu</span>
+            <Search className="h-4 w-4 shrink-0" />
+            <span className="truncate">Search project, person, task or document</span>
           </button>
 
-          <div className="flex min-w-0 max-w-xl flex-1 items-center">
-            <button
-              onClick={() => setSearchOpen(true)}
-              data-testid="button-open-search"
-              className="flex w-full items-center gap-3 rounded-full border border-border bg-secondary/50 px-4 py-2 text-sm text-muted-foreground transition-all hover:bg-secondary focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="truncate">Search Nexus...</span>
-              <div className="ml-auto hidden items-center gap-1 md:flex">
-                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">⌘</kbd>
-                <kbd className="inline-flex h-5 items-center rounded border border-border bg-card px-1.5 font-mono text-[10px] font-medium text-muted-foreground">K</kbd>
-              </div>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setAskNexusOpen(true)}
+            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-3.5 py-2 text-sm font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">Ask Nexus</span>
+          </button>
 
-          <div className="hidden xl:block">
-            <CommunicationStrip />
-          </div>
+          <button type="button" className="relative hidden rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground sm:block" aria-label="Notifications">
+            <Bell className="h-5 w-5" />
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-background" />
+          </button>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
-            <button
-              onClick={() => setAskNexusOpen(true)}
-              data-testid="button-ask-nexus"
-              className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 md:px-4"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden md:inline">Ask Nexus</span>
-            </button>
-            <button className="relative hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:block">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-            </button>
-            <FocusableEntity
-              target={{ type: "person", id: "p1" }}
-              ariaLabel="Open your profile"
-              testId="link-profile"
-              className="rounded-full"
-            >
-              <div className="relative shrink-0">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-xs font-bold text-primary">MF</div>
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background bg-green-400" />
-              </div>
-            </FocusableEntity>
-          </div>
+          <Link href="/person-card-demo" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-xs font-bold text-primary" aria-label="Your Person Card">MF</Link>
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <aside className="relative hidden w-16 shrink-0 flex-col items-center gap-1 border-r border-border bg-background/65 py-3 backdrop-blur md:flex">
-            {navigation.map((item) => (
-              <NavigationLink key={item.label} item={item} current={location} />
-            ))}
+          <aside className="hidden w-[72px] shrink-0 flex-col items-center gap-2 border-r border-border bg-background/60 py-4 md:flex">
+            {navigation.map(item => <NavLink key={item.label} item={item} current={location} />)}
+            <div className="mt-auto pb-2 text-center text-[8px] font-semibold uppercase tracking-[.18em] text-muted-foreground">Nexus v1</div>
           </aside>
 
-          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-36 md:p-8 md:pb-8">
-            <div className="mx-auto max-w-7xl">{children}</div>
+          <main className="min-w-0 flex-1 overflow-y-auto p-4 pb-28 md:p-7 md:pb-8">
+            <div className="mx-auto max-w-[1440px]">{children}</div>
           </main>
         </div>
 
-        <div className="fixed bottom-[4.75rem] left-1/2 z-40 -translate-x-1/2 md:hidden">
-          <CommunicationStrip floating />
-        </div>
-
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/92 px-2 py-1.5 backdrop-blur-xl md:hidden">
-          {mobileNavigation.map((item) => (
-            <NavigationLink key={item.label} item={item} current={location} compact />
-          ))}
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-border bg-background/94 px-2 pb-[max(.4rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl md:hidden">
+          {navigation.slice(0, 2).map(item => <NavLink key={item.label} item={item} current={location} compact />)}
+          <button type="button" onClick={() => setAskNexusOpen(true)} className="mx-auto -mt-5 flex h-14 w-14 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-[0_8px_30px_rgba(0,255,255,.25)]" aria-label="Ask Nexus">
+            <Sparkles className="h-6 w-6" />
+          </button>
+          {navigation.slice(2).map(item => <NavLink key={item.label} item={item} current={location} compact />)}
         </nav>
 
         <AskNexus open={askNexusOpen} onOpenChange={setAskNexusOpen} />
