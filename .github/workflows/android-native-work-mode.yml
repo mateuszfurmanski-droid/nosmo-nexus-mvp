@@ -59,13 +59,20 @@ jobs:
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
 
-      - name: Verify native Work Mode launcher shell contract
+      - name: Verify native Work Mode theme switcher contract
         run: |
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
           GRADLE="native/nexus-work-mode-native/app/build.gradle"
           grep -q "Nexus Work Mode" "$MAIN"
           grep -q "One tap. Total focus." "$MAIN"
           grep -q "Nexus Work Mode Active" "$MAIN"
+          grep -q "VISUAL MODE" "$MAIN"
+          grep -q "nexus-blue" "$MAIN"
+          grep -q "nexus-light" "$MAIN"
+          grep -q "industrial-steel-gold" "$MAIN"
+          grep -q "laser-green" "$MAIN"
+          grep -q "visualTheme" "$MAIN"
+          grep -q "visualAccent" "$MAIN"
           grep -q "Nexus Portal" "$MAIN"
           grep -q "DoorFlow" "$MAIN"
           grep -q "Ask Nexus AI" "$MAIN"
@@ -78,24 +85,25 @@ jobs:
           grep -q "server-side-only" "$MAIN"
           grep -q "theme=blue-nexus" "$MAIN"
           grep -q "relationship-tree" "$MAIN"
-          grep -q "0.5.4-launcher-shell" "$GRADLE"
+          grep -q "0.5.5-theme-switcher" "$GRADLE"
           ! grep -q "nexus.html" "$MAIN"
           ! grep -q "Color.rgb(245, 196, 0)" "$MAIN"
 
       - name: Stage beta APK and Play bundle
         run: |
           mkdir -p android-native-work-mode
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.4-launcher-shell.apk
-          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.4-launcher-shell.aab
-          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.4-launcher-shell.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.4-launcher-shell.apk.sha256
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.5-theme-switcher.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.5-theme-switcher.aab
+          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.5-theme-switcher.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.5-theme-switcher.apk.sha256
           cp /tmp/badging.txt android-native-work-mode/APK_BADGING.txt
           cp /tmp/permissions.txt android-native-work-mode/APK_PERMISSIONS.txt
           {
             echo "NEXUS Work Mode Native"
-            echo "Version: 0.5.4-launcher-shell"
+            echo "Version: 0.5.5-theme-switcher"
             echo "APK package: tech.nosmo.nexus.workmode.nativebeta"
             echo "Runtime: pure Android Java"
-            echo "Theme: blue Nexus visual system"
+            echo "Theme system: Nexus Blue, Nexus Light, Industrial Steel/Gold"
+            echo "Accent packs: Cyan, Gold, Laser Green"
             echo "Active UI: Nexus Work Mode launcher shell"
             echo "Discovery: Contacts + Calendar + Storage Access Framework folder picker + selected photos"
             echo "Review: selected-by-default work signals with user deselection"
@@ -108,7 +116,7 @@ jobs:
       - name: Upload native Work Mode beta
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-Native-v0.5.4-launcher-shell
+          name: NEXUS-Work-Mode-Native-v0.5.5-theme-switcher
           path: android-native-work-mode/*
           if-no-files-found: error
           retention-days: 14
