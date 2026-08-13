@@ -69,7 +69,7 @@ jobs:
           grep -q "Nexus Work Mode" "$MAIN"
           grep -q "Work Mode Layer Active" "$MAIN"
           grep -q "KNOWLEDGE VACUUM" "$MAIN"
-          grep -q "AI Discovery Review" "$MAIN"
+          grep -q "Knowledge Vacuum Review" "$MAIN"
           grep -q "functionTile" "$MAIN"
           grep -q "Scan Phone" "$MAIN"
           grep -q "Add Folder" "$MAIN"
