@@ -47,6 +47,7 @@ public class MainActivity extends Activity {
     private static final int TEXT = Color.rgb(235, 246, 255);
     private static final int MUTED = Color.rgb(153, 181, 213);
     private static final int GREEN = Color.rgb(62, 226, 167);
+    private static final int TILE = Color.rgb(10, 34, 67);
 
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
     private static final String DOORFLOW_URL = "https://nosmotechnology.co.uk/doorflow.html";
@@ -440,7 +441,7 @@ public class MainActivity extends Activity {
                 .putString("signalSummary", selectedSummary())
                 .putString("aiContextPacket", aiContextPacket(project, accepted))
                 .apply();
-        Toast.makeText(this, "NEXUS AI Work Mode ON", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "NEXUS Work Mode ON", Toast.LENGTH_LONG).show();
         showWorkMode();
     }
 
@@ -456,54 +457,162 @@ public class MainActivity extends Activity {
 
     private void showWorkMode() {
         LinearLayout root = page();
-        addBrand(root);
-        addTitle(root, "AI WORK MODE");
-        addStatus(root, "BLUE NEXUS · AI READY", CYAN);
+        addWorkModeHero(root);
+        addLauncherGrid(root);
+        addValueBar(root);
+
+        addSmall(root, "Native Android beta 0.5.4-launcher-shell · Work-first launcher UI. Apps open normally; Nexus web/backend owns AI model calls and project permission enforcement.");
+        setPage(root);
+    }
+
+    private void addWorkModeHero(LinearLayout root) {
+        TextView brand = new TextView(this);
+        brand.setText("NOSMO");
+        brand.setTextColor(TEXT);
+        brand.setTextSize(17);
+        brand.setTypeface(Typeface.DEFAULT_BOLD);
+        brand.setLetterSpacing(0.18f);
+        brand.setGravity(Gravity.CENTER);
+        root.addView(brand, fullWidth(dp(34)));
+
+        TextView title = new TextView(this);
+        title.setText("Nexus Work Mode");
+        title.setTextColor(TEXT);
+        title.setTextSize(31);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, dp(4), 0, dp(4));
+        root.addView(title, wrapHeight());
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("One tap. Total focus.");
+        subtitle.setTextColor(MUTED);
+        subtitle.setTextSize(15);
+        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setPadding(0, 0, 0, dp(18));
+        root.addView(subtitle, wrapHeight());
+
+        TextView status = new TextView(this);
+        status.setText("◈  Nexus Work Mode Active");
+        status.setTextColor(TEXT);
+        status.setTextSize(13);
+        status.setTypeface(Typeface.DEFAULT_BOLD);
+        status.setGravity(Gravity.CENTER);
+        status.setPadding(dp(12), dp(9), dp(12), dp(9));
+        status.setBackground(rounded(Color.rgb(3, 37, 65), dp(24), CYAN, 1));
+        LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48));
+        statusLp.setMargins(dp(22), dp(4), dp(22), dp(20));
+        root.addView(status, statusLp);
 
         String project = prefs.getString("activeProject", "Unassigned work");
         int accepted = prefs.getInt("acceptedSignals", 0);
-        addSection(root, "ACTIVE CONTEXT");
-        addBody(root, project + "\n" + accepted + " approved work signals");
+        TextView context = new TextView(this);
+        context.setText(project + " · " + accepted + " approved signals");
+        context.setTextColor(CYAN);
+        context.setTextSize(12);
+        context.setGravity(Gravity.CENTER);
+        context.setPadding(0, 0, 0, dp(6));
+        root.addView(context, wrapHeight());
+    }
 
-        String summary = prefs.getString("signalSummary", "");
-        if (!summary.isEmpty()) {
-            addSmall(root, summary);
+    private void addLauncherGrid(LinearLayout root) {
+        addTileRow(root,
+                launcherTile("N", "Nexus", () -> openUrl(aiAssistantUrl("work-mode-launcher"))),
+                launcherTile("WA", "WhatsApp", () -> openPackageOrWeb("com.whatsapp", "https://wa.me/")),
+                launcherTile("TEL", "Phone", () -> openIntent(new Intent(Intent.ACTION_DIAL))));
+        addTileRow(root,
+                launcherTile("CAM", "Camera", this::openCamera),
+                launcherTile("MAP", "Maps", () -> openIntent(new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=construction%20site")))),
+                launcherTile("GM", "Gmail", () -> openPackageOrWeb("com.google.android.gm", "mailto:")));
+        addTileRow(root,
+                launcherTile("XLS", "Excel", () -> openPackageOrWeb("com.microsoft.office.excel", "https://www.office.com/launch/excel")),
+                launcherTile("DOC", "Docs", () -> openPackageOrWeb("com.google.android.apps.docs.editors.docs", "https://docs.google.com/document/")),
+                launcherTile("DRV", "Drive", () -> openPackageOrWeb("com.google.android.apps.docs", "https://drive.google.com/")));
+        addTileRow(root,
+                launcherTile("T", "Teams", () -> openPackageOrWeb("com.microsoft.teams", "https://teams.microsoft.com/")),
+                launcherTile("DF", "DoorFlow", () -> openUrl(doorflowUrl())),
+                launcherTile("NX", "Nexus Portal", () -> openUrl(workTreeUrl("nexus-portal"))));
+    }
+
+    private Button launcherTile(String icon, String label, Runnable action) {
+        Button tile = new Button(this);
+        tile.setText(icon + "\n" + label);
+        tile.setAllCaps(false);
+        tile.setTextColor(TEXT);
+        tile.setTextSize(13);
+        tile.setTypeface(Typeface.DEFAULT_BOLD);
+        tile.setGravity(Gravity.CENTER);
+        tile.setPadding(dp(5), dp(8), dp(5), dp(8));
+        tile.setBackground(rounded(TILE, dp(22), Color.rgb(29, 82, 132), 1));
+        tile.setOnClickListener(v -> action.run());
+        return tile;
+    }
+
+    private void addTileRow(LinearLayout root, Button left, Button middle, Button right) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(0, 0, 0, dp(10));
+        row.addView(left, tileLp(0));
+        row.addView(middle, tileLp(dp(10)));
+        row.addView(right, tileLp(0));
+        root.addView(row, fullWidth(dp(104)));
+    }
+
+    private LinearLayout.LayoutParams tileLp(int sideMargin) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(92), 1f);
+        lp.setMargins(sideMargin == 0 ? 0 : dp(2), 0, sideMargin == 0 ? 0 : dp(2), 0);
+        return lp;
+    }
+
+    private void addValueBar(LinearLayout root) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(dp(8), dp(10), dp(8), dp(10));
+        row.setBackground(rounded(Color.rgb(5, 24, 46), dp(22), Color.rgb(24, 73, 113), 1));
+        row.addView(valueChip("One Tap", "Instant transition"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("Distraction Free", "Work-first shell"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("Secure", "Project context"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams lp = fullWidth(dp(82));
+        lp.setMargins(0, dp(8), 0, dp(10));
+        root.addView(row, lp);
+    }
+
+    private TextView valueChip(String title, String detail) {
+        TextView chip = new TextView(this);
+        chip.setText(title + "\n" + detail);
+        chip.setTextColor(TEXT);
+        chip.setTextSize(10);
+        chip.setGravity(Gravity.CENTER);
+        chip.setLineSpacing(dp(1), 1.0f);
+        return chip;
+    }
+
+    private void openCamera() {
+        openIntent(new Intent("android.media.action.IMAGE_CAPTURE"));
+    }
+
+    private void openPackageOrWeb(String packageName, String fallbackUrl) {
+        try {
+            Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
+            if (launch != null) {
+                startActivity(launch);
+                return;
+            }
+        } catch (Exception ignored) {
         }
+        openUrl(fallbackUrl);
+    }
 
-        Button ask = primaryButton("Ask Nexus AI");
-        ask.setOnClickListener(v -> openUrl(aiAssistantUrl("work-mode")));
-        root.addView(ask, fullWidth(dp(62)));
-
-        Button tree = secondaryButton("Open Project World");
-        tree.setOnClickListener(v -> openUrl(workTreeUrl("project-world")));
-        root.addView(tree, fullWidth(dp(54)));
-
-        Button files = secondaryButton("Add evidence photos");
-        files.setOnClickListener(v -> choosePhotos());
-        root.addView(files, fullWidth(dp(54)));
-
-        Button doorflow = secondaryButton("Open DoorFlow");
-        doorflow.setOnClickListener(v -> openUrl(doorflowUrl()));
-        root.addView(doorflow, fullWidth(dp(54)));
-
-        Button update = secondaryButton("Update work context");
-        update.setOnClickListener(v -> {
-            signals.clear();
-            dedupe.clear();
-            startDiscovery();
-        });
-        root.addView(update, fullWidth(dp(54)));
-
-        Button off = secondaryButton("Turn Work Mode off");
-        off.setOnClickListener(v -> {
-            prefs.edit().putBoolean("workMode", false).apply();
-            Toast.makeText(this, "Work Mode OFF", Toast.LENGTH_SHORT).show();
-            showWelcome();
-        });
-        root.addView(off, fullWidth(dp(54)));
-
-        addSmall(root, "Native Android beta 0.5.3-blue · blue Nexus visual system · AI context packet prepared locally. Nexus web/backend owns the model call and must enforce project permissions.");
-        setPage(root);
+    private void openIntent(Intent intent) {
+        try {
+            startActivity(intent);
+        } catch (Exception ex) {
+            Toast.makeText(this, "App not available", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private String workTreeUrl(String surface) {
