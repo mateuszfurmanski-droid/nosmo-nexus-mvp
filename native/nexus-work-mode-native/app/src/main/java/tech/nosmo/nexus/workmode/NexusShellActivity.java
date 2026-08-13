@@ -109,7 +109,7 @@ public class NexusShellActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.addView(smallAction("PROJECT WORLD", () -> openUrl(TREE_URL)), equalCell());
-        row.addView(smallAction("NEXUS CLOUD", () -> openUrl(NEXUS_CLOUD_URL)), equalCell());
+        row.addView(smallAction("AUTHORISE DRIVE", () -> openPersonalCloudPicker()), equalCell());
         root.addView(row, fullWidth(dp(62)));
     }
 
@@ -117,12 +117,16 @@ public class NexusShellActivity extends Activity {
         addKicker(root, "NEXUS CLOUD / GOOGLE DRIVE");
 
         TextView summary = text(
-                "Canonical cloud map: Project Worlds, e-SAFE Catania, Riverside, Asset Index, Routing Rules and Migration Log.",
+                "Use AUTHORISE FOLDER for write permission. VIEW CLOUD MAP only opens Google Drive for read-only browsing. Canonical map: Project Worlds, e-SAFE Catania, Riverside, Asset Index, Routing Rules and Migration Log.",
                 13, MUTED, false);
         summary.setGravity(Gravity.CENTER);
         summary.setLineSpacing(0f, 1.14f);
         root.addView(summary, fullWidthWrap());
 
+        root.addView(actionRow(
+                smallAction("AUTHORISE FOLDER", () -> openPersonalCloudPicker()),
+                smallAction("VIEW CLOUD MAP", () -> openUrl(NEXUS_CLOUD_URL))),
+                fullWidth(dp(62)));
         root.addView(actionRow(
                 smallAction("PROJECT WORLDS", () -> openUrl(PROJECT_WORLDS_URL)),
                 smallAction("e-SAFE CATANIA", () -> openUrl(ESAFE_CATANIA_URL))),
@@ -146,8 +150,8 @@ public class NexusShellActivity extends Activity {
                 GOLD), fullWidthWrap());
         root.addView(card(
                 "02",
-                "NEXUS CLOUD / GOOGLE DRIVE",
-                "Storage Access Framework route into NOSMO / 03_NEXUS / 00_NEXUS_PERSONAL_CLOUD. Full Drive crawling remains OAuth/API work.",
+                "Google Drive SAF permission",
+                "AUTHORISE FOLDER opens the Android system picker. Choose My Drive / NOSMO / 03_NEXUS / 00_NEXUS_PERSONAL_CLOUD and press USE THIS FOLDER.",
                 CYAN), fullWidthWrap());
         root.addView(card(
                 "03",
@@ -167,7 +171,7 @@ public class NexusShellActivity extends Activity {
 
     private void addBoundaryNote(LinearLayout root) {
         TextView note = text(
-                "Native Android beta " + VERSION_LABEL + " · visual shell restored from the older NEXUS web prototype · Nexus Cloud map connected · originals are not deleted · no WhatsApp/Gmail private database scraping.",
+                "Native Android beta " + VERSION_LABEL + " · visual shell restored from the older NEXUS web prototype · Nexus Cloud map connected · Drive write access uses Android SAF picker · originals are not deleted · no WhatsApp/Gmail private database scraping.",
                 11, Color.rgb(112, 126, 142), false);
         note.setGravity(Gravity.CENTER);
         note.setLineSpacing(0f, 1.18f);
@@ -260,6 +264,10 @@ public class NexusShellActivity extends Activity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
         params.setMargins(dp(4), 0, dp(4), 0);
         return params;
+    }
+
+    private void openPersonalCloudPicker() {
+        startActivity(new Intent(this, PersonalCloudPickerActivity.class));
     }
 
     private void openUrl(String url) {
