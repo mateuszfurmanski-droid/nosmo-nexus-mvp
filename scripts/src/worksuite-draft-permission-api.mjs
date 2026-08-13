@@ -49,12 +49,21 @@ async function readJsonBody(request) {
   }
 }
 
+function demoActorFixturesEnabled() {
+  return process.env.NEXUS_WORKSUITE_PERMISSION_DEMO_FIXTURES === "true"
+    || process.env.NEXUS_WORK_MODE_AI_DEMO_MODE === "true";
+}
+
 function statusPayload() {
   return {
     configured: true,
     service: "worksuite-draft-permission-resolver",
     providerBoundary: "server-side-permission-resolver",
     executionBoundary: "validation-only-no-mutation",
+    actorContextAuthority: "server-side-required",
+    clientActorContextTrusted: false,
+    productionActorLookup: "pending-authenticated-person-project-participation-resolver",
+    demoActorFixtures: demoActorFixturesEnabled(),
     mutationExecution: false,
     approvals: false,
     supportedStatuses: ["blocked", "needs-review", "ready-for-approval"],
@@ -109,7 +118,7 @@ function normaliseDraftAction(value) {
   };
 }
 
-function normaliseActorContext(value) {
+function normaliseClientActorContext(value) {
   const actorContext = asRecord(value) ?? {};
   return {
     personId: optionalString(actorContext, "personId"),
@@ -121,27 +130,61 @@ function normaliseActorContext(value) {
   };
 }
 
+function resolveActorContext(value) {
+  const clientActorContext = normaliseClientActorContext(value);
+  const hasClientActorContext = Boolean(asRecord(value));
+
+  if (demoActorFixturesEnabled()) {
+    return {
+      ...clientActorContext,
+      actorContextAuthority: "explicit-demo-fixture",
+      actorContextSource: "ci-demo-fixture",
+      clientActorContextTrusted: false,
+      demoActorFixture: true,
+      serverSideLookupRequired: false,
+      ignoredClientActorContext: false,
+      warning: "Demo actor fixture accepted only because Nexus demo mode is enabled. Do not use client actorContext as production authority.",
+    };
+  }
+
+  return {
+    personId: "",
+    authenticatedPerson: false,
+    activeProjectParticipation: false,
+    projectFunction: "",
+    explicitScopes: [],
+    denyOverrides: [],
+    actorContextAuthority: "server-side-required",
+    actorContextSource: "pending-server-side-person-project-participation-lookup",
+    clientActorContextTrusted: false,
+    demoActorFixture: false,
+    serverSideLookupRequired: true,
+    ignoredClientActorContext: hasClientActorContext,
+    warning: "Client-supplied actorContext is not trusted. Production must resolve authenticated Person Card, Project Participation, project function, explicit scopes and deny overrides server-side.",
+  };
+}
+
 function resolvePermissionDecision(draftAction, actorContext) {
   const checks = [
     {
       id: "authenticated-person",
       passed: actorContext.authenticatedPerson && Boolean(actorContext.personId),
-      detail: "Authenticated Person Card identity must be resolved before a draft can move toward approval.",
+      detail: "Authenticated Person Card identity must be resolved server-side before a draft can move toward approval.",
     },
     {
       id: "active-project-participation",
       passed: actorContext.activeProjectParticipation,
-      detail: "The person must have active Project Participation for the target project.",
+      detail: "The person must have active Project Participation for the target project, resolved server-side.",
     },
     {
       id: "project-function-or-explicit-scope",
       passed: Boolean(actorContext.projectFunction) || actorContext.explicitScopes.includes("worksuite:draft:review"),
-      detail: "A project function or explicit scope must authorise draft review.",
+      detail: "A project function or explicit scope must authorise draft review, resolved server-side.",
     },
     {
       id: "deny-override-check",
       passed: actorContext.denyOverrides.length === 0,
-      detail: "Explicit deny overrides block the draft regardless of role or profession.",
+      detail: "Explicit deny overrides block the draft regardless of role or profession and must be resolved server-side.",
     },
   ];
 
@@ -162,6 +205,12 @@ function resolvePermissionDecision(draftAction, actorContext) {
     worldId: draftAction.worldId,
     mutationMode: draftAction.mutationMode,
     executionBoundary: draftAction.executionBoundary,
+    actorContextAuthority: actorContext.actorContextAuthority,
+    actorContextSource: actorContext.actorContextSource,
+    clientActorContextTrusted: actorContext.clientActorContextTrusted,
+    demoActorFixture: actorContext.demoActorFixture,
+    serverSideLookupRequired: actorContext.serverSideLookupRequired,
+    ignoredClientActorContext: actorContext.ignoredClientActorContext,
     workSuiteActionEngineApproval: draftAction.workSuiteActionEngineApproval,
     mutationExecution: false,
     approvalExecuted: false,
@@ -171,10 +220,10 @@ function resolvePermissionDecision(draftAction, actorContext) {
     failedChecks: failed.map((check) => check.id),
     message:
       decision === "ready-for-approval"
-        ? "Draft is permission-valid for human or Action Engine approval review. No action was executed."
+        ? "Draft is permission-valid for approval review under explicit demo fixture or future server-side authority. No action was executed."
         : decision === "blocked"
-          ? "Draft is blocked by deny override. No action was executed."
-          : "Draft needs additional authority context before approval review. No action was executed.",
+          ? "Draft is blocked by deny override under explicit demo fixture or future server-side authority. No action was executed."
+          : "Draft needs server-side Person Card and Project Participation lookup before approval review. Client actor context was not trusted. No action was executed.",
   };
 }
 
@@ -185,7 +234,7 @@ async function handleValidate(request, response) {
     if (!body) throw new Error("INVALID_BODY");
 
     const draftAction = normaliseDraftAction(body.draftAction);
-    const actorContext = normaliseActorContext(body.actorContext);
+    const actorContext = resolveActorContext(body.actorContext);
     const decision = resolvePermissionDecision(draftAction, actorContext);
 
     json(response, 200, {
@@ -201,6 +250,13 @@ async function handleValidate(request, response) {
         projectFunction: actorContext.projectFunction || null,
         explicitScopes: actorContext.explicitScopes,
         denyOverrides: actorContext.denyOverrides,
+        actorContextAuthority: actorContext.actorContextAuthority,
+        actorContextSource: actorContext.actorContextSource,
+        clientActorContextTrusted: actorContext.clientActorContextTrusted,
+        demoActorFixture: actorContext.demoActorFixture,
+        serverSideLookupRequired: actorContext.serverSideLookupRequired,
+        ignoredClientActorContext: actorContext.ignoredClientActorContext,
+        warning: actorContext.warning,
       },
       decision,
     });
