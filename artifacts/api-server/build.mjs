@@ -18,6 +18,7 @@ async function buildAll() {
     entryPoints: [
       path.resolve(artifactDir, "src/index.ts"),
       path.resolve(artifactDir, "src/smoke/nexus-cloud-upload-session-plan.ts"),
+      path.resolve(artifactDir, "src/smoke/nexus-cloud-asset-index-row-plan.ts"),
     ],
     platform: "node",
     bundle: true,
