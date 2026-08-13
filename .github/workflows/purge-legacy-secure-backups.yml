@@ -1,0 +1,56 @@
+name: Purge legacy secure backup artifacts
+
+on:
+  push:
+    paths:
+      - .github/workflows/purge-legacy-secure-backups.yml
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete legacy secure-backup artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_name="secure-backup-${GITHUB_REPOSITORY#*/}"
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts"
+          deleted=0
+
+          while true; do
+            data="$(curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${api}?name=${artifact_name}&per_page=100")"
+            count="$(jq -r '.artifacts | length' <<<"${data}")"
+            if [ "${count}" -eq 0 ]; then
+              break
+            fi
+
+            while IFS= read -r artifact_id; do
+              curl -fsSL -X DELETE \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "${api}/${artifact_id}" >/dev/null
+            done < <(jq -r '.artifacts[].id' <<<"${data}")
+
+            deleted=$((deleted + count))
+            echo "Deleted ${deleted} ${artifact_name} artifacts so far"
+          done
+
+          remaining="$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${api}?name=${artifact_name}&per_page=1" | jq -r '.total_count')"
+          echo "Purge complete. Remaining ${artifact_name} artifacts: ${remaining}"
+          test "${remaining}" -eq 0
