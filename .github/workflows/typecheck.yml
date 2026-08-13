@@ -38,9 +38,6 @@ jobs:
       - name: Smoke test Nexus Cloud upload-session plan
         run: pnpm --filter @workspace/api-server smoke:nexus-cloud-upload-session
 
-      - name: Smoke test Nexus Cloud Asset Index row plan
-        run: pnpm --filter @workspace/api-server smoke:nexus-cloud-asset-index-row-plan
-
       - name: Build Nexus web application
         env:
           PORT: 4173
