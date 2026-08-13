@@ -1,0 +1,33 @@
+{
+  "sessionId": "pkg013-demo-session",
+  "projectId": "halifax-demo",
+  "projectLabel": "Halifax Demo",
+  "personId": "person-demo-001",
+  "personLabel": "Demo User",
+  "roleContext": ["Manager"],
+  "tradeContext": ["Joinery"],
+  "selectedObjectType": "job",
+  "selectedObjectId": "JOB-01",
+  "nexusNodeId": "t-install",
+  "sourceApplication": "WORK_WALLET",
+  "sourceUrl": "https://portal.work-wallet.com/mock/jobs",
+  "sourcePageType": "JOB_PAGE",
+  "externalRecordReference": "JOB-01",
+  "returnRoute": "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree",
+  "returnGraphState": null,
+  "allowedActionKeys": [
+    "project_tree",
+    "person_card",
+    "tasks",
+    "documents",
+    "communication",
+    "related_apps",
+    "connector_status",
+    "return_to_nexus"
+  ],
+  "contextSource": "USER_CONFIRMED_CONTEXT",
+  "contextConfidence": 1,
+  "developmentContext": true,
+  "createdAt": "2026-08-07T00:00:00.000Z",
+  "updatedAt": "2026-08-07T00:00:00.000Z"
+}
