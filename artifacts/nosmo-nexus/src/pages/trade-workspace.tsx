@@ -1,5 +1,5 @@
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, ArrowRight, BriefcaseBusiness, Layers3 } from "lucide-react";
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Cuboid, Layers3 } from "lucide-react";
 import { CommunicationStrip } from "@/components/communication-strip";
 import { ExternalToolStrip } from "@/components/external-tool-strip";
 import { getTradeDefinition, type TradeStatus, type TradeTool } from "@/config/trades";
@@ -9,6 +9,36 @@ const statusStyle: Record<TradeStatus, string> = {
   DEMO: "border-cyan-400/35 bg-cyan-400/10 text-cyan-300",
   "IN DEVELOPMENT": "border-amber-400/30 bg-amber-400/10 text-amber-300",
   "PARTNER VALIDATION": "border-purple-400/35 bg-purple-400/10 text-purple-300",
+};
+
+const tradeBimPilots: Partial<Record<string, TradeTool>> = {
+  electrical: {
+    name: "Electrical BIM Installation Layer",
+    description: "Containment object to task, assigned team, readiness, Work Wallet gate, evidence, inspection and as-built context.",
+    status: "DEMO",
+    href: "/bim-overlay?trade=electrical&object=NXS-MEP-003",
+    linkType: "internal",
+    icon: Cuboid,
+    note: "Shared Object Card · Electrical pilot",
+  },
+  "mechanical-hvac": {
+    name: "HVAC BIM Installation Layer",
+    description: "Duct assembly to work package, assigned team, readiness, evidence, field-difference control, inspection and as-built history.",
+    status: "DEMO",
+    href: "/bim-overlay?trade=mechanical-hvac&object=NXS-MEP-001",
+    linkType: "internal",
+    icon: Cuboid,
+    note: "Shared Object Card · HVAC pilot",
+  },
+  "plumbing-public-health": {
+    name: "Plumbing BIM Installation Layer",
+    description: "Drainage object to task, assigned team, readiness, evidence, field-difference control, inspection and as-built history.",
+    status: "DEMO",
+    href: "/bim-overlay?trade=plumbing-public-health&object=NXS-MEP-008",
+    linkType: "internal",
+    icon: Cuboid,
+    note: "Shared Object Card · Plumbing pilot",
+  },
 };
 
 function ToolCard({ tool }: { tool: TradeTool }) {
@@ -49,6 +79,22 @@ function ToolCard({ tool }: { tool: TradeTool }) {
   );
 }
 
+function toolsForTrade(tradeId: string, tools: TradeTool[]) {
+  const pilot = tradeBimPilots[tradeId];
+  if (!pilot) return tools;
+
+  if (tradeId === "electrical") {
+    return [tools[0], pilot, ...tools.slice(1)];
+  }
+
+  const hasSharedBim = tools.some((tool) => tool.name === "FabStation / BIM Overlay");
+  if (hasSharedBim) {
+    return tools.map((tool) => tool.name === "FabStation / BIM Overlay" ? pilot : tool);
+  }
+
+  return [pilot, ...tools];
+}
+
 export default function TradeWorkspace() {
   const [, params] = useRoute<{ tradeId: string }>("/trades/:tradeId");
   const tradeId = params?.tradeId ?? "";
@@ -66,6 +112,7 @@ export default function TradeWorkspace() {
   }
 
   const TradeIcon = trade.icon;
+  const tools = toolsForTrade(tradeId, trade.tools);
 
   return (
     <div className="space-y-7 pb-8">
@@ -114,7 +161,7 @@ export default function TradeWorkspace() {
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {trade.tools.map((tool) => <ToolCard key={tool.name} tool={tool} />)}
+          {tools.map((tool) => <ToolCard key={tool.name} tool={tool} />)}
         </div>
       </section>
 
