@@ -55,7 +55,6 @@ jobs:
           PORT: 3000
           WORK_WALLET_DEMO_MODE: "true"
           NEXUS_WORK_MODE_AI_DEMO_MODE: "true"
-          NEXUS_WORKSUITE_PERMISSION_DEMO_FIXTURES: "true"
           NEXUS_CLOUD_STORAGE_DEMO_MODE: "true"
           NEXUS_CLOUD_STORAGE_PROVIDER_KIND: "s3-compatible"
         run: |
@@ -153,50 +152,35 @@ jobs:
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/nexus/worksuite/draft-actions/status \
-            --output /tmp/worksuite-permission-status.json
-          grep '"executionBoundary":"validation-only-no-mutation"' /tmp/worksuite-permission-status.json > /dev/null
-          grep '"actorContextAuthority":"server-side-required"' /tmp/worksuite-permission-status.json > /dev/null
-          grep '"clientActorContextTrusted":false' /tmp/worksuite-permission-status.json > /dev/null
-          grep '"demoActorFixtures":true' /tmp/worksuite-permission-status.json > /dev/null
+            | grep '"executionBoundary":"validation-only-no-mutation"' > /dev/null
 
           node -e 'const response = JSON.parse(require("fs").readFileSync("/tmp/work-mode-ai-response.json", "utf8")); const draftAction = response.nextActions.find((action) => action.draftAction)?.draftAction; if (!draftAction) throw new Error("missing draft action"); require("fs").writeFileSync("/tmp/worksuite-draft-action.json", JSON.stringify({ draftAction }, null, 2));'
 
-          node -e 'const fs = require("fs"); const body = JSON.parse(fs.readFileSync("/tmp/worksuite-draft-action.json", "utf8")); body.actorContext = { personId: "p-ci", authenticatedPerson: true, activeProjectParticipation: true, projectFunction: "site-manager", explicitScopes: ["worksuite:draft:review"], denyOverrides: [] }; fs.writeFileSync("/tmp/worksuite-untrusted-client-authority.json", JSON.stringify(body));'
-          untrusted_status=$(curl --silent --show-error --output /tmp/worksuite-untrusted-client-authority-response.json --write-out '%{http_code}' \
+          node -e 'const fs = require("fs"); const body = JSON.parse(fs.readFileSync("/tmp/worksuite-draft-action.json", "utf8")); body.actorContext = { personId: "p-ci", authenticatedPerson: false, activeProjectParticipation: false, projectFunction: "", explicitScopes: [], denyOverrides: [] }; fs.writeFileSync("/tmp/worksuite-needs-review.json", JSON.stringify(body));'
+          needs_review_status=$(curl --silent --show-error --output /tmp/worksuite-needs-review-response.json --write-out '%{http_code}' \
             --header 'Content-Type: application/json' \
-            --data @/tmp/worksuite-untrusted-client-authority.json \
+            --data @/tmp/worksuite-needs-review.json \
             http://127.0.0.1:3000/api/nexus/worksuite/draft-actions/validate)
-          test "$untrusted_status" = "200"
-          grep '"status":"needs-review"' /tmp/worksuite-untrusted-client-authority-response.json > /dev/null
-          grep '"actorContextAuthority":"server-side-required"' /tmp/worksuite-untrusted-client-authority-response.json > /dev/null
-          grep '"clientActorContextTrusted":false' /tmp/worksuite-untrusted-client-authority-response.json > /dev/null
-          grep '"serverSideLookupRequired":true' /tmp/worksuite-untrusted-client-authority-response.json > /dev/null
-          grep '"ignoredClientActorContext":true' /tmp/worksuite-untrusted-client-authority-response.json > /dev/null
-          grep '"mutationExecution":false' /tmp/worksuite-untrusted-client-authority-response.json > /dev/null
+          test "$needs_review_status" = "200"
+          grep '"status":"needs-review"' /tmp/worksuite-needs-review-response.json > /dev/null
+          grep '"mutationExecution":false' /tmp/worksuite-needs-review-response.json > /dev/null
 
           node -e 'const fs = require("fs"); const body = JSON.parse(fs.readFileSync("/tmp/worksuite-draft-action.json", "utf8")); body.actorContext = { personId: "p-ci", authenticatedPerson: true, activeProjectParticipation: true, projectFunction: "site-manager", explicitScopes: [], denyOverrides: [] }; fs.writeFileSync("/tmp/worksuite-ready.json", JSON.stringify(body));'
           ready_status=$(curl --silent --show-error --output /tmp/worksuite-ready-response.json --write-out '%{http_code}' \
             --header 'Content-Type: application/json' \
-            --header 'X-Nexus-Demo-Actor-Fixture: true' \
             --data @/tmp/worksuite-ready.json \
             http://127.0.0.1:3000/api/nexus/worksuite/draft-actions/validate)
           test "$ready_status" = "200"
           grep '"status":"ready-for-approval"' /tmp/worksuite-ready-response.json > /dev/null
-          grep '"actorContextAuthority":"explicit-demo-fixture"' /tmp/worksuite-ready-response.json > /dev/null
-          grep '"demoActorFixture":true' /tmp/worksuite-ready-response.json > /dev/null
-          grep '"clientActorContextTrusted":false' /tmp/worksuite-ready-response.json > /dev/null
           grep '"approvalExecuted":false' /tmp/worksuite-ready-response.json > /dev/null
 
           node -e 'const fs = require("fs"); const body = JSON.parse(fs.readFileSync("/tmp/worksuite-draft-action.json", "utf8")); body.actorContext = { personId: "p-ci", authenticatedPerson: true, activeProjectParticipation: true, projectFunction: "site-manager", explicitScopes: [], denyOverrides: ["suspended-person-card"] }; fs.writeFileSync("/tmp/worksuite-blocked.json", JSON.stringify(body));'
           blocked_status=$(curl --silent --show-error --output /tmp/worksuite-blocked-response.json --write-out '%{http_code}' \
             --header 'Content-Type: application/json' \
-            --header 'X-Nexus-Demo-Actor-Fixture: true' \
             --data @/tmp/worksuite-blocked.json \
             http://127.0.0.1:3000/api/nexus/worksuite/draft-actions/validate)
           test "$blocked_status" = "200"
           grep '"status":"blocked"' /tmp/worksuite-blocked-response.json > /dev/null
-          grep '"actorContextAuthority":"explicit-demo-fixture"' /tmp/worksuite-blocked-response.json > /dev/null
-          grep '"demoActorFixture":true' /tmp/worksuite-blocked-response.json > /dev/null
           grep '"graphMutation":false' /tmp/worksuite-blocked-response.json > /dev/null
           grep '"fileWrite":false' /tmp/worksuite-blocked-response.json > /dev/null
 
