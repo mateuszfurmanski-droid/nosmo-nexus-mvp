@@ -10,10 +10,12 @@ export default function RelationshipTreeExport() {
       <NexusGraphCommandBridge />
       <NexusNativeModuleLauncher />
       <style>{`
-        [data-control][class*="bottom-3 left-3 right-3 z-50"] {
+        [data-control][class*="bottom-3 left-3 right-3 z-50"],
+        [data-control][class*="bottom-3 left-3 z-40"] {
           display: none !important;
         }
-        [data-control][class*="bottom-3 left-3 z-40"] {
+
+        [aria-label="Person Card and project participation context"] {
           display: none !important;
         }
       `}</style>
