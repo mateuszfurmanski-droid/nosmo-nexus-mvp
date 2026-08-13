@@ -41,16 +41,18 @@ public class MainActivity extends Activity {
     private static final int BG = Color.rgb(4, 12, 28);
     private static final int PANEL = Color.rgb(9, 27, 55);
     private static final int PANEL_SOFT = Color.rgb(12, 38, 76);
-    private static final int BLUE = Color.rgb(38, 132, 255);
     private static final int BLUE_DARK = Color.rgb(18, 82, 168);
     private static final int CYAN = Color.rgb(78, 203, 255);
     private static final int TEXT = Color.rgb(235, 246, 255);
     private static final int MUTED = Color.rgb(153, 181, 213);
     private static final int GREEN = Color.rgb(62, 226, 167);
+    private static final int TILE = Color.rgb(10, 34, 67);
 
     private static final String TREE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
     private static final String DOORFLOW_URL = "https://nosmotechnology.co.uk/doorflow.html";
     private static final String AI_CONTEXT_VERSION = "android-work-discovery-v1";
+    private static final String PREF_THEME = "visualTheme";
+    private static final String PREF_ACCENT = "visualAccent";
 
     private final ArrayList<Signal> signals = new ArrayList<>();
     private final Set<String> dedupe = new HashSet<>();
@@ -76,106 +78,432 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(BG);
-        getWindow().setNavigationBarColor(BG);
-        prefs = getSharedPreferences("nexus_work_mode", MODE_PRIVATE);
+    private static class ThemeProfile {
+        final String id;
+        final String accentId;
+        final String name;
+        final int bg;
+        final int panel;
+        final int panelSoft;
+        final int raised;
+        final int tile;
+        final int text;
+        final int muted;
+        final int border;
+        final int accent;
+        final int accentSoft;
+        final int success;
+        final int warning;
+        final int danger;
+        final int radius;
 
-        if (prefs.getBoolean("workMode", false)) {
-            showWorkMode();
-        } else {
-            showWelcome();
+        ThemeProfile(String id, String accentId, String name, int bg, int panel, int panelSoft, int raised, int tile, int text, int muted, int border, int accent, int accentSoft, int success, int warning, int danger, int radius) {
+            this.id = id;
+            this.accentId = accentId;
+            this.name = name;
+            this.bg = bg;
+            this.panel = panel;
+            this.panelSoft = panelSoft;
+            this.raised = raised;
+            this.tile = tile;
+            this.text = text;
+            this.muted = muted;
+            this.border = border;
+            this.accent = accent;
+            this.accentSoft = accentSoft;
+            this.success = success;
+            this.warning = warning;
+            this.danger = danger;
+            this.radius = radius;
         }
     }
 
-    private void showWelcome() {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        prefs = getSharedPreferences("nexus_work_mode", MODE_PRIVATE);
+        if (!prefs.contains("workMode")) {
+            prefs.edit().putBoolean("workMode", true).apply();
+        }
+        applySystemBars();
+        showWorkMode();
+    }
+
+    private void applySystemBars() {
+        ThemeProfile t = theme();
+        getWindow().setStatusBarColor(t.bg);
+        getWindow().setNavigationBarColor(t.bg);
+    }
+
+    private ThemeProfile theme() {
+        String themeId = prefs == null ? "nexus-blue" : prefs.getString(PREF_THEME, "nexus-blue");
+        String accentId = prefs == null ? "cyan" : prefs.getString(PREF_ACCENT, "cyan");
+        int accent = accentColor(accentId);
+        int accentSoft = accentSoftColor(accentId);
+
+        if ("nexus-light".equals(themeId)) {
+            return new ThemeProfile("nexus-light", accentId, "Nexus Light", Color.rgb(244, 247, 251), Color.WHITE, Color.rgb(234, 241, 250), Color.rgb(248, 250, 253), Color.WHITE, Color.rgb(18, 32, 51), Color.rgb(96, 112, 137), Color.rgb(201, 216, 234), accent, accentSoft, Color.rgb(18, 168, 121), Color.rgb(217, 154, 0), Color.rgb(217, 65, 93), 22);
+        }
+
+        if ("industrial-steel-gold".equals(themeId)) {
+            return new ThemeProfile("industrial-steel-gold", accentId, "Steel / Gold", Color.rgb(8, 9, 11), Color.rgb(21, 23, 27), Color.rgb(32, 36, 42), Color.rgb(42, 47, 54), Color.rgb(28, 31, 36), Color.rgb(241, 241, 234), Color.rgb(167, 169, 165), Color.rgb(91, 81, 64), accent, accentSoft, Color.rgb(98, 214, 163), Color.rgb(255, 211, 106), Color.rgb(255, 91, 91), 14);
+        }
+
+        return new ThemeProfile("nexus-blue", accentId, "Nexus Blue", BG, PANEL, PANEL_SOFT, Color.rgb(16, 46, 94), TILE, TEXT, MUTED, BLUE_DARK, accent, accentSoft, GREEN, Color.rgb(245, 197, 66), Color.rgb(255, 90, 122), 22);
+    }
+
+    private int accentColor(String accentId) {
+        if ("gold".equals(accentId)) return Color.rgb(255, 211, 106);
+        if ("laser-green".equals(accentId)) return Color.rgb(57, 255, 136);
+        return CYAN;
+    }
+
+    private int accentSoftColor(String accentId) {
+        if ("gold".equals(accentId)) return Color.rgb(111, 80, 25);
+        if ("laser-green".equals(accentId)) return Color.rgb(13, 83, 50);
+        return Color.rgb(6, 33, 66);
+    }
+
+    private void setVisualTheme(String themeId, String accentId) {
+        prefs.edit()
+                .putString(PREF_THEME, themeId)
+                .putString(PREF_ACCENT, accentId)
+                .apply();
+        applySystemBars();
+        ThemeProfile t = theme();
+        Toast.makeText(this, "Theme: " + t.name + " / " + t.accentId, Toast.LENGTH_SHORT).show();
+        showWorkMode();
+    }
+
+    private void showWorkMode() {
+        LinearLayout root = page();
+        addWorkModeHero(root);
+        addKnowledgeVacuumPanel(root);
+        addAppShortcutGrid(root);
+        addThemeSwitcher(root);
+        addValueBar(root);
+        addSmall(root, "NEXUS Work Mode Layer · Android Home-capable shell · Knowledge Vacuum prepares local work context. No AI key in APK. No Accessibility Service. No WhatsApp/Gmail database scraping. No unrestricted storage crawl.");
+        setPage(root);
+    }
+
+    private void addWorkModeHero(LinearLayout root) {
+        ThemeProfile t = theme();
+
+        TextView brand = new TextView(this);
+        brand.setText("NOSMO");
+        brand.setTextColor(t.text);
+        brand.setTextSize(17);
+        brand.setTypeface(Typeface.DEFAULT_BOLD);
+        brand.setLetterSpacing(0.18f);
+        brand.setGravity(Gravity.CENTER);
+        root.addView(brand, fullWidth(dp(34)));
+
+        TextView title = new TextView(this);
+        title.setText("Nexus Work Mode");
+        title.setTextColor(t.text);
+        title.setTextSize(31);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, dp(4), 0, dp(4));
+        root.addView(title, wrapHeight());
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Android work layer. One tap. Total focus.");
+        subtitle.setTextColor(t.muted);
+        subtitle.setTextSize(15);
+        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setPadding(0, 0, 0, dp(14));
+        root.addView(subtitle, wrapHeight());
+
+        TextView status = new TextView(this);
+        status.setText("◈  Work Mode Layer Active");
+        status.setTextColor(t.text);
+        status.setTextSize(13);
+        status.setTypeface(Typeface.DEFAULT_BOLD);
+        status.setGravity(Gravity.CENTER);
+        status.setPadding(dp(12), dp(9), dp(12), dp(9));
+        status.setBackground(rounded(t.accentSoft, dp(24), t.accent, 1));
+        LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48));
+        statusLp.setMargins(dp(22), dp(4), dp(22), dp(10));
+        root.addView(status, statusLp);
+
+        String project = prefs.getString("activeProject", "Unassigned work");
+        int accepted = prefs.getInt("acceptedSignals", 0);
+        TextView context = new TextView(this);
+        context.setText(project + " · " + accepted + " approved signals");
+        context.setTextColor(t.accent);
+        context.setTextSize(12);
+        context.setGravity(Gravity.CENTER);
+        context.setPadding(0, 0, 0, dp(10));
+        root.addView(context, wrapHeight());
+    }
+
+    private void addKnowledgeVacuumPanel(LinearLayout root) {
+        ThemeProfile t = theme();
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(12), dp(12), dp(12), dp(12));
+        panel.setBackground(rounded(t.panelSoft, dp(t.radius), t.accent, 1));
+
+        TextView title = new TextView(this);
+        title.setText("KNOWLEDGE VACUUM");
+        title.setTextColor(t.accent);
+        title.setTextSize(12);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setLetterSpacing(0.12f);
+        title.setGravity(Gravity.CENTER);
+        panel.addView(title, wrapHeight());
+
+        TextView body = new TextView(this);
+        body.setText("Phone → approved work signals → Nexus context. Start here after installing from Google Play / Google apps.");
+        body.setTextColor(t.muted);
+        body.setTextSize(12);
+        body.setGravity(Gravity.CENTER);
+        body.setPadding(0, dp(4), 0, dp(10));
+        panel.addView(body, wrapHeight());
+
+        addFunctionRow(panel,
+                functionTile("SCAN", "Scan Phone", this::startDiscovery),
+                functionTile("FOLD", "Add Folder", this::chooseWorkFolder),
+                functionTile("PHOTO", "Add Photos", this::choosePhotos));
+        addFunctionRow(panel,
+                functionTile("ASK", "Ask Nexus", () -> openUrl(aiAssistantUrl("knowledge-vacuum"))),
+                functionTile("TREE", "Project World", () -> openUrl(workTreeUrl("knowledge-vacuum"))),
+                functionTile("DF", "DoorFlow", () -> openUrl(doorflowUrl())));
+
+        LinearLayout.LayoutParams lp = fullWidth(dp(234));
+        lp.setMargins(0, dp(4), 0, dp(10));
+        root.addView(panel, lp);
+    }
+
+    private Button functionTile(String icon, String label, Runnable action) {
+        ThemeProfile t = theme();
+        Button tile = new Button(this);
+        tile.setText(icon + "\n" + label);
+        tile.setAllCaps(false);
+        tile.setTextColor(t.text);
+        tile.setTextSize(12);
+        tile.setTypeface(Typeface.DEFAULT_BOLD);
+        tile.setGravity(Gravity.CENTER);
+        tile.setPadding(dp(4), dp(6), dp(4), dp(6));
+        tile.setBackground(rounded(t.raised, dp(t.radius), t.accent, 1));
+        tile.setOnClickListener(v -> action.run());
+        return tile;
+    }
+
+    private void addFunctionRow(LinearLayout root, Button left, Button middle, Button right) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(0, 0, 0, dp(8));
+        row.addView(left, tileLp(0));
+        row.addView(middle, tileLp(dp(10)));
+        row.addView(right, tileLp(0));
+        root.addView(row, fullWidth(dp(78)));
+    }
+
+    private void addAppShortcutGrid(LinearLayout root) {
+        addSection(root, "APP SHORTCUTS");
+        addTileRow(root,
+                launcherTile("WA", "WhatsApp", () -> openPackageOrWeb("com.whatsapp", "https://wa.me/")),
+                launcherTile("TEL", "Phone", () -> openIntent(new Intent(Intent.ACTION_DIAL))),
+                launcherTile("CAM", "Camera", this::openCamera));
+        addTileRow(root,
+                launcherTile("MAP", "Maps", () -> openIntent(new Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=construction%20site")))),
+                launcherTile("GM", "Gmail", () -> openPackageOrWeb("com.google.android.gm", "mailto:")),
+                launcherTile("XLS", "Excel", () -> openPackageOrWeb("com.microsoft.office.excel", "https://www.office.com/launch/excel")));
+        addTileRow(root,
+                launcherTile("DOC", "Docs", () -> openPackageOrWeb("com.google.android.apps.docs.editors.docs", "https://docs.google.com/document/")),
+                launcherTile("DRV", "Drive", () -> openPackageOrWeb("com.google.android.apps.docs", "https://drive.google.com/")),
+                launcherTile("T", "Teams", () -> openPackageOrWeb("com.microsoft.teams", "https://teams.microsoft.com/")));
+    }
+
+    private Button launcherTile(String icon, String label, Runnable action) {
+        ThemeProfile t = theme();
+        Button tile = new Button(this);
+        tile.setText(icon + "\n" + label);
+        tile.setAllCaps(false);
+        tile.setTextColor(t.text);
+        tile.setTextSize(13);
+        tile.setTypeface(Typeface.DEFAULT_BOLD);
+        tile.setGravity(Gravity.CENTER);
+        tile.setPadding(dp(5), dp(8), dp(5), dp(8));
+        tile.setBackground(rounded(t.tile, dp(t.radius), t.border, 1));
+        tile.setOnClickListener(v -> action.run());
+        return tile;
+    }
+
+    private void addTileRow(LinearLayout root, Button left, Button middle, Button right) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(0, 0, 0, dp(10));
+        row.addView(left, tileLp(0));
+        row.addView(middle, tileLp(dp(10)));
+        row.addView(right, tileLp(0));
+        root.addView(row, fullWidth(dp(104)));
+    }
+
+    private LinearLayout.LayoutParams tileLp(int sideMargin) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(92), 1f);
+        lp.setMargins(sideMargin == 0 ? 0 : dp(2), 0, sideMargin == 0 ? 0 : dp(2), 0);
+        return lp;
+    }
+
+    private void addThemeSwitcher(LinearLayout root) {
+        ThemeProfile t = theme();
+        addSection(root, "VISUAL MODE");
+
+        TextView current = new TextView(this);
+        current.setText("Theme: " + t.name + " · Accent: " + t.accentId);
+        current.setTextColor(t.muted);
+        current.setTextSize(12);
+        current.setGravity(Gravity.CENTER);
+        current.setPadding(0, 0, 0, dp(6));
+        root.addView(current, wrapHeight());
+
+        addThemeRow(root, themeButton("Blue", "nexus-blue", t.accentId), themeButton("Light", "nexus-light", t.accentId), themeButton("Steel", "industrial-steel-gold", t.accentId));
+        addThemeRow(root, themeButton("Cyan", t.id, "cyan"), themeButton("Gold", t.id, "gold"), themeButton("Laser", t.id, "laser-green"));
+    }
+
+    private Button themeButton(String label, String themeId, String accentId) {
+        ThemeProfile t = theme();
+        Button button = new Button(this);
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setTextSize(12);
+        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setTextColor(t.text);
+        boolean selected = t.id.equals(themeId) && t.accentId.equals(accentId);
+        button.setBackground(rounded(selected ? t.accentSoft : t.panel, dp(16), selected ? t.accent : t.border, 1));
+        button.setOnClickListener(v -> setVisualTheme(themeId, accentId));
+        return button;
+    }
+
+    private void addThemeRow(LinearLayout root, Button left, Button middle, Button right) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.addView(left, chipLp(0));
+        row.addView(middle, chipLp(dp(8)));
+        row.addView(right, chipLp(0));
+        root.addView(row, fullWidth(dp(50)));
+    }
+
+    private LinearLayout.LayoutParams chipLp(int sideMargin) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(42), 1f);
+        lp.setMargins(sideMargin == 0 ? 0 : dp(2), 0, sideMargin == 0 ? 0 : dp(2), 0);
+        return lp;
+    }
+
+    private void addValueBar(LinearLayout root) {
+        ThemeProfile t = theme();
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(dp(8), dp(10), dp(8), dp(10));
+        row.setBackground(rounded(t.panelSoft, dp(22), t.border, 1));
+        row.addView(valueChip("One Tap", "Work home"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("Vacuum", "Approved context"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(valueChip("Secure", "No scrape"), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams lp = fullWidth(dp(82));
+        lp.setMargins(0, dp(8), 0, dp(10));
+        root.addView(row, lp);
+    }
+
+    private TextView valueChip(String title, String detail) {
+        ThemeProfile t = theme();
+        TextView chip = new TextView(this);
+        chip.setText(title + "\n" + detail);
+        chip.setTextColor(t.text);
+        chip.setTextSize(10);
+        chip.setGravity(Gravity.CENTER);
+        chip.setLineSpacing(dp(1), 1.0f);
+        return chip;
+    }
+
+    private void showReview() {
         LinearLayout root = page();
         addBrand(root);
-        addTitle(root, "AI Work Mode");
-        addBody(root,
-                "NEXUS prepares an AI-ready work context from Android sources you approve. Start with contacts and calendar, then add a project folder or selected work photos.");
-        addStatus(root, "BLUE NEXUS · AI CONTEXT READY", CYAN);
+        addTitle(root, "Knowledge Vacuum Review");
+        addBody(root, signals.isEmpty() ? "No strong work signals found yet. Add a project folder or selected photos." : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work. Nexus AI receives a bounded context packet, not raw phone data.");
+        addStatus(root, selectedCount() + " SELECTED", theme().accent);
 
-        Button start = primaryButton("Start discovery");
-        start.setOnClickListener(v -> startDiscovery());
-        root.addView(start, fullWidth(dp(60)));
+        Button folder = secondaryButton("+ Add / scan work folder");
+        folder.setOnClickListener(v -> chooseWorkFolder());
+        root.addView(folder, fullWidth(dp(54)));
 
-        Button ai = secondaryButton("Ask Nexus AI");
-        ai.setOnClickListener(v -> openUrl(aiAssistantUrl("home")));
-        root.addView(ai, fullWidth(dp(56)));
+        Button photos = secondaryButton("+ Add work photos");
+        photos.setOnClickListener(v -> choosePhotos());
+        root.addView(photos, fullWidth(dp(54)));
 
-        Button tree = secondaryButton("Open Project World");
-        tree.setOnClickListener(v -> openUrl(workTreeUrl("home")));
-        root.addView(tree, fullWidth(dp(56)));
+        addSection(root, "FOUND CONTEXT");
+        int shown = 0;
+        for (Signal signal : signals) {
+            if (shown >= 80) break;
+            CheckBox box = new CheckBox(this);
+            box.setText(signal.source + " · " + signal.title + (signal.detail.isEmpty() ? "" : "\n" + signal.detail) + "\nconfidence " + signal.confidence + "%");
+            box.setTextColor(theme().text);
+            box.setTextSize(14);
+            box.setChecked(signal.selected);
+            box.setPadding(dp(4), dp(8), dp(4), dp(8));
+            box.setOnCheckedChangeListener((buttonView, isChecked) -> signal.selected = isChecked);
+            root.addView(box, wrapHeight());
+            shown++;
+        }
+        if (signals.size() > shown) addSmall(root, "+ " + (signals.size() - shown) + " more signals retained in this scan.");
 
-        addSmall(root,
-                "Privacy boundary: no AI key in this APK, no Accessibility Service, no WhatsApp/Gmail database scraping, no unrestricted storage crawl. AI inference must run in Nexus web/backend after this app hands off an AI context packet.");
+        Button accept = primaryButton("Accept + return to Work Mode");
+        accept.setOnClickListener(v -> enableWorkMode());
+        root.addView(accept, fullWidth(dp(62)));
+
+        Button ask = secondaryButton("Ask Nexus AI with this context");
+        ask.setOnClickListener(v -> {
+            persistAiContext();
+            openUrl(aiAssistantUrl("knowledge-vacuum-review"));
+        });
+        root.addView(ask, fullWidth(dp(54)));
+
+        Button tree = secondaryButton("Preview Project World");
+        tree.setOnClickListener(v -> openUrl(workTreeUrl("knowledge-vacuum-review")));
+        root.addView(tree, fullWidth(dp(54)));
         setPage(root);
     }
 
     private void startDiscovery() {
         ArrayList<String> missing = new ArrayList<>();
-        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            missing.add(Manifest.permission.READ_CONTACTS);
-        }
-        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
-            missing.add(Manifest.permission.READ_CALENDAR);
-        }
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_CONTACTS);
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_CALENDAR);
 
-        if (!missing.isEmpty()) {
-            requestPermissions(missing.toArray(new String[0]), REQ_DISCOVERY_PERMISSIONS);
-        } else {
-            scanPhoneSources();
-        }
+        if (!missing.isEmpty()) requestPermissions(missing.toArray(new String[0]), REQ_DISCOVERY_PERMISSIONS);
+        else scanPhoneSources();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQ_DISCOVERY_PERMISSIONS) {
-            scanPhoneSources();
-        }
+        if (requestCode == REQ_DISCOVERY_PERMISSIONS) scanPhoneSources();
     }
 
     private void scanPhoneSources() {
         signals.clear();
         dedupe.clear();
-
         int contacts = 0;
         int calendar = 0;
-        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            contacts = scanContacts();
-        }
-        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) {
-            calendar = scanCalendar();
-        }
-
-        Toast.makeText(this,
-                "Phone scan: " + contacts + " contacts, " + calendar + " calendar signals",
-                Toast.LENGTH_LONG).show();
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) contacts = scanContacts();
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) calendar = scanCalendar();
+        Toast.makeText(this, "Knowledge Vacuum: " + contacts + " contacts, " + calendar + " calendar signals", Toast.LENGTH_LONG).show();
         showReview();
     }
 
     private int scanContacts() {
         int before = signals.size();
         ContentResolver resolver = getContentResolver();
-
-        String[] orgProjection = new String[]{
-                ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Organization.COMPANY,
-                ContactsContract.CommonDataKinds.Organization.TITLE
-        };
+        String[] orgProjection = new String[]{ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME, ContactsContract.CommonDataKinds.Organization.COMPANY, ContactsContract.CommonDataKinds.Organization.TITLE};
         String selection = ContactsContract.Data.MIMETYPE + "=?";
         String[] args = new String[]{ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE};
 
-        try (Cursor cursor = resolver.query(
-                ContactsContract.Data.CONTENT_URI,
-                orgProjection,
-                selection,
-                args,
-                null)) {
+        try (Cursor cursor = resolver.query(ContactsContract.Data.CONTENT_URI, orgProjection, selection, args, null)) {
             if (cursor != null) {
                 int nameIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.DISPLAY_NAME);
                 int companyIx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Organization.COMPANY);
@@ -188,29 +516,21 @@ public class MainActivity extends Activity {
                     if (joined.isEmpty()) continue;
                     int score = workScore(joined);
                     if (score < 45 && company.isEmpty() && title.isEmpty()) continue;
-                    addSignal("CONTACT", nonEmpty(name, company, "Work contact"),
-                            joinNonEmpty(company, title), Math.max(score, 55));
+                    addSignal("CONTACT", nonEmpty(name, company, "Work contact"), joinNonEmpty(company, title), Math.max(score, 55));
                 }
             }
         } catch (Exception ignored) {
         }
 
         String[] contactProjection = new String[]{ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
-        try (Cursor cursor = resolver.query(
-                ContactsContract.Contacts.CONTENT_URI,
-                contactProjection,
-                null,
-                null,
-                null)) {
+        try (Cursor cursor = resolver.query(ContactsContract.Contacts.CONTENT_URI, contactProjection, null, null, null)) {
             if (cursor != null) {
                 int nameIx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY);
                 while (cursor.moveToNext() && signals.size() < 300) {
                     String name = value(cursor, nameIx);
                     if (name.isEmpty()) continue;
                     int score = workScore(name);
-                    if (score >= 60) {
-                        addSignal("CONTACT", name, "Matched work/project keywords", score);
-                    }
+                    if (score >= 60) addSignal("CONTACT", name, "Matched work/project keywords", score);
                 }
             }
         } catch (Exception ignored) {
@@ -223,23 +543,11 @@ public class MainActivity extends Activity {
         long now = System.currentTimeMillis();
         long from = now - (120L * 24L * 60L * 60L * 1000L);
         long to = now + (180L * 24L * 60L * 60L * 1000L);
-
-        String[] projection = new String[]{
-                CalendarContract.Events.TITLE,
-                CalendarContract.Events.EVENT_LOCATION,
-                CalendarContract.Events.DESCRIPTION,
-                CalendarContract.Events.DTSTART
-        };
-        String selection = CalendarContract.Events.DTSTART + ">=? AND " +
-                CalendarContract.Events.DTSTART + "<=?";
+        String[] projection = new String[]{CalendarContract.Events.TITLE, CalendarContract.Events.EVENT_LOCATION, CalendarContract.Events.DESCRIPTION, CalendarContract.Events.DTSTART};
+        String selection = CalendarContract.Events.DTSTART + ">=? AND " + CalendarContract.Events.DTSTART + "<=?";
         String[] args = new String[]{String.valueOf(from), String.valueOf(to)};
 
-        try (Cursor cursor = getContentResolver().query(
-                CalendarContract.Events.CONTENT_URI,
-                projection,
-                selection,
-                args,
-                CalendarContract.Events.DTSTART + " DESC")) {
+        try (Cursor cursor = getContentResolver().query(CalendarContract.Events.CONTENT_URI, projection, selection, args, CalendarContract.Events.DTSTART + " DESC")) {
             if (cursor != null) {
                 int titleIx = cursor.getColumnIndex(CalendarContract.Events.TITLE);
                 int locationIx = cursor.getColumnIndex(CalendarContract.Events.EVENT_LOCATION);
@@ -251,10 +559,7 @@ public class MainActivity extends Activity {
                     String joined = joinNonEmpty(title, location, description);
                     if (joined.isEmpty()) continue;
                     int score = workScore(joined);
-                    if (score >= 45 || (!location.isEmpty() && score >= 30)) {
-                        addSignal("CALENDAR", nonEmpty(title, "Work calendar event"),
-                                joinNonEmpty(location, trim(description, 80)), Math.max(score, 50));
-                    }
+                    if (score >= 45 || (!location.isEmpty() && score >= 30)) addSignal("CALENDAR", nonEmpty(title, "Work calendar event"), joinNonEmpty(location, trim(description, 80)), Math.max(score, 50));
                 }
             }
         } catch (Exception ignored) {
@@ -264,9 +569,7 @@ public class MainActivity extends Activity {
 
     private void chooseWorkFolder() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
-                Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         startActivityForResult(intent, REQ_WORK_FOLDER);
     }
 
@@ -283,17 +586,15 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null) return;
-
         if (requestCode == REQ_WORK_FOLDER && data.getData() != null) {
             Uri treeUri = data.getData();
             try {
-                getContentResolver().takePersistableUriPermission(
-                        treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 prefs.edit().putString("workFolderUri", treeUri.toString()).apply();
             } catch (Exception ignored) {
             }
             int found = scanFolder(treeUri);
-            Toast.makeText(this, "Folder scan: " + found + " likely work files", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Knowledge Vacuum folder scan: " + found + " likely work files", Toast.LENGTH_LONG).show();
             showReview();
         } else if (requestCode == REQ_PHOTOS) {
             int count = addPickedPhotos(data);
@@ -315,12 +616,7 @@ public class MainActivity extends Activity {
     private void scanFolderChildren(Uri treeUri, String parentId, int depth, String path) {
         if (depth > 2 || signals.size() >= 650) return;
         Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId);
-        String[] projection = new String[]{
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE
-        };
-
+        String[] projection = new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE};
         try (Cursor cursor = getContentResolver().query(childrenUri, projection, null, null, null)) {
             if (cursor == null) return;
             int idIx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
@@ -347,13 +643,9 @@ public class MainActivity extends Activity {
         int before = signals.size();
         ClipData clip = data.getClipData();
         if (clip != null) {
-            for (int i = 0; i < clip.getItemCount(); i++) {
-                Uri uri = clip.getItemAt(i).getUri();
-                addSignal("PHOTO", displayName(uri), "Selected work evidence", 70);
-            }
+            for (int i = 0; i < clip.getItemCount(); i++) addSignal("PHOTO", displayName(clip.getItemAt(i).getUri()), "Selected work evidence", 70);
         } else if (data.getData() != null) {
-            Uri uri = data.getData();
-            addSignal("PHOTO", displayName(uri), "Selected work evidence", 70);
+            addSignal("PHOTO", displayName(data.getData()), "Selected work evidence", 70);
         }
         return signals.size() - before;
     }
@@ -372,64 +664,6 @@ public class MainActivity extends Activity {
         return result;
     }
 
-    private void showReview() {
-        LinearLayout root = page();
-        addBrand(root);
-        addTitle(root, "AI Discovery Review");
-        addBody(root, signals.isEmpty()
-                ? "No strong work signals found yet. Add a project folder or selected photos."
-                : signals.size() + " work signals found. They are selected by default — untick anything that does not belong to work. Nexus AI will receive a bounded handoff packet, not raw phone data.");
-        addStatus(root, selectedCount() + " SELECTED", CYAN);
-
-        Button folder = secondaryButton("+ Add / scan work folder");
-        folder.setOnClickListener(v -> chooseWorkFolder());
-        root.addView(folder, fullWidth(dp(54)));
-
-        Button photos = secondaryButton("+ Add work photos");
-        photos.setOnClickListener(v -> choosePhotos());
-        root.addView(photos, fullWidth(dp(54)));
-
-        addSection(root, "FOUND CONTEXT");
-        int shown = 0;
-        for (Signal signal : signals) {
-            if (shown >= 80) break;
-            CheckBox box = new CheckBox(this);
-            box.setText(signal.source + " · " + signal.title +
-                    (signal.detail.isEmpty() ? "" : "\n" + signal.detail) +
-                    "\nconfidence " + signal.confidence + "%");
-            box.setTextColor(TEXT);
-            box.setTextSize(14);
-            box.setChecked(signal.selected);
-            box.setPadding(dp(4), dp(8), dp(4), dp(8));
-            box.setOnCheckedChangeListener((buttonView, isChecked) -> signal.selected = isChecked);
-            root.addView(box, wrapHeight());
-            shown++;
-        }
-        if (signals.size() > shown) {
-            addSmall(root, "+ " + (signals.size() - shown) + " more signals retained in this scan.");
-        }
-
-        Button ask = primaryButton("Ask Nexus AI with this context");
-        ask.setOnClickListener(v -> {
-            persistAiContext();
-            openUrl(aiAssistantUrl("review"));
-        });
-        root.addView(ask, fullWidth(dp(62)));
-
-        Button start = secondaryButton("Accept + start Work Mode");
-        start.setOnClickListener(v -> enableWorkMode());
-        root.addView(start, fullWidth(dp(54)));
-
-        Button tree = secondaryButton("Preview Project World");
-        tree.setOnClickListener(v -> openUrl(workTreeUrl("review")));
-        root.addView(tree, fullWidth(dp(54)));
-
-        Button rescan = secondaryButton("Rescan phone");
-        rescan.setOnClickListener(v -> startDiscovery());
-        root.addView(rescan, fullWidth(dp(54)));
-        setPage(root);
-    }
-
     private void enableWorkMode() {
         String project = inferProject();
         int accepted = selectedCount();
@@ -440,7 +674,7 @@ public class MainActivity extends Activity {
                 .putString("signalSummary", selectedSummary())
                 .putString("aiContextPacket", aiContextPacket(project, accepted))
                 .apply();
-        Toast.makeText(this, "NEXUS AI Work Mode ON", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "NEXUS Work Mode Layer ON", Toast.LENGTH_LONG).show();
         showWorkMode();
     }
 
@@ -454,56 +688,28 @@ public class MainActivity extends Activity {
                 .apply();
     }
 
-    private void showWorkMode() {
-        LinearLayout root = page();
-        addBrand(root);
-        addTitle(root, "AI WORK MODE");
-        addStatus(root, "BLUE NEXUS · AI READY", CYAN);
+    private void openCamera() {
+        openIntent(new Intent("android.media.action.IMAGE_CAPTURE"));
+    }
 
-        String project = prefs.getString("activeProject", "Unassigned work");
-        int accepted = prefs.getInt("acceptedSignals", 0);
-        addSection(root, "ACTIVE CONTEXT");
-        addBody(root, project + "\n" + accepted + " approved work signals");
-
-        String summary = prefs.getString("signalSummary", "");
-        if (!summary.isEmpty()) {
-            addSmall(root, summary);
+    private void openPackageOrWeb(String packageName, String fallbackUrl) {
+        try {
+            Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
+            if (launch != null) {
+                startActivity(launch);
+                return;
+            }
+        } catch (Exception ignored) {
         }
+        openUrl(fallbackUrl);
+    }
 
-        Button ask = primaryButton("Ask Nexus AI");
-        ask.setOnClickListener(v -> openUrl(aiAssistantUrl("work-mode")));
-        root.addView(ask, fullWidth(dp(62)));
-
-        Button tree = secondaryButton("Open Project World");
-        tree.setOnClickListener(v -> openUrl(workTreeUrl("project-world")));
-        root.addView(tree, fullWidth(dp(54)));
-
-        Button files = secondaryButton("Add evidence photos");
-        files.setOnClickListener(v -> choosePhotos());
-        root.addView(files, fullWidth(dp(54)));
-
-        Button doorflow = secondaryButton("Open DoorFlow");
-        doorflow.setOnClickListener(v -> openUrl(doorflowUrl()));
-        root.addView(doorflow, fullWidth(dp(54)));
-
-        Button update = secondaryButton("Update work context");
-        update.setOnClickListener(v -> {
-            signals.clear();
-            dedupe.clear();
-            startDiscovery();
-        });
-        root.addView(update, fullWidth(dp(54)));
-
-        Button off = secondaryButton("Turn Work Mode off");
-        off.setOnClickListener(v -> {
-            prefs.edit().putBoolean("workMode", false).apply();
-            Toast.makeText(this, "Work Mode OFF", Toast.LENGTH_SHORT).show();
-            showWelcome();
-        });
-        root.addView(off, fullWidth(dp(54)));
-
-        addSmall(root, "Native Android beta 0.5.3-blue · blue Nexus visual system · AI context packet prepared locally. Nexus web/backend owns the model call and must enforce project permissions.");
-        setPage(root);
+    private void openIntent(Intent intent) {
+        try {
+            startActivity(intent);
+        } catch (Exception ex) {
+            Toast.makeText(this, "App not available", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private String workTreeUrl(String surface) {
@@ -515,8 +721,8 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("nexusSurface", surface)
                 .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("acceptedSignals", String.valueOf(accepted))
-                .build()
-                .toString();
+                .appendQueryParameter("knowledgeVacuum", "android-local-review")
+                .build().toString();
     }
 
     private String aiAssistantUrl(String surface) {
@@ -531,9 +737,9 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("acceptedSignals", String.valueOf(accepted))
                 .appendQueryParameter("signalTypes", sourceBreakdown())
+                .appendQueryParameter("knowledgeVacuum", "android-local-review")
                 .appendQueryParameter("nexusPrompt", aiPrompt(surface))
-                .build()
-                .toString();
+                .build().toString();
     }
 
     private String doorflowUrl() {
@@ -543,22 +749,17 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("nexusClient", "android-native")
                 .appendQueryParameter("nexusProject", slug(project))
                 .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
-                .build()
-                .toString();
+                .appendQueryParameter("knowledgeVacuum", "android-local-review")
+                .build().toString();
     }
 
     private String aiPrompt(String surface) {
-        return "Use the Android Work Mode context to identify the active project, likely work package, missing evidence, immediate next action, and the best Nexus Project Graph node to open. Surface=" + surface + ". Do not treat phone discovery as authority; resolve project permissions in Nexus.";
+        return "Use the Android Work Mode Layer and Knowledge Vacuum context to identify the active project, likely work package, missing evidence, immediate next action, and the best Nexus Project Graph node to open. Surface=" + surface + ". Do not treat phone discovery as authority; resolve project permissions in Nexus.";
     }
 
     private String aiContextPacket(String project, int accepted) {
-        return "version=" + AI_CONTEXT_VERSION +
-                "; client=android-native" +
-                "; theme=blue-nexus" +
-                "; project=" + slug(project) +
-                "; acceptedSignals=" + accepted +
-                "; signalTypes=" + sourceBreakdown() +
-                "; modelCall=server-side-only";
+        ThemeProfile t = theme();
+        return "version=" + AI_CONTEXT_VERSION + "; client=android-native" + "; theme=blue-nexus" + "; visualTheme=" + t.id + "; visualAccent=" + t.accentId + "; layer=work-mode-home" + "; knowledgeVacuum=android-local-review" + "; project=" + slug(project) + "; acceptedSignals=" + accepted + "; signalTypes=" + sourceBreakdown() + "; modelCall=server-side-only";
     }
 
     private String sourceBreakdown() {
@@ -606,8 +807,7 @@ public class MainActivity extends Activity {
         String key = (source + "|" + cleanTitle + "|" + cleanDetail).toLowerCase(Locale.UK);
         if (cleanTitle.isEmpty() || dedupe.contains(key)) return;
         dedupe.add(key);
-        signals.add(new Signal(source, cleanTitle, cleanDetail,
-                Math.min(99, Math.max(1, confidence))));
+        signals.add(new Signal(source, cleanTitle, cleanDetail, Math.min(99, Math.max(1, confidence))));
     }
 
     private int selectedCount() {
@@ -644,9 +844,7 @@ public class MainActivity extends Activity {
 
     private boolean likelyWorkFile(String name) {
         String n = name == null ? "" : name.toLowerCase(Locale.UK);
-        if (n.endsWith(".pdf") || n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".docx") || n.endsWith(".pptx") || n.endsWith(".ifc") || n.endsWith(".dwg") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png")) {
-            return true;
-        }
+        if (n.endsWith(".pdf") || n.endsWith(".xlsx") || n.endsWith(".xls") || n.endsWith(".docx") || n.endsWith(".pptx") || n.endsWith(".ifc") || n.endsWith(".dwg") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png")) return true;
         return workScore(n) >= 45;
     }
 
@@ -663,9 +861,7 @@ public class MainActivity extends Activity {
     }
 
     private String nonEmpty(String... values) {
-        for (String value : values) {
-            if (value != null && !value.trim().isEmpty()) return value.trim();
-        }
+        for (String value : values) if (value != null && !value.trim().isEmpty()) return value.trim();
         return "";
     }
 
@@ -693,43 +889,44 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout page() {
+        ThemeProfile t = theme();
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(18), dp(18), dp(18), dp(28));
-        root.setBackgroundColor(BG);
+        root.setBackgroundColor(t.bg);
         return root;
     }
 
     private void setPage(LinearLayout root) {
+        ThemeProfile t = theme();
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(false);
-        scroll.setBackgroundColor(BG);
-        scroll.addView(root, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT));
+        scroll.setBackgroundColor(t.bg);
+        scroll.addView(root, new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
         setContentView(scroll);
     }
 
     private void addBrand(LinearLayout root) {
+        ThemeProfile t = theme();
         TextView brand = new TextView(this);
         brand.setText("NEXUS");
-        brand.setTextColor(CYAN);
+        brand.setTextColor(t.accent);
         brand.setTextSize(15);
         brand.setTypeface(Typeface.DEFAULT_BOLD);
         brand.setLetterSpacing(0.22f);
         brand.setGravity(Gravity.CENTER_VERTICAL);
         brand.setPadding(dp(14), dp(10), dp(14), dp(10));
-        GradientDrawable bg = rounded(PANEL_SOFT, dp(18), BLUE_DARK, 1);
-        brand.setBackground(bg);
+        brand.setBackground(rounded(t.panelSoft, dp(18), t.border, 1));
         LinearLayout.LayoutParams lp = fullWidth(dp(44));
         lp.setMargins(0, 0, 0, dp(18));
         root.addView(brand, lp);
     }
 
     private void addTitle(LinearLayout root, String text) {
+        ThemeProfile t = theme();
         TextView title = new TextView(this);
         title.setText(text);
-        title.setTextColor(TEXT);
+        title.setTextColor(t.text);
         title.setTextSize(28);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setPadding(0, 0, 0, dp(10));
@@ -737,9 +934,10 @@ public class MainActivity extends Activity {
     }
 
     private void addBody(LinearLayout root, String text) {
+        ThemeProfile t = theme();
         TextView body = new TextView(this);
         body.setText(text);
-        body.setTextColor(MUTED);
+        body.setTextColor(t.muted);
         body.setTextSize(15);
         body.setLineSpacing(dp(2), 1.05f);
         body.setPadding(0, 0, 0, dp(14));
@@ -747,22 +945,24 @@ public class MainActivity extends Activity {
     }
 
     private void addStatus(LinearLayout root, String text, int color) {
+        ThemeProfile t = theme();
         TextView status = new TextView(this);
         status.setText(text);
         status.setTextColor(color);
         status.setTextSize(12);
         status.setTypeface(Typeface.DEFAULT_BOLD);
         status.setPadding(dp(12), dp(8), dp(12), dp(8));
-        status.setBackground(rounded(Color.rgb(6, 33, 66), dp(16), BLUE_DARK, 1));
+        status.setBackground(rounded(t.accentSoft, dp(16), t.border, 1));
         LinearLayout.LayoutParams lp = fullWidth(dp(40));
         lp.setMargins(0, 0, 0, dp(14));
         root.addView(status, lp);
     }
 
     private void addSection(LinearLayout root, String text) {
+        ThemeProfile t = theme();
         TextView section = new TextView(this);
         section.setText(text);
-        section.setTextColor(CYAN);
+        section.setTextColor(t.accent);
         section.setTextSize(12);
         section.setTypeface(Typeface.DEFAULT_BOLD);
         section.setLetterSpacing(0.08f);
@@ -771,32 +971,29 @@ public class MainActivity extends Activity {
     }
 
     private void addSmall(LinearLayout root, String text) {
+        ThemeProfile t = theme();
         TextView small = new TextView(this);
         small.setText(text);
-        small.setTextColor(MUTED);
+        small.setTextColor(t.muted);
         small.setTextSize(12);
         small.setLineSpacing(dp(2), 1.05f);
         small.setPadding(0, dp(8), 0, dp(12));
         root.addView(small, wrapHeight());
     }
 
-    private Button primaryButton(String text) {
-        return button(text, true);
-    }
-
-    private Button secondaryButton(String text) {
-        return button(text, false);
-    }
+    private Button primaryButton(String text) { return button(text, true); }
+    private Button secondaryButton(String text) { return button(text, false); }
 
     private Button button(String text, boolean primary) {
+        ThemeProfile t = theme();
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
         button.setTextSize(15);
         button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setTextColor(primary ? Color.WHITE : TEXT);
-        int fill = primary ? BLUE : PANEL;
-        int stroke = primary ? CYAN : BLUE_DARK;
+        button.setTextColor(primary ? Color.WHITE : t.text);
+        int fill = primary ? t.accent : t.panel;
+        int stroke = primary ? t.accent : t.border;
         button.setBackground(rounded(fill, dp(18), stroke, 1));
         button.setGravity(Gravity.CENTER);
         button.setPadding(dp(12), 0, dp(12), 0);
@@ -812,17 +1009,13 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams fullWidth(int height) {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                height);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height);
         lp.setMargins(0, dp(6), 0, dp(8));
         return lp;
     }
 
     private LinearLayout.LayoutParams wrapHeight() {
-        return new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private int dp(int value) {

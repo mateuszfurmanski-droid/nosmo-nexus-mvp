@@ -5,12 +5,14 @@ on:
   push:
     branches:
       - agent/android-work-mode-native-v2
+      - codex/android-work-mode-launcher-shell
     paths:
       - native/nexus-work-mode-native/**
       - .github/workflows/android-native-work-mode.yml
   pull_request:
     branches:
       - main
+      - agent/android-work-mode-native-v2
     paths:
       - native/nexus-work-mode-native/**
       - .github/workflows/android-native-work-mode.yml
@@ -57,11 +59,34 @@ jobs:
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
 
-      - name: Verify native Work Mode AI blue handoff contract
+      - name: Verify Work Mode layer and Knowledge Vacuum contract
         run: |
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
+          MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
           GRADLE="native/nexus-work-mode-native/app/build.gradle"
-          grep -q "Ask Nexus AI" "$MAIN"
+          grep -q "android.intent.category.LAUNCHER" "$MANIFEST"
+          ! grep -q "android.intent.category.HOME" "$MANIFEST"
+          grep -q "Nexus Work Mode" "$MAIN"
+          grep -q "Work Mode Layer Active" "$MAIN"
+          grep -q "KNOWLEDGE VACUUM" "$MAIN"
+          grep -q "Knowledge Vacuum Review" "$MAIN"
+          grep -q "functionTile" "$MAIN"
+          grep -q "Scan Phone" "$MAIN"
+          grep -q "Add Folder" "$MAIN"
+          grep -q "Add Photos" "$MAIN"
+          grep -q "Project World" "$MAIN"
+          grep -q "knowledgeVacuum" "$MAIN"
+          grep -q "android-local-review" "$MAIN"
+          grep -q "APP SHORTCUTS" "$MAIN"
+          grep -q "VISUAL MODE" "$MAIN"
+          grep -q "nexus-blue" "$MAIN"
+          grep -q "nexus-light" "$MAIN"
+          grep -q "industrial-steel-gold" "$MAIN"
+          grep -q "laser-green" "$MAIN"
+          grep -q "visualTheme" "$MAIN"
+          grep -q "visualAccent" "$MAIN"
+          grep -q "DoorFlow" "$MAIN"
+          grep -q "Ask Nexus" "$MAIN"
           grep -q "AI_CONTEXT_VERSION" "$MAIN"
           grep -q "android-work-discovery-v1" "$MAIN"
           grep -q "nexusIntent" "$MAIN"
@@ -69,40 +94,40 @@ jobs:
           grep -q "nexusAiContext" "$MAIN"
           grep -q "ai-assistant" "$MAIN"
           grep -q "server-side-only" "$MAIN"
-          grep -q "BLUE NEXUS" "$MAIN"
           grep -q "theme=blue-nexus" "$MAIN"
-          grep -q "Color.rgb(38, 132, 255)" "$MAIN"
           grep -q "relationship-tree" "$MAIN"
-          grep -q "0.5.3-blue" "$GRADLE"
+          grep -q "0.5.6-work-layer-vacuum" "$GRADLE"
           ! grep -q "nexus.html" "$MAIN"
           ! grep -q "Color.rgb(245, 196, 0)" "$MAIN"
 
       - name: Stage beta APK and Play bundle
         run: |
           mkdir -p android-native-work-mode
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.apk
-          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.aab
-          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.3-blue.apk.sha256
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.6-work-layer-vacuum.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.6-work-layer-vacuum.aab
+          sha256sum android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.6-work-layer-vacuum.apk > android-native-work-mode/NEXUS-Work-Mode-Native-v0.5.6-work-layer-vacuum.apk.sha256
           cp /tmp/badging.txt android-native-work-mode/APK_BADGING.txt
           cp /tmp/permissions.txt android-native-work-mode/APK_PERMISSIONS.txt
           {
             echo "NEXUS Work Mode Native"
-            echo "Version: 0.5.3-blue"
+            echo "Version: 0.5.6-work-layer-vacuum"
             echo "APK package: tech.nosmo.nexus.workmode.nativebeta"
             echo "Runtime: pure Android Java"
-            echo "Theme: blue Nexus visual system"
+            echo "Installable layer: normal Android launcher entry; full Home launcher split to a later PR"
+            echo "Knowledge Vacuum: function buttons for Scan Phone, Add Folder, Add Photos, Ask Nexus, Project World, DoorFlow"
+            echo "Theme system: Nexus Blue, Nexus Light, Industrial Steel/Gold"
+            echo "Accent packs: Cyan, Gold, Laser Green"
             echo "Discovery: Contacts + Calendar + Storage Access Framework folder picker + selected photos"
             echo "Review: selected-by-default work signals with user deselection"
             echo "AI: local bounded AI Context Packet + server-side Nexus model call boundary"
-            echo "Work Mode: Ask Nexus AI primary action + Relationship Tree Project World handoff"
-            echo "Handoff: nexusMode=work, nexusClient=android-native, nexusIntent=ask-nexus, nexusAiContext=android-work-discovery-v1"
+            echo "Handoff: nexusMode=work, nexusClient=android-native, nexusIntent=ask-nexus, nexusAiContext=android-work-discovery-v1, knowledgeVacuum=android-local-review"
             echo "Source: $GITHUB_SHA"
           } > android-native-work-mode/BUILD_INFO.txt
 
       - name: Upload native Work Mode beta
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-Native-v0.5.3-blue
+          name: NEXUS-Work-Mode-Native-v0.5.6-work-layer-vacuum
           path: android-native-work-mode/*
           if-no-files-found: error
           retention-days: 14
