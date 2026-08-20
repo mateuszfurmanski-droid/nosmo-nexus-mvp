@@ -53,11 +53,12 @@ Older chat memory loses authority when it conflicts with the current repository 
 5. Person Card plus Project Participation controls project access, module visibility, trade context and action permissions.
 6. Hiding an icon is not authorization. UI and backend must enforce the same access decision.
 7. External software remains source of record where declared. Nexus stores references, provenance, decisions, context and project memory.
-8. Timeline is not just event history; Timeline Zone must support state reconstruction as of a selected date.
-9. Readiness must expose blockers, warnings, uncertainty, confidence, freshness and human overrides; a percentage cannot hide a safety-critical fail.
-10. DoorFlow and Fire Door Register share one Door Core but must not become uncontrolled forks.
-11. FabStation/BIM remains partner-validation work until representative models and partner capabilities are proven.
-12. Work Mode / Agency Pack / Nexus email identity are approved future contracts, not currently live services.
+8. Connector catalogue state is not capability authority; actual integration level, lifecycle, scopes, freshness and source-of-record rules must remain explicit.
+9. Timeline is not just event history; Timeline Zone must support state reconstruction as of a selected date.
+10. Readiness must expose blockers, warnings, uncertainty, confidence, freshness and human overrides; a percentage cannot hide a safety-critical fail.
+11. DoorFlow and Fire Door Register share one Door Core but must not become uncontrolled forks.
+12. FabStation/BIM remains partner-validation work until representative models and partner capabilities are proven.
+13. Work Mode / Agency Pack / Nexus email identity are approved future contracts, not currently live services.
 
 ---
 
@@ -109,6 +110,22 @@ Added `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` defining the post-gate 
 
 No PKG-005 product runtime was added because the authoritative package is `SPEC_READY / CODE_BLOCKED_BY_SPARK_CHECKPOINT` and `PROJECT_CONTROL.md` still gates PKG-001 to PKG-005 product-code integration behind Joanna's Spark Smoke Test and founder checkpoint.
 
+### Phase 11 — PKG-004 connector/source-of-record reconciliation
+
+Added `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md`.
+
+The review found:
+
+- Phase 1 connector registry is a catalogue, not full capability truth;
+- `connector.schema.ts` already models most PKG-004 fields but current e-SAFE memory has no connector definition/account/mapping fixtures;
+- Project Memory invariants do not yet validate connector topology, integration-level capability, lifecycle/freshness truthfulness or source-of-record ownership;
+- e-SAFE D5.1 uses `storageConnectorId: 'external-reference'`, which is not a registered connector and must not be silently converted into a real provider;
+- connector mappings must not imply Person identity, Project Participation or permissions;
+- credential/secret fields are references only, never secret values;
+- parallel PKG-015/016/017 Work Wallet/runtime work already exists and must be reconciled rather than duplicated.
+
+No connector runtime or connector invariant implementation was added because PKG-004 remains founder-gated.
+
 ---
 
 ## 5. Reconciliation priorities
@@ -121,14 +138,14 @@ No PKG-005 product runtime was added because the authoritative package is `SPEC_
 | `ADDON_CLASSIFICATION.md` | Partial control | Convert only allowed categories into MVP contracts. |
 | `PKG-001` Canonical Object/Relationship | Contract + foundation code | Continue validating against canonical object and relationship invariants. |
 | `PKG-002` Timeline/Provenance/Audit | Contract + foundation code | Continue validating events, decisions, provenance, freshness and temporal history. |
-| `PKG-004` Connector Registry/Source of Record | Contract + foundation code | Re-check source-of-record and connector invariants before shell work. |
+| `PKG-004` Connector Registry/Source of Record | Reconciled / implementation gated | After explicit gate: align registry capability truth, add honest connector fixtures, connector invariants and storage-reference semantics; do not duplicate existing runtime/gateway work. |
 | `PKG-005` Readiness/Confidence/Human Decision | Contract prepared / code gated | Do not add product runtime until Spark Smoke Test + explicit founder checkpoint release the gate. |
 | `ADDON_037` Project-first architecture | Partial | Dynamic projects/files/actions must drive graph. e-SAFE is fixture, not product limit. |
 | `ADDON_038` Object Cards/Relationship Graph | Partial | Align graph schema with canonical objects and object-card needs. |
 | `ADDON_047` Existing Software Overlay | Partial | Preserve integration levels and source-of-record truthfulness. |
 | `ADDON_049` DoorFlow | Contract only | Do not copy DoorFlow runtime into Core. Link through contracts. |
-| `ADDON_050` Work Wallet | Partial/demo boundary | No live connector claim without vendor/customer proof. |
-| `ADDON_051` FabStation/BIM | Partial/research | Keep contract-level only until model and partner capability exist. |
+| `ADDON_050` Work Wallet | Parallel prototype stack exists | Reconcile with PKG-015/016/017 work; no second gateway/auth/context model and no live vendor API claim. |
+| `ADDON_051` FabStation/BIM | Partial/research | Keep connector maturity honest until partner capability exists. |
 | `ADDON_053` Fire Door Register | Contract only | Define shared Door Core data before UI integration. |
 | `ADDON_056` Role/trade/access | Foundation coverage | Keep fail-closed access as a backend/data rule, not UI-only filtering. |
 | `ADDON_057` Timeline Zone | Foundation coverage | Preserve e-SAFE-backed `AS_OF(date)` fixture and temporal uncertainty rules. |
@@ -139,13 +156,13 @@ No PKG-005 product runtime was added because the authoritative package is `SPEC_
 
 Do not continue with generic UI shell work yet.
 
-Correct order from the current Phase 10 state:
+Correct order from the current Phase 11 state:
 
-1. Re-check PKG-004 connector/source-of-record invariants against the Phase 9 Project Memory validator.
-2. Verify current Joanna Spark Smoke Test and founder-checkpoint state from GitHub and Build Control rather than assuming it from chat.
+1. Verify current Joanna Spark Smoke Test and founder-checkpoint state from GitHub and Build Control rather than assuming it from chat.
+2. If PKG-004 is explicitly released, implement the narrow data/contract slice from Phase 11: registry capability truth, minimal honest connector fixtures, connector invariants and correct storage-reference semantics.
 3. If PKG-005 is explicitly released, implement data-only readiness schemas, Project Memory arrays, invariant checks and e-SAFE fixtures first.
-4. Validate readiness rules including UNKNOWN, SOURCE_UNAVAILABLE, safety-critical blockers, explainable score and Reality Mode human authority.
-5. Re-run type/invariant validation.
+4. Re-run focused TypeScript and invariant validation.
+5. Reconcile PR #90 connector contracts with existing PKG-015/016/017 runtime branches instead of creating duplicate gateway/auth/context implementations.
 6. Founder checkpoint for the first real Nexus shell if the explicit release does not already cover it.
 7. Then build shell components.
 8. Then registry-driven dock/panels.
@@ -157,12 +174,13 @@ Correct order from the current Phase 10 state:
 
 PR #90 does not yet implement:
 
+- PKG-004 connector invariant/runtime reconciliation;
 - PKG-005 readiness runtime or readiness UI;
-- production backend authorization;
+- production backend authorization as part of this foundation branch;
 - actual runtime Relationship Tree graph migration;
 - Timeline Zone scrubber UI;
-- real Work Wallet API;
-- real FabStation API;
+- real Work Wallet vendor API;
+- real FabStation vendor API;
 - Work Mode PWA/APK;
 - Nexus email identities;
 - production Google Drive sync;
@@ -170,7 +188,6 @@ PR #90 does not yet implement:
 - AI enrichment engine;
 - Fire Door Register standalone UI;
 - DoorFlow runtime migration;
-- BIM model processing;
 - stable Person Card visual changes.
 
 Any future PR or demo must not imply these are complete.
@@ -181,7 +198,8 @@ Any future PR or demo must not imply these are complete.
 
 Stop and request founder decision if a task would:
 
-- integrate PKG-005 product code before the Spark Smoke Test/founder gate is explicitly released;
+- integrate PKG-004 or PKG-005 product code before the required founder gate is explicitly released;
+- create a second connector gateway/auth/session/context authority model where an existing package already owns it;
 - create a second top bar or second shell;
 - replace the live Relationship Tree without a migration checkpoint;
 - add Riverside, Halifax or another project as a current PR #90 foundation fixture without explicit founder direction;
@@ -197,10 +215,8 @@ Stop and request founder decision if a task would:
 
 ## 9. Current operating mode
 
-The project was beginning to loop because implementation phases were generated from recent conversation momentum instead of reconciling against existing ADDON and Build Control authority.
-
 The controlled sequence is now:
 
-`architecture source -> reconciliation map -> schema/contract gap close -> e-SAFE-backed fixtures -> invariants -> gated contract preparation -> explicit release -> product code -> UI shell`
+`architecture source -> reconciliation map -> schema/contract gap close -> e-SAFE-backed fixtures -> invariants -> gated contract reconciliation -> explicit release -> product code -> UI shell`
 
 No new UI work should start until the required package and founder gates are satisfied.
