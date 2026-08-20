@@ -16,8 +16,9 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 2. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md` in PR #90.
 3. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
 4. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before any readiness implementation.
-5. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, and relevant PKG files before adding code.
-6. Do not rely on old chat assumptions if the repo contradicts them.
+5. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before any connector/runtime integration.
+6. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, and relevant PKG files before adding code.
+7. Do not rely on old chat assumptions if the repo contradicts them.
 
 ## Current PR #90 phases
 
@@ -33,6 +34,7 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 - Phase 8: e-SAFE-backed fixtures + schema consistency against PKG-001, PKG-002, PKG-004, ADDON_056 and ADDON_057.
 - Phase 9: Project Memory integrity checks + action-policy consistency.
 - Phase 10: PKG-005 readiness/confidence/human-decision contract preparation — code gated pending Spark Smoke Test + explicit founder checkpoint.
+- Phase 11: PKG-004 connector/source-of-record reconciliation — contract findings recorded, product runtime/invariant implementation gated pending founder checkpoint.
 
 ## Phase 9 completed state
 
@@ -65,7 +67,7 @@ Important gate:
 - `PROJECT_CONTROL.md` states that PKG-001 to PKG-005 product-code integration into `nosmo-nexus-mvp` waits for Joanna's Spark Smoke Test and founder checkpoint;
 - do not interpret ordinary continuation approval as automatically satisfying that release gate.
 
-`docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` now defines the exact post-gate contract for:
+`docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` defines the exact post-gate contract for:
 
 - ReadinessAssessment;
 - ReadinessRequirement;
@@ -80,7 +82,34 @@ Important gate:
 - e-SAFE-only future readiness fixtures;
 - acceptance scenarios to implement after the gate.
 
-No readiness runtime, readiness UI, Spark route, DoorFlow runtime, BIM runtime or external connector was changed in Phase 10 preparation.
+No readiness runtime or readiness UI was changed.
+
+## Phase 11 prepared state
+
+`docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` records the current PKG-004 gap analysis.
+
+Key findings:
+
+- lightweight `connectorRegistry.ts` catalogue status is not sufficient capability truth;
+- PKG-004 integration level `0..7` must gate actual actions;
+- lifecycle, connection state and freshness must remain separate;
+- source-of-record ownership must be explicit per domain;
+- e-SAFE Project Memory currently has no connector definition/account/mapping fixtures despite the Project World declaring connector IDs;
+- `storageConnectorId: 'external-reference'` on the e-SAFE D5.1 file is not a registered connector and must not be silently treated as Google Drive or another real provider;
+- the Phase 9 invariant suite does not yet validate connector topology/capability/freshness/source-of-record rules;
+- connector mappings do not grant Person identity, Project Participation or permissions;
+- credential/secret fields are references only; no secret value may enter repository/client/demo records;
+- existing parallel Work Wallet connector/runtime PRs must be reused/reconciled, not duplicated by PR #90.
+
+No connector runtime, connector fixture, registry type or connector invariant code was changed in Phase 11 because PKG-004 implementation is still founder-gated.
+
+## Parallel connector/runtime work discovered
+
+Current repository search shows separate draft Work Wallet / runtime slices already exist, including PKG-015/016/017 work. They contain connector context, server identity/Project Participation and runtime/auth boundaries while explicitly avoiding a live/vendor-approved Work Wallet API claim.
+
+Do not create a second Work Wallet gateway, second auth/session implementation or second connector-context authority model in PR #90.
+
+PR #90 remains the common Project Memory / contract foundation and later runtime stacks must reconcile into it after the appropriate checkpoint.
 
 ## e-SAFE fixture authority
 
@@ -111,6 +140,7 @@ Do not touch:
 - DoorFlow runtime or Fire Door Register runtime.
 - Joanna-protected Spark surfaces.
 - Any top workbench/second top bar experiment.
+- Existing Work Wallet/auth/runtime branches unless working explicitly in their package/branch.
 
 ## Known cleanup item
 
@@ -118,22 +148,19 @@ A stray branch exists and is harmless:
 
 `__do_not_create__`
 
-It should be removed later in a repo cleanup pack by GitHub UI or by terminal command:
-
-`git push origin --delete __do_not_create__`
-
-Do not spend product-build time on it now.
+It should be removed later in a repo cleanup pack. Do not spend product-build time on it now.
 
 ## Correct next build sequence
 
-1. Re-check PKG-004 connector/source-of-record invariants against the Phase 9 Project Memory validator.
-2. Verify the current Joanna Spark Smoke Test / founder-checkpoint state from GitHub and Build Control.
-3. If the PKG-005 gate is explicitly released, implement readiness schemas + Project Memory arrays + invariants + e-SAFE-only fixtures, still without readiness UI.
-4. Re-run type/invariant validation.
-5. Founder checkpoint for first real Nexus shell if not already covered by the same explicit decision.
-6. Only then start the first real Nexus shell components.
-7. Then create registry-driven dock/panels.
-8. Then migrate the live Relationship Tree prototype into the real app source.
+1. Verify the current Joanna Spark Smoke Test / founder-checkpoint state from GitHub and Build Control rather than assuming it from chat.
+2. If PKG-004 is explicitly released, implement only the narrow connector foundation slice described in Phase 11: registry capability truth, minimal honest connector fixtures, connector invariants, and correct `storageConnectorId` semantics.
+3. If PKG-005 is explicitly released, implement readiness schemas + Project Memory arrays + invariants + e-SAFE-only fixtures, still without readiness UI.
+4. Re-run focused type/invariant validation.
+5. Reconcile PR #90 contracts with existing PKG-015/016/017 runtime branches instead of duplicating them.
+6. Founder checkpoint for the first real Nexus shell if not already covered by the same explicit decision.
+7. Only then start the first real Nexus shell components.
+8. Then create registry-driven dock/panels.
+9. Then migrate the live Relationship Tree prototype into the real app source.
 
 ## Core rule
 
