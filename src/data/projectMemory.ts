@@ -1,4 +1,9 @@
+import type { NexusAccessDecisionRecord, NexusModuleEntitlementRecord, NexusPermissionGrantRecord, NexusProjectParticipationRecord, NexusRoleAssignmentRecord, NexusTradeAssignmentRecord } from './schemas/access.schema';
+import type { NexusEventRecord, NexusFieldChangeRecord, NexusHumanDecisionRecord } from './schemas/audit.schema';
+import type { NexusCanonicalObjectRecord, NexusRelationshipEdgeRecord } from './schemas/canonicalObject.schema';
+import type { NexusConnectorAccountRecord, NexusConnectorDefinitionRecord, NexusConnectorObjectMappingRecord } from './schemas/connector.schema';
 import type { NexusApprovalRecord, NexusEvidenceRecord } from './schemas/evidence.schema';
+import type { NexusExternalReferenceRecord } from './schemas/externalReference.schema';
 import type { NexusFileRecord, NexusDrawingReferenceRecord } from './schemas/file.schema';
 import type { NexusGraphEdgeRecord, NexusGraphNodeRecord } from './schemas/graph.schema';
 import type { NexusPersonRecord, NexusProjectRoleRecord } from './schemas/person.schema';
@@ -21,6 +26,21 @@ export interface NexusProjectMemorySnapshot {
   timelineEvents: NexusTimelineEventRecord[];
   graphNodes: NexusGraphNodeRecord[];
   graphEdges: NexusGraphEdgeRecord[];
+  canonicalObjects: NexusCanonicalObjectRecord[];
+  relationshipEdges: NexusRelationshipEdgeRecord[];
+  externalReferences: NexusExternalReferenceRecord[];
+  nexusEvents: NexusEventRecord[];
+  fieldChanges: NexusFieldChangeRecord[];
+  humanDecisions: NexusHumanDecisionRecord[];
+  connectorDefinitions: NexusConnectorDefinitionRecord[];
+  connectorAccounts: NexusConnectorAccountRecord[];
+  connectorObjectMappings: NexusConnectorObjectMappingRecord[];
+  projectParticipations: NexusProjectParticipationRecord[];
+  roleAssignments: NexusRoleAssignmentRecord[];
+  tradeAssignments: NexusTradeAssignmentRecord[];
+  permissionGrants: NexusPermissionGrantRecord[];
+  moduleEntitlements: NexusModuleEntitlementRecord[];
+  accessDecisions: NexusAccessDecisionRecord[];
 }
 
 export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
@@ -38,4 +58,19 @@ export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
   timelineEvents: [],
   graphNodes: [],
   graphEdges: [],
+  canonicalObjects: [],
+  relationshipEdges: [],
+  externalReferences: [],
+  nexusEvents: [],
+  fieldChanges: [],
+  humanDecisions: [],
+  connectorDefinitions: [],
+  connectorAccounts: [],
+  connectorObjectMappings: [],
+  projectParticipations: [],
+  roleAssignments: [],
+  tradeAssignments: [],
+  permissionGrants: [],
+  moduleEntitlements: [],
+  accessDecisions: [],
 });
