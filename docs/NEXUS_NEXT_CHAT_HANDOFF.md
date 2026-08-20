@@ -29,6 +29,23 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 - Phase 6: architecture reconciliation map.
 - Phase 7: gap-close schemas and project memory action contracts.
 - Phase 7A: demo scope correction — e-SAFE Catania only.
+- Phase 8: e-SAFE-backed fixtures + schema consistency against PKG-001, PKG-002, PKG-004, ADDON_056 and ADDON_057.
+
+## Phase 8 completed state
+
+Phase 8 added or tightened:
+
+- shared provenance classification: `REAL | DERIVED | SYNTHETIC_DEMO | UNKNOWN`;
+- PKG-001 canonical object taxonomy and source/confidence fields;
+- PKG-002 event provenance, verification and source freshness fields;
+- PKG-004 connector contract consistency including integration levels and rate-limit policy placeholder;
+- ADDON_056 `ManagerTradeContext`, fail-closed unresolved-identity decision support and project participation/access fixtures;
+- ADDON_057 temporal object records and `AS_OF` state resolutions with active revision IDs and source warnings;
+- e-SAFE Catania fixtures for project, world, file, drawing, person, company, task, evidence, timeline, graph and access decision;
+- public-source references to CORDIS project 893135 and Zenodo Deliverable D5.1;
+- corrected modular-structure documentation so no inactive demo world is listed as a current fixture.
+
+The e-SAFE fixture factory is `src/data/demo/esafeCataniaMemory.ts`, backed by `src/data/demo/esafeCataniaFixtures.ts`.
 
 ## Founder-locked demo scope
 
@@ -81,11 +98,12 @@ Do not spend product-build time on it now.
 
 ## Correct next build sequence
 
-1. Finish schema consistency review against PKG-001, PKG-002, PKG-004, ADDON_056 and ADDON_057.
-2. Add e-SAFE-backed fixtures for canonical objects, event provenance, access decisions and temporal state.
-3. Only after this, start UI shell components.
-4. Then create registry-driven dock/panels.
-5. Then migrate the live Relationship Tree prototype into the real app source.
+1. Validate Project Memory Actions and fixture referential integrity against the Phase 8 schemas.
+2. Add schema/data invariant checks for world isolation, provenance labels, source references and fail-closed access decisions.
+3. Reconcile any remaining data-contract drift before UI work.
+4. Only after that founder checkpoint, start UI shell components.
+5. Then create registry-driven dock/panels.
+6. Then migrate the live Relationship Tree prototype into the real app source.
 
 ## Core rule
 
