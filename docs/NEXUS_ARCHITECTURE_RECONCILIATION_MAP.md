@@ -23,6 +23,8 @@ The current demo/test material is e-SAFE Catania only:
 
 Riverside and Halifax are not active demo fixtures for this MVP foundation. They must not appear in active world registry, seed memory, schema tests or next-chat handoff unless the founder explicitly reopens them.
 
+This does not mean Nexus supports only one future project. Nexus must support dynamic creation of future projects and worlds. The restriction applies only to current MVP demo/test fixture material.
+
 ---
 
 ## 2. Authority order before future implementation
