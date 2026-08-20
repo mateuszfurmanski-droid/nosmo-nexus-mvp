@@ -85,10 +85,19 @@ export default function SparkSkanskaDemo() {
 
   const assets = useMemo(
     () =>
-      demoAssets.map((asset) => ({
-        ...asset,
-        circularStatus: decisionOverrides[asset.id] ?? asset.circularStatus,
-      })),
+      demoAssets.map((asset) => {
+        const humanDecision = decisionOverrides[asset.id];
+        return {
+          ...asset,
+          circularStatus: humanDecision ?? asset.circularStatus,
+          circularDecision: humanDecision
+            ? `Human demo-session decision: route this record as ${humanDecision}.`
+            : asset.circularDecision,
+          circularDecisionBasis: humanDecision
+            ? "Manual selection in the current demo session; local state only and not persisted as a project record."
+            : asset.circularDecisionBasis,
+        };
+      }),
     [decisionOverrides],
   );
 
