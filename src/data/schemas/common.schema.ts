@@ -3,6 +3,7 @@ export type NexusIsoDateTime = string;
 
 export type NexusRecordStatus = 'active' | 'archived' | 'draft' | 'deleted';
 export type NexusConfidence = 'confirmed' | 'inferred' | 'manual' | 'unknown';
+export type NexusProvenanceClass = 'REAL' | 'DERIVED' | 'SYNTHETIC_DEMO' | 'UNKNOWN';
 export type NexusSourceSystem =
   | 'nexus'
   | 'google-drive'
@@ -13,6 +14,9 @@ export type NexusSourceSystem =
   | 'microsoft365'
   | 'gmail-whatsapp'
   | 'suppliers'
+  | 'cordis'
+  | 'zenodo'
+  | 'esafe-public'
   | 'manual';
 
 export interface NexusAuditFields {
@@ -24,6 +28,7 @@ export interface NexusAuditFields {
   sourceRecordId?: string;
   sourceUrl?: string;
   confidence: NexusConfidence;
+  provenanceClass?: NexusProvenanceClass;
 }
 
 export interface NexusBaseRecord extends NexusAuditFields {

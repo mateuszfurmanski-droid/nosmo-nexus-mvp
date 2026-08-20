@@ -1,4 +1,5 @@
 import type { NexusBaseRecord, NexusId, NexusIsoDateTime } from './common.schema';
+import type { NexusExternalFreshnessState } from './externalReference.schema';
 
 export type NexusEventActorType = 'PERSON' | 'SYSTEM' | 'CONNECTOR' | 'AI' | 'UNKNOWN';
 export type NexusEventSourceType = 'NEXUS' | 'IMPORT' | 'CONNECTOR' | 'USER' | 'AI_SUGGESTION' | 'MANUAL';
@@ -17,11 +18,12 @@ export interface NexusEventRecord extends NexusBaseRecord {
   relatedObjectIds: NexusId[];
   eventSourceType: NexusEventSourceType;
   sourceReference?: string;
-  sourceSystem?: string;
   externalEventId?: string;
   eventState: string;
   summary: string;
+  confidenceScore?: number;
   verificationState: NexusVerificationState;
+  sourceFreshnessState?: NexusExternalFreshnessState;
   visibilityPolicyId?: NexusId;
   supersedesEventId?: NexusId;
   correlationId?: string;

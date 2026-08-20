@@ -14,4 +14,5 @@ export * from './schemas/access.schema';
 export * from './schemas/temporal.schema';
 export * from './projectMemory';
 export * from './projectMemoryActions';
+export * from './demo/esafeCataniaFixtures';
 export * from './demo/esafeCataniaMemory';

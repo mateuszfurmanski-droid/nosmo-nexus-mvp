@@ -115,7 +115,6 @@ src/
 │
 ├─ worlds/
 │  ├─ esafe-catania/
-│  ├─ riverside/
 │  └─ worldTypes.ts
 │
 ├─ data/
@@ -136,11 +135,13 @@ src/
    └─ guards.ts
 ```
 
+The source structure is a target layout, not a list of hardcoded demo worlds. Future projects and Project Worlds must be created dynamically from Project Memory and registry contracts.
+
 ## Non-negotiable architecture rules
 
 1. Relationship Tree / Project Graph remains the persistent workspace background.
 2. Panels open above the graph. They must not replace the graph world.
-3. e-SAFE Catania and Riverside must remain separate Project Worlds.
+3. e-SAFE Catania is the only active demo/test Project World in the current MVP foundation. Additional demo fixtures require a founder checkpoint; future real projects remain dynamically creatable.
 4. The dock reads from `dockRegistry.ts` and `moduleRegistry.ts`.
 5. SOFT and INT read from `connectorRegistry.ts`.
 6. CLOUD reads from a cloud/storage adapter, not hardcoded panel markup.

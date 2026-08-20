@@ -8,17 +8,27 @@ export type NexusObjectType =
   | 'ProjectWorld'
   | 'Person'
   | 'Company'
-  | 'Task'
   | 'File'
   | 'Document'
   | 'Drawing'
+  | 'Task'
+  | 'Decision'
+  | 'Note'
+  | 'Message'
   | 'Evidence'
-  | 'Asset'
+  | 'Issue'
+  | 'Approval'
   | 'Room'
   | 'Floor'
+  | 'Door'
+  | 'Asset'
+  | 'Equipment'
+  | 'Material'
+  | 'WorkPackage'
+  | 'InstallationObject'
   | 'Inspection'
-  | 'Approval'
-  | 'TimelineEvent';
+  | 'TimelineEvent'
+  | 'Other';
 
 export interface NexusModuleDefinition {
   id: string;

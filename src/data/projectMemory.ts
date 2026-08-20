@@ -1,4 +1,4 @@
-import type { NexusAccessDecisionRecord, NexusModuleEntitlementRecord, NexusPermissionGrantRecord, NexusProjectParticipationRecord, NexusRoleAssignmentRecord, NexusTradeAssignmentRecord } from './schemas/access.schema';
+import type { NexusAccessDecisionRecord, NexusManagerTradeContextRecord, NexusModuleEntitlementRecord, NexusPermissionGrantRecord, NexusProjectParticipationRecord, NexusRoleAssignmentRecord, NexusTradeAssignmentRecord } from './schemas/access.schema';
 import type { NexusEventRecord, NexusFieldChangeRecord, NexusHumanDecisionRecord } from './schemas/audit.schema';
 import type { NexusCanonicalObjectRecord, NexusRelationshipEdgeRecord } from './schemas/canonicalObject.schema';
 import type { NexusConnectorAccountRecord, NexusConnectorDefinitionRecord, NexusConnectorObjectMappingRecord } from './schemas/connector.schema';
@@ -9,6 +9,7 @@ import type { NexusGraphEdgeRecord, NexusGraphNodeRecord } from './schemas/graph
 import type { NexusPersonRecord, NexusProjectRoleRecord } from './schemas/person.schema';
 import type { NexusCompanyRecord, NexusProjectRecord, NexusProjectWorldRecord } from './schemas/project.schema';
 import type { NexusAssetRecord, NexusTaskRecord } from './schemas/task.schema';
+import type { NexusAsOfContext, NexusTemporalObjectStateRecord, NexusTemporalStateResolution } from './schemas/temporal.schema';
 import type { NexusTimelineEventRecord } from './schemas/timeline.schema';
 
 export interface NexusProjectMemorySnapshot {
@@ -40,7 +41,11 @@ export interface NexusProjectMemorySnapshot {
   tradeAssignments: NexusTradeAssignmentRecord[];
   permissionGrants: NexusPermissionGrantRecord[];
   moduleEntitlements: NexusModuleEntitlementRecord[];
+  managerTradeContexts: NexusManagerTradeContextRecord[];
   accessDecisions: NexusAccessDecisionRecord[];
+  temporalRecords: NexusTemporalObjectStateRecord[];
+  asOfContexts: NexusAsOfContext[];
+  temporalStateResolutions: NexusTemporalStateResolution[];
 }
 
 export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
@@ -72,5 +77,9 @@ export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
   tradeAssignments: [],
   permissionGrants: [],
   moduleEntitlements: [],
+  managerTradeContexts: [],
   accessDecisions: [],
+  temporalRecords: [],
+  asOfContexts: [],
+  temporalStateResolutions: [],
 });

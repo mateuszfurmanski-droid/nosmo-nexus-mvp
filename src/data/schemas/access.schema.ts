@@ -3,7 +3,18 @@ import type { NexusBaseRecord, NexusId, NexusIsoDateTime } from './common.schema
 export type NexusParticipationStatus = 'active' | 'pending' | 'expired' | 'revoked' | 'blocked';
 export type NexusPermissionEffect = 'allow' | 'deny';
 export type NexusAccessDecisionResult = 'allowed' | 'denied' | 'not-applicable' | 'requires-review';
-export type NexusAccessDecisionReason = 'explicit-deny' | 'participation-invalid' | 'module-disabled' | 'explicit-grant' | 'role-template' | 'trade-entitlement' | 'competence-gate' | 'organisation-default' | 'no-policy-match';
+export type NexusAccessDecisionReason =
+  | 'explicit-deny'
+  | 'identity-unresolved'
+  | 'participation-invalid'
+  | 'module-disabled'
+  | 'explicit-grant'
+  | 'role-template'
+  | 'trade-entitlement'
+  | 'competence-gate'
+  | 'organisation-default'
+  | 'no-policy-match';
+export type NexusManagerTradeContextMode = 'all-trades' | 'single-trade';
 
 export interface NexusProjectParticipationRecord extends NexusBaseRecord {
   personId: NexusId;
@@ -12,6 +23,7 @@ export interface NexusProjectParticipationRecord extends NexusBaseRecord {
   participationStatus: NexusParticipationStatus;
   roleAssignmentIds: NexusId[];
   tradeAssignmentIds: NexusId[];
+  primaryTradeAssignmentId?: NexusId;
   permissionGrantIds: NexusId[];
   approvalScopeIds: NexusId[];
   competenceRequirementIds: NexusId[];
@@ -61,11 +73,22 @@ export interface NexusModuleEntitlementRecord extends NexusBaseRecord {
   returnRoute: string;
 }
 
+export interface NexusManagerTradeContextRecord extends NexusBaseRecord {
+  personId: NexusId;
+  projectId: NexusId;
+  worldId: NexusId;
+  participationId: NexusId;
+  mode: NexusManagerTradeContextMode;
+  selectedTradeKey?: string;
+  setAt: NexusIsoDateTime;
+}
+
 export interface NexusAccessDecisionRecord extends NexusBaseRecord {
   personId: NexusId;
   projectId: NexusId;
   worldId: NexusId;
   participationId?: NexusId;
+  managerTradeContextId?: NexusId;
   moduleId?: string;
   actionKey?: string;
   objectScopeId?: NexusId;

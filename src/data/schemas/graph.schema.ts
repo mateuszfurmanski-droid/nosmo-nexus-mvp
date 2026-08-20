@@ -1,4 +1,4 @@
-import type { NexusId } from './common.schema';
+import type { NexusId, NexusProvenanceClass } from './common.schema';
 
 export type NexusGraphNodeType =
   | 'Project'
@@ -31,6 +31,7 @@ export interface NexusGraphNodeRecord {
   recordId: NexusId;
   worldId: NexusId;
   label: string;
+  provenanceClass?: NexusProvenanceClass;
   weight?: number;
   pinned?: boolean;
 }
@@ -43,4 +44,5 @@ export interface NexusGraphEdgeRecord {
   worldId: NexusId;
   label?: string;
   confidence?: 'confirmed' | 'inferred' | 'manual' | 'unknown';
+  provenanceClass?: NexusProvenanceClass;
 }
