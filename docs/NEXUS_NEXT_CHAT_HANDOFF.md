@@ -28,6 +28,26 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 - Phase 5: project memory schemas.
 - Phase 6: architecture reconciliation map.
 - Phase 7: gap-close schemas and project memory action contracts.
+- Phase 7A: demo scope correction — e-SAFE Catania only.
+
+## Founder-locked demo scope
+
+The only active demo/test Project World is:
+
+`NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA`
+
+Riverside and Halifax are not needed for the current MVP foundation and must not be used as demo/test fixtures now.
+
+Use e-SAFE Catania for:
+
+- schema consistency checks;
+- Project Memory fixtures;
+- Timeline Zone fixtures;
+- graph fixture records;
+- file/drawing/evidence examples;
+- REAL / DERIVED / SYNTHETIC_DEMO / UNKNOWN provenance checks.
+
+Do not add another demo world without a founder checkpoint.
 
 ## Current technical boundary
 
@@ -56,7 +76,7 @@ Do not spend product-build time on it now.
 ## Correct next build sequence
 
 1. Finish schema consistency review against PKG-001, PKG-002, PKG-004, ADDON_056 and ADDON_057.
-2. Add tests or fixtures for canonical objects, event provenance, access decisions and temporal state.
+2. Add e-SAFE-backed fixtures for canonical objects, event provenance, access decisions and temporal state.
 3. Only after this, start UI shell components.
 4. Then create registry-driven dock/panels.
 5. Then migrate the live Relationship Tree prototype into the real app source.
@@ -75,4 +95,4 @@ Nexus is not a set of hardcoded demo projects. It is a continuously updated Proj
 - new timeline events;
 - new graph nodes and edges.
 
-Demo worlds such as e-SAFE Catania and Riverside are fixtures only. They must remain isolated and must not limit future dynamic project creation.
+For the current MVP/demo/testing track, all fixture data must be based on e-SAFE Catania only. Other future projects can exist dynamically later, but they are not demo scope now.
