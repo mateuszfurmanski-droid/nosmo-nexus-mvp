@@ -15,4 +15,3 @@ export * from './schemas/temporal.schema';
 export * from './projectMemory';
 export * from './projectMemoryActions';
 export * from './demo/esafeCataniaMemory';
-export * from './demo/riversideMemory';
