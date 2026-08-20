@@ -30,41 +30,40 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 - Phase 7: gap-close schemas and project memory action contracts.
 - Phase 7A: demo scope correction — e-SAFE Catania only.
 - Phase 8: e-SAFE-backed fixtures + schema consistency against PKG-001, PKG-002, PKG-004, ADDON_056 and ADDON_057.
+- Phase 9: Project Memory integrity checks + action-policy consistency.
 
-## Phase 8 completed state
+## Phase 9 completed state
 
-Phase 8 added or tightened:
+Phase 9 adds:
 
-- shared provenance classification: `REAL | DERIVED | SYNTHETIC_DEMO | UNKNOWN`;
-- PKG-001 canonical object taxonomy and source/confidence fields;
-- PKG-002 event provenance, verification and source freshness fields;
-- PKG-004 connector contract consistency including integration levels and rate-limit policy placeholder;
-- ADDON_056 `ManagerTradeContext`, fail-closed unresolved-identity decision support and project participation/access fixtures;
-- ADDON_057 temporal object records and `AS_OF` state resolutions with active revision IDs and source warnings;
-- e-SAFE Catania fixtures for project, world, file, drawing, person, company, task, evidence, timeline, graph and access decision;
-- public-source references to CORDIS project 893135 and Zenodo Deliverable D5.1;
-- corrected modular-structure documentation so no inactive demo world is listed as a current fixture.
+- `src/data/projectMemoryInvariants.ts` with referential-integrity checks for Project Memory;
+- duplicate base-record ID detection;
+- project/world isolation validation;
+- graph node/edge reference and world checks;
+- canonical object / relationship / external-reference checks;
+- provenance rules for `REAL`, `SYNTHETIC_DEMO` and `UNKNOWN` records;
+- ADDON_056 fail-closed checks requiring resolved identity, active participation and an explicit matching grant before an `allowed` decision is accepted;
+- explicit-deny conflict detection so a matching deny invalidates an allowed decision;
+- manager trade context scope validation without treating manager context as a permission grant;
+- ADDON_057 `AS_OF` checks for missing objects, conflicting state buckets, active revisions and future-event leakage;
+- `PROJECT_MEMORY_ACTION_POLICY` so action access/audit/blocked-by-default semantics have one canonical source;
+- e-SAFE-only fixture restrictions that reject Riverside/Halifax demo worlds;
+- `src/data/demo/esafeCataniaPhase9Fixtures.ts` to close two Phase 8 fixture gaps: the previously dangling canonical person reference and missing temporal state for canonical D5.1 evidence;
+- automatic e-SAFE memory assertion when `createEsafeCataniaMemory()` builds the fixture snapshot.
 
-The e-SAFE fixture factory is `src/data/demo/esafeCataniaMemory.ts`, backed by `src/data/demo/esafeCataniaFixtures.ts`.
+No UI or React shell work was started.
 
-## Founder-locked demo scope
+## e-SAFE fixture authority
+
+The e-SAFE fixture factory is `src/data/demo/esafeCataniaMemory.ts`.
+
+Its source-backed baseline remains in `src/data/demo/esafeCataniaFixtures.ts`; Phase 9 integrity additions are in `src/data/demo/esafeCataniaPhase9Fixtures.ts`.
 
 The only active demo/test Project World is:
 
 `NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA`
 
 Riverside and Halifax are not needed for the current MVP foundation and must not be used as demo/test fixtures now.
-
-Use e-SAFE Catania for:
-
-- schema consistency checks;
-- Project Memory fixtures;
-- Timeline Zone fixtures;
-- graph fixture records;
-- file/drawing/evidence examples;
-- REAL / DERIVED / SYNTHETIC_DEMO / UNKNOWN provenance checks.
-
-Do not add another demo world without a founder checkpoint.
 
 Important distinction:
 
@@ -98,12 +97,13 @@ Do not spend product-build time on it now.
 
 ## Correct next build sequence
 
-1. Validate Project Memory Actions and fixture referential integrity against the Phase 8 schemas.
-2. Add schema/data invariant checks for world isolation, provenance labels, source references and fail-closed access decisions.
-3. Reconcile any remaining data-contract drift before UI work.
-4. Only after that founder checkpoint, start UI shell components.
-5. Then create registry-driven dock/panels.
-6. Then migrate the live Relationship Tree prototype into the real app source.
+1. Reconcile remaining Project Memory contract drift exposed by Phase 9 invariants.
+2. Add PKG-005 readiness/confidence/human-decision contract coverage if Build Control still requires it.
+3. Re-check connector/source-of-record invariants against PKG-004 before UI work.
+4. Founder checkpoint.
+5. Only then start the first real Nexus shell components.
+6. Then create registry-driven dock/panels.
+7. Then migrate the live Relationship Tree prototype into the real app source.
 
 ## Core rule
 
