@@ -49,6 +49,12 @@ Use e-SAFE Catania for:
 
 Do not add another demo world without a founder checkpoint.
 
+Important distinction:
+
+- Nexus must support unlimited future projects dynamically.
+- The current demo/test fixture set must use e-SAFE only.
+- Do not re-add Riverside or Halifax as fixtures just to test multi-project logic.
+
 ## Current technical boundary
 
 Do not touch:
