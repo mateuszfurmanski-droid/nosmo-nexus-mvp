@@ -84,7 +84,7 @@ export interface NexusManagerTradeContextRecord extends NexusBaseRecord {
 }
 
 export interface NexusAccessDecisionRecord extends NexusBaseRecord {
-  personId: NexusId;
+  personId?: NexusId;
   projectId: NexusId;
   worldId: NexusId;
   participationId?: NexusId;

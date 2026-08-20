@@ -22,6 +22,7 @@ export interface NexusConnectorDefinitionRecord extends NexusBaseRecord {
   readableFields: string[];
   writableFields: string[];
   eventSupport: string[];
+  rateLimitPolicy?: string;
   licenceRequirements: string[];
   requiredCustomerRoles: string[];
   dataResidencyNote?: string;

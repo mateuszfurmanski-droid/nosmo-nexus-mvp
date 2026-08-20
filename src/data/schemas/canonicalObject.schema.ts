@@ -12,6 +12,8 @@ export interface NexusCanonicalObjectRecord extends NexusBaseRecord {
   companyId?: NexusId;
   lifecycleStatus: NexusCanonicalLifecycleStatus;
   canonicalSourceType: NexusCanonicalSourceType;
+  sourceReference?: string;
+  confidenceScore?: number;
   visibilityPolicyId?: NexusId;
   externalReferenceIds: NexusId[];
   archivedAt?: NexusIsoDateTime;
@@ -46,6 +48,8 @@ export interface NexusRelationshipEdgeRecord extends NexusBaseRecord {
   relationshipStatus: NexusRelationshipStatus;
   relationshipConfidence: NexusConfidence;
   confidenceScore?: number;
+  relationshipSourceType?: NexusCanonicalSourceType;
+  sourceReference?: string;
   confirmedBy?: NexusId;
   confirmedAt?: NexusIsoDateTime;
   validFrom?: NexusIsoDateTime;
