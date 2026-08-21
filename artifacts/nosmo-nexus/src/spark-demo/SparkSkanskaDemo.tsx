@@ -267,7 +267,12 @@ export default function SparkSkanskaDemo() {
   return (
     <div className="spark-workbench">
       <header className="spark-topbar">
-        <div className="spark-brand"><span>N</span><strong>NEXUS</strong></div>
+        <div className="spark-brand">
+          <img
+            src="https://raw.githubusercontent.com/mateuszfurmanski-droid/NOSMO-website/main/assets/NEXUS_Logo.png"
+            alt="NEXUS"
+          />
+        </div>
         <nav className="spark-tabs" aria-label="Demo view">
           <button className={view === "project" ? "active" : ""} onClick={() => setView("project")}>Project</button>
           <button className={view === "environment" ? "active" : ""} onClick={() => setView("environment")}>Environmental</button>
