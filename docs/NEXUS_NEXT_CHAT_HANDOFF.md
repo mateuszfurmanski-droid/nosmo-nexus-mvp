@@ -30,15 +30,16 @@ The current Spark Object Card is an accepted reference direction. Foundation wor
 
 1. Check current GitHub state of PR #90 first.
 2. Treat PR #91 as protected/frozen unless explicitly working on Spark demo scope.
-3. Read `docs/NEXUS_PHASE_14_AUTH_IDENTITY_RECONCILIATION.md` before touching auth/session/Person binding/Project Participation/Context Ticket runtime.
-4. Read `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating any new project-object/card model.
-5. Read `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before choosing any historical PR as an integration base.
-6. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
-7. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
-8. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before readiness implementation.
-9. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before connector/runtime integration.
-10. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, relevant PKG files, and current ADDON_038/Object Card work.
-11. Do not rely on old chat assumptions if current GitHub contradicts them.
+3. Read `docs/NEXUS_PHASE_15_CLOUD_FOUNDATION_RECONCILIATION.md` before touching Nexus Cloud/File Loader/storage routing.
+4. Read `docs/NEXUS_PHASE_14_AUTH_IDENTITY_RECONCILIATION.md` before touching auth/session/Person binding/Project Participation/Context Ticket runtime.
+5. Read `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating any new project-object/card model.
+6. Read `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before choosing any historical PR as an integration base.
+7. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
+8. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
+9. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before readiness implementation.
+10. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before connector/runtime integration.
+11. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, relevant PKG files, and current ADDON_038/Object Card work.
+12. Do not rely on old chat assumptions if current GitHub contradicts them.
 
 ## Current PR #90 phases
 
@@ -58,6 +59,7 @@ The current Spark Object Card is an accepted reference direction. Foundation wor
 - Phase 12: full PR integration audit — canonical trunk vs donor/freeze/blocked tracks defined; no historical stack merged.
 - Phase 13: Object Card v1 foundation — canonical projection/profile contract added in #90; #91 untouched.
 - Phase 14: auth/identity reconciliation — server identity bridge added; historical runtime authorization drift recorded; #91 untouched.
+- Phase 15: Nexus Cloud foundation reconciliation — dynamic provider-neutral project/world routing and pending-asset v2 contract added; no provider write; #91 untouched.
 
 ## Phase 9 completed state
 
@@ -142,17 +144,15 @@ Do not build a second auth/session implementation, Person binding, Work Wallet g
 
 ### Nexus Cloud donors
 
-Preferred narrow contract line:
+Preferred narrow donor line:
 
 `#66 -> #67 -> #68 -> #69 -> #72 -> #75 -> #77`
 
-Use #73 as a donor for strict client/server `projectId + worldId` routing behavior.
+PR #73 is the strict end-to-end project/world routing donor.
 
-Do not make broad cumulative PR #50 the new trunk. It mixes Cloud, old shell assumptions, Work Mode AI and WorkSuite draft surfaces.
+Phase 15 has now extracted the provider-neutral routing semantics into #90. Do not bulk-merge this historical Cloud stack.
 
-#80/#82 remain blocked/reference-only until usable CI/runtime evidence exists.
-
-Historical Cloud branches include e-SAFE + Riverside. Port their generic project/world routing behavior, not their hardcoded fixture set, into #90.
+Historical Drive folder IDs remain provider configuration/donor evidence, not canonical foundation routing.
 
 ### BIM / IFC / WorkSuite donor stack
 
@@ -176,22 +176,12 @@ Authority inside #90:
 
 Implementation:
 
-- new `src/data/schemas/objectCard.schema.ts`;
+- `src/data/schemas/objectCard.schema.ts`;
 - `NexusObjectType` extended with `Product` and `Component`;
-- new Object Card profile taxonomy;
-- shared ten-section card model;
+- shared Object Card profile taxonomy and ten-section model;
 - Door / InstallationObject resolve to Component profile;
-- Person and Company resolve to dedicated card surfaces, not generic Object Card;
-- Object Card descriptor is a lightweight Project Memory projection and does not duplicate status/evidence/lifecycle/decision/audit state;
-- new schema exported from `src/data/index.ts`.
-
-Core rule:
-
-`Object Card = Project Memory projection`
-
-not a parallel data store.
-
-Focused strict TypeScript compile against the new contract and required base types passed. This is not a full repository build.
+- Person and Company keep dedicated identity card surfaces;
+- Object Card is a Project Memory projection, not a parallel data store.
 
 No Object Card UI was added to #90 and no Spark files in #91 were changed.
 
@@ -205,73 +195,102 @@ New foundation contract:
 
 `src/core/permissions/runtimeIdentityContract.ts`
 
-exported from `src/core/index.ts`.
-
-### Canonical separation
+Canonical separation:
 
 `authentication -> identity binding -> Project Participation -> permission evaluation`
 
-These are separate layers.
-
-### Historical donor rules retained
-
-From #54/#55:
+Retained donor rules:
 
 - OIDC/provider subject is not canonical Person ID;
 - authenticated without exact binding = `UNBOUND`;
 - no email/name fuzzy identity binding;
-- server-owned exact provider+subject binding;
-- failures fail closed.
+- failures fail closed;
+- reuse existing unified auth/session/runtime and Work Wallet gateway rather than duplicating them.
 
-From #57:
-
-- reuse one unified Express runtime;
-- reuse existing auth/session implementation;
-- reuse existing Work Wallet gateway;
-- API routes are never SPA fallback;
-- raw Work Wallet body handling stays before generic JSON parsing.
-
-From #59-#61:
-
-- short-lived/single-use Context Ticket is a useful downstream capability;
-- no browser integration secret;
-- exact origin/scope/purpose;
-- raw ticket not persisted or placed in URL;
-- ticket issuance/exchange must re-check canonical access.
-
-### Historical authorization drift that must NOT be ported
-
-PR #56 used an initial rule where one active Project Participation could grant the Work Wallet application surface unless an explicit deny existed.
-
-That conflicts with the current #90 access model.
-
-Current #90 requires an explicit matching allow grant in addition to valid identity/participation, with explicit deny precedence and other policy gates.
-
-Therefore:
+Historical drift not to port:
 
 `active participation alone != permission`.
 
-The historical DB `nexus_project_participations` JSON permission model is a persistence donor only. It must later adapt into #90 canonical participation/role/trade/grant records rather than becoming a second permission engine.
+Current #90 requires explicit matching allow grant plus valid identity/participation and explicit-deny precedence.
 
-### Runtime identity bridge behavior
+Runtime preflight:
 
-`UNAUTHENTICATED` -> denied.
-
-`UNBOUND` -> denied.
-
-`BOUND + canonical personId` -> still not allowed; returns `CANONICAL_ACCESS_DECISION_REQUIRED` and proceeds to #90 resolver.
-
-The preflight intentionally never returns `allowed=true`.
-
-Focused strict TypeScript compile passed. This is not a full repository build.
+- `UNAUTHENTICATED` -> denied;
+- `UNBOUND` -> denied;
+- `BOUND + personId` -> still requires canonical #90 access decision.
 
 No OIDC, DB, Context Ticket, Work Wallet, deployment, Person Card or Spark code was changed in Phase 14.
 
+## Phase 15 Nexus Cloud foundation reconciliation
+
+Authority inside #90:
+
+`docs/NEXUS_PHASE_15_CLOUD_FOUNDATION_RECONCILIATION.md`
+
+New contracts:
+
+- `src/core/storage/cloudRouting.ts`;
+- `src/core/storage/cloudAssetContract.ts`;
+- tightened `src/core/storage/storageContract.ts`;
+- exports added in `src/core/index.ts`.
+
+### Dynamic routing rule
+
+Cloud routing now resolves against canonical Project/ProjectWorld records rather than a hardcoded provider manifest.
+
+Required boundary:
+
+`exact projectId + exact worldId`.
+
+The resolver fails closed when:
+
+- project does not exist;
+- world does not exist;
+- world belongs to another project;
+- world is not registered on the project;
+- graph candidates are treated as already classified/linked rather than review hints;
+- trade/type classification lacks required context.
+
+### Provider-neutral target
+
+Foundation resolves only semantic target roles:
+
+- `00_INBOX`;
+- `01_PENDING_GRAPH_LINK`;
+- `02_BY_TRADE`;
+- `03_BY_TYPE`;
+- `99_AUDIT`.
+
+It does not contain Google Drive folder IDs/URLs.
+
+A provider adapter must map the semantic role after an independent access decision.
+
+### Pending asset v2
+
+`nexus-cloud-pending-asset/v2` is a pre-persistence metadata envelope.
+
+It records project/world, source module, file metadata/provenance hints and semantic route while explicitly keeping these side effects false:
+
+- binary handled;
+- provider write performed;
+- Asset Index append performed;
+- Project Graph mutation performed.
+
+### Storage scope correction
+
+`nexus-cloud` storage records require `projectId + worldId`.
+
+`external-reference` now requires a real `sourceConnectorId` and is explicitly a storage scope, not a fake connector ID.
+
+### Google Drive boundary
+
+Google Drive remains the current practical Nexus Cloud adapter/donor implementation, but no Google credential, API write, binary upload, folder move or Drive Asset Index mutation was added to #90 in Phase 15.
+
+The actual Drive content was not modified.
+
 ## Spark / checkpoint correction
 
-An earlier Phase 11 observation said there was no Spark branch. That statement is stale: PR #91 exists.
-
-However, #91 is explicitly protected from this foundation track. Do not use historical gate cleanup as a reason to alter #91.
+PR #91 exists but is explicitly protected from this foundation track. Do not use historical gate cleanup as a reason to alter #91.
 
 Before releasing PKG-004 or PKG-005 product code solely on historical gate wording, reconcile the gate against current founder direction and current GitHub state.
 
@@ -287,6 +306,7 @@ Important distinction:
 
 - Nexus supports future projects dynamically.
 - #90 fixture/testing data remains e-SAFE-only.
+- dynamic Cloud routing is not limited to that fixture.
 - the public Relationship Tree may visibly expose legacy project choices such as Riverside; that does not make them #90 Project Memory fixtures.
 - #91 has its own isolated Spark demo world and must not be folded into #90 fixtures from this track.
 
@@ -301,23 +321,27 @@ Do not touch from PR #90 foundation work unless explicitly changing scope:
 - BIM runtime;
 - DoorFlow / Fire Door Register runtime;
 - existing Work Wallet/auth/runtime branches except during an explicit reconciliation task;
+- historical Cloud donor branches;
+- live Google Drive contents;
 - competing top shell/workbench experiments.
 
 ## Correct next controlled sequence
 
 1. Re-check PR #90 current head before every write.
 2. Keep PR #91 frozen from this foundation track.
-3. Use Phase 13 Object Card v1 as the shared project-object/card contract; do not create another card model.
-4. Use Phase 14 runtime identity bridge; do not allow auth/session or active participation to grant project access directly.
-5. Reconcile Cloud contracts from #66-#77 plus strict routing behavior from #73, generalized for dynamic Project Worlds.
-6. Reconcile Work Wallet connector context from #18/#52/#63 with PKG-004 when the package gate permits implementation.
-7. Define the future DB adapter from historical Person/Participation persistence into #90 canonical Person/Participation/Grant semantics before reconnecting Context Tickets.
-8. If PKG-004 is explicitly released, add only the narrow connector foundation: capability truth, honest fixtures, invariants and storage-reference semantics.
-9. If PKG-005 is explicitly released, add readiness data contracts, Project Memory arrays, invariants and e-SAFE fixtures without UI.
-10. Migrate Relationship Tree behavior deliberately from #15/#45/#86 into source-native #90 architecture.
-11. Port BIM/IFC/WorkSuite specialist capabilities later in modular slices that use Object Card v1.
-12. Audit Android native lines separately.
-13. Never bulk-merge old stacks simply because historical CI was green.
+3. Use Phase 13 Object Card v1 as the shared project-object/card contract.
+4. Use Phase 14 runtime identity bridge; auth/session or active participation must not grant project access directly.
+5. Use Phase 15 provider-neutral Cloud routing; do not hardcode project-to-Drive folder IDs into foundation.
+6. Define the Cloud persistence boundary: successful provider write -> canonical `NexusFileRecord` + provider/external reference + audit.
+7. Bind the Cloud write path to canonical Phase 14 access decisions before implementing real binary upload.
+8. Reconcile the server-side Google Drive adapter mapping to semantic target roles; no browser credentials.
+9. Reconcile Work Wallet connector context from #18/#52/#63 with PKG-004 when the package gate permits implementation.
+10. If PKG-004 is explicitly released, add only the narrow connector capability/source-of-record foundation.
+11. If PKG-005 is explicitly released, add readiness data contracts/invariants/e-SAFE fixtures without UI.
+12. Migrate Relationship Tree behavior deliberately from #15/#45/#86 into source-native #90 architecture.
+13. Port BIM/IFC/WorkSuite specialist capabilities later in modular slices that use Object Card v1.
+14. Audit Android native lines separately.
+15. Never bulk-merge old stacks simply because historical CI was green.
 
 ## Core rule
 
@@ -325,4 +349,6 @@ Nexus is a continuously updated Project Memory and Relationship Graph, not a col
 
 Authentication proves an account/session. Identity binding proves which canonical Person it represents. Project Participation proves a project relationship. Explicit permission grants and policy evaluation decide what the Person may do.
 
-Every historical branch is subordinate to the current object identity, provenance, access, temporal, connector, audit and Object Card projection contracts when it is eventually ported.
+Cloud routing proves only where an authorised project/world object may be stored semantically. It does not itself grant permission and does not prove a provider write occurred.
+
+Every historical branch is subordinate to the current object identity, provenance, access, temporal, connector, audit, Object Card and provider-neutral storage contracts when it is eventually ported.
