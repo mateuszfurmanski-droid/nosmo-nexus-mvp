@@ -12,6 +12,7 @@ export * from './schemas/externalReference.schema';
 export * from './schemas/audit.schema';
 export * from './schemas/connector.schema';
 export * from './schemas/access.schema';
+export * from './schemas/storage.schema';
 export * from './schemas/temporal.schema';
 export * from './projectMemory';
 export * from './projectMemoryActions';
