@@ -109,9 +109,15 @@ The provider object ID is preserved as an external/provider identifier. It never
 
 Google Drive is the current practical Nexus Cloud storage location and historical donor implementation.
 
-However, the existing #90 `googleDriveConnector.ts` is an old catalogue/reference contract and is not live capability truth.
+The current #90 `googleDriveConnector.ts` is a reference/deep-link catalogue contract and is not live capability truth.
 
-Its historical `active-reference` / deep-link posture does not satisfy the Phase 17 write gate.
+It now explicitly sets:
+
+`canUpdateProjectGraph: false`
+
+and states that attaching Nexus reference metadata is not a Google Drive binary/API write capability.
+
+Current `active-reference` / deep-link posture does not satisfy the Phase 17 write gate.
 
 Therefore Phase 17 does not claim that Nexus currently has a production Google Drive write integration.
 
@@ -130,6 +136,12 @@ A provider adapter cannot:
 - convert provider folder membership into Nexus authority.
 
 After a file is persisted, any graph linking must use a separate canonical, authorised and audited Nexus action.
+
+## Validation
+
+A focused strict TypeScript compile of `cloudProviderAdapterContract.ts` against minimal dependency stubs completed successfully.
+
+This validates the isolated contract shape and TypeScript syntax only. It is not a full repository build and does not prove provider runtime behaviour.
 
 ## Not implemented in Phase 17
 
