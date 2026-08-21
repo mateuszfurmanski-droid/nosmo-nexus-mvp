@@ -9,15 +9,16 @@ export const googleDriveConnector = defineNexusConnector({
     sourceOfTruth: 'Google Drive project folders',
     nexusRole: 'Project files, evidence folders, drawings, documents and project-world storage references.',
     objectLinks: ['Project', 'ProjectWorld', 'File', 'Document', 'Drawing', 'Evidence', 'Task'],
-    actions: ['open-folder', 'attach-file-reference', 'classify-file', 'link-file-to-task'],
-    notes: 'Phase 3 contract only. Do not copy full Drive contents into Nexus. Store references, provenance and graph links first.',
+    actions: ['open-folder', 'attach-file-reference', 'classify-file'],
+    notes:
+      'Reference/deep-link catalogue contract only. It does not declare live Google Drive API write capability. Provider writes require the Phase 17 server-side capability gate; Project Graph linking is a separate authorised Nexus action.',
   },
   mode: 'deep-link',
   authMode: 'manual',
   ownsData: true,
   storesExternalRecordOnly: true,
   canCreateNexusEvidence: true,
-  canUpdateProjectGraph: true,
+  canUpdateProjectGraph: false,
   capabilities: [
     {
       id: 'open-project-folder',
@@ -27,9 +28,10 @@ export const googleDriveConnector = defineNexusConnector({
     },
     {
       id: 'attach-file-reference',
-      label: 'Attach external file reference to graph object',
+      label: 'Attach external file reference in Nexus',
       direction: 'write',
       linkedObjects: ['Task', 'Evidence', 'Document', 'Drawing'],
+      notes: 'Writes Nexus reference metadata only; this is not a Google Drive binary/API write capability.',
     },
   ],
   migrationPhase: 'phase-2-contract',
