@@ -1,25 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  Boxes,
-  Building2,
-  Camera,
-  CheckCircle2,
-  ChevronRight,
-  CircleDot,
-  ClipboardCheck,
-  Database,
-  FileText,
-  History,
-  Info,
-  Leaf,
-  Recycle,
-  ShieldCheck,
-  UserCheck,
-  Wrench,
-  X,
-} from "lucide-react";
-import {
   demoAssets,
   demoProject,
   demoZones,
@@ -38,357 +18,329 @@ const circularStatuses: CircularStatus[] = [
   "UNKNOWN",
 ];
 
-const statusTone: Record<CircularStatus, string> = {
-  "IN USE": "blue",
-  REUSABLE: "green",
-  RECOVER: "amber",
-  RECYCLE: "teal",
-  WASTE: "red",
-  UNKNOWN: "muted",
+const statusClass: Record<CircularStatus, string> = {
+  "IN USE": "spark-status-in-use",
+  REUSABLE: "spark-status-reusable",
+  RECOVER: "spark-status-recover",
+  RECYCLE: "spark-status-recycle",
+  WASTE: "spark-status-waste",
+  UNKNOWN: "spark-status-unknown",
 };
 
-const provenanceTone: Record<Provenance, string> = {
-  REAL: "green",
-  DERIVED: "amber",
-  UNKNOWN: "muted",
-};
-
-function Metric({ value, label, note }: { value: number | string; label: string; note: string }) {
-  return (
-    <article className="spark-metric">
-      <strong>{value}</strong>
-      <span>{label}</span>
-      <small>{note}</small>
-    </article>
-  );
+function StatusBadge({ value }: { value: CircularStatus }) {
+  return <span className={`spark-badge ${statusClass[value]}`}>{value}</span>;
 }
 
 function ProvenanceBadge({ value }: { value: Provenance }) {
-  return <span className={`spark-badge ${provenanceTone[value]}`}>{value}</span>;
+  return <span className="spark-badge spark-provenance-badge">{value}</span>;
 }
 
-function StatusBadge({ value }: { value: CircularStatus }) {
-  return <span className={`spark-badge ${statusTone[value]}`}>{value}</span>;
-}
-
-function EvidenceIcon({ kind }: { kind: DemoAsset["evidence"][number]["kind"] }) {
-  if (kind === "photo") return <Camera size={16} />;
-  if (kind === "inspection") return <ClipboardCheck size={16} />;
-  if (kind === "decision") return <UserCheck size={16} />;
-  return <FileText size={16} />;
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="spark-summary-item">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
 }
 
 export default function SparkSkanskaDemo() {
-  const [view, setView] = useState<"world" | "environment">("world");
+  const [view, setView] = useState<"project" | "environment">("project");
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [zoneFilter, setZoneFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [provenanceFilter, setProvenanceFilter] = useState("");
+  const [query, setQuery] = useState("");
   const [decisionOverrides, setDecisionOverrides] = useState<Record<string, CircularStatus>>({});
 
   const assets = useMemo(
     () =>
-      demoAssets.map((asset) => {
-        const humanDecision = decisionOverrides[asset.id];
-        return {
-          ...asset,
-          circularStatus: humanDecision ?? asset.circularStatus,
-          circularDecision: humanDecision
-            ? `Human demo-session decision: route this record as ${humanDecision}.`
-            : asset.circularDecision,
-          circularDecisionBasis: humanDecision
-            ? "Manual selection in the current demo session; local state only and not persisted as a project record."
-            : asset.circularDecisionBasis,
-        };
-      }),
+      demoAssets.map((asset) => ({
+        ...asset,
+        circularStatus: decisionOverrides[asset.id] ?? asset.circularStatus,
+      })),
     [decisionOverrides],
   );
 
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId) ?? null;
+  const filteredAssets = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return assets.filter((asset) => {
+      const searchable = [
+        asset.id,
+        asset.name,
+        asset.shortName,
+        asset.location,
+        asset.type,
+        asset.sourceDocument,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return (
+        (!zoneFilter || asset.zoneId === zoneFilter) &&
+        (!statusFilter || asset.circularStatus === statusFilter) &&
+        (!provenanceFilter || asset.provenance === provenanceFilter) &&
+        (!normalized || searchable.includes(normalized))
+      );
+    });
+  }, [assets, provenanceFilter, query, statusFilter, zoneFilter]);
+
   const reuseCandidates = assets.filter((asset) => asset.circularStatus === "REUSABLE").length;
   const recoveryRecords = assets.filter((asset) => ["RECOVER", "RECYCLE"].includes(asset.circularStatus)).length;
   const completeProvenance = assets.filter((asset) => asset.provenance !== "UNKNOWN").length;
-  const missingData = assets.filter((asset) => asset.provenance === "UNKNOWN").length;
   const highAttention = assets.filter((asset) => asset.maintenanceAttention === "HIGH").length;
+
+  const zoneName = (asset: DemoAsset) => demoZones.find((zone) => zone.id === asset.zoneId)?.name ?? "Unknown area";
 
   const recordHumanDecision = (assetId: string, status: CircularStatus) => {
     setDecisionOverrides((current) => ({ ...current, [assetId]: status }));
   };
 
   return (
-    <div className="spark-demo-shell">
+    <div className="spark-workbench">
       <header className="spark-topbar">
-        <div className="spark-brand">
-          <div className="spark-logo-mark">N</div>
-          <div>
-            <strong>NEXUS</strong>
-            <span>Spark Demo Core</span>
-          </div>
-        </div>
-        <nav aria-label="Demo navigation" className="spark-nav">
-          <button className={view === "world" ? "active" : ""} onClick={() => setView("world")}>Project World</button>
+        <div className="spark-brand"><span>N</span><strong>NEXUS</strong></div>
+        <nav className="spark-tabs" aria-label="Demo view">
+          <button className={view === "project" ? "active" : ""} onClick={() => setView("project")}>Project</button>
           <button className={view === "environment" ? "active" : ""} onClick={() => setView("environment")}>Environmental</button>
         </nav>
-        <div className="spark-demo-chip"><CircleDot size={14} /> DEMO DATA</div>
+        <div className="spark-truth-inline">SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values</div>
       </header>
 
-      <main className="spark-main">
-        <section className="spark-project-heading">
-          <div>
-            <div className="spark-eyebrow">{demoProject.clientContext}</div>
-            <h1>{demoProject.name}</h1>
-            <p>{demoProject.subtitle}</p>
-          </div>
-          <div className="spark-truth-note"><Info size={16} /><span>{demoProject.dataNotice}</span></div>
-        </section>
+      <section className="spark-contextbar">
+        <div>Spark 4.0 / SKANSKA Residential Development use-case / <strong>{demoProject.name}</strong> / Asset &amp; Material Register</div>
+        <span>{assets.length} tracked records · {demoZones.length} areas</span>
+      </section>
 
-        {view === "world" ? (
-          <>
-            <section className="spark-summary-strip" aria-label="Project summary">
-              <Metric value={assets.length} label="tracked assets / materials" note="One Project World" />
-              <Metric value={reuseCandidates} label="reuse candidates" note="Current human-reviewed status" />
-              <Metric value={recoveryRecords} label="recovery / recycling records" note="Traceable circular route" />
-              <Metric value={completeProvenance} label="records with known provenance" note={`${missingData} record still UNKNOWN`} />
-              <Metric value={highAttention} label="high maintenance attention" note="Rule-based, not predictive AI" />
-            </section>
+      <section className="spark-summary" aria-label="Project summary">
+        <Metric value={assets.length} label="tracked" />
+        <Metric value={reuseCandidates} label="reuse" />
+        <Metric value={recoveryRecords} label="recover / recycle" />
+        <Metric value={completeProvenance} label="known provenance" />
+        <Metric value={highAttention} label="high attention" />
+      </section>
 
-            <section className="spark-world-layout">
-              <div className="spark-world-stage" aria-label="Project World relationship graph">
-                <svg className="spark-edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                  {demoZones.map((zone) => (
-                    <line key={zone.id} x1="50" y1="50" x2={zone.x} y2={zone.y} />
+      {view === "project" ? (
+        <section className="spark-workspace">
+          <aside className="spark-tree-panel">
+            <div className="spark-section-title"><span>Project structure</span><span>{demoZones.length} areas</span></div>
+            <div className="spark-tree-list">
+              <button className={zoneFilter === "" ? "selected" : ""} onClick={() => setZoneFilter("")}>
+                <span>{demoProject.name}</span><small>{assets.length}</small>
+              </button>
+              {demoZones.map((zone) => (
+                <button
+                  key={zone.id}
+                  className={zoneFilter === zone.id ? "selected child" : "child"}
+                  onClick={() => setZoneFilter(zone.id)}
+                >
+                  <span>{zone.name}</span><small>{assets.filter((asset) => asset.zoneId === zone.id).length}</small>
+                </button>
+              ))}
+            </div>
+            <dl className="spark-boundaries">
+              <div><dt>Source truth</dt><dd>DERIVED / UNKNOWN</dd></div>
+              <div><dt>CO₂ data</dt><dd>UNKNOWN</dd></div>
+              <div><dt>Maintenance</dt><dd>rule-based</dd></div>
+              <div><dt>Human decision</dt><dd>authoritative</dd></div>
+            </dl>
+          </aside>
+
+          <main className="spark-register">
+            <div className="spark-toolbar">
+              <input
+                aria-label="Search assets"
+                type="search"
+                placeholder="Search ID, asset, location, type or source document"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="">All circular statuses</option>
+                {circularStatuses.map((status) => <option key={status}>{status}</option>)}
+              </select>
+              <select value={provenanceFilter} onChange={(event) => setProvenanceFilter(event.target.value)}>
+                <option value="">All provenance</option>
+                <option>DERIVED</option>
+                <option>UNKNOWN</option>
+              </select>
+              <span>{filteredAssets.length} / {assets.length}</span>
+            </div>
+
+            <div className="spark-table-wrap">
+              <table className="spark-register-table">
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Asset / material</th><th>Area</th><th>Type</th><th>Circular</th><th>Provenance</th><th>Attention</th><th>Last inspection</th><th>Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAssets.map((asset) => (
+                    <tr
+                      key={asset.id}
+                      className={selectedAssetId === asset.id ? "selected" : ""}
+                      onClick={() => setSelectedAssetId(asset.id)}
+                    >
+                      <td className="spark-mono">{asset.id}</td>
+                      <td className="spark-name-cell"><strong>{asset.name}</strong><small>{asset.lifecycleStatus}</small></td>
+                      <td>{zoneName(asset)}<small>{asset.location}</small></td>
+                      <td>{asset.type}</td>
+                      <td><StatusBadge value={asset.circularStatus} /></td>
+                      <td><ProvenanceBadge value={asset.provenance} /></td>
+                      <td className={`spark-attention-text ${asset.maintenanceAttention.toLowerCase()}`}>{asset.maintenanceAttention}</td>
+                      <td>{asset.lastInspection}</td>
+                      <td>{asset.sourceDocument}</td>
+                    </tr>
                   ))}
-                </svg>
+                </tbody>
+              </table>
+            </div>
+          </main>
 
-                <div className="spark-project-node">
-                  <Building2 size={22} />
-                  <strong>Building 01</strong>
-                  <span>Project Memory</span>
-                </div>
-
-                <div className="spark-zone-grid-mobile">
-                  {demoZones.map((zone) => {
-                    const zoneAssets = assets.filter((asset) => asset.zoneId === zone.id);
-                    return (
-                      <article
-                        className="spark-zone-node"
-                        key={zone.id}
-                        style={{ left: `${zone.x}%`, top: `${zone.y}%` }}
-                      >
-                        <div className="spark-zone-title">
-                          <div><strong>{zone.name}</strong><span>{zone.subtitle}</span></div>
-                          <span>{zoneAssets.length}</span>
-                        </div>
-                        <div className="spark-zone-assets">
-                          {zoneAssets.map((asset) => (
-                            <button key={asset.id} onClick={() => setSelectedAssetId(asset.id)}>
-                              <span className={`spark-status-dot ${statusTone[asset.circularStatus]}`} />
-                              <span><strong>{asset.shortName}</strong><small>{asset.type}</small></span>
-                              <ChevronRight size={15} />
-                            </button>
-                          ))}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <aside className="spark-world-guide">
-                <div className="spark-panel-title"><Database size={18} /><div><strong>What this proves</strong><span>A small operating layer, not a dashboard mock-up.</span></div></div>
-                <ol className="spark-flow-list">
-                  <li><span>1</span><div><strong>Project World</strong><small>Building, areas and tracked objects share one context.</small></div></li>
-                  <li><span>2</span><div><strong>Asset detail</strong><small>Document, evidence, events and provenance stay linked.</small></div></li>
-                  <li><span>3</span><div><strong>Circular route</strong><small>Reuse, recovery, recycling, waste or unknown remains explicit.</small></div></li>
-                  <li><span>4</span><div><strong>Human authority</strong><small>The demo can record a decision without pretending AI made it.</small></div></li>
-                </ol>
-                <div className="spark-legend">
-                  <span>circular status</span>
-                  <div>{circularStatuses.map((status) => <StatusBadge value={status} key={status} />)}</div>
-                </div>
-              </aside>
-            </section>
-          </>
-        ) : (
-          <EnvironmentalPanel assets={assets} />
-        )}
-      </main>
-
-      {selectedAsset && (
-        <AssetDetail
-          asset={selectedAsset}
-          changed={decisionOverrides[selectedAsset.id] !== undefined}
-          onClose={() => setSelectedAssetId(null)}
-          onDecision={(status) => recordHumanDecision(selectedAsset.id, status)}
-        />
+          <aside className={`spark-detail-panel ${selectedAsset ? "open" : ""}`}>
+            {selectedAsset ? (
+              <AssetDetail
+                asset={selectedAsset}
+                changed={decisionOverrides[selectedAsset.id] !== undefined}
+                zoneName={zoneName(selectedAsset)}
+                onClose={() => setSelectedAssetId(null)}
+                onDecision={(status) => recordHumanDecision(selectedAsset.id, status)}
+              />
+            ) : (
+              <div className="spark-detail-empty">Select a row to inspect source document, evidence, lifecycle, maintenance history and circular decision.</div>
+            )}
+          </aside>
+        </section>
+      ) : (
+        <EnvironmentalPanel assets={assets} />
       )}
     </div>
-  );
-}
-
-function EnvironmentalPanel({ assets }: { assets: DemoAsset[] }) {
-  const statusCounts = circularStatuses.map((status) => ({
-    status,
-    count: assets.filter((asset) => asset.circularStatus === status).length,
-  }));
-  const unknown = assets.filter((asset) => asset.provenance === "UNKNOWN").length;
-  const derived = assets.filter((asset) => asset.provenance === "DERIVED").length;
-  const high = assets.filter((asset) => asset.maintenanceAttention === "HIGH").length;
-  const medium = assets.filter((asset) => asset.maintenanceAttention === "MEDIUM").length;
-
-  return (
-    <section className="spark-environment-grid">
-      <article className="spark-panel spark-environment-overview">
-        <div className="spark-panel-title"><Leaf size={19} /><div><strong>Environmental reporting view</strong><span>Counts are generated from the current Project World records.</span></div></div>
-        <div className="spark-environment-metrics">
-          <Metric value={assets.length} label="tracked records" note="Assets + material batches" />
-          <Metric value={assets.filter((a) => a.circularStatus === "REUSABLE").length} label="reuse candidates" note="Explicit REUSABLE status" />
-          <Metric value={assets.filter((a) => ["RECOVER", "RECYCLE"].includes(a.circularStatus)).length} label="recover / recycle" note="Recorded circular routes" />
-          <Metric value={unknown} label="missing provenance" note="Cannot be hidden by a percentage" />
-        </div>
-      </article>
-
-      <article className="spark-panel">
-        <div className="spark-panel-title"><Recycle size={19} /><div><strong>Circular status distribution</strong><span>Current state, including human demo-session decisions.</span></div></div>
-        <div className="spark-status-bars">
-          {statusCounts.map(({ status, count }) => (
-            <div key={status}>
-              <div><StatusBadge value={status} /><strong>{count}</strong></div>
-              <span><i className={statusTone[status]} style={{ width: `${Math.max(5, (count / assets.length) * 100)}%` }} /></span>
-            </div>
-          ))}
-        </div>
-      </article>
-
-      <article className="spark-panel">
-        <div className="spark-panel-title"><ShieldCheck size={19} /><div><strong>Data confidence / provenance</strong><span>Truthfulness is visible next to environmental reporting.</span></div></div>
-        <div className="spark-provenance-summary">
-          <div><ProvenanceBadge value="REAL" /><strong>0</strong><span>No real SKANSKA project records loaded</span></div>
-          <div><ProvenanceBadge value="DERIVED" /><strong>{derived}</strong><span>Derived inside the synthetic demonstrator</span></div>
-          <div><ProvenanceBadge value="UNKNOWN" /><strong>{unknown}</strong><span>Missing or unverified source data</span></div>
-        </div>
-      </article>
-
-      <article className="spark-panel spark-co2-guardrail">
-        <div className="spark-panel-title"><AlertTriangle size={19} /><div><strong>CO₂ reporting guardrail</strong><span>No invented savings.</span></div></div>
-        <div className="spark-co2-value">CO₂ data: <strong>UNKNOWN</strong></div>
-        <p>No verified project quantity, EPD or carbon-factor dataset is connected. Nexus can carry and report those fields later, but this demonstrator intentionally does not fabricate kgCO₂e values.</p>
-      </article>
-
-      <article className="spark-panel">
-        <div className="spark-panel-title"><Wrench size={19} /><div><strong>Maintenance attention</strong><span>Explainable rule-based indicator, not predictive AI.</span></div></div>
-        <div className="spark-maintenance-summary">
-          <div><span className="spark-attention high">HIGH</span><strong>{high}</strong><small>Recurring or unresolved issue evidence</small></div>
-          <div><span className="spark-attention medium">MEDIUM</span><strong>{medium}</strong><small>History or missing source data needs review</small></div>
-          <div><span className="spark-attention low">LOW</span><strong>{assets.length - high - medium}</strong><small>No current attention trigger in demo history</small></div>
-        </div>
-      </article>
-
-      <article className="spark-panel spark-decision-feed">
-        <div className="spark-panel-title"><UserCheck size={19} /><div><strong>Human decision layer</strong><span>Environmental outcome remains accountable to a person.</span></div></div>
-        {assets.slice(0, 4).map((asset) => (
-          <div key={asset.id} className="spark-decision-row">
-            <div><strong>{asset.shortName}</strong><span>{asset.circularDecision}</span></div>
-            <StatusBadge value={asset.circularStatus} />
-          </div>
-        ))}
-      </article>
-    </section>
   );
 }
 
 function AssetDetail({
   asset,
   changed,
+  zoneName,
   onClose,
   onDecision,
 }: {
   asset: DemoAsset;
   changed: boolean;
+  zoneName: string;
   onClose: () => void;
   onDecision: (status: CircularStatus) => void;
 }) {
   return (
-    <div className="spark-overlay" role="dialog" aria-modal="true" aria-label={`${asset.name} detail`}>
-      <button className="spark-overlay-backdrop" onClick={onClose} aria-label="Close asset detail" />
-      <section className="spark-asset-panel">
-        <header>
-          <div>
-            <span className="spark-eyebrow">{asset.shortName} · {asset.location}</span>
-            <h2>{asset.name}</h2>
-            <div className="spark-badge-row"><StatusBadge value={asset.circularStatus} /><ProvenanceBadge value={asset.provenance} /><span className={`spark-attention ${asset.maintenanceAttention.toLowerCase()}`}>{asset.maintenanceAttention} maintenance attention</span></div>
-          </div>
-          <button className="spark-close" onClick={onClose} aria-label="Close"><X size={20} /></button>
-        </header>
-
-        <div className="spark-asset-body">
-          <section className="spark-detail-grid">
-            <div><span>Location</span><strong>{asset.location}</strong></div>
-            <div><span>Type</span><strong>{asset.type}</strong></div>
-            <div><span>Current lifecycle</span><strong>{asset.lifecycleStatus}</strong></div>
-            <div><span>Last inspection</span><strong>{asset.lastInspection}</strong></div>
-          </section>
-
-          <section className="spark-detail-section">
-            <div className="spark-section-heading"><FileText size={17} /><strong>Source document</strong></div>
-            <div className="spark-source-record"><Database size={17} /><div><strong>{asset.sourceDocument}</strong><span>Reference only · no external connector is claimed live</span></div><ProvenanceBadge value={asset.provenance} /></div>
-          </section>
-
-          <section className="spark-detail-section">
-            <div className="spark-section-heading"><Boxes size={17} /><strong>Evidence</strong><span>{asset.evidence.length} linked records</span></div>
-            <div className="spark-evidence-list">
-              {asset.evidence.map((record) => (
-                <article key={record.id}>
-                  <EvidenceIcon kind={record.kind} />
-                  <div><strong>{record.label}</strong><span>{record.note}</span></div>
-                  <ProvenanceBadge value={record.provenance} />
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="spark-detail-section">
-            <div className="spark-section-heading"><History size={17} /><strong>Lifecycle timeline</strong></div>
-            <div className="spark-timeline">
-              {asset.lifecycle.map((event) => (
-                <article key={`${asset.id}-${event.date}-${event.title}`}>
-                  <span className="spark-timeline-dot" />
-                  <time>{event.date}</time>
-                  <div><strong>{event.title}</strong><p>{event.detail}</p></div>
-                  <ProvenanceBadge value={event.provenance} />
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="spark-detail-section">
-            <div className="spark-section-heading"><Wrench size={17} /><strong>Maintenance / inspection</strong><span>Rule-based attention: {asset.maintenanceAttention}</span></div>
-            <div className="spark-maintenance-box">
-              <div><strong>Why this indicator?</strong>{asset.maintenanceReasons.map((reason) => <span key={reason}><CheckCircle2 size={14} />{reason}</span>)}</div>
-              <div><strong>Issue history</strong>{asset.issueHistory.length ? asset.issueHistory.map((item) => <span key={item}>{item}</span>) : <span>No issue recorded in demo history.</span>}</div>
-              <div><strong>Maintenance events</strong>{asset.maintenanceHistory.length ? asset.maintenanceHistory.map((item) => <span key={item}>{item}</span>) : <span>No maintenance event recorded.</span>}</div>
-            </div>
-          </section>
-
-          <section className="spark-detail-section spark-circular-decision">
-            <div className="spark-section-heading"><Recycle size={17} /><strong>Circular decision</strong><span>Human decision remains authoritative</span></div>
-            <div className="spark-current-decision">
-              <div><span>Current route</span><StatusBadge value={asset.circularStatus} /></div>
-              <p>{asset.circularDecision}</p>
-              <small>Basis: {asset.circularDecisionBasis}</small>
-            </div>
-            <div className="spark-decision-controls" aria-label="Record circular decision">
-              {circularStatuses.map((status) => (
-                <button key={status} className={asset.circularStatus === status ? "active" : ""} onClick={() => onDecision(status)}>{status}</button>
-              ))}
-            </div>
-            {changed && <div className="spark-session-decision"><UserCheck size={15} /> Human decision changed in this demo session. It is local demo state and is not presented as a persisted project record.</div>}
-          </section>
-
-          <section className="spark-detail-section spark-co2-inline">
-            <div className="spark-section-heading"><Leaf size={17} /><strong>Environmental impact</strong></div>
-            <div><span>CO₂-related data</span><strong>{asset.co2Data}</strong></div>
-            <p>No kgCO₂e value is shown because no verified quantity + EPD/carbon-factor source is linked to this demonstration record.</p>
-          </section>
+    <>
+      <button className="spark-detail-close" onClick={onClose} aria-label="Close asset detail">×</button>
+      <header className="spark-detail-head">
+        <div className="spark-mono">{asset.id}</div>
+        <h2>{asset.name}</h2>
+        <div className="spark-badge-row">
+          <StatusBadge value={asset.circularStatus} />
+          <ProvenanceBadge value={asset.provenance} />
+          <span className={`spark-badge spark-attention-text ${asset.maintenanceAttention.toLowerCase()}`}>{asset.maintenanceAttention} attention</span>
         </div>
-      </section>
-    </div>
+      </header>
+      <div className="spark-detail-body">
+        <dl className="spark-kv">
+          <div><dt>Area</dt><dd>{zoneName}</dd></div>
+          <div><dt>Location</dt><dd>{asset.location}</dd></div>
+          <div><dt>Type</dt><dd>{asset.type}</dd></div>
+          <div><dt>Lifecycle state</dt><dd>{asset.lifecycleStatus}</dd></div>
+          <div><dt>Last inspection</dt><dd>{asset.lastInspection}</dd></div>
+          <div><dt>Source document</dt><dd>{asset.sourceDocument}</dd></div>
+          <div><dt>CO₂ data</dt><dd>{asset.co2Data} — verified quantity / EPD source not connected</dd></div>
+        </dl>
+
+        <DetailSection title="Evidence">
+          {asset.evidence.map((record) => (
+            <div className="spark-line-item" key={record.id}>
+              <strong>{record.label}</strong><span>{record.note}</span><ProvenanceBadge value={record.provenance} />
+            </div>
+          ))}
+        </DetailSection>
+
+        <DetailSection title="Lifecycle timeline">
+          {asset.lifecycle.map((event) => (
+            <div className="spark-line-item" key={`${event.date}-${event.title}`}>
+              <strong>{event.date} · {event.title}</strong><span>{event.detail}</span><ProvenanceBadge value={event.provenance} />
+            </div>
+          ))}
+        </DetailSection>
+
+        <DetailSection title="Maintenance / inspection">
+          {asset.maintenanceReasons.map((reason) => <div className="spark-line-item" key={reason}><strong>Attention reason</strong><span>{reason}</span></div>)}
+          {asset.issueHistory.length > 0
+            ? asset.issueHistory.map((item) => <div className="spark-line-item" key={item}><strong>Issue</strong><span>{item}</span></div>)
+            : <div className="spark-line-item"><span>No issue recorded in demo history.</span></div>}
+          {asset.maintenanceHistory.length > 0
+            ? asset.maintenanceHistory.map((item) => <div className="spark-line-item" key={item}><strong>Maintenance</strong><span>{item}</span></div>)
+            : <div className="spark-line-item"><span>No maintenance event recorded.</span></div>}
+        </DetailSection>
+
+        <DetailSection title="Circular decision">
+          <div className="spark-line-item">
+            <strong>{changed ? "Human session decision" : "Baseline demo record"}: {asset.circularStatus}</strong>
+            <span>{changed ? "Status changed by a user in this demo session. The baseline narrative below remains historical context." : asset.circularDecision}</span>
+          </div>
+          <div className="spark-line-item"><strong>Decision basis</strong><span>{changed ? "Manual demo-session decision; not persisted as a real project record." : asset.circularDecisionBasis}</span></div>
+          <div className="spark-decision-controls">
+            {circularStatuses.map((status) => (
+              <button key={status} className={asset.circularStatus === status ? "active" : ""} onClick={() => onDecision(status)}>{status}</button>
+            ))}
+          </div>
+        </DetailSection>
+
+        <div className="spark-warning">No real SKANSKA project data is loaded. No kgCO₂e saving is shown without verified quantity, EPD/carbon factor and source provenance.</div>
+      </div>
+    </>
   );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="spark-detail-section"><h3>{title}</h3>{children}</section>;
+}
+
+function EnvironmentalPanel({ assets }: { assets: DemoAsset[] }) {
+  const rowsStatus = circularStatuses.map((status) => ({ status, count: assets.filter((asset) => asset.circularStatus === status).length }));
+  const derived = assets.filter((asset) => asset.provenance === "DERIVED").length;
+  const unknown = assets.filter((asset) => asset.provenance === "UNKNOWN").length;
+
+  return (
+    <main className="spark-environment">
+      <section>
+        <h2>Circular status</h2>
+        {rowsStatus.map(({ status, count }) => <ReportRow key={status} label={status} value={count} note="Current Project World records" />)}
+      </section>
+      <section>
+        <h2>Provenance</h2>
+        <ReportRow label="DERIVED" value={derived} note="Synthetic demonstrator records derived inside the demo dataset" />
+        <ReportRow label="UNKNOWN" value={unknown} note="Missing or unverified source data" />
+        <ReportRow label="REAL" value={0} note="No real SKANSKA project records loaded" />
+      </section>
+      <section>
+        <h2>CO₂ reporting readiness</h2>
+        <ReportRow label="Verified quantity" value="NO" note="Not connected in demonstrator" />
+        <ReportRow label="EPD / carbon factor" value="NO" note="Not connected in demonstrator" />
+        <ReportRow label="kgCO₂e result" value="UNKNOWN" note="Intentionally not fabricated" />
+      </section>
+      <section>
+        <h2>Maintenance attention</h2>
+        {(["HIGH", "MEDIUM", "LOW"] as const).map((level) => (
+          <ReportRow
+            key={level}
+            label={level}
+            value={assets.filter((asset) => asset.maintenanceAttention === level).length}
+            note={level === "HIGH" ? "Recurring or unresolved issue evidence" : level === "MEDIUM" ? "Review trigger or source gap" : "No current rule-based trigger"}
+          />
+        ))}
+      </section>
+    </main>
+  );
+}
+
+function ReportRow({ label, value, note }: { label: string; value: number | string; note: string }) {
+  return <div className="spark-report-row"><span>{label}</span><strong>{value}</strong><span>{note}</span></div>;
 }
