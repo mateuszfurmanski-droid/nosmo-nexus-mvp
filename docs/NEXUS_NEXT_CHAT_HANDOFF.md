@@ -29,16 +29,15 @@ Only change #91 after an explicit Spark-demo request.
 
 1. Current PR #90 state/head.
 2. This handoff.
-3. `docs/NEXUS_PHASE_17_CLOUD_PROVIDER_ADAPTER_BOUNDARY.md` before provider-adapter work.
-4. `docs/NEXUS_PHASE_16_CLOUD_PERSISTENCE_BOUNDARY.md` before Cloud persistence work.
-5. `docs/NEXUS_PHASE_15_CLOUD_FOUNDATION_RECONCILIATION.md` before Cloud/File Loader routing work.
-6. `docs/NEXUS_PHASE_14_AUTH_IDENTITY_RECONCILIATION.md` before auth/session/Person binding/Context Ticket work.
-7. `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating another card/object model.
-8. `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before using historical PRs.
-9. `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
-10. `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
-11. Phase 10/11 PKG-005 and PKG-004 reconciliation docs before gated implementation.
-12. Current `PROJECT_CONTROL.md` and relevant PKG/ADDON files in `nosmo-nexus`.
+3. `docs/NEXUS_PHASE_18_CLOUD_ATOMIC_PROJECT_MEMORY_COMMIT.md` before Cloud persistence transactions.
+4. `docs/NEXUS_PHASE_17_CLOUD_PROVIDER_ADAPTER_BOUNDARY.md` before provider-adapter work.
+5. `docs/NEXUS_PHASE_16_CLOUD_PERSISTENCE_BOUNDARY.md` before Cloud persistence proposals.
+6. `docs/NEXUS_PHASE_15_CLOUD_FOUNDATION_RECONCILIATION.md` before Cloud/File Loader routing.
+7. `docs/NEXUS_PHASE_14_AUTH_IDENTITY_RECONCILIATION.md` before auth/session/Person binding/Context Ticket work.
+8. `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating another card/object model.
+9. `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before using historical PRs.
+10. `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
+11. Current `PROJECT_CONTROL.md` and relevant PKG/ADDON files in `nosmo-nexus`.
 
 ## PR #90 phase state
 
@@ -58,10 +57,11 @@ Only change #91 after an explicit Spark-demo request.
 - Phase 13 — Object Card v1 foundation.
 - Phase 14 — auth/identity reconciliation.
 - Phase 15 — provider-neutral Nexus Cloud routing/pending-asset v2.
-- Phase 16 — Cloud provider-write -> canonical persistence proposal boundary.
-- Phase 17 — server-only Cloud provider-adapter write-plan boundary; capability truth enforced; no provider write.
+- Phase 16 — provider-write -> canonical persistence proposal boundary.
+- Phase 17 — server-only provider write-plan boundary with capability truth.
+- Phase 18 — storage records moved into Project Memory + atomic/idempotent Cloud commit semantics.
 
-## Canonical architecture rules
+## Core architecture rules
 
 ### Project Memory / Project Worlds
 
@@ -99,7 +99,7 @@ Rules:
 
 Historical #54-#61 remains runtime/persistence donor work. Do not create a second auth/session/Context Ticket implementation.
 
-## Phase 15 — Nexus Cloud routing foundation
+## Phase 15 — Nexus Cloud routing
 
 Files:
 
@@ -107,13 +107,7 @@ Files:
 - `src/core/storage/cloudAssetContract.ts`
 - `src/core/storage/storageContract.ts`
 
-Cloud routing requires exact canonical:
-
-`projectId + worldId`
-
-and fails closed on missing/mismatched project/world.
-
-Foundation resolves semantic targets only:
+Cloud routing requires exact canonical `projectId + worldId` and resolves semantic targets only:
 
 - `00_INBOX`
 - `01_PENDING_GRAPH_LINK`
@@ -123,36 +117,24 @@ Foundation resolves semantic targets only:
 
 These are semantic roles, not Google Drive folder IDs.
 
-`nexus-cloud-pending-asset/v2` is pre-persistence metadata only. Binary/provider/index/graph side effects remain false.
+`nexus-cloud-pending-asset/v2` is pre-persistence metadata only.
 
-Google Drive folder IDs/URLs are provider configuration and must not become canonical routing.
-
-`external-reference` is a storage scope, not a connector ID.
-
-## Phase 16 — Cloud persistence boundary
+## Phase 16 — Cloud persistence proposal
 
 File:
 
 `src/core/storage/cloudPersistenceContract.ts`
 
-Canonical sequence:
+Sequence:
 
-`pending asset -> canonical cloud.file.write allow -> provider write receipt -> persistence proposal -> future transactional commit`
+`pending asset -> canonical cloud.file.write allow -> provider write receipt -> persistence proposal`
 
-Required access decision:
-
-- `result: allowed`
-- resolved `personId`
-- exact project/world
-- `moduleId: cloud`
-- `actionKey: cloud.file.write`
-
-A valid persistence proposal contains together:
+A proposal contains together:
 
 1. `NexusFileRecord`
 2. canonical File object
 3. provider/external reference
-4. `NexusCloudStorageRecord`
+4. Nexus Cloud storage record
 5. `CLOUD_FILE_PERSISTED` audit event
 6. canonical `attach-file-to-project` action
 7. stable idempotency key
@@ -161,9 +143,7 @@ The proposal itself does not mutate Project Memory.
 
 Provider object IDs never become canonical Nexus File IDs.
 
-Storage success does not automatically mutate Project Graph.
-
-## Phase 17 — server-side provider adapter boundary
+## Phase 17 — server-side provider adapter
 
 Authority:
 
@@ -173,103 +153,110 @@ File:
 
 `src/core/storage/cloudProviderAdapterContract.ts`
 
-New rule:
-
-`semantic route -> canonical access -> connector capability truth -> server provider target -> provider confirmation -> Phase 16 persistence proposal`
-
 A provider write plan is denied unless:
 
-- canonical access is allowed for exact project/world and `cloud.file.write`;
-- connector account matches the connector definition;
-- connector lifecycle is `LIVE`;
-- connector integration level is at least `5 / CONTROLLED_TWO_WAY_API`;
-- connector declares File write capability;
-- connector account is `connected`;
-- `cloud.file.write` is explicitly allowed in account scopes;
-- a server-side secret reference exists;
-- exactly one enabled provider-target mapping exists for the exact project/world/semantic target role.
+- exact canonical `cloud.file.write` access is allowed;
+- connector/account match;
+- lifecycle is `LIVE`;
+- integration level is at least `5 / CONTROLLED_TWO_WAY_API`;
+- File write capability is declared;
+- account is `connected`;
+- account scope includes `cloud.file.write`;
+- server secret reference exists;
+- exactly one enabled target mapping exists for exact project/world/semantic target role.
 
-The plan is server-only and explicitly states:
+The plan is server-only:
 
 - `browserCredentialsAllowed: false`
 - `providerWritePerformed: false`
 - `projectMemoryMutationPerformed: false`
 - `projectGraphMutationPerformed: false`
-- provider confirmation is required.
 
 No provider network call is made by the contract.
 
-### Google Drive truth correction
+### Google Drive truth
 
-`src/connectors/google-drive/googleDriveConnector.ts` remains a reference/deep-link catalogue contract, not live capability truth.
+`src/connectors/google-drive/googleDriveConnector.ts` is a reference/deep-link catalogue contract, not live capability truth.
 
-It now explicitly has:
+It now has `canUpdateProjectGraph: false` and explicitly says Nexus reference writes are not Google Drive binary/API writes.
 
-`canUpdateProjectGraph: false`
+Current Drive reference/deep-link posture does not satisfy the Phase 17 live-write gate.
 
-and its notes state that reference metadata writes are not Google Drive binary/API writes.
+No Google Drive contents, credentials or folders were modified.
 
-Current Google Drive reference/deep-link status therefore does **not** satisfy the Phase 17 live provider-write gate.
+## Phase 18 — atomic/idempotent Project Memory commit
 
-No Google Drive contents, credentials or provider folders were modified.
+Authority:
+
+`docs/NEXUS_PHASE_18_CLOUD_ATOMIC_PROJECT_MEMORY_COMMIT.md`
+
+New/changed files:
+
+- `src/data/schemas/storage.schema.ts`
+- `src/data/projectMemory.ts` now contains `storageRecords`
+- `src/data/projectMemoryStorageInvariants.ts`
+- `src/core/storage/cloudProjectMemoryCommit.ts`
+- `src/core/storage/storageContract.ts` re-exports canonical storage schema
+
+Core rule:
+
+`all canonical Cloud persistence records commit together or none commit`
+
+A successful logical commit adds together:
+
+1. File record
+2. canonical File object
+3. provider/external reference
+4. storage record
+5. audit event
+
+The input memory snapshot is immutable; a new snapshot is returned only after validation.
+
+### Retry behaviour
+
+- complete exact replay -> `ALREADY_COMMITTED`, no mutation;
+- partial existing records -> `PARTIAL_STATE_CONFLICT`, fail closed;
+- same IDs with changed identity -> `IDENTITY_CONFLICT`, fail closed;
+- same provider object linked to another canonical object -> `PROVIDER_OBJECT_ALREADY_LINKED`, fail closed.
+
+### Revalidation
+
+Commit re-checks:
+
+- project/world existence and exact scope;
+- stored access decision still allowed for `cloud.file.write`;
+- canonical action-policy consistency;
+- normal Project Memory invariants;
+- new storage invariants.
+
+If post-commit invariants fail, the original snapshot is returned unchanged.
+
+Phase 18 is still an in-memory transaction contract, not a DB transaction.
+
+Focused strict TypeScript compile for Phase 17 and Phase 18 isolated contracts passed. This is not a full repository build.
 
 ## Historical donor map
 
-### Relationship Tree
+- Relationship Tree: `#15 -> #35 -> #42 -> #45`, plus #86/#49/#24/#26/#40 donors; #46 freeze.
+- Work Wallet client: `#18 -> #52 -> #63`.
+- Auth/runtime: `#54 -> #55 -> #56 -> #57 -> #58 -> #59 -> #60 -> #61`.
+- Nexus Cloud donor line: `#66 -> #67 -> #68 -> #69 -> #72 -> #75 -> #77`; #73 strict routing donor.
+- BIM/IFC/WorkSuite: `#25 -> #28 -> #29 -> #30 -> #31 -> #33 -> #34 -> #36 -> #39 -> #43 -> #51 -> #53 -> #62 -> #87`.
+- Android: #41, #44/#85 and #27 remain separate native lines.
 
-Primary donor line:
-
-`#15 -> #35 -> #42 -> #45`
-
-Additional donors: #86, #49, #24, #26/#40. #46 remains experimental/freeze.
-
-### Work Wallet / auth runtime
-
-Client/extension:
-
-`#18 -> #52 -> #63`
-
-Server/runtime:
-
-`#54 -> #55 -> #56 -> #57 -> #58 -> #59 -> #60 -> #61`
-
-Reuse and reconcile; do not duplicate.
-
-### Nexus Cloud
-
-Historical donor line:
-
-`#66 -> #67 -> #68 -> #69 -> #72 -> #75 -> #77`
-
-PR #73 is the strict project/world routing donor.
-
-Phase 15-17 supersede hardcoded routing/provider assumptions for #90. Do not bulk-merge the old Cloud stack.
-
-### BIM / IFC / WorkSuite
-
-Specialist donor line:
-
-`#25 -> #28 -> #29 -> #30 -> #31 -> #33 -> #34 -> #36 -> #39 -> #43 -> #51 -> #53 -> #62 -> #87`
-
-Port later in slices converging on Object Card v1 + Project Memory.
-
-### Android
-
-#41, #44/#85 and #27 remain separate native lines. Audit separately before consolidation.
+Do not bulk-merge donor stacks.
 
 ## PKG gates
 
 PKG-004 and PKG-005 runtime/product implementation remain subject to current architecture/founder gate state.
 
-Do not infer release from old CI, old chats or PR #91.
-
 Connector catalogue status is not capability truth.
 
-Phase 17 consumes the PKG-004 truth model but does not release a real connector or provider runtime.
+Phase 17 consumes PKG-004 capability semantics but does not release a live provider runtime.
 
-## Protected surfaces from #90 foundation work
+## Protected surfaces
 
-Do not touch unless scope is explicitly changed:
+Do not touch from #90 foundation work unless explicitly requested:
 
 - PR #91 Spark demo/card/runtime;
 - `NOSMO-website` live Relationship Tree;
@@ -279,33 +266,31 @@ Do not touch unless scope is explicitly changed:
 - DoorFlow / Fire Door Register runtime;
 - historical Cloud donor branches;
 - live Google Drive contents;
-- existing auth/Work Wallet runtime branches except explicit reconciliation;
-- competing top-shell/workbench experiments.
+- existing auth/Work Wallet runtime branches except explicit reconciliation.
 
 ## Correct next controlled sequence
 
-1. Re-check #90 head before every write; keep #91 frozen.
-2. Design the transactional/idempotent Project Memory commit boundary for Phase 16 proposals.
-3. Commit File + canonical object + provider reference + storage record + audit as one logical transaction or not at all.
-4. Add duplicate/idempotency handling so retries cannot create parallel File identities.
-5. Only after persistence works, add separate authorised graph-link behaviour.
+1. Re-check #90 before every write; keep #91 frozen.
+2. Design a persistence adapter/DB transaction implementing Phase 18 semantics without changing the contract.
+3. Define unique constraints for canonical File identity and provider-object identity.
+4. Add rollback/idempotency behaviour for real persistence.
+5. Only after persistence works, add separate authorised/audited graph-link behaviour.
 6. Then add realtime invalidation and offline mobile retry.
-7. Reconcile a real server-side Google Drive adapter only after truthful PKG-004 connector/account capability is released; never browser credentials.
-8. Reconcile Work Wallet connector context with PKG-004 without duplicating runtime.
+7. Reconcile a real Google Drive adapter only after truthful PKG-004 capability + server credentials are explicitly released.
+8. Reconcile Work Wallet with PKG-004 without duplicating runtime.
 9. Implement gated PKG-004/005 product slices only when explicitly released.
 10. Deliberately migrate Relationship Tree into source-native #90 architecture.
 11. Port BIM/IFC/WorkSuite later in modular slices.
 12. Audit Android separately.
-13. Never bulk-merge historical stacks solely because old CI was green.
 
 ## Core principle
 
-Cloud routing proves only where an authorised object may be stored semantically.
+Cloud routing proves where an authorised object may be stored semantically.
 
-Provider write planning proves only that current access/capability/configuration permits a server attempt.
+Provider planning proves current access/capability/config allows a server attempt.
 
-Provider receipt proves the provider confirmed persistence.
+Provider receipt proves provider persistence.
 
-Canonical persistence creates Nexus-owned file identity, reference and audit state.
+Phase 18 canonical commit creates one coherent Nexus File identity/reference/storage/audit state.
 
-Project Graph linking is a separate authorised relationship decision.
+Project Graph linking remains a separate authorised relationship decision.
