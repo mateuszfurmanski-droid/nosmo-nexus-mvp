@@ -30,14 +30,15 @@ The current Spark Object Card is an accepted reference direction. Foundation wor
 
 1. Check current GitHub state of PR #90 first.
 2. Treat PR #91 as protected/frozen unless explicitly working on Spark demo scope.
-3. Read `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating any new project-object/card model.
-4. Read `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before choosing any historical PR as an integration base.
-5. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
-6. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
-7. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before readiness implementation.
-8. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before connector/runtime integration.
-9. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, relevant PKG files, and current ADDON_038/Object Card work.
-10. Do not rely on old chat assumptions if current GitHub contradicts them.
+3. Read `docs/NEXUS_PHASE_14_AUTH_IDENTITY_RECONCILIATION.md` before touching auth/session/Person binding/Project Participation/Context Ticket runtime.
+4. Read `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating any new project-object/card model.
+5. Read `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before choosing any historical PR as an integration base.
+6. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
+7. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
+8. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before readiness implementation.
+9. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before connector/runtime integration.
+10. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, relevant PKG files, and current ADDON_038/Object Card work.
+11. Do not rely on old chat assumptions if current GitHub contradicts them.
 
 ## Current PR #90 phases
 
@@ -56,6 +57,7 @@ The current Spark Object Card is an accepted reference direction. Foundation wor
 - Phase 11: PKG-004 connector/source-of-record reconciliation — product runtime/invariant implementation gated.
 - Phase 12: full PR integration audit — canonical trunk vs donor/freeze/blocked tracks defined; no historical stack merged.
 - Phase 13: Object Card v1 foundation — canonical projection/profile contract added in #90; #91 untouched.
+- Phase 14: auth/identity reconciliation — server identity bridge added; historical runtime authorization drift recorded; #91 untouched.
 
 ## Phase 9 completed state
 
@@ -80,21 +82,7 @@ No real shell migration was started in Phase 9.
 
 Authority: `PKG_005_READINESS_CONFIDENCE_AND_HUMAN_DECISION_CONTRACT.md`.
 
-`docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` defines the post-gate contract for:
-
-- ReadinessAssessment;
-- ReadinessRequirement;
-- ReadinessFinding;
-- RealityModeDecision;
-- explainable scoring;
-- UNKNOWN / SOURCE_UNAVAILABLE fail-closed rules;
-- safety-critical blocking;
-- human override/history;
-- RFI draft-only boundary;
-- superseding reassessment;
-- e-SAFE future acceptance fixtures.
-
-No PKG-005 runtime/readiness UI was added in PR #90.
+`docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` defines the post-gate contract for readiness/confidence/human decisions. No PKG-005 runtime/readiness UI was added in PR #90.
 
 ## Phase 11 prepared state
 
@@ -207,11 +195,83 @@ Focused strict TypeScript compile against the new contract and required base typ
 
 No Object Card UI was added to #90 and no Spark files in #91 were changed.
 
+## Phase 14 auth / identity reconciliation
+
+Authority inside #90:
+
+`docs/NEXUS_PHASE_14_AUTH_IDENTITY_RECONCILIATION.md`
+
+New foundation contract:
+
+`src/core/permissions/runtimeIdentityContract.ts`
+
+exported from `src/core/index.ts`.
+
+### Canonical separation
+
+`authentication -> identity binding -> Project Participation -> permission evaluation`
+
+These are separate layers.
+
+### Historical donor rules retained
+
+From #54/#55:
+
+- OIDC/provider subject is not canonical Person ID;
+- authenticated without exact binding = `UNBOUND`;
+- no email/name fuzzy identity binding;
+- server-owned exact provider+subject binding;
+- failures fail closed.
+
+From #57:
+
+- reuse one unified Express runtime;
+- reuse existing auth/session implementation;
+- reuse existing Work Wallet gateway;
+- API routes are never SPA fallback;
+- raw Work Wallet body handling stays before generic JSON parsing.
+
+From #59-#61:
+
+- short-lived/single-use Context Ticket is a useful downstream capability;
+- no browser integration secret;
+- exact origin/scope/purpose;
+- raw ticket not persisted or placed in URL;
+- ticket issuance/exchange must re-check canonical access.
+
+### Historical authorization drift that must NOT be ported
+
+PR #56 used an initial rule where one active Project Participation could grant the Work Wallet application surface unless an explicit deny existed.
+
+That conflicts with the current #90 access model.
+
+Current #90 requires an explicit matching allow grant in addition to valid identity/participation, with explicit deny precedence and other policy gates.
+
+Therefore:
+
+`active participation alone != permission`.
+
+The historical DB `nexus_project_participations` JSON permission model is a persistence donor only. It must later adapt into #90 canonical participation/role/trade/grant records rather than becoming a second permission engine.
+
+### Runtime identity bridge behavior
+
+`UNAUTHENTICATED` -> denied.
+
+`UNBOUND` -> denied.
+
+`BOUND + canonical personId` -> still not allowed; returns `CANONICAL_ACCESS_DECISION_REQUIRED` and proceeds to #90 resolver.
+
+The preflight intentionally never returns `allowed=true`.
+
+Focused strict TypeScript compile passed. This is not a full repository build.
+
+No OIDC, DB, Context Ticket, Work Wallet, deployment, Person Card or Spark code was changed in Phase 14.
+
 ## Spark / checkpoint correction
 
 An earlier Phase 11 observation said there was no Spark branch. That statement is stale: PR #91 exists.
 
-However, #91 is now explicitly protected from this foundation track. Do not use historical gate cleanup as a reason to alter #91.
+However, #91 is explicitly protected from this foundation track. Do not use historical gate cleanup as a reason to alter #91.
 
 Before releasing PKG-004 or PKG-005 product code solely on historical gate wording, reconcile the gate against current founder direction and current GitHub state.
 
@@ -248,18 +308,21 @@ Do not touch from PR #90 foundation work unless explicitly changing scope:
 1. Re-check PR #90 current head before every write.
 2. Keep PR #91 frozen from this foundation track.
 3. Use Phase 13 Object Card v1 as the shared project-object/card contract; do not create another card model.
-4. Reconcile identity/auth/runtime from #54-#61 with #90 access/Person contracts without duplicating the runtime.
-5. Reconcile Work Wallet context from #18/#52/#63 with PKG-004 when the package gate permits implementation.
-6. Reconcile Cloud contracts from #66-#77 plus strict routing behavior from #73, generalized for dynamic Project Worlds.
-7. If PKG-004 is explicitly released, add only the narrow connector foundation: capability truth, honest fixtures, invariants and storage-reference semantics.
-8. If PKG-005 is explicitly released, add readiness data contracts, Project Memory arrays, invariants and e-SAFE fixtures without UI.
-9. Migrate Relationship Tree behavior deliberately from #15/#45/#86 into source-native #90 architecture.
-10. Port BIM/IFC/WorkSuite specialist capabilities later in modular slices that use Object Card v1.
-11. Audit Android native lines separately.
-12. Never bulk-merge old stacks simply because historical CI was green.
+4. Use Phase 14 runtime identity bridge; do not allow auth/session or active participation to grant project access directly.
+5. Reconcile Cloud contracts from #66-#77 plus strict routing behavior from #73, generalized for dynamic Project Worlds.
+6. Reconcile Work Wallet connector context from #18/#52/#63 with PKG-004 when the package gate permits implementation.
+7. Define the future DB adapter from historical Person/Participation persistence into #90 canonical Person/Participation/Grant semantics before reconnecting Context Tickets.
+8. If PKG-004 is explicitly released, add only the narrow connector foundation: capability truth, honest fixtures, invariants and storage-reference semantics.
+9. If PKG-005 is explicitly released, add readiness data contracts, Project Memory arrays, invariants and e-SAFE fixtures without UI.
+10. Migrate Relationship Tree behavior deliberately from #15/#45/#86 into source-native #90 architecture.
+11. Port BIM/IFC/WorkSuite specialist capabilities later in modular slices that use Object Card v1.
+12. Audit Android native lines separately.
+13. Never bulk-merge old stacks simply because historical CI was green.
 
 ## Core rule
 
 Nexus is a continuously updated Project Memory and Relationship Graph, not a collection of accumulated PR branches.
+
+Authentication proves an account/session. Identity binding proves which canonical Person it represents. Project Participation proves a project relationship. Explicit permission grants and policy evaluation decide what the Person may do.
 
 Every historical branch is subordinate to the current object identity, provenance, access, temporal, connector, audit and Object Card projection contracts when it is eventually ported.
