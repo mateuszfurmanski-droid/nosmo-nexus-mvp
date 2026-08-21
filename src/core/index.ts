@@ -4,6 +4,7 @@ export * from './graph/graphContract';
 export * from './timeline/timelineContract';
 export * from './events/eventBus';
 export * from './permissions/permissionContract';
+export * from './permissions/runtimeIdentityContract';
 export * from './storage/storageContract';
 
 import { nexusShellCore } from './shell/shellContract';
