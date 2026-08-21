@@ -8,6 +8,7 @@ import type { NexusFileRecord, NexusDrawingReferenceRecord } from './schemas/fil
 import type { NexusGraphEdgeRecord, NexusGraphNodeRecord } from './schemas/graph.schema';
 import type { NexusPersonRecord, NexusProjectRoleRecord } from './schemas/person.schema';
 import type { NexusCompanyRecord, NexusProjectRecord, NexusProjectWorldRecord } from './schemas/project.schema';
+import type { NexusStorageRecord } from './schemas/storage.schema';
 import type { NexusAssetRecord, NexusTaskRecord } from './schemas/task.schema';
 import type { NexusAsOfContext, NexusTemporalObjectStateRecord, NexusTemporalStateResolution } from './schemas/temporal.schema';
 import type { NexusTimelineEventRecord } from './schemas/timeline.schema';
@@ -43,6 +44,7 @@ export interface NexusProjectMemorySnapshot {
   moduleEntitlements: NexusModuleEntitlementRecord[];
   managerTradeContexts: NexusManagerTradeContextRecord[];
   accessDecisions: NexusAccessDecisionRecord[];
+  storageRecords: NexusStorageRecord[];
   temporalRecords: NexusTemporalObjectStateRecord[];
   asOfContexts: NexusAsOfContext[];
   temporalStateResolutions: NexusTemporalStateResolution[];
@@ -79,6 +81,7 @@ export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
   moduleEntitlements: [],
   managerTradeContexts: [],
   accessDecisions: [],
+  storageRecords: [],
   temporalRecords: [],
   asOfContexts: [],
   temporalStateResolutions: [],
