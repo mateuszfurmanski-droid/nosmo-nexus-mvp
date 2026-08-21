@@ -25,7 +25,8 @@
 
 .spark-workbench button,
 .spark-workbench input,
-.spark-workbench select { font: inherit; }
+.spark-workbench select,
+.spark-workbench textarea { font: inherit; }
 
 .spark-topbar {
   position: sticky;
@@ -136,9 +137,21 @@
 .spark-line-item > span:not(.spark-badge) { display: block; color: var(--spark-muted); font-size: 8px; }
 .spark-line-item .spark-badge { margin-top: 4px; }
 
-.spark-decision-controls { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.spark-decision-form { display: grid; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--spark-line-soft); }
+.spark-decision-form > label { color: #c3cec9; font-size: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.spark-decision-form input,
+.spark-decision-form textarea { width: 100%; border: 1px solid #344840; border-radius: 3px; background: #08110f; color: var(--spark-text); padding: 7px 8px; font-size: 9px; }
+.spark-decision-form textarea { resize: vertical; min-height: 64px; line-height: 1.35; }
+.spark-decision-form > small { color: var(--spark-muted); font-size: 8px; line-height: 1.35; }
+.spark-decision-controls { display: flex; flex-wrap: wrap; gap: 4px; }
 .spark-decision-controls button { padding: 5px 6px; border: 1px solid #344840; border-radius: 3px; background: #0b1512; color: var(--spark-muted); font-size: 7px; cursor: pointer; }
 .spark-decision-controls button.active { background: #b7ecd1; color: #07100e; border-color: #b7ecd1; font-weight: 800; }
+.spark-save-decision { justify-self: start; min-height: 30px; padding: 0 10px; border: 1px solid #8bc9ad; border-radius: 3px; background: #b7ecd1; color: #07100e; font-size: 9px; font-weight: 750; cursor: pointer; }
+.spark-save-decision:disabled { border-color: #354640; background: #17231f; color: #6f817a; cursor: not-allowed; }
+.spark-audit-entry { padding: 7px 0; border-top: 1px solid var(--spark-line-soft); font-size: 9px; line-height: 1.35; }
+.spark-audit-entry strong { display: block; font-weight: 650; }
+.spark-audit-entry span { display: block; margin-top: 2px; color: #c7d2ce; }
+.spark-audit-entry small { display: block; margin-top: 3px; color: var(--spark-muted); font-size: 8px; }
 .spark-warning { margin-top: 14px; padding: 7px 8px; border-left: 2px solid var(--spark-amber); background: #15180f; color: #d2c49c; font-size: 8px; line-height: 1.4; }
 
 .spark-environment { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 14px; }
@@ -146,6 +159,11 @@
 .spark-environment h2 { margin: 0 0 5px; color: #bdc9c4; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
 .spark-report-row { display: grid; grid-template-columns: 1fr 90px 1.6fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--spark-line-soft); font-size: 9px; }
 .spark-report-row span:last-child { color: var(--spark-muted); }
+.spark-environment-audit { grid-column: 1 / -1; }
+.spark-environment-audit-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
+.spark-audit-empty,
+.spark-storage-note { padding: 8px 0; color: var(--spark-muted); font-size: 9px; line-height: 1.4; }
+.spark-storage-note { margin-top: 6px; border-top: 1px solid var(--spark-line-soft); color: #cdbb91; }
 
 @media (max-width: 1050px) {
   .spark-workspace { grid-template-columns: 180px minmax(0,1fr); }
@@ -177,5 +195,7 @@
   .spark-register-table { min-width: 860px; }
   .spark-detail-panel { top: 48px; width: 100vw; height: calc(100vh - 48px); }
   .spark-environment { grid-template-columns: 1fr; padding: 9px; }
+  .spark-environment-audit { grid-column: auto; }
+  .spark-environment-audit-list { grid-template-columns: 1fr; }
   .spark-report-row { grid-template-columns: 1fr 75px 1.3fr; }
 }
