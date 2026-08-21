@@ -7,21 +7,37 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 - Product source repository: `mateuszfurmanski-droid/nosmo-nexus-mvp`
 - Active foundation branch: `codex/nexus-mvp-modular-foundation`
 - Active foundation draft PR: https://github.com/mateuszfurmanski-droid/nosmo-nexus-mvp/pull/90
-- Current stacked Spark demonstrator: PR #91, branch `codex/spark-skanska-demo-core`
+- Spark demonstrator: PR #91, branch `codex/spark-skanska-demo-core`
 - Public preview repository: `mateuszfurmanski-droid/NOSMO-website`
 - Live Relationship Tree remains a prototype/demo and must not be rewritten during foundation work.
+
+## Explicit founder boundary for PR #91
+
+PR #91 is the Spark / SKANSKA demonstrator and must remain untouched from the PR #90 foundation track unless the founder explicitly requests a concrete Spark-demo change.
+
+Do not from PR #90 work:
+
+- edit #91 files;
+- rebase #91 merely because #90 moved;
+- refactor the Spark Object Card;
+- redesign the Spark card;
+- migrate its local demo state;
+- use #90 cleanup as a reason to change the accepted Spark visual direction.
+
+The current Spark Object Card is an accepted reference direction. Foundation work may align contracts around it without modifying it.
 
 ## Mandatory reading order in a new chat
 
 1. Check current GitHub state of PR #90 first.
-2. Check whether PR #91 or other stacked branches moved since this handoff.
-3. Read `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before choosing any historical PR as an integration base.
-4. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
-5. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
-6. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before readiness implementation.
-7. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before connector/runtime integration.
-8. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, relevant PKG files, and current ADDON_038/Object Card work.
-9. Do not rely on old chat assumptions if current GitHub contradicts them.
+2. Treat PR #91 as protected/frozen unless explicitly working on Spark demo scope.
+3. Read `docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md` before creating any new project-object/card model.
+4. Read `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md` before choosing any historical PR as an integration base.
+5. Read `docs/NEXUS_ARCHITECTURE_RECONCILIATION_MAP.md`.
+6. Read `docs/NEXUS_MVP_MODULAR_STRUCTURE.md` and `docs/NEXUS_MVP_MIGRATION_PLAN.md`.
+7. Read `docs/NEXUS_PHASE_10_PKG005_READINESS_CONTRACT.md` before readiness implementation.
+8. Read `docs/NEXUS_PHASE_11_PKG004_CONNECTOR_RECONCILIATION.md` before connector/runtime integration.
+9. In architecture repo `mateuszfurmanski-droid/nosmo-nexus`, read `PROJECT_CONTROL.md`, `docs/DOCUMENTATION_INDEX.md`, `docs/NEXUS_BUILD_CONTROL/ADDON_CLASSIFICATION.md`, relevant PKG files, and current ADDON_038/Object Card work.
+10. Do not rely on old chat assumptions if current GitHub contradicts them.
 
 ## Current PR #90 phases
 
@@ -39,6 +55,7 @@ Status: active handoff for continuing PR #90 without relying on chat memory.
 - Phase 10: PKG-005 readiness/confidence/human-decision contract preparation — product code gated.
 - Phase 11: PKG-004 connector/source-of-record reconciliation — product runtime/invariant implementation gated.
 - Phase 12: full PR integration audit — canonical trunk vs donor/freeze/blocked tracks defined; no historical stack merged.
+- Phase 13: Object Card v1 foundation — canonical projection/profile contract added in #90; #91 untouched.
 
 ## Phase 9 completed state
 
@@ -102,14 +119,10 @@ Authority inside this branch: `docs/NEXUS_PHASE_12_PR_INTEGRATION_AUDIT.md`.
 
 ### Current canonical line
 
-`PR #90 -> PR #91`
-
 - #90 = `CANONICAL_FOUNDATION`.
-- #91 = `CURRENT_STACKED_DEMO`, not a replacement Nexus trunk.
+- #91 = protected Spark demonstrator, not a replacement Nexus trunk.
 
-PR #91 currently provides a narrow Spark SKANSKA Circular Asset & Material demonstrator and is stacked directly on #90. It introduces a Spark-specific branch that did not exist during the earlier checkpoint observation.
-
-Related current architecture work: `mateuszfurmanski-droid/nosmo-nexus` PR #21 formalises shared `Nexus Object Card v1` under ADDON_038. Treat it as important current architecture authority before creating another Object Card model.
+Related architecture work: `mateuszfurmanski-droid/nosmo-nexus` PR #21 formalises shared `Nexus Object Card v1` under ADDON_038.
 
 ### Relationship Tree donors
 
@@ -167,13 +180,40 @@ Keep as specialist donor work. Future extraction must converge with shared ADDON
 
 #41, #44/#85 and #27 remain separate native lines. Do not integrate Android source into #90 foundation. A separate native-line audit must choose the canonical Android lineage before consolidation.
 
+## Phase 13 Object Card v1 foundation
+
+Authority inside #90:
+
+`docs/NEXUS_PHASE_13_OBJECT_CARD_V1_FOUNDATION.md`
+
+Implementation:
+
+- new `src/data/schemas/objectCard.schema.ts`;
+- `NexusObjectType` extended with `Product` and `Component`;
+- new Object Card profile taxonomy;
+- shared ten-section card model;
+- Door / InstallationObject resolve to Component profile;
+- Person and Company resolve to dedicated card surfaces, not generic Object Card;
+- Object Card descriptor is a lightweight Project Memory projection and does not duplicate status/evidence/lifecycle/decision/audit state;
+- new schema exported from `src/data/index.ts`.
+
+Core rule:
+
+`Object Card = Project Memory projection`
+
+not a parallel data store.
+
+Focused strict TypeScript compile against the new contract and required base types passed. This is not a full repository build.
+
+No Object Card UI was added to #90 and no Spark files in #91 were changed.
+
 ## Spark / checkpoint correction
 
-An earlier Phase 11 observation said there was no Spark branch. That statement is now stale: PR #91 exists and is stacked on #90.
+An earlier Phase 11 observation said there was no Spark branch. That statement is stale: PR #91 exists.
 
-However, PR #91's existence is not automatically equivalent to proof that the historical Joanna Thin Spark Core Smoke Test / founder checkpoint described by old Project Control was formally completed.
+However, #91 is now explicitly protected from this foundation track. Do not use historical gate cleanup as a reason to alter #91.
 
-Before releasing PKG-004 or PKG-005 product code solely on that historical gate, reconcile the gate against current founder direction and current GitHub state.
+Before releasing PKG-004 or PKG-005 product code solely on historical gate wording, reconcile the gate against current founder direction and current GitHub state.
 
 ## e-SAFE foundation fixture authority
 
@@ -188,39 +228,38 @@ Important distinction:
 - Nexus supports future projects dynamically.
 - #90 fixture/testing data remains e-SAFE-only.
 - the public Relationship Tree may visibly expose legacy project choices such as Riverside; that does not make them #90 Project Memory fixtures.
-- PR #91 intentionally has its own isolated synthetic Residential Building Project World as a separate stacked demonstrator, not as a #90 fixture mutation.
+- #91 has its own isolated Spark demo world and must not be folded into #90 fixtures from this track.
 
 ## Current technical boundary
 
 Do not touch from PR #90 foundation work unless explicitly changing scope:
 
+- PR #91 Spark runtime/card/demo files;
 - `NOSMO-website` live Relationship Tree;
 - stable Person Card;
 - Android/APK / Work Mode runtime;
 - BIM runtime;
 - DoorFlow / Fire Door Register runtime;
-- unrelated Spark runtime files in PR #91;
 - existing Work Wallet/auth/runtime branches except during an explicit reconciliation task;
 - competing top shell/workbench experiments.
 
 ## Correct next controlled sequence
 
-1. Re-check PR #90 and PR #91 current heads.
-2. Reconcile historical Spark/founder gate language with the now-current #91 track and founder direction.
-3. Keep #90 as the common foundation and #91 as a separate stacked demonstrator.
-4. Align shared Object Card v1 contract using ADDON_038 / architecture PR #21 and #91 reference behavior.
-5. If PKG-004 is explicitly released, add only the narrow connector foundation: capability truth, honest fixtures, invariants and storage-reference semantics.
-6. If PKG-005 is explicitly released, add readiness data contracts, Project Memory arrays, invariants and e-SAFE fixtures without UI.
-7. Reconcile identity/auth/runtime from #54-#61 with #90 access contracts; do not duplicate it.
-8. Reconcile Work Wallet context from #18/#52/#63 with PKG-004.
-9. Reconcile Cloud contracts from #66-#77 plus strict routing behavior from #73, generalized for dynamic Project Worlds.
-10. Migrate Relationship Tree behavior deliberately from #15/#45/#86 into source-native #90 architecture.
-11. Port BIM/IFC/WorkSuite specialist capabilities later in modular slices.
-12. Audit Android native lines separately.
-13. Never bulk-merge old stacks simply because historical CI was green.
+1. Re-check PR #90 current head before every write.
+2. Keep PR #91 frozen from this foundation track.
+3. Use Phase 13 Object Card v1 as the shared project-object/card contract; do not create another card model.
+4. Reconcile identity/auth/runtime from #54-#61 with #90 access/Person contracts without duplicating the runtime.
+5. Reconcile Work Wallet context from #18/#52/#63 with PKG-004 when the package gate permits implementation.
+6. Reconcile Cloud contracts from #66-#77 plus strict routing behavior from #73, generalized for dynamic Project Worlds.
+7. If PKG-004 is explicitly released, add only the narrow connector foundation: capability truth, honest fixtures, invariants and storage-reference semantics.
+8. If PKG-005 is explicitly released, add readiness data contracts, Project Memory arrays, invariants and e-SAFE fixtures without UI.
+9. Migrate Relationship Tree behavior deliberately from #15/#45/#86 into source-native #90 architecture.
+10. Port BIM/IFC/WorkSuite specialist capabilities later in modular slices that use Object Card v1.
+11. Audit Android native lines separately.
+12. Never bulk-merge old stacks simply because historical CI was green.
 
 ## Core rule
 
 Nexus is a continuously updated Project Memory and Relationship Graph, not a collection of accumulated PR branches.
 
-Every historical branch is subordinate to the current object identity, provenance, access, temporal, connector and audit contracts when it is eventually ported.
+Every historical branch is subordinate to the current object identity, provenance, access, temporal, connector, audit and Object Card projection contracts when it is eventually ported.
