@@ -41,8 +41,7 @@
   background: #07100e;
 }
 .spark-brand { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.spark-brand span { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #41665a; border-radius: 5px; color: var(--spark-accent); font-weight: 900; }
-.spark-brand strong { letter-spacing: .15em; font-size: 12px; }
+.spark-brand img { display: block; width: auto; height: 36px; object-fit: contain; }
 .spark-tabs { display: flex; align-items: stretch; height: 100%; }
 .spark-tabs button { border: 0; border-left: 1px solid transparent; border-right: 1px solid transparent; background: transparent; color: var(--spark-muted); padding: 0 13px; cursor: pointer; }
 .spark-tabs button.active { color: var(--spark-text); background: #0d1916; border-color: var(--spark-line); }
@@ -173,7 +172,7 @@
 @media (max-width: 720px) {
   .spark-workbench { font-size: 13px; }
   .spark-topbar { height: 48px; gap: 8px; padding: 0 9px; }
-  .spark-brand strong { font-size: 11px; }
+  .spark-brand img { height: 32px; }
   .spark-tabs button { padding: 0 8px; font-size: 10px; }
   .spark-truth-inline { display: none; }
   .spark-contextbar { padding: 7px 9px; }
