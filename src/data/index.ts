@@ -17,6 +17,7 @@ export * from './schemas/temporal.schema';
 export * from './projectMemory';
 export * from './projectMemoryActions';
 export * from './projectMemoryInvariants';
+export * from './projectMemoryStorageInvariants';
 export * from './demo/esafeCataniaFixtures';
 export * from './demo/esafeCataniaPhase9Fixtures';
 export * from './demo/esafeCataniaMemory';
