@@ -10,6 +10,7 @@ export * from './storage/cloudRouting';
 export * from './storage/cloudAssetContract';
 export * from './storage/cloudPersistenceContract';
 export * from './storage/cloudProviderAdapterContract';
+export * from './storage/cloudProjectMemoryCommit';
 
 import { nexusShellCore } from './shell/shellContract';
 import { nexusGraphCore } from './graph/graphContract';
