@@ -8,6 +8,7 @@ export * from './permissions/runtimeIdentityContract';
 export * from './storage/storageContract';
 export * from './storage/cloudRouting';
 export * from './storage/cloudAssetContract';
+export * from './storage/cloudPersistenceContract';
 
 import { nexusShellCore } from './shell/shellContract';
 import { nexusGraphCore } from './graph/graphContract';
