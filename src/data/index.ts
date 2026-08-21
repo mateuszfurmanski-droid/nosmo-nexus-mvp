@@ -7,6 +7,7 @@ export * from './schemas/task.schema';
 export * from './schemas/timeline.schema';
 export * from './schemas/graph.schema';
 export * from './schemas/canonicalObject.schema';
+export * from './schemas/objectCard.schema';
 export * from './schemas/externalReference.schema';
 export * from './schemas/audit.schema';
 export * from './schemas/connector.schema';
