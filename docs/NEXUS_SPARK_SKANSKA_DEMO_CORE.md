@@ -11,6 +11,8 @@ This is a narrow technical demonstrator for the Spark 4.0 / SKANSKA Residential 
 
 It does not present the full NOSMO Nexus platform as complete.
 
+The current demo is **pre-grant proof of capability**. The proposed Spark-funded product is the bounded **NOSMO Nexus Circular Asset & Material Layer** defined in `docs/NEXUS_SPARK_FUNDED_SCOPE.md`. Spark is intended to finance production-testable Project Memory persistence, Object Card v1, recipient-data ingestion, evidence/lifecycle/provenance, circular decisions, environmental reporting, security/access and recipient validation — not the full Nexus roadmap.
+
 ## Runtime route
 
 `/spark-skanska-demo`
