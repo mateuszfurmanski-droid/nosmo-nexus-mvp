@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   demoAssets,
   demoProject,
@@ -18,6 +18,18 @@ const circularStatuses: CircularStatus[] = [
   "UNKNOWN",
 ];
 
+const decisionStorageKey = "nosmo.spark.demo.circular-decisions.v1";
+
+type DecisionAuditEntry = {
+  id: string;
+  assetId: string;
+  at: string;
+  actor: string;
+  previousStatus: CircularStatus;
+  status: CircularStatus;
+  rationale: string;
+};
+
 const statusClass: Record<CircularStatus, string> = {
   "IN USE": "spark-status-in-use",
   REUSABLE: "spark-status-reusable",
@@ -26,6 +38,23 @@ const statusClass: Record<CircularStatus, string> = {
   WASTE: "spark-status-waste",
   UNKNOWN: "spark-status-unknown",
 };
+
+function loadDecisionAudit(): DecisionAuditEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(decisionStorageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as DecisionAuditEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function formatAuditTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
 
 function StatusBadge({ value }: { value: CircularStatus }) {
   return <span className={`spark-badge ${statusClass[value]}`}>{value}</span>;
@@ -51,7 +80,21 @@ export default function SparkSkanskaDemo() {
   const [statusFilter, setStatusFilter] = useState("");
   const [provenanceFilter, setProvenanceFilter] = useState("");
   const [query, setQuery] = useState("");
-  const [decisionOverrides, setDecisionOverrides] = useState<Record<string, CircularStatus>>({});
+  const [decisionAudit, setDecisionAudit] = useState<DecisionAuditEntry[]>(loadDecisionAudit);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(decisionStorageKey, JSON.stringify(decisionAudit));
+    } catch {
+      // Browser storage is best-effort only. The demo must remain usable without it.
+    }
+  }, [decisionAudit]);
+
+  const decisionOverrides = useMemo(() => {
+    const result: Record<string, CircularStatus> = {};
+    for (const entry of decisionAudit) result[entry.assetId] = entry.status;
+    return result;
+  }, [decisionAudit]);
 
   const assets = useMemo(
     () =>
@@ -92,8 +135,19 @@ export default function SparkSkanskaDemo() {
 
   const zoneName = (asset: DemoAsset) => demoZones.find((zone) => zone.id === asset.zoneId)?.name ?? "Unknown area";
 
-  const recordHumanDecision = (assetId: string, status: CircularStatus) => {
-    setDecisionOverrides((current) => ({ ...current, [assetId]: status }));
+  const recordHumanDecision = (assetId: string, status: CircularStatus, rationale: string, actor: string) => {
+    const currentAsset = assets.find((asset) => asset.id === assetId);
+    if (!currentAsset || currentAsset.circularStatus === status || !rationale.trim() || !actor.trim()) return;
+    const entry: DecisionAuditEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      assetId,
+      at: new Date().toISOString(),
+      actor: actor.trim(),
+      previousStatus: currentAsset.circularStatus,
+      status,
+      rationale: rationale.trim(),
+    };
+    setDecisionAudit((current) => [...current, entry]);
   };
 
   return (
@@ -118,6 +172,7 @@ export default function SparkSkanskaDemo() {
         <Metric value={recoveryRecords} label="recover / recycle" />
         <Metric value={completeProvenance} label="known provenance" />
         <Metric value={highAttention} label="high attention" />
+        <Metric value={decisionAudit.length} label="human decisions" />
       </section>
 
       {view === "project" ? (
@@ -142,7 +197,7 @@ export default function SparkSkanskaDemo() {
               <div><dt>Source truth</dt><dd>DERIVED / UNKNOWN</dd></div>
               <div><dt>CO₂ data</dt><dd>UNKNOWN</dd></div>
               <div><dt>Maintenance</dt><dd>rule-based</dd></div>
-              <div><dt>Human decision</dt><dd>authoritative</dd></div>
+              <div><dt>Decision storage</dt><dd>browser-local demo</dd></div>
             </dl>
           </aside>
 
@@ -201,10 +256,10 @@ export default function SparkSkanskaDemo() {
             {selectedAsset ? (
               <AssetDetail
                 asset={selectedAsset}
-                changed={decisionOverrides[selectedAsset.id] !== undefined}
                 zoneName={zoneName(selectedAsset)}
+                auditEntries={decisionAudit.filter((entry) => entry.assetId === selectedAsset.id)}
                 onClose={() => setSelectedAssetId(null)}
-                onDecision={(status) => recordHumanDecision(selectedAsset.id, status)}
+                onDecision={(status, rationale, actor) => recordHumanDecision(selectedAsset.id, status, rationale, actor)}
               />
             ) : (
               <div className="spark-detail-empty">Select a row to inspect source document, evidence, lifecycle, maintenance history and circular decision.</div>
@@ -212,7 +267,7 @@ export default function SparkSkanskaDemo() {
           </aside>
         </section>
       ) : (
-        <EnvironmentalPanel assets={assets} />
+        <EnvironmentalPanel assets={assets} auditEntries={decisionAudit} />
       )}
     </div>
   );
@@ -220,17 +275,34 @@ export default function SparkSkanskaDemo() {
 
 function AssetDetail({
   asset,
-  changed,
   zoneName,
+  auditEntries,
   onClose,
   onDecision,
 }: {
   asset: DemoAsset;
-  changed: boolean;
   zoneName: string;
+  auditEntries: DecisionAuditEntry[];
   onClose: () => void;
-  onDecision: (status: CircularStatus) => void;
+  onDecision: (status: CircularStatus, rationale: string, actor: string) => void;
 }) {
+  const [targetStatus, setTargetStatus] = useState<CircularStatus>(asset.circularStatus);
+  const [rationale, setRationale] = useState("");
+  const [actor, setActor] = useState("Demo operator");
+
+  useEffect(() => {
+    setTargetStatus(asset.circularStatus);
+    setRationale("");
+  }, [asset.id, asset.circularStatus]);
+
+  const canSave = targetStatus !== asset.circularStatus && rationale.trim().length >= 3 && actor.trim().length >= 2;
+
+  const saveDecision = () => {
+    if (!canSave) return;
+    onDecision(targetStatus, rationale, actor);
+    setRationale("");
+  };
+
   return (
     <>
       <button className="spark-detail-close" onClick={onClose} aria-label="Close asset detail">×</button>
@@ -280,17 +352,45 @@ function AssetDetail({
             : <div className="spark-line-item"><span>No maintenance event recorded.</span></div>}
         </DetailSection>
 
-        <DetailSection title="Circular decision">
+        <DetailSection title="Human circular decision">
           <div className="spark-line-item">
-            <strong>{changed ? "Human session decision" : "Baseline demo record"}: {asset.circularStatus}</strong>
-            <span>{changed ? "Status changed by a user in this demo session. The baseline narrative below remains historical context." : asset.circularDecision}</span>
+            <strong>Current status: {asset.circularStatus}</strong>
+            <span>{auditEntries.length > 0 ? "Current value is derived from the latest locally recorded human demo decision." : asset.circularDecision}</span>
           </div>
-          <div className="spark-line-item"><strong>Decision basis</strong><span>{changed ? "Manual demo-session decision; not persisted as a real project record." : asset.circularDecisionBasis}</span></div>
-          <div className="spark-decision-controls">
-            {circularStatuses.map((status) => (
-              <button key={status} className={asset.circularStatus === status ? "active" : ""} onClick={() => onDecision(status)}>{status}</button>
-            ))}
+          <div className="spark-decision-form">
+            <label>Target circular status</label>
+            <div className="spark-decision-controls">
+              {circularStatuses.map((status) => (
+                <button key={status} className={targetStatus === status ? "active" : ""} onClick={() => setTargetStatus(status)}>{status}</button>
+              ))}
+            </div>
+            <label htmlFor={`actor-${asset.id}`}>Decision by</label>
+            <input id={`actor-${asset.id}`} value={actor} onChange={(event) => setActor(event.target.value)} />
+            <label htmlFor={`rationale-${asset.id}`}>Decision rationale</label>
+            <textarea
+              id={`rationale-${asset.id}`}
+              rows={3}
+              placeholder="Why is this circular route defensible?"
+              value={rationale}
+              onChange={(event) => setRationale(event.target.value)}
+            />
+            <button className="spark-save-decision" disabled={!canSave} onClick={saveDecision}>Save human decision</button>
+            <small>Demo-only persistence: creates a browser-local audit event. It is not a backend Project Memory write.</small>
           </div>
+        </DetailSection>
+
+        <DetailSection title={`Decision audit trail (${auditEntries.length})`}>
+          {auditEntries.length === 0 ? (
+            <div className="spark-line-item"><span>No human demo decision has been recorded for this asset yet.</span></div>
+          ) : (
+            [...auditEntries].reverse().map((entry) => (
+              <div className="spark-audit-entry" key={entry.id}>
+                <strong>{entry.previousStatus} → {entry.status}</strong>
+                <span>{entry.rationale}</span>
+                <small>{entry.actor} · {formatAuditTime(entry.at)} · browser-local demo audit</small>
+              </div>
+            ))
+          )}
         </DetailSection>
 
         <div className="spark-warning">No real SKANSKA project data is loaded. No kgCO₂e saving is shown without verified quantity, EPD/carbon factor and source provenance.</div>
@@ -303,16 +403,18 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   return <section className="spark-detail-section"><h3>{title}</h3>{children}</section>;
 }
 
-function EnvironmentalPanel({ assets }: { assets: DemoAsset[] }) {
+function EnvironmentalPanel({ assets, auditEntries }: { assets: DemoAsset[]; auditEntries: DecisionAuditEntry[] }) {
   const rowsStatus = circularStatuses.map((status) => ({ status, count: assets.filter((asset) => asset.circularStatus === status).length }));
   const derived = assets.filter((asset) => asset.provenance === "DERIVED").length;
   const unknown = assets.filter((asset) => asset.provenance === "UNKNOWN").length;
+  const changedAssets = new Set(auditEntries.map((entry) => entry.assetId)).size;
+  const latestAudit = [...auditEntries].reverse().slice(0, 5);
 
   return (
     <main className="spark-environment">
       <section>
         <h2>Circular status</h2>
-        {rowsStatus.map(({ status, count }) => <ReportRow key={status} label={status} value={count} note="Current Project World records" />)}
+        {rowsStatus.map(({ status, count }) => <ReportRow key={status} label={status} value={count} note="Current Project World records; human demo decisions included" />)}
       </section>
       <section>
         <h2>Provenance</h2>
@@ -336,6 +438,28 @@ function EnvironmentalPanel({ assets }: { assets: DemoAsset[] }) {
             note={level === "HIGH" ? "Recurring or unresolved issue evidence" : level === "MEDIUM" ? "Review trigger or source gap" : "No current rule-based trigger"}
           />
         ))}
+      </section>
+      <section className="spark-environment-audit">
+        <h2>Human decision audit</h2>
+        <ReportRow label="Audit events" value={auditEntries.length} note="Browser-local demo decisions" />
+        <ReportRow label="Assets changed" value={changedAssets} note="Unique records with a human demo decision" />
+        {latestAudit.length === 0 ? (
+          <div className="spark-audit-empty">No human demo decisions recorded yet. Open an asset, choose a new circular status, add a rationale and save.</div>
+        ) : (
+          <div className="spark-environment-audit-list">
+            {latestAudit.map((entry) => {
+              const asset = assets.find((item) => item.id === entry.assetId);
+              return (
+                <div className="spark-audit-entry" key={entry.id}>
+                  <strong>{asset?.shortName ?? entry.assetId}: {entry.previousStatus} → {entry.status}</strong>
+                  <span>{entry.rationale}</span>
+                  <small>{entry.actor} · {formatAuditTime(entry.at)}</small>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="spark-storage-note">Audit persistence is local to this browser only. It demonstrates the interaction and reporting loop without claiming a live Project Memory backend write.</div>
       </section>
     </main>
   );
