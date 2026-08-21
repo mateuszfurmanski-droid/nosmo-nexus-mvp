@@ -20,6 +20,8 @@ This prevents a card, graph, timeline and backend from developing conflicting co
 
 PR #91 is the Spark / SKANSKA demonstrator and is intentionally frozen from this foundation task.
 
+The current Spark Asset / Material card is accepted as-is for the Spark demo. It must not be changed from PR #90 foundation work merely to make the codebase look more uniform.
+
 Phase 13 does not:
 
 - modify PR #91;
