@@ -22,6 +22,8 @@ export type NexusObjectType =
   | 'Floor'
   | 'Door'
   | 'Asset'
+  | 'Product'
+  | 'Component'
   | 'Equipment'
   | 'Material'
   | 'WorkPackage'
