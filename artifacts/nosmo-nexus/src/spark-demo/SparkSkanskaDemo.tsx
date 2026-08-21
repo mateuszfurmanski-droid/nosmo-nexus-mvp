@@ -269,7 +269,7 @@ export default function SparkSkanskaDemo() {
       <header className="spark-topbar">
         <div className="spark-brand">
           <img
-            src="https://raw.githubusercontent.com/mateuszfurmanski-droid/NOSMO-website/main/assets/NEXUS_Logo.png"
+            src="https://nosmotechnology.co.uk/assets/NEXUS_Logo.png"
             alt="NEXUS"
           />
         </div>
