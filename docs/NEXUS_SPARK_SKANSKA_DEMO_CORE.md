@@ -21,6 +21,21 @@ The route intentionally runs outside the legacy Nexus `AppLayout` so the Spark d
 
 `Project World -> asset/material -> source + evidence -> lifecycle -> maintenance -> circular status -> environmental reporting -> human decision`
 
+## Functional UI direction
+
+The Spark demonstrator is also the current UI reference for a more functional Nexus workbench direction:
+
+- information density before decoration;
+- register/table views before large visual cards;
+- compact project structure navigation;
+- visible IDs, locations, status, provenance, attention and source references in the primary working view;
+- detail panels for evidence, lifecycle, maintenance and decisions;
+- restrained colour used as state signalling rather than decoration;
+- minimal gradients, oversized tiles, ornamental graph nodes or game-like presentation;
+- mobile remains data-dense and operational, using horizontal register scrolling and a full-screen detail panel where required.
+
+This direction is a product/UI principle for future Nexus shell work. It does **not** modify or release the PR #90 founder-gated foundation scope.
+
 ## Included
 
 - one synthetic residential Project World;
@@ -65,6 +80,7 @@ The demo is acceptable when:
 - the route builds in the existing `@workspace/nosmo-nexus` Vite app;
 - it can be opened directly without navigating through incomplete Nexus screens;
 - desktop and mobile layouts remain usable;
+- the primary Project view is a functional asset/material register rather than a decorative dashboard;
 - every asset can open a detail panel;
 - environmental counts derive from the current demo records;
 - a human can change a circular status in-session;
