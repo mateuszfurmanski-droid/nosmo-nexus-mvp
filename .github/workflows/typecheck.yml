@@ -56,6 +56,9 @@ jobs:
       - name: Validate Work Wallet DB target preflight guard
         run: pnpm --filter @workspace/db test:nexus-work-wallet-db-preflight
 
+      - name: Audit Work Wallet DB schema invariants
+        run: pnpm --filter @workspace/db audit:nexus-work-wallet-schema
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
