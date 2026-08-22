@@ -7,6 +7,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { workspacesTable } from "./workspaces";
+import { nexusPmPeopleTable } from "./nexusProjectMemoryIdentity";
 
 /**
  * Indexed persistence for the canonical #90 ProjectParticipation record.
@@ -20,7 +21,9 @@ export const nexusPmProjectParticipationsTable = pgTable(
     workspaceId: integer("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
-    canonicalPersonId: varchar("canonical_person_id", { length: 128 }).notNull(),
+    canonicalPersonId: varchar("person_id", { length: 128 })
+      .notNull()
+      .references(() => nexusPmPeopleTable.personId, { onDelete: "restrict" }),
     projectId: varchar("project_id", { length: 128 }).notNull(),
     worldId: varchar("world_id", { length: 128 }).notNull(),
     participationStatus: varchar("participation_status", { length: 32 }).notNull(),
