@@ -6,7 +6,7 @@ import {
   type ConsumedNexusContextTicket,
   type IssueNexusContextTicketInput,
   type IssuedNexusContextTicket,
-} from "./nexus-context-ticket";
+} from "./nexus-context-ticket-core";
 import {
   buildVerifiedContextFromEligibleScope,
   evaluateLoadedWorkWalletScope,
