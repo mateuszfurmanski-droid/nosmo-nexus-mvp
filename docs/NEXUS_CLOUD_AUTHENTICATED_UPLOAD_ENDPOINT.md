@@ -14,17 +14,9 @@ No PR #91 / Spark Demo surface is changed.
 
 ## Endpoints and provenance
 
-File Loader:
+File Loader: `POST /api/nexus/cloud/files` -> server-owned `sourceModule=file-loader`.
 
-`POST /api/nexus/cloud/files`
-
-Server-owned provenance: `file-loader`.
-
-Android Work Mode:
-
-`POST /api/nexus/cloud/android/files`
-
-Server-owned provenance: `android-work-mode`.
+Android Work Mode: `POST /api/nexus/cloud/android/files` -> server-owned `sourceModule=android-work-mode`.
 
 Both routes use one shared handler. The client cannot submit or override `sourceModule` in body or headers.
 
@@ -34,33 +26,7 @@ Successful canonical commit responses echo the server-selected `sourceModule`. A
 
 ## Authority path
 
-`mutation origin/Bearer gate`
-
--> authenticated session/workspace
-
--> exact provider-subject -> canonical Person binding
-
--> exact ProjectParticipation + PermissionGrant
-
--> explicit `cloud.file.write`
-
--> server-owned source provenance
-
--> semantic Project/ProjectWorld routing
-
--> server-only provider mapping
-
--> Phase 17 provider write plan
-
--> existing PR #93 Drive writer
-
--> provider receipt
-
--> Phase 16 persistence proposal
-
--> PR #97 DB input bridge
-
--> Phase 19 PostgreSQL transaction.
+`mutation origin/Bearer gate -> authenticated session/workspace -> exact provider-subject to canonical Person binding -> exact ProjectParticipation + PermissionGrant -> explicit cloud.file.write -> server-owned source provenance -> semantic Project/ProjectWorld routing -> server-only provider mapping -> Phase 17 provider plan -> existing PR #93 Drive writer -> provider receipt -> Phase 16 persistence proposal -> PR #97 DB input -> Phase 19 PostgreSQL transaction`
 
 Participation alone grants nothing and explicit deny wins.
 
@@ -68,7 +34,7 @@ Participation alone grants nothing and explicit deny wins.
 
 `NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON` remains server-only. It maps exact Project World semantic targets to provider folder IDs and references a `NEXUS_SECRET_*` secret; OAuth credential values are not client-visible.
 
-A mapping is not LIVE merely because it exists. `writeEnabled: true`, a valid operator `verifiedAt`, actual OAuth success and provider target verification are still required.
+A mapping is not LIVE merely because it exists. `writeEnabled: true`, valid operator `verifiedAt`, actual OAuth success and provider target verification are still required.
 
 The API server does not add a second Drive writer for Android. Both routes delegate to `scripts/src/nexus-cloud-google-drive-adapter.mjs`.
 
