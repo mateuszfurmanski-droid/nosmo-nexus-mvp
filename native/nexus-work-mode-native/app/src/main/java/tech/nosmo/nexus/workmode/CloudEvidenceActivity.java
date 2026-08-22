@@ -99,14 +99,7 @@ public final class CloudEvidenceActivity extends Activity {
             return;
         }
 
-        takePersistableReadPermission(newUri, data.getFlags());
-        if (!canReadLocalEvidence(newUri)) {
-            markEvidenceReselectionRequired(candidateId);
-            Toast.makeText(this, "The selected evidence cannot be read; choose the original evidence again", Toast.LENGTH_LONG).show();
-            render();
-            return;
-        }
-
+        boolean newGrantRetained = false;
         try {
             JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
             JSONObject item = findItem(queue, candidateId);
@@ -123,6 +116,12 @@ public final class CloudEvidenceActivity extends Activity {
             }
 
             String source = safe(item.optString("source", ""));
+            if (!isRawEvidenceSource(source)) {
+                Toast.makeText(this, "Only PHOTO/DOCUMENT evidence can be reselected here", Toast.LENGTH_LONG).show();
+                render();
+                return;
+            }
+
             String mimeType = safe(getContentResolver().getType(newUri));
             if ("PHOTO".equals(source) && !mimeType.startsWith("image/")) {
                 markEvidenceReselectionRequired(candidateId);
@@ -130,11 +129,17 @@ public final class CloudEvidenceActivity extends Activity {
                 render();
                 return;
             }
-            if (!isRawEvidenceSource(source)) {
-                Toast.makeText(this, "Only PHOTO/DOCUMENT evidence can be reselected here", Toast.LENGTH_LONG).show();
+
+            // The picker result carries temporary read access. Validate the exact URI first;
+            // only then retain a persistable grant so rejected selections do not leak access.
+            if (!canReadLocalEvidence(newUri)) {
+                markEvidenceReselectionRequired(candidateId);
+                Toast.makeText(this, "The selected evidence cannot be read; choose the original evidence again", Toast.LENGTH_LONG).show();
                 render();
                 return;
             }
+
+            newGrantRetained = takePersistableReadPermission(newUri, data.getFlags());
 
             String oldReference = safe(item.optString("localReference", ""));
             item.put("localReference", newUri.toString());
@@ -154,6 +159,7 @@ public final class CloudEvidenceActivity extends Activity {
                     Toast.LENGTH_LONG
             ).show();
         } catch (Exception ignored) {
+            if (newGrantRetained) releaseExactPersistedReadPermission(newUri);
             markEvidenceReselectionRequired(candidateId);
             Toast.makeText(this, "Could not persist the reselected local evidence", Toast.LENGTH_LONG).show();
         }
@@ -482,13 +488,32 @@ public final class CloudEvidenceActivity extends Activity {
         }
     }
 
-    private void takePersistableReadPermission(Uri uri, int returnedFlags) {
-        if ((returnedFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) == 0) return;
+    private boolean takePersistableReadPermission(Uri uri, int returnedFlags) {
+        if ((returnedFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) == 0) return false;
         try {
             getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            return true;
         } catch (Exception ignored) {
             // Some providers grant only temporary read access. The next preflight will fail
             // closed into RESELECTION_REQUIRED if that access later disappears.
+            return false;
+        }
+    }
+
+    private void releaseExactPersistedReadPermission(Uri uri) {
+        if (uri == null || !"content".equals(uri.getScheme())) return;
+        try {
+            for (android.content.UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
+                if (permission.isReadPermission() && uri.equals(permission.getUri())) {
+                    getContentResolver().releasePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                    return;
+                }
+            }
+        } catch (Exception ignored) {
+            // Best-effort cleanup for a rejected/uncommitted reselection only.
         }
     }
 
@@ -506,16 +531,7 @@ public final class CloudEvidenceActivity extends Activity {
                 if (oldReference.equals(safe(other.optString("localReference", "")))) return;
             }
 
-            Uri oldUri = Uri.parse(oldReference);
-            for (android.content.UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
-                if (permission.isReadPermission() && oldUri.equals(permission.getUri())) {
-                    getContentResolver().releasePersistableUriPermission(
-                            oldUri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    );
-                    return;
-                }
-            }
+            releaseExactPersistedReadPermission(Uri.parse(oldReference));
         } catch (Exception ignored) {
             // Best-effort cleanup only. Never revoke unrelated grants or mutate Nexus/Cloud.
         }
