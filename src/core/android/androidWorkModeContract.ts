@@ -75,6 +75,25 @@ export interface NexusAndroidWorkModeContextEnvelope {
   handoffState: 'PENDING_SERVER_CONFIRMATION';
 }
 
+/**
+ * Server acknowledgement used only to reconcile the device-local queue after the
+ * authenticated Nexus boundary has processed the bounded context.
+ *
+ * `receiptId` is correlation evidence, not an auth token, permission grant, Person ID,
+ * Project Participation record or Action Engine approval. A FAILED_RETRYABLE receipt
+ * never marks an item uploaded/synced. The native callback must only update candidates
+ * that were already PENDING_SERVER_CONFIRMATION for the exact Project World.
+ */
+export interface NexusAndroidWorkModeHandoffReceipt {
+  schema: 'nexus-android-work-mode-handoff-receipt/v1';
+  receiptId?: string;
+  projectId: NexusId;
+  worldId: NexusId;
+  selectedItemIds: string[];
+  status: 'HANDED_OFF' | 'FAILED_RETRYABLE';
+  issuedAt: string;
+}
+
 export type NexusAndroidWorkModeContextValidationReason =
   | 'VALID'
   | 'PROJECT_WORLD_REQUIRED'
