@@ -9,6 +9,7 @@
     "work-wallet-gateway": "tsx ./src/work-wallet-gateway.ts",
     "smoke:nexus-cloud-google-drive-adapter": "node ./src/smoke/nexus-cloud-google-drive-adapter.mjs",
     "smoke:nexus-cloud-google-drive-live": "node ./src/smoke/nexus-cloud-google-drive-live.mjs",
+    "smoke:nexus-cloud-access-resolver": "tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --types node ../src/core/permissions/canonicalAccessResolver.ts ../src/core/permissions/canonicalAccessResolverSmoke.ts ../src/core/storage/cloudAccessResolution.ts && tsx ../src/core/permissions/canonicalAccessResolverSmoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
