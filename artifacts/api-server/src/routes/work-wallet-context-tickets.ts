@@ -1,5 +1,11 @@
 import crypto from "node:crypto";
-import { Router, type IRouter, type Request, type Response } from "express";
+import {
+  Router,
+  type IRouter,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import {
   loadNexusWorkWalletProjectMemoryScope,
   NexusWorkWalletProjectMemoryStoreUnavailableError,
@@ -72,7 +78,7 @@ function parseIssueBody(value: unknown): IssueBody | null {
 function parseExchangeBody(value: unknown): ExchangeBody | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const ticket = (value as Record<string, unknown>).ticket;
-  return typeof ticket === "string" ? { ticket } : null;
+  return safeString(ticket, 64) ? { ticket } : null;
 }
 
 function canonicalAccountMatches(
@@ -118,23 +124,34 @@ function noStore(res: Response): void {
   res.setHeader("Pragma", "no-cache");
 }
 
+function requireContextTicketIssueSameOrigin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  noStore(res);
+  if (!isSameOriginRequest(req)) {
+    res.status(403).json({ error: "CONTEXT_TICKET_SAME_ORIGIN_REQUIRED" });
+    return;
+  }
+  next();
+}
+
 /**
  * Same-origin authenticated issue route.
  *
  * Browser input contains only the exact external locator and connector account.
  * Person, workspace, mapping, participation, grants and AccessDecision are all
- * resolved server-side before a capability is created.
+ * resolved server-side before a capability is created. Same-origin is checked
+ * before workspace resolution so a rejected cross-origin request causes no
+ * workspace/bootstrap side effect.
  */
 router.post(
   "/nexus/context-tickets/work-wallet",
+  requireContextTicketIssueSameOrigin,
   requireWorkspace,
   async (req: Request, res: Response) => {
     noStore(res);
-
-    if (!isSameOriginRequest(req)) {
-      res.status(403).json({ error: "CONTEXT_TICKET_SAME_ORIGIN_REQUIRED" });
-      return;
-    }
 
     const body = parseIssueBody(req.body);
     if (!body) {
