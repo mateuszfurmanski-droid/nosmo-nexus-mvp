@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
     private static final String PREF_WORLD_ID = "worldId";
     private static final String PREF_PROJECT_LABEL = "projectLabel";
     private static final String PREF_PROJECT_RESOLUTION = "projectResolution";
+    private static final String PREF_PENDING_HANDOFF_REQUEST_ID = "pendingHandoffRequestId";
 
     private static final String HANDOFF_SCHEMA = "nexus-android-work-mode-context-v1";
     private static final String AI_CONTEXT_VERSION = "android-work-discovery-v1";
@@ -404,11 +405,14 @@ public class MainActivity extends Activity {
             return;
         }
 
+        if (stateCount(HANDOFF_PENDING) > 0 || !prefs.getString(PREF_PENDING_HANDOFF_REQUEST_ID, "").isEmpty()) {
+            Toast.makeText(this, "Another handoff is already waiting for Nexus confirmation", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         ArrayList<Candidate> approved = handoffEligibleCandidates();
         if (approved.isEmpty()) {
-            if (selectedStateCount(HANDOFF_PENDING) > 0) {
-                Toast.makeText(this, "Selected item is already waiting for Nexus confirmation", Toast.LENGTH_LONG).show();
-            } else if (selectedStateCount(HANDOFF_DONE) > 0) {
+            if (selectedStateCount(HANDOFF_DONE) > 0) {
                 Toast.makeText(this, "Selected item is already handed off. Select a new or retryable item.", Toast.LENGTH_LONG).show();
             } else {
                 Toast.makeText(this, "Select at least one new or retryable candidate", Toast.LENGTH_SHORT).show();
@@ -422,18 +426,24 @@ public class MainActivity extends Activity {
             return;
         }
 
+        String handoffRequestId = UUID.randomUUID().toString();
         for (Candidate candidate : approved) {
             candidate.approvalState = "APPROVED";
             candidate.handoffState = HANDOFF_PENDING;
         }
         persistQueue();
+        prefs.edit().putString(PREF_PENDING_HANDOFF_REQUEST_ID, handoffRequestId).apply();
 
         String userIntent = intentInput == null ? "classify approved context and propose a WorkSuite draft" : intentInput.getText().toString().trim();
         if (userIntent.isEmpty()) userIntent = "classify approved context and propose a WorkSuite draft";
-        openHandoffUrl(buildHandoffUrl(origin, projectId, worldId, approved, userIntent), approved);
+        openHandoffUrl(
+                buildHandoffUrl(origin, projectId, worldId, handoffRequestId, approved, userIntent),
+                handoffRequestId,
+                approved
+        );
     }
 
-    private void openHandoffUrl(String url, ArrayList<Candidate> approved) {
+    private void openHandoffUrl(String url, String handoffRequestId, ArrayList<Candidate> approved) {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (Exception ex) {
@@ -443,6 +453,9 @@ public class MainActivity extends Activity {
                 }
             }
             persistQueue();
+            if (handoffRequestId.equals(prefs.getString(PREF_PENDING_HANDOFF_REQUEST_ID, ""))) {
+                prefs.edit().remove(PREF_PENDING_HANDOFF_REQUEST_ID).apply();
+            }
             Toast.makeText(this, "Could not open Nexus. Items are marked retryable.", Toast.LENGTH_LONG).show();
             showReview();
         }
@@ -455,7 +468,14 @@ public class MainActivity extends Activity {
         return origin;
     }
 
-    private String buildHandoffUrl(String origin, String projectId, String worldId, ArrayList<Candidate> approved, String userIntent) {
+    private String buildHandoffUrl(
+            String origin,
+            String projectId,
+            String worldId,
+            String handoffRequestId,
+            ArrayList<Candidate> approved,
+            String userIntent
+    ) {
         StringBuilder ids = new StringBuilder();
         Set<String> sources = new LinkedHashSet<>();
         for (Candidate candidate : approved) {
@@ -474,6 +494,7 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("handoffSchema", HANDOFF_SCHEMA)
                 .appendQueryParameter("nexusIntent", NEXUS_INTENT)
                 .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
+                .appendQueryParameter("handoffRequestId", handoffRequestId)
                 .appendQueryParameter("projectId", projectId)
                 .appendQueryParameter("worldId", worldId)
                 .appendQueryParameter("projectResolution", "EXACT")
@@ -497,6 +518,14 @@ public class MainActivity extends Activity {
         int count = 0;
         for (Candidate candidate : candidates) {
             if (candidate.selected && state.equals(candidate.handoffState)) count++;
+        }
+        return count;
+    }
+
+    private int stateCount(String state) {
+        int count = 0;
+        for (Candidate candidate : candidates) {
+            if (state.equals(candidate.handoffState)) count++;
         }
         return count;
     }
@@ -581,7 +610,7 @@ public class MainActivity extends Activity {
                 ));
             }
         } catch (Exception ignored) {
-            prefs.edit().remove(PREF_QUEUE).apply();
+            prefs.edit().remove(PREF_QUEUE).remove(PREF_PENDING_HANDOFF_REQUEST_ID).apply();
         }
     }
 
