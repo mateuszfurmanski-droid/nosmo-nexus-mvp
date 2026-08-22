@@ -21,6 +21,7 @@ on:
       - lib/db/src/schema/index.ts
       - lib/db/package.json
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
+      - docs/NEXUS_ANDROID_URI_GRANT_LIFECYCLE.md
       - .github/workflows/android-native-work-mode-e2e.yml
   pull_request:
     branches:
@@ -41,6 +42,7 @@ on:
       - lib/db/src/schema/index.ts
       - lib/db/package.json
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
+      - docs/NEXUS_ANDROID_URI_GRANT_LIFECYCLE.md
       - .github/workflows/android-native-work-mode-e2e.yml
 
 permissions:
@@ -133,6 +135,7 @@ jobs:
           CONTRACT="src/core/android/androidWorkModeContract.ts"
           EVIDENCE="src/core/android/androidEvidenceTransferContract.ts"
           ROUTE="artifacts/api-server/src/routes/nexus-android-work-mode.ts"
+          URI_LIFECYCLE="docs/NEXUS_ANDROID_URI_GRANT_LIFECYCLE.md"
           grep -q "project-esafe-catania" "$MAIN"
           grep -q "world-esafe-catania" "$MAIN"
           grep -q "NEEDS_USER_CONFIRMATION" "$MAIN"
@@ -155,6 +158,14 @@ jobs:
           grep -q "reconcilePendingHandoffState" "$MAIN"
           grep -q "blockProjectWorldChangeWhilePending" "$MAIN"
           grep -q "late callback for the old request will be ignored" "$MAIN"
+          grep -q "requestRemoveLocalCandidate" "$MAIN"
+          grep -q "removeLocalCandidate" "$MAIN"
+          grep -q "hasOtherCandidateWithSameReference" "$MAIN"
+          grep -q "getPersistedUriPermissions" "$MAIN"
+          grep -q "releasePersistableUriPermission" "$MAIN"
+          grep -q "Pending handoff items cannot be removed locally" "$MAIN"
+          grep -q "Nexus/Cloud records were not deleted" "$MAIN"
+          grep -q "does not automatically release picker access" "$URI_LIFECYCLE"
           grep -q "nexus-android-work-mode-context-v1" "$CONTRACT"
           grep -q "nexus-android-work-mode-handoff-receipt/v1" "$CONTRACT"
           grep -q "INVALID_HANDOFF_REQUEST_ID" "$CONTRACT"
