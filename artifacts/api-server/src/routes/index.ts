@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
+import nexusSessionRouter from "./nexus-session";
 import projectsRouter from "./projects";
 import tasksRouter from "./tasks";
 import plansRouter from "./plans";
@@ -15,9 +16,11 @@ import { requireWorkspace } from "../middlewares/requireWorkspace";
 
 const router: IRouter = Router();
 
-// Public routes — no authentication required.
+// Public/auth-aware routes. nexus-session is read-only and returns 401 when no
+// authenticated Nexus session exists; it never promotes provider identity to Person.
 router.use(healthRouter);
 router.use(authRouter);
+router.use(nexusSessionRouter);
 // Unauthenticated MVP file storage (upload + auto-processing). Public by design.
 router.use(filesRouter);
 
