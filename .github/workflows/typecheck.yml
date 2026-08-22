@@ -6,6 +6,7 @@ on:
       - main
       - codex/work-wallet-reconcile-slice-k-extension
       - codex/work-wallet-reconcile-slice-l-ticket-core-test
+      - codex/work-wallet-reconcile-slice-m-canonical-pipeline-test
   pull_request:
   workflow_dispatch:
 
@@ -44,6 +45,9 @@ jobs:
 
       - name: Validate Work Wallet Context Ticket core
         run: pnpm --filter @workspace/api-server validate:work-wallet-ticket-core
+
+      - name: Validate canonical Work Wallet ticket pipeline
+        run: pnpm --filter @workspace/api-server validate:work-wallet-canonical-pipeline
 
       - name: Typecheck workspace
         run: pnpm run typecheck
