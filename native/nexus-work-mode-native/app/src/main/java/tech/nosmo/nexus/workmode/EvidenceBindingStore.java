@@ -36,6 +36,10 @@ final class EvidenceBindingStore {
         SharedPreferences.Editor editor = prefs(context).edit();
         editor.putString(key(candidateId, "project"), projectId);
         editor.putString(key(candidateId, "world"), worldId);
+        // A fresh metadata receipt starts a fresh local evidence lifecycle even if the
+        // same deterministic candidate ID is later re-created from the same URI.
+        editor.remove(key(candidateId, "cloudFile"));
+        editor.remove(key(candidateId, "driveFile"));
         editor.apply();
     }
 
