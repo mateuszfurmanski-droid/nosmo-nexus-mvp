@@ -77,9 +77,6 @@
     launcher.addEventListener("click", () => panel.classList.add("open"));
     close.addEventListener("click", () => panel.classList.remove("open"));
     options.addEventListener("click", () => chrome.runtime.openOptionsPage());
-    tree.addEventListener("click", () =>
-      window.open(treeUrl(verifiedContext), "_blank", "noopener,noreferrer")
-    );
 
     const render = (nextRecord, nextContext) => {
       record = nextRecord;
