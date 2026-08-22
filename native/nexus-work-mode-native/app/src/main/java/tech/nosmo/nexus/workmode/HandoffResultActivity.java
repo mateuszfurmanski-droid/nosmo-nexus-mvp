@@ -43,6 +43,8 @@ public final class HandoffResultActivity extends Activity {
     private static final String EVIDENCE_STATE_KEY = "evidenceTransferState";
     private static final String EVIDENCE_PENDING_CLOUD = "PENDING_CANONICAL_CLOUD_ENDPOINT";
     private static final String EVIDENCE_NOT_APPLICABLE = "NOT_APPLICABLE";
+    private static final String HANDOFF_PROJECT_KEY = "handoffProjectId";
+    private static final String HANDOFF_WORLD_KEY = "handoffWorldId";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -134,6 +136,12 @@ public final class HandoffResultActivity extends Activity {
                     String source = safe(item.optString("source", ""));
                     if (isRawEvidenceSource(source)) {
                         rawEvidenceItems++;
+                        if (STATUS_HANDED_OFF.equals(status)) {
+                            // Bind evidence to the exact Project World confirmed by the server receipt.
+                            // Later global Project World changes must not retarget these bytes.
+                            item.put(HANDOFF_PROJECT_KEY, projectId);
+                            item.put(HANDOFF_WORLD_KEY, worldId);
+                        }
                         if (safe(item.optString(EVIDENCE_STATE_KEY, "")).isEmpty()) {
                             item.put(EVIDENCE_STATE_KEY, EVIDENCE_PENDING_CLOUD);
                         }
@@ -152,15 +160,17 @@ public final class HandoffResultActivity extends Activity {
             }
             editor.apply();
 
-            String message;
             if (STATUS_HANDED_OFF.equals(status) && rawEvidenceItems > 0) {
-                message = "Nexus confirmed metadata handoff; raw evidence transfer is still pending canonical Cloud";
-            } else if (STATUS_HANDED_OFF.equals(status)) {
-                message = "Nexus confirmed metadata handoff";
-            } else {
-                message = "Handoff needs retry or authority review";
+                openCloudEvidence("Nexus confirmed metadata; raw evidence still requires Cloud commit");
+                return;
             }
-            returnToWorkMode(message, false);
+
+            returnToWorkMode(
+                    STATUS_HANDED_OFF.equals(status)
+                            ? "Nexus confirmed metadata handoff"
+                            : "Handoff needs retry or authority review",
+                    false
+            );
         } catch (Exception ignored) {
             returnToWorkMode("Could not apply Nexus handoff receipt", true);
         }
@@ -194,6 +204,13 @@ public final class HandoffResultActivity extends Activity {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void openCloudEvidence(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        Intent cloud = new Intent(this, CloudEvidenceActivity.class);
+        cloud.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(cloud);
     }
 
     private void returnToWorkMode(String message, boolean longToast) {
