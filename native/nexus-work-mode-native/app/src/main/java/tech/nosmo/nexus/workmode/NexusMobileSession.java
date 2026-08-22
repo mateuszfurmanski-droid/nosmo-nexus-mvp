@@ -30,6 +30,10 @@ final class NexusMobileSession {
         void onComplete(boolean success, String message);
     }
 
+    interface LogoutCallback {
+        void onComplete(boolean success, String message);
+    }
+
     private static final String PREFS = "nexus_work_mode_v060";
     private static final String PREF_AUTH_VERIFIER = "mobileAuthPkceVerifier";
     private static final String PREF_AUTH_STATE = "mobileAuthState";
@@ -203,6 +207,56 @@ final class NexusMobileSession {
                 if (connection != null) connection.disconnect();
             }
         }, "nexus-mobile-token-exchange").start();
+    }
+
+    /**
+     * Revoke the server-side Nexus session before removing the encrypted local copy.
+     * A transport/server failure retains the local token so the UI cannot falsely report
+     * logout while the server session is still valid. 401 is treated as already invalid.
+     */
+    static void logout(Context context, String origin, LogoutCallback callback) {
+        String token = getSessionToken(context);
+        if (token == null) {
+            clearSession(context);
+            callback.onComplete(true, "No active Nexus mobile session");
+            return;
+        }
+
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            try {
+                requireHttpsOrigin(origin);
+                connection = (HttpURLConnection) new URL(origin + "/api/mobile-auth/logout").openConnection();
+                connection.setRequestMethod("POST");
+                connection.setConnectTimeout(15_000);
+                connection.setReadTimeout(20_000);
+                connection.setInstanceFollowRedirects(false);
+                connection.setDoOutput(true);
+                connection.setFixedLengthStreamingMode(0);
+                connection.setRequestProperty("Authorization", "Bearer " + token);
+                connection.setRequestProperty("Accept", "application/json");
+                connection.connect();
+
+                int status = connection.getResponseCode();
+                readBounded(
+                        status >= 200 && status < 400
+                                ? connection.getInputStream()
+                                : connection.getErrorStream(),
+                        32 * 1024
+                );
+
+                if (status == 200 || status == 401) {
+                    clearSession(context);
+                    callback.onComplete(true, "Nexus mobile session signed out");
+                } else {
+                    callback.onComplete(false, "Nexus sign-out was not confirmed (HTTP " + status + ")");
+                }
+            } catch (Exception ignored) {
+                callback.onComplete(false, "Could not confirm Nexus server sign-out; local session retained");
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }, "nexus-mobile-logout").start();
     }
 
     private static void storeSessionToken(Context context, String token) throws Exception {
