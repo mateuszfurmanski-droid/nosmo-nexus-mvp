@@ -58,6 +58,9 @@ jobs:
       - name: Validate authenticated Nexus Cloud upload topology
         run: node scripts/src/validate-nexus-cloud-authenticated-upload.mjs
 
+      - name: Validate durable Nexus Cloud operation ledger topology
+        run: node scripts/src/validate-nexus-cloud-durable-operation-ledger.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
@@ -87,6 +90,9 @@ jobs:
 
       - name: Apply schema to disposable CI PostgreSQL only
         run: pnpm --filter @workspace/db push
+
+      - name: Smoke test durable Cloud write operation ledger
+        run: pnpm --filter @workspace/scripts exec tsx ../lib/db/src/nexusCloudWriteOperationSmoke.ts
 
       - name: Smoke test unified authenticated runtime
         env:

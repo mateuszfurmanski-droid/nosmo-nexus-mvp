@@ -3,6 +3,8 @@ import type { NexusCloudProviderWritePlan } from "../../../../src/core/storage/c
 import type { NexusCloudProviderWriteReceipt } from "../../../../src/core/storage/cloudPersistenceContract";
 import { resolveNexusGoogleDriveWriterModulePath } from "./nexus-runtime-paths";
 
+const GOOGLE_PROVIDER_OPERATION_TIMEOUT_MS = 90_000;
+
 export interface NexusCloudGoogleDriveWriteResult {
   status: "WRITTEN" | "ALREADY_WRITTEN";
   idempotentReplay: boolean;
@@ -17,6 +19,7 @@ type GoogleDriveWriterModule = {
     plan: NexusCloudProviderWritePlan;
     binary: Buffer;
     idempotencyKey: string;
+    fetchImpl?: typeof fetch;
   }) => Promise<NexusCloudGoogleDriveWriteResult>;
 };
 
@@ -38,9 +41,10 @@ async function getGoogleDriveWriterModule(): Promise<GoogleDriveWriterModule> {
 /**
  * Delegate to the single PR #93 Google Drive writer implementation.
  *
- * No provider write logic is copied into the API server. This keeps OAuth,
- * Drive target verification, provider idempotency and multipart Drive creation
- * in one implementation.
+ * No provider write logic is copied into the API server. The whole provider
+ * operation shares one 90-second AbortSignal, so OAuth + target verification +
+ * replay lookup + upload cannot intentionally outlive the 120-second durable
+ * lease. The remaining lease window is reserved for provider receipt persistence.
  */
 export async function writeNexusCloudGoogleDriveRuntime(input: {
   plan: NexusCloudProviderWritePlan;
@@ -48,5 +52,17 @@ export async function writeNexusCloudGoogleDriveRuntime(input: {
   idempotencyKey: string;
 }): Promise<NexusCloudGoogleDriveWriteResult> {
   const writer = await getGoogleDriveWriterModule();
-  return writer.writeNexusCloudFileToGoogleDrive(input);
+  const providerOperationSignal = AbortSignal.timeout(
+    GOOGLE_PROVIDER_OPERATION_TIMEOUT_MS,
+  );
+  const boundedFetch: typeof fetch = (request, init = {}) =>
+    fetch(request, {
+      ...init,
+      signal: init.signal ?? providerOperationSignal,
+    });
+
+  return writer.writeNexusCloudFileToGoogleDrive({
+    ...input,
+    fetchImpl: boundedFetch,
+  });
 }

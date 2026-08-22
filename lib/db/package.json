@@ -9,6 +9,7 @@
     "./nexus-cloud-persistence": "./src/nexusCloudPersistence.ts",
     "./nexus-cloud-persistence-input": "./src/nexusCloudPersistenceInput.ts",
     "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts",
+    "./nexus-cloud-write-operation": "./src/nexusCloudWriteOperation.ts",
     "./nexus-runtime-identity-binding": "./src/nexusRuntimeIdentityBinding.ts",
     "./nexus-project-access-persistence": "./src/nexusProjectAccessPersistence.ts"
   },
