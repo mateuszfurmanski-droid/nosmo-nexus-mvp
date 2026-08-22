@@ -15,6 +15,7 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 type TicketScopeString = string;
 
 export type IssueNexusContextTicketInput = {
+  workspaceId: number;
   personId: TicketScopeString;
   projectId: TicketScopeString;
   worldId: TicketScopeString;
@@ -37,6 +38,7 @@ export type IssuedNexusContextTicket = {
 };
 
 export type ConsumedNexusContextTicket = {
+  workspaceId: number;
   personId: string;
   projectId: string;
   worldId: string;
@@ -86,6 +88,8 @@ export function isValidContextTicketIssueInput(
   input: IssueNexusContextTicketInput,
 ): boolean {
   return (
+    Number.isInteger(input.workspaceId) &&
+    input.workspaceId > 0 &&
     input.adapterId === "work-wallet" &&
     input.sourceApplication === "WORK_WALLET" &&
     isSafeScopeValue(input.personId, 160) &&
@@ -114,9 +118,9 @@ function createOpaqueTicket(): string {
  * canonical #90 Work Wallet ticket-eligibility gate.
  *
  * This function deliberately does not resolve Person, Participation, grants or
- * AccessDecision. Those are canonical Project Memory concerns. The exact IDs of
- * the successful decision are frozen into the capability so exchange can
- * re-check the same scope before context is returned.
+ * AccessDecision. Those are canonical Project Memory concerns. The exact IDs and
+ * workspace of the successful decision are frozen into the capability so exchange
+ * can re-check the same tenant scope before context is returned.
  */
 export async function issueNexusContextTicket(
   input: IssueNexusContextTicketInput,
@@ -133,6 +137,7 @@ export async function issueNexusContextTicket(
       .from(nexusContextTicketsTable)
       .where(
         and(
+          eq(nexusContextTicketsTable.workspaceId, input.workspaceId),
           eq(nexusContextTicketsTable.personId, input.personId),
           eq(nexusContextTicketsTable.projectId, input.projectId),
           gte(nexusContextTicketsTable.issuedAt, windowStart),
@@ -152,6 +157,7 @@ export async function issueNexusContextTicket(
 
     await db.insert(nexusContextTicketsTable).values({
       ticketDigest: sha256(ticket),
+      workspaceId: input.workspaceId,
       personId: input.personId,
       projectId: input.projectId,
       worldId: input.worldId,
@@ -206,6 +212,7 @@ export async function consumeNexusContextTicket(
         ),
       )
       .returning({
+        workspaceId: nexusContextTicketsTable.workspaceId,
         personId: nexusContextTicketsTable.personId,
         projectId: nexusContextTicketsTable.projectId,
         worldId: nexusContextTicketsTable.worldId,
