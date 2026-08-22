@@ -62,6 +62,9 @@ jobs:
       - name: Audit Work Wallet development fixture bootstrap guardrails
         run: pnpm --filter @workspace/db audit:nexus-work-wallet-dev-fixture
 
+      - name: Audit Work Wallet DB readiness verifier guardrails
+        run: pnpm --filter @workspace/db audit:nexus-work-wallet-db-readiness
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
