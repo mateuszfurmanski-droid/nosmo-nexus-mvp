@@ -65,6 +65,9 @@ jobs:
       - name: Audit Work Wallet DB readiness verifier guardrails
         run: pnpm --filter @workspace/db audit:nexus-work-wallet-db-readiness
 
+      - name: Audit Work Wallet DB Context Ticket smoke guardrails
+        run: pnpm --filter @workspace/api-server audit:work-wallet-db-context-ticket-smoke
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
