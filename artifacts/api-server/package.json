@@ -11,7 +11,8 @@
     "validate:work-wallet-ticket-core": "esbuild ./tests/work-wallet-context-ticket-core.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-core-test.mjs && node /tmp/nexus-work-wallet-ticket-core-test.mjs",
     "validate:work-wallet-canonical-pipeline": "esbuild ./tests/work-wallet-canonical-ticket-pipeline.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-canonical-pipeline-test.mjs && node /tmp/nexus-work-wallet-canonical-pipeline-test.mjs",
     "validate:work-wallet-bootstrap": "esbuild ./tests/work-wallet-context-ticket-bootstrap.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-bootstrap-test.mjs && node /tmp/nexus-work-wallet-bootstrap-test.mjs",
-    "validate:work-wallet-ticket-service": "esbuild ./tests/work-wallet-context-ticket-service.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-service-test.mjs && node /tmp/nexus-work-wallet-ticket-service-test.mjs"
+    "validate:work-wallet-ticket-service": "esbuild ./tests/work-wallet-context-ticket-service.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-service-test.mjs && node /tmp/nexus-work-wallet-ticket-service-test.mjs",
+    "validate:work-wallet-connector-account": "esbuild ./tests/work-wallet-connector-account-boundary.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-connector-account-test.mjs && node /tmp/nexus-work-wallet-connector-account-test.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
