@@ -52,6 +52,11 @@ public class MainActivity extends Activity {
     private static final String NEXUS_INTENT = "ask-nexus";
     private static final String HANDOFF_PATH = "/api/nexus/android-work-mode/handoff";
 
+    private static final String HANDOFF_LOCAL_ONLY = "LOCAL_ONLY";
+    private static final String HANDOFF_PENDING = "PENDING_SERVER_CONFIRMATION";
+    private static final String HANDOFF_DONE = "HANDED_OFF";
+    private static final String HANDOFF_RETRY = "FAILED_RETRYABLE";
+
     private static final String ESAFE_PROJECT_ID = "project-esafe-catania";
     private static final String ESAFE_WORLD_ID = "world-esafe-catania";
 
@@ -110,6 +115,14 @@ public class MainActivity extends Activity {
         restoreQueue();
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        showHome();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        restoreQueue();
         showHome();
     }
 
@@ -337,12 +350,24 @@ public class MainActivity extends Activity {
             box.setTextColor(TEXT);
             box.setTextSize(13);
             box.setPadding(dp(4), dp(7), dp(4), dp(7));
-            box.setOnCheckedChangeListener((buttonView, checked) -> {
-                candidate.selected = checked;
-                candidate.approvalState = checked ? "DISCOVERED" : "REJECTED";
-                persistQueue();
-            });
+
+            boolean locked = isHandoffLocked(candidate);
+            box.setEnabled(!locked);
+            if (!locked) {
+                box.setOnCheckedChangeListener((buttonView, checked) -> {
+                    candidate.selected = checked;
+                    candidate.approvalState = checked ? "DISCOVERED" : "REJECTED";
+                    persistQueue();
+                });
+            }
             root.addView(box, fullWidthWrap());
+            if (HANDOFF_PENDING.equals(candidate.handoffState)) {
+                addSmall(root, "Waiting for Nexus confirmation — duplicate resend is locked.");
+            } else if (HANDOFF_DONE.equals(candidate.handoffState)) {
+                addSmall(root, "Already handed off — this item is locked against duplicate resend.");
+            } else if (HANDOFF_RETRY.equals(candidate.handoffState)) {
+                addSmall(root, "Previous handoff did not complete. This item may be retried.");
+            }
         }
 
         addSection(root, "ASK NEXUS");
@@ -355,10 +380,19 @@ public class MainActivity extends Activity {
         intentInput.setPadding(dp(12), dp(10), dp(12), dp(10));
         root.addView(intentInput, fullWidth(dp(82)));
 
-        addAction(root, "Approve + Send to Nexus", this::approveAndHandoff, true);
+        addAction(root, "Approve / Retry + Send to Nexus", this::approveAndHandoff, true);
         addAction(root, "Back to Work Mode", this::showHome, false);
-        addSmall(root, "Opening the browser never marks the queue as uploaded/synced. Items remain PENDING_SERVER_CONFIRMATION until the authenticated Nexus boundary confirms a review state.");
+        addSmall(root, "Only LOCAL_ONLY and FAILED_RETRYABLE items can be sent. PENDING_SERVER_CONFIRMATION and HANDED_OFF items are locked. Browser launch never marks raw evidence uploaded/synced.");
         setPage(root);
+    }
+
+    private boolean isHandoffLocked(Candidate candidate) {
+        return HANDOFF_PENDING.equals(candidate.handoffState) || HANDOFF_DONE.equals(candidate.handoffState);
+    }
+
+    private boolean isHandoffEligible(Candidate candidate) {
+        if (!candidate.selected) return false;
+        return HANDOFF_LOCAL_ONLY.equals(candidate.handoffState) || HANDOFF_RETRY.equals(candidate.handoffState);
     }
 
     private void approveAndHandoff() {
@@ -370,9 +404,15 @@ public class MainActivity extends Activity {
             return;
         }
 
-        ArrayList<Candidate> approved = approvedCandidates();
+        ArrayList<Candidate> approved = handoffEligibleCandidates();
         if (approved.isEmpty()) {
-            Toast.makeText(this, "Select at least one candidate", Toast.LENGTH_SHORT).show();
+            if (selectedStateCount(HANDOFF_PENDING) > 0) {
+                Toast.makeText(this, "Selected item is already waiting for Nexus confirmation", Toast.LENGTH_LONG).show();
+            } else if (selectedStateCount(HANDOFF_DONE) > 0) {
+                Toast.makeText(this, "Selected item is already handed off. Select a new or retryable item.", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Select at least one new or retryable candidate", Toast.LENGTH_SHORT).show();
+            }
             return;
         }
 
@@ -384,13 +424,28 @@ public class MainActivity extends Activity {
 
         for (Candidate candidate : approved) {
             candidate.approvalState = "APPROVED";
-            candidate.handoffState = "PENDING_SERVER_CONFIRMATION";
+            candidate.handoffState = HANDOFF_PENDING;
         }
         persistQueue();
 
         String userIntent = intentInput == null ? "classify approved context and propose a WorkSuite draft" : intentInput.getText().toString().trim();
         if (userIntent.isEmpty()) userIntent = "classify approved context and propose a WorkSuite draft";
-        openUrl(buildHandoffUrl(origin, projectId, worldId, approved, userIntent));
+        openHandoffUrl(buildHandoffUrl(origin, projectId, worldId, approved, userIntent), approved);
+    }
+
+    private void openHandoffUrl(String url, ArrayList<Candidate> approved) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception ex) {
+            for (Candidate candidate : approved) {
+                if (HANDOFF_PENDING.equals(candidate.handoffState)) {
+                    candidate.handoffState = HANDOFF_RETRY;
+                }
+            }
+            persistQueue();
+            Toast.makeText(this, "Could not open Nexus. Items are marked retryable.", Toast.LENGTH_LONG).show();
+            showReview();
+        }
     }
 
     private String configuredNexusOrigin() {
@@ -425,15 +480,25 @@ public class MainActivity extends Activity {
                 .appendQueryParameter("selectedItemIds", ids.toString())
                 .appendQueryParameter("sourceTypes", sourceTypes.toString())
                 .appendQueryParameter("userIntent", userIntent)
-                .appendQueryParameter("handoffState", "PENDING_SERVER_CONFIRMATION")
+                .appendQueryParameter("handoffState", HANDOFF_PENDING)
                 .build()
                 .toString();
     }
 
-    private ArrayList<Candidate> approvedCandidates() {
+    private ArrayList<Candidate> handoffEligibleCandidates() {
         ArrayList<Candidate> out = new ArrayList<>();
-        for (Candidate candidate : candidates) if (candidate.selected) out.add(candidate);
+        for (Candidate candidate : candidates) {
+            if (isHandoffEligible(candidate)) out.add(candidate);
+        }
         return out;
+    }
+
+    private int selectedStateCount(String state) {
+        int count = 0;
+        for (Candidate candidate : candidates) {
+            if (candidate.selected && state.equals(candidate.handoffState)) count++;
+        }
+        return count;
     }
 
     private void addUriCandidate(String source, String fallbackType, Uri uri, String name, int confidence) {
@@ -444,7 +509,7 @@ public class MainActivity extends Activity {
     private void addCandidate(String source, String contentType, String localReference, String name, long timestamp, int confidence) {
         String id = UUID.nameUUIDFromBytes((source + "|" + localReference).getBytes(StandardCharsets.UTF_8)).toString();
         for (Candidate existing : candidates) if (existing.id.equals(id)) return;
-        candidates.add(new Candidate(id, source, contentType, localReference, name, timestamp, Math.max(0, Math.min(100, confidence)), true, "DISCOVERED", "LOCAL_ONLY"));
+        candidates.add(new Candidate(id, source, contentType, localReference, name, timestamp, Math.max(0, Math.min(100, confidence)), true, "DISCOVERED", HANDOFF_LOCAL_ONLY));
     }
 
     private int selectedCount() {
@@ -512,7 +577,7 @@ public class MainActivity extends Activity {
                         item.optInt("confidence", 50),
                         item.optBoolean("selected", true),
                         item.optString("approvalState", "DISCOVERED"),
-                        item.optString("handoffState", "LOCAL_ONLY")
+                        item.optString("handoffState", HANDOFF_LOCAL_ONLY)
                 ));
             }
         } catch (Exception ignored) {
