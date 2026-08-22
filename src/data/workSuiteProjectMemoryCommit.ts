@@ -75,6 +75,51 @@ const isSameTimelineProjection = (
   existing.payload?.canonicalActionEventId === expected.payload?.canonicalActionEventId &&
   existing.payload?.sourceEventId === expected.payload?.sourceEventId;
 
+const collectRecordIds = (collections: Array<ReadonlyArray<unknown>>): Set<NexusId> => {
+  const ids = new Set<NexusId>();
+  for (const collection of collections) {
+    for (const value of collection) {
+      if (!value || typeof value !== 'object' || !('id' in value)) continue;
+      const id = (value as { id?: unknown }).id;
+      if (typeof id === 'string') ids.add(id);
+    }
+  }
+  return ids;
+};
+
+const nonActionRecordIds = (memory: NexusProjectMemorySnapshot): Set<NexusId> =>
+  collectRecordIds([
+    memory.projects,
+    memory.worlds,
+    memory.companies,
+    memory.people,
+    memory.projectRoles,
+    memory.files,
+    memory.drawingReferences,
+    memory.tasks,
+    memory.assets,
+    memory.evidence,
+    memory.approvals,
+    memory.graphNodes,
+    memory.graphEdges,
+    memory.canonicalObjects,
+    memory.relationshipEdges,
+    memory.externalReferences,
+    memory.fieldChanges,
+    memory.connectorDefinitions,
+    memory.connectorAccounts,
+    memory.connectorObjectMappings,
+    memory.projectParticipations,
+    memory.roleAssignments,
+    memory.tradeAssignments,
+    memory.permissionGrants,
+    memory.moduleEntitlements,
+    memory.managerTradeContexts,
+    memory.accessDecisions,
+    memory.storageRecords,
+    memory.temporalRecords,
+  ]);
+
 /**
  * Commits one already-authorised WorkSuite action result into the existing
  * Project Memory snapshot as one semantic unit: human decision + canonical
@@ -157,6 +202,39 @@ export const commitWorkSuiteActionToProjectMemory = (
     failures.push({
       code: 'HUMAN_DECISION_INVALID',
       message: 'Human decision must match the WorkSuite action object/actor and contain an accepted non-empty decision reason.',
+    });
+  }
+
+  const proposedIds = [actionEvent.id, humanDecision.id, input.timelineEventId];
+  if (
+    new Set(proposedIds).size !== proposedIds.length ||
+    proposedIds.includes(input.sourceEventId)
+  ) {
+    failures.push({
+      code: 'RECORD_ID_CONFLICT',
+      message: 'Action, human-decision and Timeline IDs must be distinct and must not reuse the source event ID.',
+    });
+  }
+
+  const foreignIds = nonActionRecordIds(memory);
+  if (proposedIds.some((id) => foreignIds.has(id))) {
+    failures.push({
+      code: 'RECORD_ID_CONFLICT',
+      message: 'A proposed WorkSuite commit ID is already used by another Project Memory record category.',
+    });
+  }
+
+  if (
+    memory.humanDecisions.some((record) => record.id === actionEvent.id) ||
+    memory.timelineEvents.some((record) => record.id === actionEvent.id) ||
+    memory.nexusEvents.some((record) => record.id === humanDecision.id) ||
+    memory.timelineEvents.some((record) => record.id === humanDecision.id) ||
+    memory.nexusEvents.some((record) => record.id === input.timelineEventId) ||
+    memory.humanDecisions.some((record) => record.id === input.timelineEventId)
+  ) {
+    failures.push({
+      code: 'RECORD_ID_CONFLICT',
+      message: 'A proposed WorkSuite record ID collides with a different canonical audit/Timeline collection.',
     });
   }
 
