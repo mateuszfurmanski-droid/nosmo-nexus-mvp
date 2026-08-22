@@ -61,6 +61,9 @@ jobs:
       - name: Validate durable Nexus Cloud operation ledger topology
         run: node scripts/src/validate-nexus-cloud-durable-operation-ledger.mjs
 
+      - name: Validate Nexus Cloud runtime preflight topology
+        run: node scripts/src/validate-nexus-cloud-runtime-preflight.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
@@ -93,6 +96,27 @@ jobs:
 
       - name: Smoke test durable Cloud write operation ledger
         run: pnpm --filter @workspace/scripts exec tsx ../lib/db/src/nexusCloudWriteOperationSmoke.ts
+
+      - name: Smoke test read-only Nexus Cloud runtime preflight
+        env:
+          NODE_ENV: test
+          NEXUS_PUBLIC_ORIGIN: http://127.0.0.1:3000
+          REPL_ID: ci-nexus-runtime
+          NEXUS_IDENTITY_BINDING_MODE: postgres
+          NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON: >-
+            {"schema":"nexus-cloud-google-drive-runtime/v1","writeEnabled":false,"connectorDefinitionId":"connector-google-drive-cloud","connectorAccountId":"account-google-drive-cloud","tenantId":"tenant-nexus-cloud","secretReference":"NEXUS_SECRET_GOOGLE_DRIVE_OAUTH","projects":[{"projectId":"project-esafe-catania","worldId":"world-esafe-catania","targets":{"00_INBOX":"1xsIITjBwTEE1z7whhub3RnsSXfrxwur9","01_PENDING_GRAPH_LINK":"1Pb1F_2PYtRt3YwhGFNdCLBK03s9TPbGZ","02_BY_TRADE":"1YnBK64v0ZfVTodBJXjAXPmNrug_qpR0P","03_BY_TYPE":"1LvwOZXJ5emW1N058kIMD9XV70J6cFhr9","99_AUDIT":"1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz"}}]}
+          NEXUS_SECRET_GOOGLE_DRIVE_OAUTH: >-
+            {"type":"google-oauth-refresh-token/v1","clientId":"ci-client","clientSecret":"ci-secret-value","refreshToken":"ci-refresh-value"}
+        run: |
+          pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/scripts/nexus-cloud-runtime-preflight.ts > /tmp/nexus-cloud-preflight.json
+          grep '"status": "BLOCKED"' /tmp/nexus-cloud-preflight.json > /dev/null
+          grep '"databaseMutationPerformed": false' /tmp/nexus-cloud-preflight.json > /dev/null
+          grep '"providerWritePerformed": false' /tmp/nexus-cloud-preflight.json > /dev/null
+          grep '"secretValuesReturned": false' /tmp/nexus-cloud-preflight.json > /dev/null
+          if grep -q 'ci-secret-value\|ci-refresh-value' /tmp/nexus-cloud-preflight.json; then
+            echo "preflight leaked secret fixture values"
+            exit 1
+          fi
 
       - name: Smoke test unified authenticated runtime
         env:
