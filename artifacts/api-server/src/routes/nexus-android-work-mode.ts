@@ -1,5 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
+import {
+  getNexusIdentityBindingMode,
+  getNexusProjectAuthMode,
+  NexusRuntimeIdentityStoreUnavailableError,
+  NexusRuntimeProjectAccessStoreUnavailableError,
+  resolveNexusRuntimeIdentity,
+  resolveNexusRuntimeProjectAccess,
+  type NexusRuntimeAuthorityIdentity,
+  type NexusRuntimeProjectAccessDecision,
+} from "../lib/nexus-runtime-authority";
 
 const router: IRouter = Router();
 
@@ -8,6 +18,9 @@ const WORK_MODE_INTENT = "ask-nexus";
 const WORK_MODE_AI_CONTEXT = "android-work-discovery-v1";
 const ESAFE_PROJECT_ID = "project-esafe-catania";
 const ESAFE_WORLD_ID = "world-esafe-catania";
+const WORK_MODE_MODULE_ID = "soft";
+const HANDOFF_ACTION_KEY = "android.work-mode.handoff";
+const WORKSUITE_REVIEW_ACTION_KEY = "worksuite.draft.review";
 const DRAFT_MUTATION_MODE = "draft-only-no-mutation";
 const DRAFT_EXECUTION_BOUNDARY = "worksuite-action-engine-required";
 const MAX_BOOTSTRAP_ITEMS = 20;
@@ -20,13 +33,6 @@ const allowedSources = new Set([
   "DOCUMENT",
   "FOLDER",
 ]);
-
-type RuntimeIdentity = {
-  authenticated: boolean;
-  identityState: "UNAUTHENTICATED" | "UNBOUND" | "BOUND";
-  personId?: string;
-  source: "server-session";
-};
 
 type AndroidEnvelope = {
   schema: typeof HANDOFF_SCHEMA;
@@ -65,9 +71,12 @@ type WorkSuiteDraft = {
     activeProjectParticipation: true;
     explicitPermissionDecision: true;
     denyOverrideCheck: true;
+    moduleEntitlementDecision: true;
     workSuiteActionEngineApproval: true;
   };
 };
+
+type ResolverStatus = "blocked" | "needs-review" | "ready-for-approval";
 
 function noStore(res: Response) {
   res.setHeader("Cache-Control", "no-store");
@@ -159,25 +168,14 @@ function envelopeFromQuery(req: Request): AndroidEnvelope {
   });
 }
 
-/**
- * #90 Phase 14 deliberately does not yet contain the exact provider-subject -> canonical
- * Person binding runtime. A valid OIDC/session therefore proves authentication only.
- * Never promote req.user.id (provider subject in the legacy auth runtime) to personId.
- */
-function runtimeIdentity(req: Request): RuntimeIdentity {
+async function serverIdentity(req: Request): Promise<NexusRuntimeAuthorityIdentity> {
   if (!req.isAuthenticated() || !req.user) {
-    return {
-      authenticated: false,
-      identityState: "UNAUTHENTICATED",
-      source: "server-session",
-    };
+    return resolveNexusRuntimeIdentity(false);
   }
 
-  return {
-    authenticated: true,
-    identityState: "UNBOUND",
-    source: "server-session",
-  };
+  // Existing auth.ts stores OIDC `sub` in req.user.id. It is used only as the
+  // server-side providerSubject lookup key and is never exposed/promoted to personId.
+  return resolveNexusRuntimeIdentity(true, String(req.user.id));
 }
 
 function buildDraft(envelope: AndroidEnvelope): WorkSuiteDraft {
@@ -218,55 +216,30 @@ function buildDraft(envelope: AndroidEnvelope): WorkSuiteDraft {
       activeProjectParticipation: true,
       explicitPermissionDecision: true,
       denyOverrideCheck: true,
+      moduleEntitlementDecision: true,
       workSuiteActionEngineApproval: true,
     },
   };
 }
 
-function permissionDecision(identity: RuntimeIdentity, draft: WorkSuiteDraft) {
-  if (identity.identityState === "UNAUTHENTICATED") {
-    return {
-      status: "blocked",
-      reason: "UNAUTHENTICATED",
-      failedChecks: ["authenticated-person", "canonical-person-binding", "canonical-access-decision"],
-      draftActionId: draft.draftId,
-      projectId: draft.scope.projectId,
-      worldId: draft.scope.worldId,
-      mutationExecution: false,
-      approvalExecuted: false,
-      graphMutation: false,
-      fileWrite: false,
-    } as const;
-  }
-
-  if (identity.identityState === "UNBOUND" || !identity.personId) {
-    return {
-      status: "blocked",
-      reason: "IDENTITY_UNBOUND",
-      failedChecks: ["canonical-person-binding", "canonical-access-decision"],
-      draftActionId: draft.draftId,
-      projectId: draft.scope.projectId,
-      worldId: draft.scope.worldId,
-      mutationExecution: false,
-      approvalExecuted: false,
-      graphMutation: false,
-      fileWrite: false,
-    } as const;
-  }
-
-  return {
-    status: "needs-review",
-    reason: "CANONICAL_ACCESS_DECISION_REQUIRED",
-    failedChecks: ["canonical-access-decision"],
-    draftActionId: draft.draftId,
-    projectId: draft.scope.projectId,
-    worldId: draft.scope.worldId,
-    personId: identity.personId,
-    mutationExecution: false,
-    approvalExecuted: false,
-    graphMutation: false,
-    fileWrite: false,
-  } as const;
+function isWorkSuiteDraft(value: unknown): value is WorkSuiteDraft {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const draft = value as Partial<WorkSuiteDraft>;
+  return (
+    typeof draft.draftId === "string" &&
+    draft.status === "draft" &&
+    draft.mutationMode === DRAFT_MUTATION_MODE &&
+    draft.executionBoundary === DRAFT_EXECUTION_BOUNDARY &&
+    draft.source === "android-work-mode-ai-boundary" &&
+    draft.actionKind === "REVIEW_AND_CLASSIFY_APPROVED_CONTEXT" &&
+    draft.authorityRequired?.workSuiteActionEngineApproval === true &&
+    draft.authorityRequired?.explicitPermissionDecision === true &&
+    draft.authorityRequired?.moduleEntitlementDecision === true &&
+    typeof draft.scope?.projectId === "string" &&
+    typeof draft.scope?.worldId === "string" &&
+    Array.isArray(draft.scope?.selectedItemIds) &&
+    Array.isArray(draft.scope?.sourceTypes)
+  );
 }
 
 function deterministicAssistance(envelope: AndroidEnvelope) {
@@ -293,7 +266,49 @@ function deterministicAssistance(envelope: AndroidEnvelope) {
     approvedItemCount: envelope.selectedItemIds.length,
     sourceTypes: envelope.sourceTypes,
     note:
-      "Only approved metadata reached this boundary. Nexus must obtain authorised evidence content separately before any content-specific interpretation.",
+      "Only approved metadata reached this boundary. Authorised evidence content must be transferred separately before content-specific interpretation.",
+  };
+}
+
+function resolverStatus(
+  identity: NexusRuntimeAuthorityIdentity,
+  access?: NexusRuntimeProjectAccessDecision,
+): { status: ResolverStatus; reason: string } {
+  if (identity.identityState === "UNAUTHENTICATED") {
+    return { status: "blocked", reason: "UNAUTHENTICATED" };
+  }
+  if (identity.identityState !== "BOUND" || !identity.personId) {
+    return { status: "blocked", reason: "IDENTITY_UNBOUND" };
+  }
+  if (!access || !access.allowedToProceedToHumanReview) {
+    return { status: "blocked", reason: access?.reason ?? "PROJECT_ACCESS_REQUIRED" };
+  }
+
+  // `ready-for-approval` remains intentionally unreachable until the complete
+  // #90 ModuleEntitlement/competence runtime is reconciled. Explicit allow is
+  // enough only to enter human review, never to execute a WorkSuite action.
+  return { status: "needs-review", reason: access.reason };
+}
+
+function permissionPayload(
+  identity: NexusRuntimeAuthorityIdentity,
+  draft: WorkSuiteDraft,
+  access?: NexusRuntimeProjectAccessDecision,
+) {
+  const decision = resolverStatus(identity, access);
+  return {
+    ...decision,
+    draftActionId: draft.draftId,
+    projectId: draft.scope.projectId,
+    worldId: draft.scope.worldId,
+    personId: identity.personId,
+    participationId: access?.participationId ?? null,
+    matchingGrantIds: access?.matchingGrantIds ?? [],
+    policyVersion: access?.policyVersion ?? "nexus-runtime-authority-v1",
+    mutationExecution: false,
+    approvalExecuted: false,
+    graphMutation: false,
+    fileWrite: false,
   };
 }
 
@@ -338,7 +353,7 @@ body{margin:0;background:#04101f;color:#eef7ff;font-family:system-ui,sans-serif;
 </head>
 <body><main>
 <h1>NEXUS Work Mode</h1>
-<p class="status" id="status">Authenticated handoff received. Validating canonical access…</p>
+<p class="status" id="status">Authenticated handoff received. Validating Person + Project World access…</p>
 <p>Android supplied approved metadata only. No local URI, raw photo/document content, provider credential or Person authority is present in this page.</p>
 <pre id="result">Submitting bounded context…</pre>
 </main>
@@ -355,7 +370,9 @@ const envelope=${serialized};
       body:JSON.stringify(envelope),
     });
     const payload=await response.json();
-    status.textContent=response.ok?'Context processed — human review boundary':'Handoff blocked by Nexus authority boundary';
+    status.textContent=payload.permission?.status==='needs-review'
+      ?'Context accepted — WorkSuite draft requires human review'
+      :'Handoff blocked by Nexus authority boundary';
     result.textContent=JSON.stringify(payload,null,2);
   } catch {
     status.textContent='Handoff failed — retry is safe';
@@ -363,6 +380,22 @@ const envelope=${serialized};
   }
 })();
 </script></body></html>`);
+}
+
+function authorityErrorResponse(res: Response, error: unknown): boolean {
+  if (
+    error instanceof NexusRuntimeIdentityStoreUnavailableError ||
+    error instanceof NexusRuntimeProjectAccessStoreUnavailableError
+  ) {
+    noStore(res);
+    res.status(503).json({
+      error: "NEXUS_AUTHORITY_STORE_UNAVAILABLE",
+      handoffState: "PENDING_SERVER_CONFIRMATION",
+      mutationExecution: false,
+    });
+    return true;
+  }
+  return false;
 }
 
 router.get("/nexus/android-work-mode/handoff", (req: Request, res: Response) => {
@@ -377,7 +410,9 @@ router.get("/nexus/android-work-mode/handoff", (req: Request, res: Response) => 
   } catch (error) {
     const code = error instanceof Error ? error.message : "INVALID_HANDOFF";
     noStore(res);
-    res.status(400).json({ error: code });
+    res.status(code === "PROJECT_WORLD_NOT_AVAILABLE_IN_FOUNDATION" ? 409 : 400).json({
+      error: code,
+    });
   }
 });
 
@@ -389,13 +424,15 @@ router.get("/nexus/work-mode-ai/status", (_req: Request, res: Response) => {
     contextVersion: WORK_MODE_AI_CONTEXT,
     handoffSchema: HANDOFF_SCHEMA,
     modelExecution: "disabled-demo-boundary",
-    contentRecognition: "requires-authorised-content-access",
+    contentRecognition: "requires-authorised-content-transfer",
+    identityBindingMode: getNexusIdentityBindingMode(),
+    projectAuthMode: getNexusProjectAuthMode(),
     projectMemoryMutation: false,
     workSuiteExecution: false,
   });
 });
 
-router.post("/nexus/work-mode-ai/context", (req: Request, res: Response) => {
+router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) => {
   if (!req.isAuthenticated() || !req.user) {
     noStore(res);
     res.status(401).json({ error: "UNAUTHENTICATED" });
@@ -404,14 +441,64 @@ router.post("/nexus/work-mode-ai/context", (req: Request, res: Response) => {
 
   try {
     const envelope = validateEnvelope(req.body);
-    const identity = runtimeIdentity(req);
-    const result = deterministicAssistance(envelope);
     const draftAction = buildDraft(envelope);
-    const permission = permissionDecision(identity, draftAction);
+    const identity = await serverIdentity(req);
 
+    if (identity.identityState !== "BOUND" || !identity.personId) {
+      const permission = permissionPayload(identity, draftAction);
+      noStore(res);
+      res.status(403).json({
+        status: "blocked",
+        service: "nexus-work-mode-ai-boundary",
+        handoffSchema: HANDOFF_SCHEMA,
+        nexusAiContext: WORK_MODE_AI_CONTEXT,
+        modelExecution: "disabled-demo-boundary",
+        projectMemoryRead: false,
+        projectMemoryMutation: false,
+        identity,
+        result: null,
+        draftAction,
+        permission,
+        handoffState: "PENDING_SERVER_CONFIRMATION",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const access = await resolveNexusRuntimeProjectAccess(
+      identity.personId,
+      envelope.projectId,
+      envelope.worldId,
+      WORK_MODE_MODULE_ID,
+      HANDOFF_ACTION_KEY,
+    );
+    const permission = permissionPayload(identity, draftAction, access);
+
+    if (!access.allowedToProceedToHumanReview) {
+      noStore(res);
+      res.status(403).json({
+        status: "blocked",
+        service: "nexus-work-mode-ai-boundary",
+        handoffSchema: HANDOFF_SCHEMA,
+        nexusAiContext: WORK_MODE_AI_CONTEXT,
+        modelExecution: "disabled-demo-boundary",
+        projectMemoryRead: false,
+        projectMemoryMutation: false,
+        identity,
+        access,
+        result: null,
+        draftAction,
+        permission,
+        handoffState: "PENDING_SERVER_CONFIRMATION",
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const result = deterministicAssistance(envelope);
     noStore(res);
     res.json({
-      status: "accepted",
+      status: "accepted-for-review",
       service: "nexus-work-mode-ai-boundary",
       handoffSchema: HANDOFF_SCHEMA,
       nexusAiContext: WORK_MODE_AI_CONTEXT,
@@ -419,16 +506,21 @@ router.post("/nexus/work-mode-ai/context", (req: Request, res: Response) => {
       projectMemoryRead: false,
       projectMemoryMutation: false,
       identity,
+      access,
       result,
       draftAction,
       permission,
-      handoffState: permission.status === "blocked" ? "PENDING_SERVER_CONFIRMATION" : "HANDED_OFF_FOR_REVIEW",
+      handoffState: "HANDED_OFF_FOR_REVIEW",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    if (authorityErrorResponse(res, error)) return;
     const code = error instanceof Error ? error.message : "INVALID_REQUEST";
     noStore(res);
-    res.status(code === "PROJECT_WORLD_NOT_AVAILABLE_IN_FOUNDATION" ? 409 : 400).json({ error: code });
+    res.status(code === "PROJECT_WORLD_NOT_AVAILABLE_IN_FOUNDATION" ? 409 : 400).json({
+      error: code,
+      handoffState: "PENDING_SERVER_CONFIRMATION",
+    });
   }
 });
 
@@ -439,29 +531,24 @@ router.get("/nexus/worksuite/draft-actions/status", (_req: Request, res: Respons
     service: "worksuite-draft-permission-resolver",
     executionBoundary: "validation-only-no-mutation",
     supportedStatuses: ["blocked", "needs-review", "ready-for-approval"],
-    currentFoundationCeiling: "needs-review-until-canonical-access-resolver-runtime-is-reconciled",
+    currentRuntimeCeiling:
+      "needs-review-until-module-entitlement-and-competence-runtime-is-reconciled",
+    identityBindingMode: getNexusIdentityBindingMode(),
+    projectAuthMode: getNexusProjectAuthMode(),
     mutationExecution: false,
     approvalExecuted: false,
   });
 });
 
-router.post("/nexus/worksuite/draft-actions/validate", (req: Request, res: Response) => {
+router.post("/nexus/worksuite/draft-actions/validate", async (req: Request, res: Response) => {
   if (!req.isAuthenticated() || !req.user) {
     noStore(res);
     res.status(401).json({ error: "UNAUTHENTICATED" });
     return;
   }
 
-  const draft = req.body?.draftAction as WorkSuiteDraft | undefined;
-  if (
-    !draft ||
-    typeof draft.draftId !== "string" ||
-    draft.mutationMode !== DRAFT_MUTATION_MODE ||
-    draft.executionBoundary !== DRAFT_EXECUTION_BOUNDARY ||
-    draft.authorityRequired?.workSuiteActionEngineApproval !== true ||
-    !draft.scope?.projectId ||
-    !draft.scope?.worldId
-  ) {
+  const draft = req.body?.draftAction as unknown;
+  if (!isWorkSuiteDraft(draft)) {
     noStore(res);
     res.status(400).json({ error: "INVALID_OR_UNSAFE_DRAFT_ACTION" });
     return;
@@ -473,21 +560,43 @@ router.post("/nexus/worksuite/draft-actions/validate", (req: Request, res: Respo
     return;
   }
 
-  const identity = runtimeIdentity(req);
-  const decision = permissionDecision(identity, draft);
-  noStore(res);
-  res.json({
-    status: "validated",
-    service: "worksuite-draft-permission-resolver",
-    identity,
-    draftAction: draft,
-    decision,
-    mutationExecution: false,
-    approvalExecuted: false,
-    graphMutation: false,
-    fileWrite: false,
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    const identity = await serverIdentity(req);
+    let access: NexusRuntimeProjectAccessDecision | undefined;
+
+    if (identity.identityState === "BOUND" && identity.personId) {
+      access = await resolveNexusRuntimeProjectAccess(
+        identity.personId,
+        draft.scope.projectId,
+        draft.scope.worldId,
+        WORK_MODE_MODULE_ID,
+        WORKSUITE_REVIEW_ACTION_KEY,
+      );
+    }
+
+    const decision = permissionPayload(identity, draft, access);
+    noStore(res);
+    res.status(decision.status === "blocked" ? 403 : 200).json({
+      status: "validated",
+      service: "worksuite-draft-permission-resolver",
+      identity,
+      access: access ?? null,
+      draftAction: draft,
+      decision,
+      mutationExecution: false,
+      approvalExecuted: false,
+      graphMutation: false,
+      fileWrite: false,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (authorityErrorResponse(res, error)) return;
+    noStore(res);
+    res.status(500).json({
+      error: "WORKSUITE_PERMISSION_VALIDATION_FAILED",
+      mutationExecution: false,
+    });
+  }
 });
 
 export default router;
