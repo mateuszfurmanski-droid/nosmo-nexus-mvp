@@ -3,7 +3,11 @@ package tech.nosmo.nexus.workmode;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Toast;
 
@@ -163,6 +167,7 @@ public final class HandoffResultActivity extends Activity {
             editor.apply();
 
             if (STATUS_HANDED_OFF.equals(status) && rawEvidenceItems > 0) {
+                publishCloudEvidenceShortcut();
                 openCloudEvidence("Nexus confirmed metadata; raw evidence still requires Cloud commit");
                 return;
             }
@@ -175,6 +180,25 @@ public final class HandoffResultActivity extends Activity {
             );
         } catch (Exception ignored) {
             returnToWorkMode("Could not apply Nexus handoff receipt", true);
+        }
+    }
+
+    private void publishCloudEvidenceShortcut() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) return;
+        try {
+            ShortcutManager manager = getSystemService(ShortcutManager.class);
+            if (manager == null) return;
+            Intent shortcutIntent = new Intent(this, CloudEvidenceShortcutActivity.class);
+            shortcutIntent.setAction(Intent.ACTION_VIEW);
+            ShortcutInfo shortcut = new ShortcutInfo.Builder(this, "nexus-cloud-evidence")
+                    .setShortLabel("Cloud Evidence")
+                    .setLongLabel("Open NEXUS Cloud Evidence")
+                    .setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_upload))
+                    .setIntent(shortcutIntent)
+                    .build();
+            manager.pushDynamicShortcut(shortcut);
+        } catch (Exception ignored) {
+            // Shortcut availability is a convenience only. Never alter evidence state or authority.
         }
     }
 
