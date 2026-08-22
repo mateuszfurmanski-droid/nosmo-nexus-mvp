@@ -8,6 +8,10 @@ const source = await fs.readFile(
   path.join(here, "work-wallet-db-context-ticket-smoke.ts"),
   "utf8",
 );
+const workflow = await fs.readFile(
+  path.resolve(here, "../../..", ".github/workflows/typecheck.yml"),
+  "utf8",
+);
 
 const requireText = (needle, label) =>
   assert.ok(source.includes(needle), `Missing DB smoke invariant: ${label}`);
@@ -58,5 +62,15 @@ forbid(/bootstrap-nexus-person-binding|bootstrap-nexus-work-wallet-dev-fixture/i
 forbid(/\bfetch\s*\(|axios|node:https|node:http/i, "external HTTP call");
 forbid(/console\.log\([^\n]*(?:providerSubject|rawTicket|DATABASE_URL|databaseUrl)/, "secret logging");
 forbid(/JSON\.stringify\([^]*?ticket\s*:/i, "raw ticket in JSON output");
+
+assert.ok(
+  workflow.includes("audit:work-wallet-db-context-ticket-smoke"),
+  "CI must execute the non-mutating DB smoke audit",
+);
+assert.equal(
+  workflow.includes("smoke:work-wallet-db-context-ticket"),
+  false,
+  "CI must never execute the mutating DB Context Ticket smoke",
+);
 
 process.stdout.write("WORK_WALLET_DB_CONTEXT_TICKET_SMOKE_AUDIT_PASS\n");
