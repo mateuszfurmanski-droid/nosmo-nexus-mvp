@@ -10,34 +10,17 @@ Protected: PR #91 is untouched and must remain untouched.
 
 ## Canonical role
 
-Android Work Mode is a native field-intake client for Nexus. It is not a second Nexus backend, identity system, permission engine, Cloud backend or autonomous Action Engine.
+Android Work Mode is a native field-intake client for Nexus. It is not a second Nexus backend, Person system, permission engine, Cloud/Drive backend or autonomous Action Engine.
 
-Target path:
+Current intended path:
 
-`permitted Android source -> candidate -> user review/approval -> exact Project World -> authenticated Nexus session -> canonical Person binding -> canonical ProjectParticipation + PermissionGrant -> Android handoff access decision -> Ask Nexus metadata assistance -> separate WorkSuite review access decision -> human review`
+`permitted Android source -> local candidate -> user review -> exact Project World -> authenticated metadata handoff -> canonical Person/Project access -> deterministic Ask Nexus metadata assistance -> WorkSuite draft review`
 
-Raw evidence bytes use the canonical Nexus Cloud path only when that runtime endpoint is available.
+For user-selected PHOTO/DOCUMENT evidence the binary path is separate:
 
-## Donor and parallel reconciliation
+`confirmed metadata receipt -> receipt-bound Project World -> native PKCE Nexus session -> Bearer POST /api/nexus/cloud/files -> cloud.file.write -> provider receipt -> Project Memory commit -> TRANSFER_CONFIRMED`
 
-Android donors:
-
-- #27 — first discovery donor;
-- #41 — native Java / Personal Cloud donor; whole-phone/full-file scanning direction rejected;
-- #44 — native Work Mode base;
-- #85 — latest safe installable Knowledge Vacuum UI donor;
-- #50 — deterministic Work Mode AI boundary donor;
-- #78/#79 — WorkSuite draft/permission donors.
-
-Shared Nexus donors discovered after #96 started:
-
-- #106 — canonical Project Memory Person persistence and exact provider-subject binding;
-- #107 — canonical fail-closed #90 access resolver;
-- #112 — workspace-scoped canonical ProjectParticipation/PermissionGrant persistence and loader.
-
-The earlier Android-only `nexusRuntimeAuthority` tables/evaluator/bootstrap were removed. Android now composes shared Nexus authority instead of owning another Auth/ACL store.
-
-Historical #56 `ACTIVE_PARTICIPATION_SHARED_ACCESS` is not restored.
+Metadata acceptance never implies binary upload success.
 
 ## Native intake / Knowledge Vacuum
 
@@ -45,321 +28,292 @@ Implemented under `native/nexus-work-mode-native`:
 
 - native Java client;
 - Android Photo Picker on API 33+ with system document fallback;
-- `ACTION_OPEN_DOCUMENT` document picker;
-- `ACTION_OPEN_DOCUMENT_TREE` folder picker;
+- `ACTION_OPEN_DOCUMENT` and `ACTION_OPEN_DOCUMENT_TREE`;
 - Contacts and Calendar only after runtime permission;
-- visible candidate review queue, selected by default but deselectable;
-- candidate source, content type, device-local reference, timestamp, confidence, approval state and handoff state;
+- visible local candidate review queue;
+- exact #90 e-SAFE fixture only: `project-esafe-catania` + `world-esafe-catania`;
+- Riverside remains `NEEDS_USER_CONFIRMATION`;
 - no Accessibility Service;
 - no broad storage permission;
-- no WhatsApp/Gmail/Teams private database reads;
+- no private WhatsApp/Gmail/Teams database access;
 - no WebView;
 - no cleartext traffic;
-- no Android auth token logging/storage.
+- no provider OAuth/Drive implementation in the APK.
 
-App shortcuts remain `LAUNCHERS / DEEP LINKS — NOT API INTEGRATIONS` unless a separate real connector exists.
+WhatsApp/Gmail/Teams/Drive buttons remain launchers unless a separate real connector exists.
 
-## Project World isolation
-
-Current #90 fixture pair:
-
-- `projectId=project-esafe-catania`
-- `worldId=world-esafe-catania`
-
-Riverside remains `NEEDS_USER_CONFIRMATION` until Project Memory supplies a current canonical pair. Historical Riverside aliases are not reused and e-SAFE/Riverside are never mixed.
-
-## Android -> Nexus context envelope
+## Metadata handoff
 
 Compatibility markers:
 
-- `nexusIntent=ask-nexus`
-- `nexusAiContext=android-work-discovery-v1`
+- `nexusIntent=ask-nexus`;
+- `nexusAiContext=android-work-discovery-v1`.
 
-Canonical envelope:
+Canonical schema:
 
 `nexus-android-work-mode-context-v1`
-
-It carries:
-
-- one Android-generated `handoffRequestId` UUID;
-- exact project/world;
-- approved opaque candidate IDs;
-- source types;
-- user intent;
-- `PENDING_SERVER_CONFIRMATION`.
-
-It does not carry:
-
-- local content URI;
-- raw photo/PDF bytes;
-- OIDC subject;
-- canonical Person ID supplied by Android;
-- Project Participation;
-- permission grant;
-- session token in the browser URL.
-
-`handoffRequestId` is correlation/one-flight state only. It is never authentication, Person identity, Project authority or permission evidence.
-
-## One-flight request correlation
-
-Before opening the Nexus browser bootstrap, Android generates a UUID and stores it as `pendingHandoffRequestId`.
-
-Only one handoff batch may be pending at a time.
-
-The UUID is passed through:
-
-`APK -> GET /api/nexus/android-work-mode/handoff -> login-safe returnTo -> authenticated bootstrap page -> POST /api/nexus/work-mode-ai/context -> handoff receipt -> browser deep-link callback -> HandoffResultActivity`
-
-Server behavior:
-
-- `handoffRequestId` must match UUID syntax;
-- it survives the OIDC login `returnTo` path;
-- it is echoed unchanged in `nexus-android-work-mode-handoff-receipt/v1`;
-- it is not supplied to the canonical access resolver;
-- it cannot alter Person binding, participation, grant or decision outcome.
-
-Browser behavior before constructing the callback:
-
-- receipt `handoffRequestId` must equal the envelope UUID;
-- receipt project/world must equal the envelope Project World;
-- receipt selected item IDs must equal the exact envelope item set;
-- otherwise callback status is forced to `FAILED_RETRYABLE` and no server receipt ID is trusted.
-
-Native callback behavior:
-
-- callback `handoffRequestId` must equal locally stored `pendingHandoffRequestId`;
-- stale/unsolicited callback UUIDs are ignored;
-- exact current project/world must match;
-- callback item set must equal the complete locally pending batch;
-- only `PENDING_SERVER_CONFIRMATION` candidates may be transitioned;
-- applying a valid callback clears the one-flight request ID.
-
-This is anti-spoof/correlation hardening for the exported deep link. It is not a replacement for server authentication or access control.
-
-## Explicit Nexus origin
-
-The APK consumes build-time `NEXUS_ANDROID_WEB_ORIGIN` through `BuildConfig.NEXUS_WEB_ORIGIN`.
-
-Only HTTPS is accepted. Missing/invalid origin fails closed; no preview or production host is guessed.
 
 Bootstrap:
 
 `GET /api/nexus/android-work-mode/handoff`
 
-## Existing Nexus auth and shared Person binding
+The URL contains only bounded metadata such as exact Project World, opaque candidate IDs/source types, fixed non-sensitive intent and one-flight `handoffRequestId`.
 
-No Android identity system exists.
+It does not contain:
 
-Browser handoff reuses the existing OIDC/session login path. Direct API transport may use the existing Bearer-session mechanism.
+- local content URI;
+- raw file/photo bytes;
+- session ID;
+- provider subject;
+- canonical Person ID supplied by Android;
+- Project Participation or PermissionGrant authority;
+- free-text Ask Nexus content.
 
-Shared identity files on #96:
+Free-text was deliberately removed from the login/bootstrap GET path to avoid browser-history/proxy/request-log leakage.
 
-- `lib/db/src/schema/nexusProjectMemoryIdentity.ts`;
-- `artifacts/api-server/src/lib/nexus-person-binding.ts`.
-
-Canonical behavior:
-
-`exact OIDC issuer + SHA-256(exact provider subject) -> canonical Nexus personId`
-
-Rules:
-
-- raw provider subject is not persisted in the new binding table;
-- email/name fuzzy binding is forbidden;
-- authenticated provider identity is not promoted directly to Person ID;
-- binding disabled -> `UNBOUND`;
-- binding-store failure -> fail closed.
-
-No schema was applied to a live database in this Android track.
-
-## Shared Project access
-
-#96 reuses:
-
-- `lib/db/src/schema/nexusProjectAccess.ts`;
-- `lib/db/src/nexusProjectAccessPersistence.ts`;
-- `src/core/permissions/canonicalAccessResolver.ts`.
-
-Android-specific composition only:
-
-`artifacts/api-server/src/lib/nexus-android-work-mode-authority.ts`
-
-Authority path:
-
-`server session -> shared Person binding -> existing workspace -> exact workspace/person/project/world access rows -> canonical #90 NexusAccessDecisionRecord`
-
-Policy:
-
-- exactly one active valid participation;
-- participation alone never grants access;
-- matching broader/exact deny wins;
-- exact explicit module + action allow required;
-- scoped grants cannot widen silently;
-- role/trade alone is not authority;
-- persistence input is server-owned.
-
-Removed Android-only files must not be restored:
-
-- `nexusRuntimeAuthority.ts`;
-- `nexus-runtime-authority.ts`;
-- `bootstrap-nexus-android-work-mode-authority.mjs`.
-
-## Ask Nexus boundary
-
-Routes:
-
-- `GET /api/nexus/work-mode-ai/status`;
-- `POST /api/nexus/work-mode-ai/context`.
-
-Current truth:
-
-- `modelExecution=disabled-demo-boundary`;
-- deterministic metadata assistance only;
-- no raw photo/PDF recognition;
-- no Project Memory mutation;
-- no autonomous action execution.
-
-Two distinct canonical access decisions are made:
-
-1. module `soft`, action `android.work-mode.handoff`;
-2. module `soft`, action `worksuite.draft.review`.
-
-The WorkSuite review decision is never inferred from the Android handoff decision.
-
-## WorkSuite draft boundary
-
-Routes:
-
-- `GET /api/nexus/worksuite/draft-actions/status`;
-- `POST /api/nexus/worksuite/draft-actions/validate`.
-
-Draft invariants:
-
-- `mutationMode=draft-only-no-mutation`;
-- `executionBoundary=worksuite-action-engine-required`;
-- exact project/world retained;
-- no graph mutation;
-- no file write;
-- no approval execution;
-- no Action Engine execution.
-
-Current semantics:
-
-- unauthenticated -> `blocked`;
-- authenticated but unbound -> `blocked`;
-- invalid participation -> `blocked`;
-- explicit deny -> `blocked`;
-- missing exact allow -> `blocked`;
-- exact canonical allow for `worksuite.draft.review` -> `needs-review`;
-- `ready-for-approval` remains outside Android/AI.
-
-## Server acknowledgement -> device queue
-
-Receipt schema:
-
-`nexus-android-work-mode-handoff-receipt/v1`
-
-Browser callback:
-
-`nosmo-nexus-workmode://handoff-result`
-
-Native receiver:
-
-`HandoffResultActivity`
-
-Successful `HANDED_OFF` requires:
-
-- exact pending `handoffRequestId`;
-- valid random 32-character server `receiptId`;
-- exact current project/world;
-- exact complete pending candidate set.
-
-Blocked/network/no-confirmation behavior becomes `FAILED_RETRYABLE`.
+## One-flight receipt correlation
 
 Queue lifecycle:
 
 `LOCAL_ONLY -> PENDING_SERVER_CONFIRMATION -> HANDED_OFF | FAILED_RETRYABLE`
 
-Retry rules:
+A successful native metadata transition requires:
 
-- `LOCAL_ONLY` and `FAILED_RETRYABLE` may be sent;
-- `PENDING_SERVER_CONFIRMATION` is locked against duplicate resend;
-- `HANDED_OFF` is locked against duplicate resend;
-- browser-launch failure immediately changes the attempted batch to `FAILED_RETRYABLE`;
-- callback return reloads the queue from SharedPreferences through `onNewIntent`.
+- exact locally pending `handoffRequestId`;
+- exact current project/world;
+- exact complete pending candidate set;
+- valid random 32-character server receipt ID.
 
-`HANDED_OFF` means bounded metadata context was accepted. It does not mean raw evidence bytes were uploaded.
+Callback:
 
-## Android evidence -> canonical Nexus Cloud seam
+`nosmo-nexus-workmode://handoff-result`
 
-Contract:
+Stale/unsolicited callbacks fail closed. Project World changes and duplicate sends are blocked while one handoff is pending. Abandoned browser/login may be explicitly recovered to `FAILED_RETRYABLE`.
 
-`src/core/android/androidEvidenceTransferContract.ts`
+`HANDED_OFF` means metadata only.
 
-Schema:
+## Shared Person and access authority
 
-`nexus-android-evidence-transfer-request/v1`
+#96 consumes the shared canonical direction rather than owning an Android ACL:
 
-It references existing #90 Cloud contracts:
+- PR #106 — canonical Project Memory Person persistence + exact hashed provider-subject binding;
+- PR #107 — canonical fail-closed access resolver;
+- PR #112 — workspace-scoped ProjectParticipation/PermissionGrant persistence and loader.
 
-- `nexus-cloud-pending-asset/v2`;
-- module `cloud`;
-- action `cloud.file.write`;
-- source module `android-work-mode`.
+Authority path:
 
-The plan contains provider-neutral evidence metadata and has explicit zero side effects:
+`server session -> exact provider binding -> canonical Person -> exact workspace/person/project/world participation + grants -> NexusAccessDecisionRecord`
 
-- `binaryReadPerformed=false`;
-- `networkUploadPerformed=false`;
-- `providerWritePerformed=false`;
-- `projectMemoryMutationPerformed=false`;
-- `projectGraphMutationPerformed=false`.
+Rules:
 
-The device-local URI is deliberately absent from the shared Cloud request.
+- provider subject != canonical Person ID;
+- no email/name fuzzy binding;
+- exactly one active valid participation;
+- participation alone grants nothing;
+- explicit deny wins;
+- exact explicit module + action allow required;
+- role/trade alone is not authority.
 
-Actual Android photo/PDF binary transfer remains:
+Android metadata handoff and WorkSuite draft review are two independent access decisions:
 
-`PENDING_CANONICAL_CLOUD_ENDPOINT`
+- `soft / android.work-mode.handoff`;
+- `soft / worksuite.draft.review`.
 
-PR #112 still lists the authenticated multipart Cloud endpoint as a remaining gate. #96 must not create a competing upload/Google Drive backend.
+Exact WorkSuite review allow reaches only human review. No Action Engine execution occurs here.
 
-## Validation truth
+## Native mobile Nexus authentication
 
-Configured CI covers:
+The repository already had `POST /api/mobile-auth/token-exchange`, which creates the same DB-backed Nexus session used by normal browser auth and returns its session ID for Bearer transport.
 
-- root workspace typecheck;
-- shared identity/access composition;
-- Android permissions and picker boundaries;
-- exact e-SAFE Project World;
-- retry-state invariants;
-- one-flight `handoffRequestId` propagation/validation;
-- receipt/callback correlation;
-- Android evidence -> canonical Cloud seam;
+#96 now completes the missing native start/callback bridge without creating a second identity provider flow.
+
+Server route:
+
+`GET /api/mobile-auth/start`
+
+Flow:
+
+1. APK generates PKCE verifier, S256 challenge, random state and nonce.
+2. Only challenge/state/nonce enter the browser start URL.
+3. Nexus OIDC uses the existing registered HTTPS callback: `/api/callback`.
+4. A separate HttpOnly mobile-flow cookie distinguishes native auth from ordinary browser login.
+5. The HTTPS callback validates server-held state and forwards only the short-lived provider authorization code + state to:
+   `nosmo-nexus-workmode://auth-result`.
+6. APK validates its own state and POSTs code/verifier/state/nonce to the existing `/api/mobile-auth/token-exchange`.
+7. Token exchange accepts only the exact HTTPS `/api/callback` redirect URI.
+8. The resulting Nexus session ID is encrypted locally with Android Keystore AES/GCM and used only as `Authorization: Bearer <sid>`.
+
+The session ID is never placed in a deep link or browser URL.
+
+Server-confirmed logout:
+
+`POST /api/mobile-auth/logout`
+
+The APK deletes its encrypted local session only after server success, or when the server reports the session is already invalid. Network/5xx failure retains the local ciphertext so the UI cannot falsely claim logout.
+
+Current documentation debt: `/api/mobile-auth/start` has not yet been reconciled into `lib/api-spec/openapi.yaml`; runtime code and validator exist, but OpenAPI/codegen remains a follow-up.
+
+## Raw PHOTO/DOCUMENT evidence lifecycle
+
+Evidence state is separate from metadata state:
+
+- `PENDING_CANONICAL_CLOUD_ENDPOINT`;
+- `READY_FOR_AUTHORISED_TRANSFER`;
+- `FAILED_RETRYABLE`;
+- `TRANSFER_CONFIRMED`;
+- `NOT_APPLICABLE` for non-binary sources.
+
+A metadata callback can never set `TRANSFER_CONFIRMED`.
+
+On successful PHOTO/DOCUMENT metadata receipt, Android stores exact receipt-derived `projectId + worldId` in an app-private `EvidenceBindingStore`, keyed by candidate ID. This sidecar exists because MainActivity may rewrite its presentation queue; mutable queue/global Project World state must never retarget already-confirmed evidence bytes.
+
+Cloud Evidence consumes this sidecar and fails closed if it is absent. Legacy queue binding fields may be migrated once when still present. Orphaned sidecar records are pruned when their local candidate no longer exists.
+
+Local URI access remains device-local and is retained after metadata handoff. Explicit local candidate removal releases only the exact persisted picker grant when no other candidate uses it. It never deletes Nexus/Cloud/WorkSuite/Person/Timeline/Graph data.
+
+## Canonical Nexus Cloud client
+
+Parallel Cloud work has now exposed PR #125:
+
+`Add authenticated Nexus Cloud upload pipeline to Google Drive`
+
+Canonical endpoint contract:
+
+`POST /api/nexus/cloud/files`
+
+Required client inputs:
+
+- multipart `file`;
+- exact canonical `projectId`;
+- exact canonical `worldId`;
+- `Idempotency-Key`.
+
+#96 consumes this contract only. It does not copy the Drive writer, provider mappings, OAuth secrets or Cloud persistence implementation.
+
+Native Cloud upload properties:
+
+- explicit Bearer Nexus session;
+- `content://` source only;
+- max 25 MiB, checked before/while streaming;
+- stable candidate key: `android-evidence-<candidateId>`;
+- receipt-bound Project World from `EvidenceBindingStore`;
+- no Drive folder ID/provider account/credential in APK;
+- `403` remains denied;
+- auth expiry clears the local encrypted session and leaves evidence retryable;
+- provider/DB failure remains `FAILED_RETRYABLE` with the same idempotency key.
+
+Android marks `TRANSFER_CONFIRMED` only when the server returns all of:
+
+- HTTP 200/201;
+- `providerWriteConfirmed=true`;
+- `projectMemoryCommitted=true`;
+- non-empty canonical `fileId`;
+- non-empty `driveFileId`.
+
+A provider write followed by persistence failure is never reported as a canonical success.
+
+Important: PR #125 is still open/not deployed and still requires real runtime DB, Google OAuth secret, released provider mapping and production concurrency hardening. Therefore this Android code is a canonical client implementation, not a real Google Drive E2E PASS.
+
+## Durable Cloud Evidence access
+
+After the first confirmed PHOTO/DOCUMENT metadata receipt Android publishes a dynamic launcher shortcut:
+
+`Cloud Evidence`
+
+It appears under the existing NEXUS app icon (launcher long-press); it is not a second launcher icon/application.
+
+The shortcut targets a parameter-free trampoline. It accepts no project/candidate/session authority and only opens the non-exported `CloudEvidenceActivity`, which re-reads app-private state and re-authorises every server action.
+
+## Ask Nexus / WorkSuite truth
+
+Current Ask Nexus execution remains intentionally bounded:
+
+- `modelExecution=disabled-demo-boundary`;
+- deterministic metadata-only assistance;
+- `NOT_RUN_NO_RAW_CONTENT_TRANSFERRED` for content recognition;
+- no Project Memory mutation;
+- no autonomous action execution.
+
+WorkSuite remains draft-only:
+
+- `mutationMode=draft-only-no-mutation`;
+- `executionBoundary=worksuite-action-engine-required`;
+- no graph mutation;
+- no file write;
+- no approval execution.
+
+Production/content-specific AI is still a later gate after real authorised evidence persistence.
+
+## Validation
+
+Static/executable guards configured in `.github/workflows/android-native-work-mode-e2e.yml` now cover:
+
+- workspace typecheck;
+- executable canonical authority fixtures;
+- Android picker/storage security;
+- exact Project World isolation;
+- one-flight metadata receipt correlation/recovery;
+- local candidate / persisted URI grant cleanup;
+- PKCE S256 native auth start/callback;
+- exact mobile redirect URI restriction;
+- Android Keystore AES/GCM session storage;
+- no session token in deep links;
+- server-confirmed Bearer logout;
+- canonical `/api/nexus/cloud/files` only;
+- stable idempotency key;
+- 25 MiB bound;
+- provider + Project Memory success requirement;
+- receipt-bound evidence sidecar;
+- orphan binding pruning;
+- no Drive/OAuth implementation in APK;
+- durable parameter-free Cloud Evidence shortcut;
 - Java 17 / Gradle 8.9 / AGP 8.7.3;
 - compileSdk/targetSdk 35, minSdk 26;
-- debug APK and release AAB.
+- debug APK + release AAB when a runner actually starts.
 
-Observed GitHub Actions on this track continue to fail before first runner step with `steps=null`. This remains:
+Latest observed Android workflow run #150 still failed before the first runner step: job exists but `steps=null` and no usable log.
+
+Classification remains:
 
 `BLOCKED BY ACTIONS INFRA`
 
-It is not a TypeScript/Gradle failure signal.
+This is not a TypeScript/Java/Gradle failure signal.
 
 Not claimed:
 
-- `LOCAL BUILD PASS`;
-- `APK INSTALL PASS`;
-- `DEVICE/FOLD SMOKE PASS`;
-- real raw-evidence Cloud upload;
-- production AI execution.
+- `GITHUB ACTIONS PASS`;
+- full local workspace/Gradle build pass;
+- APK artifact/install pass;
+- Fold/device smoke pass;
+- live OIDC mobile sign-in pass;
+- live BOUND Person/access DB smoke;
+- real Google Drive upload/Project Memory commit;
+- production AI/content recognition.
+
+## Database safety
+
+No safe non-production `DATABASE_URL` for this `nosmo-nexus-mvp` runtime has been identified.
+
+PR #112 explicitly records that the existing `nosmo-nexus-data-fetcher` Replit DB is unrelated and must remain unused.
+
+Therefore this track has not:
+
+- run `drizzle-kit push`;
+- inserted authority records;
+- enabled a live BOUND Person smoke;
+- claimed persisted e-SAFE allow/deny E2E.
 
 ## Remaining real E2E gates
 
-1. identify safe non-production `DATABASE_URL`;
-2. inspect/apply shared identity/access schemas only there;
-3. run authenticated `UNBOUND -> BOUND` smoke;
-4. run exact e-SAFE allow/deny cases for both Android and WorkSuite actions;
-5. obtain actual APK/AAB output and run install/device/Fold smoke;
-6. consume the canonical authenticated multipart Cloud endpoint when the Cloud track exposes it;
-7. only then add authorised content-specific Ask Nexus processing.
+1. reconcile `/api/mobile-auth/start` into the canonical OpenAPI/API contract;
+2. obtain an actual Android build artifact once Actions/another safe build environment is available;
+3. identify a safe non-production runtime DB and inspect/apply only the shared identity/access/Cloud schemas there;
+4. seed one controlled canonical Person + e-SAFE participation + exact allows for Android handoff, WorkSuite review and Cloud write;
+5. configure #125 runtime Google OAuth + exact server target mapping in non-production;
+6. run real Android PKCE sign-in -> BOUND Person smoke;
+7. run PHOTO/PDF metadata handoff -> Bearer Cloud upload -> real `driveFileId` + `projectMemoryCommitted=true` -> Android `TRANSFER_CONFIRMED`;
+8. test retry after forced provider-written/DB-failed state with the same idempotency key;
+9. install on device/Samsung Fold and smoke permissions, picker, auth callback, upload, return/resume and orientation/fold behavior;
+10. only after durable authorised evidence passes, add content-specific Ask Nexus processing.
 
 Do not auto-merge, deploy or apply database schema from this track.
