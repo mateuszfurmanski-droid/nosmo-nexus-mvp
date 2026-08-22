@@ -3,6 +3,8 @@ package tech.nosmo.nexus.workmode;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.Set;
+
 /**
  * Device-local sidecar for immutable evidence routing facts that must survive
  * MainActivity queue rewrites. This store is not Nexus authority: values originate
@@ -71,6 +73,23 @@ final class EvidenceBindingStore {
                 .remove(key(candidateId, "cloudFile"))
                 .remove(key(candidateId, "driveFile"))
                 .apply();
+    }
+
+    static void pruneToCandidates(Context context, Set<String> candidateIds) {
+        if (candidateIds == null) return;
+        SharedPreferences store = prefs(context);
+        SharedPreferences.Editor editor = store.edit();
+        boolean changed = false;
+        for (String storedKey : store.getAll().keySet()) {
+            int dot = storedKey.indexOf('.');
+            if (dot <= 0) continue;
+            String candidateId = storedKey.substring(0, dot);
+            if (isCandidateId(candidateId) && !candidateIds.contains(candidateId)) {
+                editor.remove(storedKey);
+                changed = true;
+            }
+        }
+        if (changed) editor.apply();
     }
 
     private static SharedPreferences prefs(Context context) {
