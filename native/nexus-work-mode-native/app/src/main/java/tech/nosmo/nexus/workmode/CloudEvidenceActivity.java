@@ -44,6 +44,7 @@ public final class CloudEvidenceActivity extends Activity {
     private static final int MUTED = Color.rgb(153, 181, 207);
     private static final int CYAN = Color.rgb(72, 205, 255);
 
+    private final Set<String> inFlightUploads = new LinkedHashSet<>();
     private SharedPreferences prefs;
 
     @Override
@@ -59,6 +60,11 @@ public final class CloudEvidenceActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (prefs != null) render();
+    }
+
+    @Override
+    public void onBackPressed() {
+        backToWorkMode();
     }
 
     private void render() {
@@ -103,6 +109,9 @@ public final class CloudEvidenceActivity extends Activity {
             addBody(root, "No PHOTO/DOCUMENT has both user approval and a confirmed Nexus metadata receipt yet.");
         }
 
+        if (!inFlightUploads.isEmpty()) {
+            addSmall(root, "Cloud upload is in progress. Sign-out and leaving this screen are locked until the current stream returns a result.");
+        }
         addAction(root, "Back to Work Mode", this::backToWorkMode, false);
         addSmall(root, "Cloud success requires providerWriteConfirmed=true AND projectMemoryCommitted=true. Provider-only success or DB failure remains retryable and never becomes TRANSFER_CONFIRMED.");
         setPage(root);
@@ -148,6 +157,11 @@ public final class CloudEvidenceActivity extends Activity {
             return;
         }
 
+        if (inFlightUploads.contains(id)) {
+            addSmall(root, "Upload in progress — duplicate send is locked for this evidence item.");
+            return;
+        }
+
         if (
                 EVIDENCE_PENDING.equals(evidenceState) ||
                 EVIDENCE_READY.equals(evidenceState) ||
@@ -155,7 +169,9 @@ public final class CloudEvidenceActivity extends Activity {
         ) {
             addAction(
                     root,
-                    EVIDENCE_RETRY.equals(evidenceState) ? "Retry Cloud upload" : "Upload evidence to Nexus Cloud",
+                    EVIDENCE_RETRY.equals(evidenceState) || EVIDENCE_READY.equals(evidenceState)
+                            ? "Retry Cloud upload"
+                            : "Upload evidence to Nexus Cloud",
                     () -> uploadEvidence(id),
                     false
             );
@@ -178,6 +194,11 @@ public final class CloudEvidenceActivity extends Activity {
     }
 
     private void logoutMobileSession() {
+        if (!inFlightUploads.isEmpty()) {
+            Toast.makeText(this, "Wait for the active Cloud upload before signing out", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         String origin = configuredNexusOrigin();
         if (origin.isEmpty()) {
             Toast.makeText(this, "Nexus HTTPS origin is not configured; server sign-out was not attempted", Toast.LENGTH_LONG).show();
@@ -196,6 +217,11 @@ public final class CloudEvidenceActivity extends Activity {
     }
 
     private void uploadEvidence(String candidateId) {
+        if (inFlightUploads.contains(candidateId)) {
+            Toast.makeText(this, "This evidence upload is already in progress", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         String origin = configuredNexusOrigin();
         String token = NexusMobileSession.getSessionToken(this);
         if (origin.isEmpty()) {
@@ -229,6 +255,7 @@ public final class CloudEvidenceActivity extends Activity {
                 return;
             }
 
+            inFlightUploads.add(candidateId);
             item.put("evidenceTransferState", EVIDENCE_READY);
             prefs.edit().putString(PREF_QUEUE, queue.toString()).apply();
             render();
@@ -247,11 +274,15 @@ public final class CloudEvidenceActivity extends Activity {
                     result -> runOnUiThread(() -> applyUploadResult(candidateId, result))
             );
         } catch (Exception ignored) {
+            inFlightUploads.remove(candidateId);
+            markEvidenceRetryable(candidateId);
             Toast.makeText(this, "Could not prepare local evidence upload", Toast.LENGTH_LONG).show();
+            render();
         }
     }
 
     private void applyUploadResult(String candidateId, NexusCloudUploadClient.Result result) {
+        inFlightUploads.remove(candidateId);
         try {
             JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
             JSONObject item = findItem(queue, candidateId);
@@ -274,9 +305,22 @@ public final class CloudEvidenceActivity extends Activity {
             prefs.edit().putString(PREF_QUEUE, queue.toString()).apply();
             Toast.makeText(this, result.message, Toast.LENGTH_LONG).show();
         } catch (Exception ignored) {
+            markEvidenceRetryable(candidateId);
             Toast.makeText(this, "Could not persist local Cloud receipt state", Toast.LENGTH_LONG).show();
         }
         render();
+    }
+
+    private void markEvidenceRetryable(String candidateId) {
+        try {
+            JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
+            JSONObject item = findItem(queue, candidateId);
+            if (item != null && !EVIDENCE_CONFIRMED.equals(item.optString("evidenceTransferState", ""))) {
+                item.put("evidenceTransferState", EVIDENCE_RETRY);
+                prefs.edit().putString(PREF_QUEUE, queue.toString()).apply();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private JSONObject findItem(JSONArray queue, String candidateId) throws Exception {
@@ -299,6 +343,10 @@ public final class CloudEvidenceActivity extends Activity {
     }
 
     private void backToWorkMode() {
+        if (!inFlightUploads.isEmpty()) {
+            Toast.makeText(this, "Wait for the active Cloud upload before leaving this screen", Toast.LENGTH_LONG).show();
+            return;
+        }
         Intent main = new Intent(this, MainActivity.class);
         main.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(main);
