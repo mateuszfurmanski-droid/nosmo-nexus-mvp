@@ -20,6 +20,7 @@ export * from './projectMemoryActions';
 export * from './projectMemoryInvariants';
 export * from './projectMemoryStorageInvariants';
 export * from './ifcIdentityInvariants';
+export * from './ifcSourceIntake';
 export * from './demo/esafeCataniaFixtures';
 export * from './demo/esafeCataniaPhase9Fixtures';
 export * from './demo/esafeCataniaMemory';
