@@ -23,6 +23,12 @@
             android:exported="false" />
 
         <activity
+            android:name=".CloudEvidenceShortcutActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
+        <activity
             android:name=".HandoffResultActivity"
             android:exported="true"
             android:noHistory="true"
