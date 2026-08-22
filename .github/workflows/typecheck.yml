@@ -53,6 +53,9 @@ jobs:
       - name: Validate Work Wallet connector-account provider boundary
         run: pnpm --filter @workspace/api-server validate:work-wallet-connector-account
 
+      - name: Validate Work Wallet DB target preflight guard
+        run: pnpm --filter @workspace/db test:nexus-work-wallet-db-preflight
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
