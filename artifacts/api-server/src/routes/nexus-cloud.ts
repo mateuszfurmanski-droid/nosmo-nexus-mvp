@@ -8,12 +8,19 @@ import { createNexusCloudProviderWritePlan } from "../../../../src/core/storage/
 import { createNexusCloudPersistenceProposal } from "../../../../src/core/storage/cloudPersistenceContract";
 import { createNexusCloudDbCommitInput } from "@workspace/db/nexus-cloud-persistence-input";
 import { persistNexusCloudCommit } from "@workspace/db/nexus-cloud-persistence";
+import {
+  markNexusCloudPersistenceFailed,
+  markNexusCloudWriteCommitted,
+} from "@workspace/db/nexus-cloud-write-operation";
 import { resolveNexusCloudRuntimeWriteAccess } from "../lib/nexus-cloud-access-authority";
 import {
   loadNexusCloudGoogleDriveRuntimeConfig,
   NexusCloudRuntimeConfigError,
 } from "../lib/nexus-cloud-runtime-config";
-import { writeNexusCloudGoogleDriveRuntime } from "../lib/nexus-cloud-google-drive-runtime";
+import {
+  executeNexusCloudDurableProviderWrite,
+  NexusCloudDurableProviderWriteError,
+} from "../lib/nexus-cloud-durable-provider-write";
 import { createNexusCloudOperationIdentity } from "../lib/nexus-cloud-operation-identity";
 
 const router: IRouter = Router();
@@ -104,19 +111,43 @@ const providerErrorCode = (error: unknown): string => {
   ) {
     return (error as { code: string }).code;
   }
+  if (
+    error instanceof Error &&
+    error.message.startsWith("NEXUS_CLOUD_")
+  ) {
+    return error.message;
+  }
   return "NEXUS_CLOUD_PROVIDER_WRITE_FAILED";
 };
 
 const providerErrorStatus = (code: string): number => {
-  if (code.includes("IDEMPOTENCY_CONFLICT")) return 409;
+  if (code.includes("IDEMPOTENCY_")) return 409;
   if (
-    code.includes("SECRET_NOT_CONFIGURED") ||
-    code.includes("TOKEN_REJECTED") ||
+    code.includes("WRITE_OPERATION_STORE") ||
+    code.includes("LEASE_") ||
+    code.includes("SECRET_") ||
+    code.includes("TOKEN_") ||
     code.includes("TARGET_PERMISSION_DENIED")
   ) {
     return 503;
   }
   return 502;
+};
+
+const bestEffortMarkPersistenceFailed = async (
+  operationId: string,
+  errorCode: string,
+): Promise<void> => {
+  try {
+    await markNexusCloudPersistenceFailed({
+      operationId,
+      errorCode,
+      failedAt: new Date(),
+    });
+  } catch {
+    // Stored provider receipt remains recoverable in PROVIDER_CONFIRMED when this
+    // best-effort state annotation cannot be persisted.
+  }
 };
 
 router.post("/files", parseSingleFile, async (req, res) => {
@@ -247,18 +278,47 @@ router.post("/files", parseSingleFile, async (req, res) => {
     return;
   }
 
-  let providerResult;
+  let durableProvider;
   try {
-    providerResult = await writeNexusCloudGoogleDriveRuntime({
+    durableProvider = await executeNexusCloudDurableProviderWrite({
+      workspaceId: req.workspaceId,
+      operation,
+      pendingAsset,
       plan: writePlan,
       binary: req.file.buffer,
-      idempotencyKey: operation.providerIdempotencyKey,
+      checksumSha256,
+      tradeId,
     });
   } catch (error) {
+    if (
+      error instanceof NexusCloudDurableProviderWriteError &&
+      error.providerWriteConfirmed
+    ) {
+      req.log?.error?.(
+        {
+          err: error,
+          operationFingerprint: operation.operationFingerprint,
+          driveFileId: error.driveFileId,
+        },
+        "Nexus Cloud provider write succeeded but durable ledger confirmation failed",
+      );
+      res.status(503).json({
+        status: "PROVIDER_WRITTEN_LEDGER_CONFIRMATION_FAILED",
+        error: error.message,
+        providerWriteConfirmed: true,
+        driveFileId: error.driveFileId,
+        projectMemoryCommitted: false,
+        operationLedgerCommitted: false,
+        retryWithSameIdempotencyKey: true,
+        recoverableAfterLeaseExpiry: true,
+      });
+      return;
+    }
+
     const code = providerErrorCode(error);
     req.log?.error?.(
       { err: error, operationFingerprint: operation.operationFingerprint, projectId, worldId },
-      "Nexus Cloud Google Drive write failed",
+      "Nexus Cloud durable provider write failed",
     );
     res.status(providerErrorStatus(code)).json({
       status: "PROVIDER_WRITE_FAILED",
@@ -269,17 +329,52 @@ router.post("/files", parseSingleFile, async (req, res) => {
     return;
   }
 
+  if (durableProvider.status === "BUSY") {
+    res.setHeader(
+      "Retry-After",
+      String(Math.max(1, Math.ceil(durableProvider.retryAfterMs / 1000))),
+    );
+    res.status(409).json({
+      status: "OPERATION_IN_PROGRESS",
+      error: "NEXUS_CLOUD_WRITE_OPERATION_BUSY",
+      retryWithSameIdempotencyKey: true,
+      retryAfterMs: durableProvider.retryAfterMs,
+    });
+    return;
+  }
+
+  if (durableProvider.status === "ALREADY_COMMITTED") {
+    res.status(200).json({
+      status: "ALREADY_COMMITTED",
+      projectId,
+      worldId,
+      pendingAssetId: pendingAsset.pendingAssetId,
+      accessDecisionId: accessDecision.id,
+      fileId: durableProvider.canonicalFileId,
+      driveFileId: durableProvider.driveFileId,
+      providerWriteConfirmed: true,
+      projectMemoryCommitted: true,
+      operationLedgerCommitted: true,
+      projectGraphMutationPerformed: false,
+    });
+    return;
+  }
+
   const persistenceProposal = createNexusCloudPersistenceProposal(
     pendingAsset,
-    providerResult.receipt,
+    durableProvider.receipt,
     accessDecision,
   );
 
   if (!persistenceProposal.ready) {
+    await bestEffortMarkPersistenceFailed(
+      durableProvider.operationId,
+      persistenceProposal.reason,
+    );
     req.log?.error?.(
       {
         operationFingerprint: operation.operationFingerprint,
-        driveFileId: providerResult.driveFileId,
+        driveFileId: durableProvider.driveFileId,
         reason: persistenceProposal.reason,
       },
       "Nexus Cloud provider write succeeded but canonical persistence proposal failed",
@@ -288,38 +383,29 @@ router.post("/files", parseSingleFile, async (req, res) => {
       status: "PROVIDER_WRITTEN_PERSISTENCE_FAILED",
       error: persistenceProposal.reason,
       providerWriteConfirmed: true,
-      driveFileId: providerResult.driveFileId,
+      driveFileId: durableProvider.driveFileId,
+      projectMemoryCommitted: false,
+      operationLedgerCommitted: true,
       retryWithSameIdempotencyKey: true,
       recoverable: true,
     });
     return;
   }
 
+  let commit;
   try {
     const dbInput = createNexusCloudDbCommitInput(req.workspaceId, persistenceProposal);
-    const commit = await persistNexusCloudCommit(dbInput);
-
-    res.status(commit.status === "COMMITTED" ? 201 : 200).json({
-      status: commit.status,
-      providerStatus: providerResult.status,
-      idempotentProviderReplay: providerResult.idempotentReplay,
-      projectId,
-      worldId,
-      pendingAssetId: pendingAsset.pendingAssetId,
-      accessDecisionId: accessDecision.id,
-      fileId: commit.fileId,
-      canonicalFileObjectId: persistenceProposal.canonicalFileObject.id,
-      driveFileId: providerResult.driveFileId,
-      providerWriteConfirmed: true,
-      projectMemoryCommitted: true,
-      projectGraphMutationPerformed: false,
-    });
+    commit = await persistNexusCloudCommit(dbInput);
   } catch (error) {
+    await bestEffortMarkPersistenceFailed(
+      durableProvider.operationId,
+      "NEXUS_CLOUD_PROJECT_MEMORY_COMMIT_FAILED",
+    );
     req.log?.error?.(
       {
         err: error,
         operationFingerprint: operation.operationFingerprint,
-        driveFileId: providerResult.driveFileId,
+        driveFileId: durableProvider.driveFileId,
         projectId,
         worldId,
       },
@@ -330,13 +416,63 @@ router.post("/files", parseSingleFile, async (req, res) => {
       status: "PROVIDER_WRITTEN_PERSISTENCE_FAILED",
       error: "NEXUS_CLOUD_PROJECT_MEMORY_COMMIT_FAILED",
       providerWriteConfirmed: true,
-      driveFileId: providerResult.driveFileId,
+      driveFileId: durableProvider.driveFileId,
       retryWithSameIdempotencyKey: true,
       recoverable: true,
       projectMemoryCommitted: false,
+      operationLedgerCommitted: true,
       projectGraphMutationPerformed: false,
     });
+    return;
   }
+
+  try {
+    await markNexusCloudWriteCommitted({
+      operationId: durableProvider.operationId,
+      canonicalFileId: commit.fileId,
+      committedAt: new Date(),
+    });
+  } catch (error) {
+    req.log?.error?.(
+      {
+        err: error,
+        operationFingerprint: operation.operationFingerprint,
+        driveFileId: durableProvider.driveFileId,
+        fileId: commit.fileId,
+      },
+      "Nexus Cloud Project Memory commit succeeded but operation ledger finalization failed",
+    );
+    res.status(503).json({
+      status: "PROJECT_MEMORY_COMMITTED_LEDGER_FINALIZATION_FAILED",
+      error: "NEXUS_CLOUD_WRITE_OPERATION_FINALIZATION_FAILED",
+      providerWriteConfirmed: true,
+      driveFileId: durableProvider.driveFileId,
+      fileId: commit.fileId,
+      projectMemoryCommitted: true,
+      operationLedgerCommitted: false,
+      retryWithSameIdempotencyKey: true,
+      recoverable: true,
+      projectGraphMutationPerformed: false,
+    });
+    return;
+  }
+
+  res.status(commit.status === "COMMITTED" ? 201 : 200).json({
+    status: commit.status,
+    providerStatus: durableProvider.providerStatus,
+    idempotentProviderReplay: durableProvider.idempotentReplay,
+    projectId,
+    worldId,
+    pendingAssetId: pendingAsset.pendingAssetId,
+    accessDecisionId: accessDecision.id,
+    fileId: commit.fileId,
+    canonicalFileObjectId: persistenceProposal.canonicalFileObject.id,
+    driveFileId: durableProvider.driveFileId,
+    providerWriteConfirmed: true,
+    projectMemoryCommitted: true,
+    operationLedgerCommitted: true,
+    projectGraphMutationPerformed: false,
+  });
 });
 
 export default router;
