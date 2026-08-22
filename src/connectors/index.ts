@@ -108,6 +108,21 @@ export {
   runFabStationRevisionHandoffSmoke,
 } from './bim-fabstation/fabStationRevisionHandoffSmoke';
 export type { NexusFabStationRevisionHandoffSmokeResult } from './bim-fabstation/fabStationRevisionHandoffSmoke';
+export {
+  NEXUS_FABSTATION_REVISION_EXECUTION_EVIDENCE_SCHEMA,
+  assessFabStationRevisionExecutionEvidence,
+} from './bim-fabstation/fabStationRevisionExecutionEvidence';
+export type {
+  NexusFabStationObservedProcessingFilter,
+  NexusFabStationRevisionExecutionEvidenceAssessment,
+  NexusFabStationRevisionExecutionEvidenceInput,
+  NexusFabStationRevisionExecutionEvidenceResolution,
+  NexusFabStationRevisionExecutionIssue,
+  NexusFabStationRevisionExecutionIssueCode,
+  NexusFabStationRevisionExecutionState,
+} from './bim-fabstation/fabStationRevisionExecutionEvidence';
+export { runFabStationRevisionExecutionEvidenceSmoke } from './bim-fabstation/fabStationRevisionExecutionEvidenceSmoke';
+export type { NexusFabStationRevisionExecutionEvidenceSmokeResult } from './bim-fabstation/fabStationRevisionExecutionEvidenceSmoke';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
 export { microsoft365Connector } from './microsoft365/microsoft365Connector';

@@ -56,6 +56,9 @@ jobs:
       - name: Synthetic FabStation revision handoff smoke
         run: pnpm run smoke:fabstation-revision
 
+      - name: Synthetic FabStation revision execution evidence smoke
+        run: pnpm run smoke:fabstation-revision-execution
+
       - name: Build Nexus web application
         env:
           PORT: 4173
