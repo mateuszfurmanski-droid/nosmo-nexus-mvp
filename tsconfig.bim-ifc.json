@@ -8,6 +8,7 @@
     "src/connectors/bim-fabstation/spatialHandoff.ts",
     "src/connectors/bim-fabstation/fabStationCapabilityEvidence.ts",
     "src/connectors/bim-fabstation/fabStationProjectPackagePlan.ts",
+    "src/connectors/bim-fabstation/fabStationManualHandoffEvidence.ts",
     "src/data/schemas/issue.schema.ts",
     "src/data/projectMemory.ts",
     "src/data/issueInvariants.ts",
