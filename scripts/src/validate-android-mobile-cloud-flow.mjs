@@ -123,7 +123,9 @@ requireText(cloudUi, 'releasePersistedReadPermissionIfUnused', 'old URI permissi
 requireText(cloudUi, 'Project World and metadata receipt were not changed', 'reselection must not be presented as a new authority/handoff');
 requireText(cloudUi, 'only then retain a persistable grant', 'reselection must validate before retaining durable URI access');
 requireText(cloudUi, 'boolean newGrantRetained = false', 'reselection must track whether a new persisted grant was retained');
-requireText(cloudUi, 'releaseExactPersistedReadPermission(newUri)', 'failed local persistence must release the exact new retained grant');
+requireText(cloudUi, 'releaseRejectedReselectionGrantIfNew(candidateId, newUri)', 'failed local persistence must only release an actually new reselection grant');
+requireText(cloudUi, 'The candidate still legitimately references this exact URI', 'same-reference reselection failure must preserve the existing valid grant');
+requireText(cloudUi, 'If local state cannot be read, fail closed by leaving the narrowly scoped grant alone', 'cleanup must not revoke an unknown grant when local state is corrupt');
 requireText(cloudUi, 'private boolean takePersistableReadPermission', 'grant acquisition must report whether durable access was retained');
 forbidText(cloudUi, 'EvidenceBindingStore.bindConfirmedMetadata(this, candidateId', 'reselection must not mint a new Project World binding');
 
