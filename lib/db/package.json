@@ -7,12 +7,12 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./nexus-cloud-persistence": "./src/nexusCloudPersistence.ts",
-    "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts"
+    "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts",
+    "./nexus-project-access-persistence": "./src/nexusProjectAccessPersistence.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
-    "bootstrap-nexus-android-authority": "node ./scripts/bootstrap-nexus-android-work-mode-authority.mjs"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
