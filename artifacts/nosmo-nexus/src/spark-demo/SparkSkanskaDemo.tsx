@@ -146,21 +146,6 @@ function buildReportCsv(
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
-function downloadReport(
-  assets: DemoAsset[],
-  decisions: DecisionAuditEntry[],
-  edits: RecordEditAuditEntry[],
-  created: CreatedObjectEntry[],
-) {
-  const csv = `\uFEFF${buildReportCsv(assets, decisions, edits, created)}`;
-  const link = document.createElement("a");
-  link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
-  link.download = `nexus-spark-circular-report-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-}
-
 export default function SparkSkanskaDemo() {
   const [view, setView] = useState<"project" | "environment">("project");
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
@@ -618,11 +603,14 @@ function EnvironmentalPanel({
   const latestAudit = [...decisionAudit].reverse().slice(0, 5);
   const latestEdits = [...editAudit].reverse().slice(0, 5);
   const latestCreated = [...createdObjects].reverse().slice(0, 5);
+  const reportCsv = `\uFEFF${buildReportCsv(assets, decisionAudit, editAudit, createdObjects)}`;
+  const reportHref = `data:text/csv;charset=utf-8,${encodeURIComponent(reportCsv)}`;
+  const reportFilename = `nexus-spark-circular-report-${new Date().toISOString().slice(0, 10)}.csv`;
 
   return <main className="spark-environment">
     <section className="spark-report-actions">
       <div><h2>Circular / Environmental report</h2><p>Current Object Register state plus browser-local creation, human-decision and edit audit. CO₂ remains UNKNOWN where verified inputs are absent.</p></div>
-      <div className="spark-report-buttons"><button onClick={() => downloadReport(assets, decisionAudit, editAudit, createdObjects)}>Download CSV</button><button onClick={() => window.print()}>Print / Save PDF</button></div>
+      <div className="spark-report-buttons"><a href={reportHref} download={reportFilename}>Download CSV</a><button onClick={() => window.print()}>Print / Save PDF</button></div>
     </section>
     <section><h2>Circular status</h2>{rowsStatus.map(({ status, count }) => <ReportRow key={status} label={status} value={count} note="Current Object Register records; human demo decisions included" />)}</section>
     <section><h2>Provenance</h2><ReportRow label="DERIVED" value={derived} note="Synthetic / browser-derived demonstrator records" /><ReportRow label="UNKNOWN" value={unknown} note="Missing or unverified source data" /><ReportRow label="REAL" value={0} note="No real SKANSKA project records loaded" /></section>
