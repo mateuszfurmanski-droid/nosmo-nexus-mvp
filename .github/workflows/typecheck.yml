@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate Work Wallet extension ticket receiver
+        run: node tools/nexus-overlay-extension/tests/validate-context-ticket-receiver.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
