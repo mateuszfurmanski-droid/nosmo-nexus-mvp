@@ -102,45 +102,24 @@ export const assessFabStationRevisionExecutionEvidence = (
   const mappedStatus = mapFabStationObservedPackageStatus(input.observedPackageStatus);
 
   if (advice.state !== 'REVISION_PACKAGE_READY') {
-    issues.push({
-      code: 'ADVICE_NOT_PACKAGE_READY',
-      blocking: true,
-      message: 'Revision execution evidence can be evaluated only against package-ready revision advice.',
-    });
+    issues.push({ code: 'ADVICE_NOT_PACKAGE_READY', blocking: true, message: 'Revision execution evidence requires package-ready revision advice.' });
   }
-
   if (advice.processingFilterRecommendation !== 'ON' && advice.processingFilterRecommendation !== 'OFF') {
-    issues.push({
-      code: 'ADVICE_FILTER_NOT_EXECUTABLE',
-      blocking: true,
-      message: 'Revision execution evidence requires an explicit ON or OFF Processing Filter recommendation.',
-    });
+    issues.push({ code: 'ADVICE_FILTER_NOT_EXECUTABLE', blocking: true, message: 'Revision execution evidence requires an explicit ON or OFF filter recommendation.' });
   }
-
   if (manualHandoff.eventProposal.primaryObjectId !== advice.nexusObjectId) {
-    issues.push({
-      code: 'OBJECT_SCOPE_MISMATCH',
-      blocking: true,
-      message: 'Manual hand-off evidence and revision advice must target the exact same Nexus Object.',
-    });
+    issues.push({ code: 'OBJECT_SCOPE_MISMATCH', blocking: true, message: 'Manual hand-off evidence and revision advice must target the same Nexus Object.' });
   }
-
   if (!manualHandoff.eventProposal.projectId || !manualHandoff.eventProposal.worldId) {
-    issues.push({
-      code: 'PROJECT_SCOPE_REQUIRED',
-      blocking: true,
-      message: 'Manual hand-off evidence requires explicit project/world scope before revision execution can be reviewed.',
-    });
+    issues.push({ code: 'PROJECT_SCOPE_REQUIRED', blocking: true, message: 'Manual hand-off evidence requires explicit project/world scope.' });
   }
-
   if (!manualHandoff.reviewedEvidenceIds.includes(input.processingFilterEvidenceId)) {
     issues.push({
       code: 'FILTER_EVIDENCE_NOT_REVIEWED',
       blocking: false,
-      message: 'The Processing Filter observation must be backed by an evidence record already reviewed in the canonical manual hand-off evidence set.',
+      message: 'The observed Processing Filter must be backed by a reviewed canonical hand-off evidence record.',
     });
   }
-
   if (
     (advice.processingFilterRecommendation === 'ON' || advice.processingFilterRecommendation === 'OFF') &&
     input.observedProcessingFilter !== advice.processingFilterRecommendation
@@ -151,38 +130,36 @@ export const assessFabStationRevisionExecutionEvidence = (
       message: `Observed Processing Filter ${input.observedProcessingFilter} does not match advised ${advice.processingFilterRecommendation}.`,
     });
   }
-
   if (!equalIds(advice.selectedFileIds, input.actualUploadedFileIds)) {
     issues.push({
       code: 'UPLOADED_FILE_SET_MISMATCH',
       blocking: false,
-      message: 'The human-attested uploaded revision file set does not exactly match the file IDs selected by the revision advice.',
+      message: 'The human-attested uploaded file set does not exactly match the revision advice file set.',
     });
   }
-
   if (mappedStatus.nexusProcessingState !== manualHandoff.partner.processingState) {
     issues.push({
       code: 'PACKAGE_STATUS_MISMATCH',
       blocking: false,
-      message: 'Observed FabStation Package History state does not match the processing state recorded by the manual hand-off evidence assessment.',
+      message: 'Observed FabStation Package History state conflicts with the manual hand-off processing state.',
     });
   }
 
   if (issues.some((issue) => issue.blocking)) return { ok: false, issues };
 
   const mismatch = issues.length > 0;
-  const rejected = mappedStatus.nexusProcessingState === 'REJECTED' || manualHandoff.validationState === 'PARTNER_HANDOFF_REJECTED';
+  const rejected = mappedStatus.nexusProcessingState === 'REJECTED' && manualHandoff.validationState === 'PARTNER_HANDOFF_REJECTED';
   const syntheticSource = advice.sourceProvenanceClass === 'SYNTHETIC_DEMO';
 
   let state: NexusFabStationRevisionExecutionState;
   let validationBasis: NexusFabStationRevisionExecutionEvidenceAssessment['validationBasis'];
 
-  if (rejected) {
-    state = 'REVISION_HANDOFF_EXECUTION_REJECTED';
-    validationBasis = 'PARTNER_REJECTION_RECORDED';
-  } else if (mismatch) {
+  if (mismatch) {
     state = 'REVISION_HANDOFF_EXECUTION_MISMATCH';
     validationBasis = 'EXECUTION_MISMATCH_RECORDED';
+  } else if (rejected) {
+    state = 'REVISION_HANDOFF_EXECUTION_REJECTED';
+    validationBasis = 'PARTNER_REJECTION_RECORDED';
   } else if (
     !syntheticSource &&
     mappedStatus.nexusProcessingState === 'PROCESSED' &&
@@ -196,7 +173,7 @@ export const assessFabStationRevisionExecutionEvidence = (
   }
 
   if (syntheticSource) {
-    warnings.push('Revision advice provenance is SYNTHETIC_DEMO; revision execution PASS is impossible regardless of simulated package status/evidence completeness.');
+    warnings.push('Revision advice provenance is SYNTHETIC_DEMO; execution PASS is impossible regardless of simulated completeness.');
   }
   if (manualHandoff.validationState !== 'PARTNER_HANDOFF_PASS' && !rejected) {
     warnings.push('Base manual partner hand-off has not reached PARTNER_HANDOFF_PASS; revision execution remains pending external validation.');
