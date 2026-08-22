@@ -1,0 +1,80 @@
+import type { NexusDockItemDefinition } from './registryTypes';
+
+export const nexusDockItems: NexusDockItemDefinition[] = [
+  {
+    id: 'dock-project',
+    moduleId: 'project',
+    label: 'PROJECT',
+    placement: 'bottom',
+    order: 10,
+    enabled: true,
+    iconKey: 'project',
+  },
+  {
+    id: 'dock-time',
+    moduleId: 'time',
+    label: 'TIME',
+    placement: 'bottom',
+    order: 20,
+    enabled: true,
+    iconKey: 'time',
+  },
+  {
+    id: 'dock-people',
+    moduleId: 'people',
+    label: 'PEOPLE',
+    placement: 'bottom',
+    order: 30,
+    enabled: true,
+    iconKey: 'people',
+  },
+  {
+    id: 'dock-docs',
+    moduleId: 'docs',
+    label: 'DOCS',
+    placement: 'bottom',
+    order: 40,
+    enabled: true,
+    iconKey: 'docs',
+  },
+  {
+    id: 'dock-cloud',
+    moduleId: 'cloud',
+    label: 'CLOUD',
+    placement: 'bottom',
+    order: 50,
+    enabled: true,
+    iconKey: 'cloud',
+  },
+  {
+    id: 'dock-soft',
+    moduleId: 'soft',
+    label: 'SOFT',
+    placement: 'bottom',
+    order: 60,
+    enabled: true,
+    iconKey: 'soft',
+  },
+  {
+    id: 'dock-integrations',
+    moduleId: 'integrations',
+    label: 'INT.',
+    placement: 'bottom',
+    order: 70,
+    enabled: true,
+    iconKey: 'integrations',
+  },
+  {
+    id: 'dock-evidence',
+    moduleId: 'evidence',
+    label: 'EVIDENCE',
+    placement: 'bottom',
+    order: 80,
+    enabled: false,
+    iconKey: 'evidence',
+    notes: 'Planned. Enable only after evidence module contract is implemented.',
+  },
+];
+
+export const getNexusDockItem = (id: string) => nexusDockItems.find((item) => item.id === id);
+export const getEnabledNexusDockItems = () => nexusDockItems.filter((item) => item.enabled).sort((a, b) => a.order - b.order);

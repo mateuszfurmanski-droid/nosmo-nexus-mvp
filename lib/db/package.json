@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./nexus-cloud-persistence": "./src/nexusCloudPersistence.ts",
+    "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
