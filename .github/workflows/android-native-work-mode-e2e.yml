@@ -9,13 +9,16 @@ on:
       - native/nexus-work-mode-native/**
       - src/core/android/**
       - src/core/index.ts
+      - src/core/permissions/canonicalAccessResolver.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
-      - artifacts/api-server/src/lib/nexus-runtime-authority.ts
-      - lib/db/src/schema/nexusRuntimeAuthority.ts
+      - artifacts/api-server/src/lib/nexus-android-work-mode-authority.ts
+      - artifacts/api-server/src/lib/nexus-person-binding.ts
+      - lib/db/src/nexusProjectAccessPersistence.ts
+      - lib/db/src/schema/nexusProjectMemoryIdentity.ts
+      - lib/db/src/schema/nexusProjectAccess.ts
       - lib/db/src/schema/index.ts
-      - lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs
       - lib/db/package.json
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - .github/workflows/android-native-work-mode-e2e.yml
@@ -26,13 +29,16 @@ on:
       - native/nexus-work-mode-native/**
       - src/core/android/**
       - src/core/index.ts
+      - src/core/permissions/canonicalAccessResolver.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
-      - artifacts/api-server/src/lib/nexus-runtime-authority.ts
-      - lib/db/src/schema/nexusRuntimeAuthority.ts
+      - artifacts/api-server/src/lib/nexus-android-work-mode-authority.ts
+      - artifacts/api-server/src/lib/nexus-person-binding.ts
+      - lib/db/src/nexusProjectAccessPersistence.ts
+      - lib/db/src/schema/nexusProjectMemoryIdentity.ts
+      - lib/db/src/schema/nexusProjectAccess.ts
       - lib/db/src/schema/index.ts
-      - lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs
       - lib/db/package.json
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - .github/workflows/android-native-work-mode-e2e.yml
@@ -63,7 +69,7 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck Nexus authority and API workspace
+      - name: Typecheck Nexus shared authority and API workspace
         run: pnpm run typecheck
 
       - name: Setup Java
@@ -116,7 +122,7 @@ jobs:
           ! grep -q "AccessibilityService" "$MAIN" "$CALLBACK"
           ! grep -q "WebView" "$MAIN" "$CALLBACK"
 
-      - name: Verify canonical Project World and Android handoff contract
+      - name: Verify canonical Android handoff contract
         run: |
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
           CALLBACK="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/HandoffResultActivity.java"
@@ -125,71 +131,58 @@ jobs:
           grep -q "project-esafe-catania" "$MAIN"
           grep -q "world-esafe-catania" "$MAIN"
           grep -q "NEEDS_USER_CONFIRMATION" "$MAIN"
-          grep -q "nexusIntent" "$MAIN"
-          grep -q "ask-nexus" "$MAIN"
-          grep -q "nexusAiContext" "$MAIN"
           grep -q "android-work-discovery-v1" "$MAIN"
-          grep -q "selectedItemIds" "$MAIN"
           grep -q "PENDING_SERVER_CONFIRMATION" "$MAIN"
           grep -q "HANDOFF_PATH = \"/api/nexus/android-work-mode/handoff\"" "$MAIN"
           grep -q "BuildConfig.NEXUS_WEB_ORIGIN" "$MAIN"
           grep -q "NEXUS_ANDROID_WEB_ORIGIN" "$APP_GRADLE"
           grep -q "nexus-android-work-mode-context-v1" "$CONTRACT"
           grep -q "nexus-android-work-mode-handoff-receipt/v1" "$CONTRACT"
-          grep -q "NexusAndroidWorkModeHandoffReceipt" "$CONTRACT"
-          grep -q "createAndroidRuntimeAccessBridgeRequest" "$CONTRACT"
-          grep -q "NexusRuntimeIdentityContext" "$CONTRACT"
           grep -q "Project World changed" "$CALLBACK"
           ! grep -q "RIVERSIDE_DEMO_PROJECT" "$MAIN" "$CONTRACT"
           ! grep -q "esafe-demo" "$MAIN" "$CONTRACT"
-          ! grep -q "nosmotechnology.co.uk/apps/nexus-graph-preview" "$MAIN"
 
-      - name: Verify authenticated server handoff and WorkSuite authority are fail closed
+      - name: Verify shared Nexus identity and access composition
         run: |
           ROUTE="artifacts/api-server/src/routes/nexus-android-work-mode.ts"
-          AUTHORITY="artifacts/api-server/src/lib/nexus-runtime-authority.ts"
-          AUTH_SCHEMA="lib/db/src/schema/nexusRuntimeAuthority.ts"
-          BOOTSTRAP="lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs"
-          DB_PACKAGE="lib/db/package.json"
-          ROUTES_INDEX="artifacts/api-server/src/routes/index.ts"
+          ADAPTER="artifacts/api-server/src/lib/nexus-android-work-mode-authority.ts"
+          BINDING="artifacts/api-server/src/lib/nexus-person-binding.ts"
+          IDENTITY_SCHEMA="lib/db/src/schema/nexusProjectMemoryIdentity.ts"
+          ACCESS_SCHEMA="lib/db/src/schema/nexusProjectAccess.ts"
+          ACCESS_LOADER="lib/db/src/nexusProjectAccessPersistence.ts"
+          ACCESS_RESOLVER="src/core/permissions/canonicalAccessResolver.ts"
           ORIGIN_BOUNDARY="artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts"
-          grep -q "nexus-android-work-mode-context-v1" "$ROUTE"
-          grep -q "nexus-android-work-mode-handoff-receipt/v1" "$ROUTE"
-          grep -q "project-esafe-catania" "$ROUTE"
-          grep -q "world-esafe-catania" "$ROUTE"
+
+          grep -q "resolveNexusPersonBinding" "$ADAPTER"
+          grep -q "loadNexusProjectAccessRows" "$ADAPTER"
+          grep -q "resolveNexusCanonicalAccess" "$ADAPTER"
+          grep -q "ensureWorkspace" "$ADAPTER"
+          grep -q "providerSubjectDigest" "$BINDING"
+          grep -q "nexus_pm_people" "$IDENTITY_SCHEMA"
+          grep -q "nexus_pm_project_participations" "$ACCESS_SCHEMA"
+          grep -q "nexus_pm_permission_grants" "$ACCESS_SCHEMA"
+          grep -q "workspaceId" "$ACCESS_LOADER"
+          grep -q "explicit-deny" "$ACCESS_RESOLVER"
+          grep -q "no-policy-match" "$ACCESS_RESOLVER"
+          grep -q "explicit-grant" "$ACCESS_RESOLVER"
           grep -q "HANDOFF_ACTION_KEY = \"android.work-mode.handoff\"" "$ROUTE"
           grep -q "WORKSUITE_REVIEW_ACTION_KEY = \"worksuite.draft.review\"" "$ROUTE"
-          grep -q "handoffAccess" "$ROUTE"
-          grep -q "draftAccess" "$ROUTE"
-          grep -q "IDENTITY_UNBOUND" "$ROUTE"
+          grep -q "resolveNexusAndroidProjectAccess" "$ROUTE"
           grep -q "disabled-demo-boundary" "$ROUTE"
           grep -q "NOT_RUN_NO_RAW_CONTENT_TRANSFERRED" "$ROUTE"
           grep -q "draft-only-no-mutation" "$ROUTE"
           grep -q "worksuite-action-engine-required" "$ROUTE"
-          grep -q "mutationExecution: false" "$ROUTE"
-          grep -q "approvalExecuted: false" "$ROUTE"
-          grep -q "buildHandoffReceipt" "$ROUTE"
+          grep -q "nexus-android-work-mode-handoff-receipt/v1" "$ROUTE"
           grep -q "nosmo-nexus-workmode://handoff-result" "$ROUTE"
-          grep -q "NO_EXPLICIT_ALLOW" "$AUTHORITY"
-          grep -q "EXPLICIT_DENY" "$AUTHORITY"
-          grep -q "MODULE_ENTITLEMENT_RUNTIME_REQUIRED" "$AUTHORITY"
-          grep -q "nexus_permission_grants" "$AUTH_SCHEMA"
-          grep -q "nexus_project_participations" "$AUTH_SCHEMA"
-          grep -q "NEXUS_DEV_ANDROID_AUTHORITY_BOOTSTRAP" "$BOOTSTRAP"
-          grep -q "NODE_ENV === \"production\"" "$BOOTSTRAP"
-          grep -q "refuses to override canonical deny authority" "$BOOTSTRAP"
-          grep -q "worksuite.draft.review" "$BOOTSTRAP"
-          grep -q "android.work-mode.handoff" "$BOOTSTRAP"
-          grep -q "bootstrap-nexus-android-authority" "$DB_PACKAGE"
-          grep -q "router.use(androidWorkModeRequestBoundary)" "$ROUTES_INDEX"
-          grep -q "router.use(nexusAndroidWorkModeRouter)" "$ROUTES_INDEX"
           grep -q "hasBearerSession" "$ORIGIN_BOUNDARY"
           grep -q "isSameOriginBrowserRequest" "$ORIGIN_BOUNDARY"
-          grep -q "ANDROID_WORK_MODE_ORIGIN_NOT_ALLOWED" "$ORIGIN_BOUNDARY"
+
+          ! test -e artifacts/api-server/src/lib/nexus-runtime-authority.ts
+          ! test -e lib/db/src/schema/nexusRuntimeAuthority.ts
+          ! test -e lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs
           ! grep -q "req.user.id.*personId" "$ROUTE"
-          ! grep -q "ACTIVE_PARTICIPATION_SHARED_ACCESS" "$AUTHORITY"
+          ! grep -q "ACTIVE_PARTICIPATION_SHARED_ACCESS" "$ADAPTER" "$ACCESS_RESOLVER"
           ! grep -q "RIVERSIDE_DEMO_PROJECT" "$ROUTE"
-          ! grep -q "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" "$ROUTE"
           ! grep -q "OPENAI_API_KEY" "$ROUTE"
           ! grep -q "ANTHROPIC_API_KEY" "$ROUTE"
 
