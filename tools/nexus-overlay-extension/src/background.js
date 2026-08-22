@@ -17,18 +17,26 @@ const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const EXTERNAL_CAPABILITY_LABEL =
   "DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API";
 
-function clean(value, maxLength) {
-  return String(value ?? "").trim().slice(0, maxLength);
+function clean(value) {
+  return String(value ?? "").trim();
 }
 
 function safeString(value, maxLength) {
-  const candidate = clean(value, maxLength);
-  return candidate && !CONTROL_CHARACTER.test(candidate) ? candidate : null;
+  const candidate = clean(value);
+  return candidate &&
+    candidate.length <= maxLength &&
+    !CONTROL_CHARACTER.test(candidate)
+    ? candidate
+    : null;
 }
 
 function normaliseApiBase(value) {
-  const candidate = clean(value, 160).replace(/\/$/, "");
-  return ALLOWED_API_BASES.has(candidate) ? candidate : null;
+  const candidate = clean(value);
+  if (!candidate || candidate.length > 160 || CONTROL_CHARACTER.test(candidate)) {
+    return null;
+  }
+  const normalised = candidate.replace(/\/$/, "");
+  return ALLOWED_API_BASES.has(normalised) ? normalised : null;
 }
 
 async function readConfig() {
@@ -254,7 +262,7 @@ async function handleExternalTicket(message, sender) {
     return { ok: false, error: "BOOTSTRAP_CONTEXT_MISMATCH" };
   }
 
-  let rawTicket = clean(message?.ticket, 64);
+  let rawTicket = clean(message?.ticket);
   const ticketExpiresAt = Date.parse(String(message?.expiresAt || ""));
   if (
     !SAFE_TICKET.test(rawTicket) ||
