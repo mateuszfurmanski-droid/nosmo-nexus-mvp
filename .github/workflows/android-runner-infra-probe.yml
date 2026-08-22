@@ -1,0 +1,22 @@
+name: Android Runner Infrastructure Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/android-work-mode-e2e-handoff
+    paths:
+      - .github/workflows/android-runner-infra-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  runner-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm runner started
+        run: |
+          echo "RUNNER_STARTED"
+          uname -a
