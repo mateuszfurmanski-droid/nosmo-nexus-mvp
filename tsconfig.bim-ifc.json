@@ -10,6 +10,7 @@
     "src/data/projectMemory.ts",
     "src/data/issueInvariants.ts",
     "src/data/ifcChangeEventReview.ts",
+    "src/data/publicRepresentativeIfcEvidence.ts",
     "src/data/workSuiteRaiseRfi.ts",
     "src/data/workSuiteProjectMemoryCommit.ts",
     "src/data/bimContractE2eHarness.ts",
