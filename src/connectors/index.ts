@@ -13,6 +13,18 @@ export type {
   WorkWalletCanonicalMappingResolution,
   WorkWalletExactRecordLocator,
 } from './work-wallet/workWalletMappingContract';
+export {
+  WORK_WALLET_CONTEXT_SCHEMA,
+  WORK_WALLET_CONTEXT_SOURCE,
+  buildWorkWalletVerifiedContext,
+} from './work-wallet/workWalletContextContract';
+export type {
+  BuildWorkWalletVerifiedContextInput,
+  NexusWorkWalletVerifiedContextV1,
+  WorkWalletGraphFocusProjection,
+  WorkWalletVerificationSource,
+  WorkWalletVerifiedContextResolution,
+} from './work-wallet/workWalletContextContract';
 export { bimFabstationConnector } from './bim-fabstation/bimFabstationConnector';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
