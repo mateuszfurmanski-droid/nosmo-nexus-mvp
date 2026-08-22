@@ -57,6 +57,7 @@ export interface NexusFabStationManualHandoffEvidenceAssessment {
     sha256: string;
     byteLength: number;
     manifestMatchesPlan: boolean;
+    sourceProvenanceClass: NexusFabStationProjectPackagePlan['sourceProvenanceClass'];
   };
   partner: {
     projectReference: string;
@@ -71,6 +72,7 @@ export interface NexusFabStationManualHandoffEvidenceAssessment {
     writesPartnerState: false;
     connectorConfirmed: false;
     userVerifiedExternalEvidence: boolean;
+    syntheticSource: boolean;
     realIfcPassImplied: false;
     trustedViewerPassImplied: false;
     androidFoldPassImplied: false;
@@ -101,9 +103,9 @@ const uniqueIds = (ids: NexusId[]): NexusId[] => [...new Set(ids)];
 /**
  * Evaluates evidence for a human-executed FabStation project-package upload.
  *
- * A PASS here means only that a real partner hand-off was manually executed and
- * reviewed with canonical Nexus evidence. It does not imply API/connector
- * confirmation, REAL IFC PASS, trusted-viewer PASS or device PASS.
+ * A PASS here means only that a non-synthetic partner hand-off was manually
+ * executed and reviewed with canonical Nexus evidence. It does not imply
+ * API/connector confirmation, REAL IFC PASS, trusted-viewer PASS or device PASS.
  */
 export const assessFabStationManualHandoffEvidence = (
   input: NexusFabStationManualHandoffEvidenceInput,
@@ -161,6 +163,7 @@ export const assessFabStationManualHandoffEvidence = (
 
   const hasReviewedPartnerEvidence = reviewedPartnerEvidence.length > 0;
   const hasProcessingReference = Boolean(input.partnerProcessingReference?.trim());
+  const syntheticSource = input.plan.sourceProvenanceClass === 'SYNTHETIC_DEMO';
 
   let validationState: NexusFabStationPartnerHandoffValidationState;
   let validationBasis: NexusFabStationManualHandoffEvidenceAssessment['validationBasis'];
@@ -170,6 +173,7 @@ export const assessFabStationManualHandoffEvidence = (
     validationBasis = 'PARTNER_REJECTION_RECORDED';
   } else if (
     input.partnerProcessingState === 'PROCESSED' &&
+    !syntheticSource &&
     input.manifestMatchesPlan &&
     hasReviewedPartnerEvidence &&
     hasProcessingReference
@@ -198,6 +202,7 @@ export const assessFabStationManualHandoffEvidence = (
     sourceSystem: 'bim-fabstation',
     sourceRecordId: input.partnerProjectReference,
     confidence: 'manual',
+    provenanceClass: input.plan.sourceProvenanceClass,
     eventType: 'SPATIAL_PARTNER_FILE_HANDOFF_RECORDED',
     occurredAt: input.uploadedAt,
     recordedAt: input.recordedAt,
@@ -226,6 +231,9 @@ export const assessFabStationManualHandoffEvidence = (
     'PARTNER_HANDOFF_PASS from this contract does not imply REAL IFC PASS, trusted-viewer PASS or Android/Fold PASS.',
   ];
 
+  if (syntheticSource) {
+    warnings.push('Source package plan is SYNTHETIC_DEMO; PARTNER_HANDOFF_PASS is impossible regardless of simulated processing/evidence completeness.');
+  }
   if (!input.manifestMatchesPlan) {
     warnings.push('The uploaded ZIP has not been attested as matching the bounded Nexus project-package plan.');
   }
@@ -250,6 +258,7 @@ export const assessFabStationManualHandoffEvidence = (
         sha256: input.packageSha256.toLowerCase(),
         byteLength: input.packageByteLength,
         manifestMatchesPlan: input.manifestMatchesPlan,
+        sourceProvenanceClass: input.plan.sourceProvenanceClass,
       },
       partner: {
         projectReference: input.partnerProjectReference,
@@ -264,6 +273,7 @@ export const assessFabStationManualHandoffEvidence = (
         writesPartnerState: false,
         connectorConfirmed: false,
         userVerifiedExternalEvidence: validationState === 'PARTNER_HANDOFF_PASS',
+        syntheticSource,
         realIfcPassImplied: false,
         trustedViewerPassImplied: false,
         androidFoldPassImplied: false,
