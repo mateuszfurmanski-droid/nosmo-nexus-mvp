@@ -42,7 +42,7 @@ jobs:
         run: pnpm --filter @workspace/scripts smoke:nexus-cloud-google-drive-adapter
 
       - name: Smoke test Nexus Cloud persistence input bridge
-        run: pnpm --filter @workspace/scripts smoke:nexus-cloud-db-input
+        run: pnpm --filter @workspace/scripts exec tsx ../lib/db/src/nexusCloudPersistenceInputSmoke.ts
 
       - name: Build Nexus web application
         env:
