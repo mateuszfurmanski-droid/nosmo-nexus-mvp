@@ -13,8 +13,7 @@
     <form id="config-form">
       <label>Connector API base
         <select id="apiBase" required>
-          <option value="http://127.0.0.1:3000">http://127.0.0.1:3000 — local development</option>
-          <option value="https://nosmotechnology.co.uk">https://nosmotechnology.co.uk</option>
+          <option value="http://127.0.0.1:3000">http://127.0.0.1:3000 — local development only</option>
         </select>
       </label>
       <label>Nexus Project ID<input id="projectId" maxlength="160" autocomplete="off" required></label>
@@ -26,6 +25,7 @@
     <section>
       <strong>Security boundary</strong>
       <p>Person identity, Project Participation, PermissionGrant, AccessDecision and Nexus Object mapping are resolved by the Nexus server. This page stores no credentials or Work Wallet API key.</p>
+      <p>No production Nexus API host is enabled in this prototype until the unified API runtime is deployed and reviewed on an exact HTTPS origin.</p>
     </section>
     <footer>DEVELOPMENT PROTOTYPE — NOT VENDOR APPROVED / NO LIVE WORK WALLET API</footer>
   </main>
