@@ -8,6 +8,7 @@ export type NexusSourceSystem =
   | 'nexus'
   | 'google-drive'
   | 'work-wallet'
+  | 'bim-ifc'
   | 'bim-fabstation'
   | 'companycam'
   | 'hilti-assets'
