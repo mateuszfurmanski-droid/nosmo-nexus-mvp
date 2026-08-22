@@ -80,11 +80,7 @@ function normaliseRefererOrigin(value: string): string | null {
   }
 }
 
-/**
- * Returns the browser-declared web origin only. Host and X-Forwarded-* headers
- * are deliberately not security authorities for Context Ticket requests.
- */
-export function getRequestDeclaredOrigin(req: Request): string | null {
+function getRequestDeclaredWebOrigin(req: Request): string | null {
   const originHeader = firstHeaderValue(req.headers["origin"]);
   const refererHeader = firstHeaderValue(req.headers["referer"]);
 
@@ -99,21 +95,29 @@ export function getRequestDeclaredOrigin(req: Request): string | null {
 }
 
 /**
+ * Returns the exact declared Origin header for non-web allowlists such as the
+ * reviewed Chromium extension origin. No Host or X-Forwarded-* reconstruction.
+ */
+export function getRequestDeclaredOrigin(req: Request): string | null {
+  return firstHeaderValue(req.headers["origin"]) || null;
+}
+
+/**
  * Context Ticket same-origin authorization is based on an exact server-owned
- * origin allowlist. Forwarded host/proto values are never used to decide it.
+ * web-origin allowlist. Forwarded host/proto values are never used to decide it.
  */
 export function isSameOriginRequest(req: Request): boolean {
-  const declared = getRequestDeclaredOrigin(req);
+  const declared = getRequestDeclaredWebOrigin(req);
   if (!declared) return false;
   return parseContextTicketSameOrigins().has(declared);
 }
 
 /**
- * Retained for callers that need the accepted request origin. This is not
+ * Retained for callers that need the accepted web request origin. This is not
  * reconstructed from proxy headers; it succeeds only for an allowed origin.
  */
 export function getRequestOrigin(req: Request): string {
-  const declared = getRequestDeclaredOrigin(req);
+  const declared = getRequestDeclaredWebOrigin(req);
   if (!declared || !parseContextTicketSameOrigins().has(declared)) {
     throw new Error("Unable to resolve an allowed request origin");
   }
