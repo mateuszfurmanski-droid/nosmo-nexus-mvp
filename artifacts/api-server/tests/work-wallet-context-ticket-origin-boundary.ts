@@ -100,7 +100,7 @@ try {
 
   const exchangeOrigins = parseContextTicketAllowedOrigins();
   assert.equal(exchangeOrigins.has(extensionOrigin), true);
-  assert.equal(exchangeOrigins.has("https://exchange.example"), true);
+  assert.equal(exchangeOrigins.has("https://exchange.example"), false);
   assert.equal(exchangeOrigins.has("https://exchange.example/path"), false);
 
   assert.equal(
@@ -119,7 +119,7 @@ try {
   );
   assert.equal(
     isAllowedContextTicketExchangeOrigin(request({ origin: "https://exchange.example" })),
-    true,
+    false,
   );
   assert.equal(
     isAllowedContextTicketExchangeOrigin(
@@ -130,6 +130,13 @@ try {
   assert.equal(
     isAllowedContextTicketExchangeOrigin(request({ origin: "https://nexus.example" })),
     true,
+  );
+
+  process.env.NEXUS_CONTEXT_TICKET_SAME_ORIGINS += ",https://exchange.example";
+  assert.equal(
+    isAllowedContextTicketExchangeOrigin(request({ origin: "https://exchange.example" })),
+    true,
+    "a web exchange origin must be approved through SAME_ORIGINS, not the extension allowlist",
   );
 
   process.env.NODE_ENV = "development";
