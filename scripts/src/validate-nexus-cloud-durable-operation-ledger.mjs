@@ -141,7 +141,7 @@ assert(
   "durable operation schema must participate in Drizzle schema aggregation",
 );
 assert(
-  workflow.includes("Smoke test durable Nexus Cloud write-operation ledger") &&
+  workflow.includes("Smoke test durable Cloud write operation ledger") &&
     workflow.includes("nexusCloudWriteOperationSmoke.ts"),
   "disposable PostgreSQL operation-ledger smoke must be wired into CI",
 );
