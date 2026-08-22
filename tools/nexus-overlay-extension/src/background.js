@@ -3,8 +3,7 @@ const CONTEXT_STORAGE_KEY = "nexusOverlayContext";
 const PENDING_STORAGE_KEY = "nexusPendingContextTicketBootstraps";
 
 const ALLOWED_API_BASES = new Set([
-  "http://127.0.0.1:3000",
-  "https://nosmotechnology.co.uk"
+  "http://127.0.0.1:3000"
 ]);
 const DEFAULT_API_BASE = "http://127.0.0.1:3000";
 const BOOTSTRAP_PATH = "/api/nexus/context-tickets/work-wallet/bootstrap";
