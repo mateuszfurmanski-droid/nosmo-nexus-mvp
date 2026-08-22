@@ -4,6 +4,11 @@
     "noEmit": true
   },
   "include": [
-    "src/bim/webIfcRuntimeDelivery.ts"
+    "src/bim/webIfcRuntimeDelivery.ts",
+    "src/data/schemas/issue.schema.ts",
+    "src/data/projectMemory.ts",
+    "src/data/issueInvariants.ts",
+    "src/data/workSuiteRaiseRfi.ts",
+    "src/data/workSuiteProjectMemoryCommit.ts"
   ]
 }
