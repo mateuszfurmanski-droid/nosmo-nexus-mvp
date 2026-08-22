@@ -21,6 +21,8 @@ export type NexusAndroidEvidenceTransferState =
 
 /**
  * Metadata contract between Android Work Mode and the existing Nexus Cloud boundary.
+ * Canonical pending-asset schema value remains `nexus-cloud-pending-asset/v2`; this
+ * contract imports the shared constant instead of redefining that protocol.
  *
  * The device-local content URI is deliberately absent. An Android transport adapter may
  * open that URI locally and stream the selected bytes only to the future authenticated
