@@ -117,6 +117,57 @@ paths:
         '302':
           description: Redirect to OIDC provider logout URL.
 
+  /mobile-auth/start:
+    get:
+      tags: [Auth]
+      operationId: beginMobileAuthorization
+      summary: Start native mobile OIDC authorization with PKCE
+      description: >-
+        Starts Android/native authorization using an app-generated PKCE S256
+        challenge plus fresh state and nonce. The OIDC provider redirect remains
+        the server-owned HTTPS /api/callback. Production origin is bound to
+        NEXUS_PUBLIC_ORIGIN rather than request Host/X-Forwarded-Host values.
+      parameters:
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 43
+            maxLength: 43
+            pattern: '^[A-Za-z0-9_-]{43}$'
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 32
+            maxLength: 128
+            pattern: '^[A-Za-z0-9._~-]+$'
+        - name: nonce
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 32
+            maxLength: 128
+            pattern: '^[A-Za-z0-9._~-]+$'
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+        '400':
+          description: Missing or invalid PKCE/correlation parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Canonical mobile auth origin or OIDC bootstrap is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /mobile-auth/token-exchange:
     post:
       tags: [Auth]
