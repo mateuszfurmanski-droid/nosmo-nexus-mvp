@@ -24,6 +24,7 @@ export interface WorkWalletTicketEligibilityInput {
 }
 
 export type WorkWalletTicketEligibilityReason =
+  | 'INVALID_EVALUATED_AT'
   | 'IDENTITY_INVALID'
   | 'IDENTITY_NOT_BOUND'
   | 'CANONICAL_PERSON_MISSING'
@@ -37,7 +38,6 @@ export type WorkWalletTicketEligibilityReason =
   | 'ACCESS_DECISION_MISSING'
   | 'ACCESS_DECISION_AMBIGUOUS'
   | 'ACCESS_DECISION_NOT_ALLOWED'
-  | 'ACCESS_DECISION_SCOPE_MISMATCH'
   | 'ELIGIBLE';
 
 export type WorkWalletTicketEligibility =
@@ -54,8 +54,16 @@ export type WorkWalletTicketEligibility =
       nexusObjectId: NexusId;
     };
 
-const isAtOrBefore = (value: string, selectedAt: string): boolean =>
-  Date.parse(value) <= Date.parse(selectedAt);
+const parsedTime = (value: string): number | null => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isAtOrBefore = (value: string, selectedAt: string): boolean => {
+  const valueTime = parsedTime(value);
+  const selectedTime = parsedTime(selectedAt);
+  return valueTime !== null && selectedTime !== null && valueTime <= selectedTime;
+};
 
 const isValidAt = (
   selectedAt: string,
@@ -134,12 +142,17 @@ function findCanonicalObject(
  * PermissionGrant, AccessDecision and Object records from Project Memory.
  *
  * Active participation is necessary but never sufficient. An exact explicit
- * Work Wallet context-read allow grant and an exact `allowed` AccessDecision
- * are both required. Any matching deny wins.
+ * Work Wallet context-read allow grant and the latest exact `allowed`
+ * AccessDecision are both required. Any matching deny wins.
  */
 export function evaluateWorkWalletTicketEligibility(
   input: WorkWalletTicketEligibilityInput,
 ): WorkWalletTicketEligibility {
+  const evaluatedTime = parsedTime(input.evaluatedAt);
+  if (evaluatedTime === null) {
+    return { eligible: false, reason: 'INVALID_EVALUATED_AT' };
+  }
+
   const identityValidation = validateNexusRuntimeIdentityContext(input.identity);
   if (!identityValidation.valid) {
     return { eligible: false, reason: 'IDENTITY_INVALID' };
@@ -221,28 +234,35 @@ export function evaluateWorkWalletTicketEligibility(
     return { eligible: false, reason: 'EXPLICIT_ALLOW_MISSING' };
   }
 
-  const decisions = input.memory.accessDecisions.filter((decision) =>
-    decisionMatchesRequest(
-      decision,
-      personId,
-      participation.id,
-      input.projectId,
-      input.worldId,
-      input.nexusObjectId,
-    ),
-  );
+  const decisions = input.memory.accessDecisions
+    .filter((decision) =>
+      decisionMatchesRequest(
+        decision,
+        personId,
+        participation.id,
+        input.projectId,
+        input.worldId,
+        input.nexusObjectId,
+      ),
+    )
+    .map((decision) => ({ decision, evaluatedTime: parsedTime(decision.evaluatedAt) }))
+    .filter(
+      (item): item is { decision: NexusAccessDecisionRecord; evaluatedTime: number } =>
+        item.evaluatedTime !== null && item.evaluatedTime <= evaluatedTime,
+    )
+    .sort((left, right) => right.evaluatedTime - left.evaluatedTime);
 
   if (decisions.length === 0) {
     return { eligible: false, reason: 'ACCESS_DECISION_MISSING' };
   }
-  if (decisions.length !== 1) {
+
+  const latestTime = decisions[0].evaluatedTime;
+  const latestDecisions = decisions.filter((item) => item.evaluatedTime === latestTime);
+  if (latestDecisions.length !== 1) {
     return { eligible: false, reason: 'ACCESS_DECISION_AMBIGUOUS' };
   }
 
-  const decision = decisions[0];
-  if (Date.parse(decision.evaluatedAt) > Date.parse(input.evaluatedAt)) {
-    return { eligible: false, reason: 'ACCESS_DECISION_SCOPE_MISMATCH' };
-  }
+  const decision = latestDecisions[0].decision;
   if (decision.result !== 'allowed') {
     return { eligible: false, reason: 'ACCESS_DECISION_NOT_ALLOWED' };
   }
