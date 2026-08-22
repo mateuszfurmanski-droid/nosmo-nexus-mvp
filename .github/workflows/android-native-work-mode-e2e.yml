@@ -122,12 +122,13 @@ jobs:
           ! grep -q "AccessibilityService" "$MAIN" "$CALLBACK"
           ! grep -q "WebView" "$MAIN" "$CALLBACK"
 
-      - name: Verify canonical Android handoff contract
+      - name: Verify canonical Android handoff and retry contract
         run: |
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
           CALLBACK="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/HandoffResultActivity.java"
           APP_GRADLE="native/nexus-work-mode-native/app/build.gradle"
           CONTRACT="src/core/android/androidWorkModeContract.ts"
+          EVIDENCE="src/core/android/androidEvidenceTransferContract.ts"
           grep -q "project-esafe-catania" "$MAIN"
           grep -q "world-esafe-catania" "$MAIN"
           grep -q "NEEDS_USER_CONFIRMATION" "$MAIN"
@@ -136,11 +137,26 @@ jobs:
           grep -q "HANDOFF_PATH = \"/api/nexus/android-work-mode/handoff\"" "$MAIN"
           grep -q "BuildConfig.NEXUS_WEB_ORIGIN" "$MAIN"
           grep -q "NEXUS_ANDROID_WEB_ORIGIN" "$APP_GRADLE"
+          grep -q "isHandoffLocked" "$MAIN"
+          grep -q "isHandoffEligible" "$MAIN"
+          grep -q "handoffEligibleCandidates" "$MAIN"
+          grep -q "HANDOFF_LOCAL_ONLY.equals(candidate.handoffState)" "$MAIN"
+          grep -q "HANDOFF_RETRY.equals(candidate.handoffState)" "$MAIN"
+          grep -q "duplicate resend is locked" "$MAIN"
+          grep -q "openHandoffUrl" "$MAIN"
+          grep -q "Items are marked retryable" "$MAIN"
+          grep -q "onNewIntent" "$MAIN"
           grep -q "nexus-android-work-mode-context-v1" "$CONTRACT"
           grep -q "nexus-android-work-mode-handoff-receipt/v1" "$CONTRACT"
           grep -q "Project World changed" "$CALLBACK"
-          ! grep -q "RIVERSIDE_DEMO_PROJECT" "$MAIN" "$CONTRACT"
-          ! grep -q "esafe-demo" "$MAIN" "$CONTRACT"
+          grep -q "nexus-android-evidence-transfer-request/v1" "$EVIDENCE"
+          grep -q "nexus-cloud-pending-asset/v2" "$EVIDENCE"
+          grep -q "NEXUS_CLOUD_WRITE_ACTION_KEY" "$EVIDENCE"
+          grep -q "authenticated-multipart-canonical-nexus-cloud" "$EVIDENCE"
+          grep -q "binaryReadPerformed: false" "$EVIDENCE"
+          grep -q "networkUploadPerformed: false" "$EVIDENCE"
+          ! grep -q "RIVERSIDE_DEMO_PROJECT" "$MAIN" "$CONTRACT" "$EVIDENCE"
+          ! grep -q "esafe-demo" "$MAIN" "$CONTRACT" "$EVIDENCE"
 
       - name: Verify shared Nexus identity and access composition
         run: |
