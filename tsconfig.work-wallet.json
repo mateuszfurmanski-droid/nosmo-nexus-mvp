@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true
+  },
+  "files": [
+    "src/connectors/work-wallet/workWalletConnector.ts",
+    "src/connectors/work-wallet/workWalletMappingContract.ts",
+    "src/connectors/work-wallet/workWalletContextContract.ts",
+    "src/connectors/work-wallet/workWalletTicketEligibility.ts"
+  ]
+}
