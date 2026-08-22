@@ -48,6 +48,8 @@ final class NexusCloudUploadClient {
     private static final int MAX_FILE_NAME_CHARS = 255;
     private static final int MAX_MIME_TYPE_CHARS = 127;
     private static final String SAFE_MIME_TYPE_PATTERN = "[A-Za-z0-9!#$&^_.+\\-]+/[A-Za-z0-9!#$&^_.+\\-]+";
+    private static final String ANDROID_CLOUD_PATH = "/api/nexus/cloud/android/files";
+    private static final String ANDROID_SOURCE_MODULE = "android-work-mode";
 
     private NexusCloudUploadClient() {}
 
@@ -111,7 +113,7 @@ final class NexusCloudUploadClient {
         HttpURLConnection connection = null;
         String boundary = "----NexusAndroid" + UUID.randomUUID().toString().replace("-", "");
         try {
-            connection = (HttpURLConnection) new URL(origin + "/api/nexus/cloud/files").openConnection();
+            connection = (HttpURLConnection) new URL(origin + ANDROID_CLOUD_PATH).openConnection();
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(20_000);
             connection.setReadTimeout(60_000);
@@ -168,6 +170,7 @@ final class NexusCloudUploadClient {
 
             boolean providerConfirmed = json.optBoolean("providerWriteConfirmed", false);
             boolean memoryCommitted = json.optBoolean("projectMemoryCommitted", false);
+            String sourceModule = json.optString("sourceModule", "");
             String driveFileId = json.optString("driveFileId", "");
             String fileId = json.optString("fileId", "");
 
@@ -175,12 +178,22 @@ final class NexusCloudUploadClient {
                     (status == 200 || status == 201) &&
                     providerConfirmed &&
                     memoryCommitted &&
+                    ANDROID_SOURCE_MODULE.equals(sourceModule) &&
                     !driveFileId.isEmpty() &&
                     !fileId.isEmpty()
             ) {
                 return new Result(
                         Outcome.TRANSFER_CONFIRMED,
                         "Evidence committed to Nexus Cloud",
+                        driveFileId,
+                        fileId
+                );
+            }
+
+            if ((status == 200 || status == 201) && !ANDROID_SOURCE_MODULE.equals(sourceModule)) {
+                return new Result(
+                        Outcome.FAILED_RETRYABLE,
+                        "Nexus Cloud returned an unexpected evidence provenance",
                         driveFileId,
                         fileId
                 );
