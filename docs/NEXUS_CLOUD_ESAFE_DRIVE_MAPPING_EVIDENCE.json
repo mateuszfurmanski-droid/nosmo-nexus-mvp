@@ -1,0 +1,30 @@
+{
+  "schema": "nexus-cloud-provider-mapping-evidence/v1",
+  "purpose": "read-only deployment evidence; not a runtime release configuration",
+  "canonicalProjectId": "project-esafe-catania",
+  "canonicalWorldId": "world-esafe-catania",
+  "provider": "google-drive",
+  "driveHierarchy": {
+    "personalCloudRootId": "1n2E0dlb0W-5Qt2V7q5hjIGdX9T9c8Cs0",
+    "projectWorldsRootId": "1gCa35DoMCOioIdZbpYETvseEhA_D3n_Q",
+    "projectFolderId": "1Zu80-Yj9RocZJlBDXKXxId9ZRnn9EcOE"
+  },
+  "targets": {
+    "00_INBOX": "1xsIITjBwTEE1z7whhub3RnsSXfrxwur9",
+    "01_PENDING_GRAPH_LINK": "1Pb1F_2PYtRt3YwhGFNdCLBK03s9TPbGZ",
+    "02_BY_TRADE": "1YnBK64v0ZfVTodBJXjAXPmNrug_qpR0P",
+    "03_BY_TYPE": "1LvwOZXJ5emW1N058kIMD9XV70J6cFhr9",
+    "99_AUDIT": "1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz"
+  },
+  "verification": {
+    "verifiedOn": "2026-08-22",
+    "source": "connected Google Drive read-only metadata",
+    "providerWritePerformed": false,
+    "oauthCredentialValidated": false,
+    "runtimeDatabaseValidated": false
+  },
+  "release": {
+    "writeEnabled": false,
+    "note": "This evidence file cannot release provider writes. Runtime write release remains server-owned through NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON plus a NEXUS_SECRET_* OAuth credential."
+  }
+}
