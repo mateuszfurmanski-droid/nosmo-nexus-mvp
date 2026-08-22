@@ -1,4 +1,4 @@
-import { readNexusIssues, type NexusProjectMemorySnapshot } from './projectMemory';
+import type { NexusProjectMemorySnapshot } from './projectMemory';
 import type { NexusId } from './schemas/common.schema';
 
 export type NexusIssueInvariantCode =
@@ -31,7 +31,7 @@ export const validateNexusIssueInvariants = (
 ): NexusIssueInvariantReport => {
   const failures: NexusIssueInvariantIssue[] = [];
 
-  for (const issue of readNexusIssues(memory)) {
+  for (const issue of memory.issues) {
     const project = memory.projects.find((record) => record.id === issue.projectId);
     const world = memory.worlds.find((record) => record.id === issue.worldId);
     const object = memory.canonicalObjects.find((record) => record.id === issue.primaryObjectId);
