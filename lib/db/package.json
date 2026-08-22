@@ -11,7 +11,8 @@
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "bootstrap-nexus-android-authority": "node ./scripts/bootstrap-nexus-android-work-mode-authority.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
