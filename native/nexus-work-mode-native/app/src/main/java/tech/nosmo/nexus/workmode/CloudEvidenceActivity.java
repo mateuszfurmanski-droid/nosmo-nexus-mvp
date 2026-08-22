@@ -17,6 +17,9 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 /**
  * Device-local evidence transfer surface.
  *
@@ -76,11 +79,19 @@ public final class CloudEvidenceActivity extends Activity {
         int evidenceCount = 0;
         try {
             JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
+            Set<String> candidateIds = new LinkedHashSet<>();
+            for (int i = 0; i < queue.length(); i++) {
+                String id = safe(queue.getJSONObject(i).optString("id", ""));
+                if (!id.isEmpty()) candidateIds.add(id);
+            }
+            EvidenceBindingStore.pruneToCandidates(this, candidateIds);
+
             for (int i = 0; i < queue.length(); i++) {
                 JSONObject item = queue.getJSONObject(i);
                 String source = safe(item.optString("source", ""));
                 if (!isRawEvidenceSource(source)) continue;
                 if (!HANDOFF_DONE.equals(item.optString("handoffState", ""))) continue;
+                migrateLegacyQueueBinding(item);
                 evidenceCount++;
                 addEvidenceItem(root, item);
             }
@@ -97,12 +108,23 @@ public final class CloudEvidenceActivity extends Activity {
         setPage(root);
     }
 
+    private void migrateLegacyQueueBinding(JSONObject item) {
+        String id = safe(item.optString("id", ""));
+        if (EvidenceBindingStore.get(this, id) != null) return;
+        String projectId = safe(item.optString("handoffProjectId", ""));
+        String worldId = safe(item.optString("handoffWorldId", ""));
+        if (!projectId.isEmpty() && !worldId.isEmpty()) {
+            EvidenceBindingStore.bindConfirmedMetadata(this, id, projectId, worldId);
+        }
+    }
+
     private void addEvidenceItem(LinearLayout root, JSONObject item) {
         String id = safe(item.optString("id", ""));
         String source = safe(item.optString("source", ""));
         String name = safe(item.optString("displayName", "Local evidence"));
-        String projectId = safe(item.optString("handoffProjectId", ""));
-        String worldId = safe(item.optString("handoffWorldId", ""));
+        EvidenceBindingStore.Binding binding = EvidenceBindingStore.get(this, id);
+        String projectId = binding == null ? "" : binding.projectId;
+        String worldId = binding == null ? "" : binding.worldId;
         String evidenceState = safe(item.optString("evidenceTransferState", EVIDENCE_PENDING));
 
         addBody(root,
@@ -111,9 +133,14 @@ public final class CloudEvidenceActivity extends Activity {
                         + "\nworldId: " + emptyDash(worldId)
                         + "\nevidence: " + evidenceState);
 
+        if (binding == null) {
+            addSmall(root, "Receipt-bound Project World binding is missing. This evidence is blocked from Cloud upload rather than falling back to the current global project.");
+            return;
+        }
+
         if (EVIDENCE_CONFIRMED.equals(evidenceState)) {
-            String cloudFileId = safe(item.optString("cloudFileId", ""));
-            String driveFileId = safe(item.optString("cloudDriveFileId", ""));
+            String cloudFileId = binding.cloudFileId;
+            String driveFileId = binding.driveFileId;
             addSmall(root,
                     "Canonical Cloud commit confirmed"
                             + (cloudFileId.isEmpty() ? "" : " · fileId " + cloudFileId)
@@ -190,14 +217,12 @@ public final class CloudEvidenceActivity extends Activity {
             }
 
             String source = safe(item.optString("source", ""));
-            String projectId = safe(item.optString("handoffProjectId", ""));
-            String worldId = safe(item.optString("handoffWorldId", ""));
+            EvidenceBindingStore.Binding binding = EvidenceBindingStore.get(this, candidateId);
             String localReference = safe(item.optString("localReference", ""));
             if (
                     !isRawEvidenceSource(source) ||
                     !HANDOFF_DONE.equals(item.optString("handoffState", "")) ||
-                    projectId.isEmpty() ||
-                    worldId.isEmpty() ||
+                    binding == null ||
                     !localReference.startsWith("content://")
             ) {
                 Toast.makeText(this, "Evidence is not bound to a confirmed Project World", Toast.LENGTH_LONG).show();
@@ -216,8 +241,8 @@ public final class CloudEvidenceActivity extends Activity {
                     Uri.parse(localReference),
                     item.optString("displayName", "android-evidence"),
                     item.optString("contentType", "application/octet-stream"),
-                    projectId,
-                    worldId,
+                    binding.projectId,
+                    binding.worldId,
                     idempotencyKey,
                     result -> runOnUiThread(() -> applyUploadResult(candidateId, result))
             );
@@ -232,14 +257,14 @@ public final class CloudEvidenceActivity extends Activity {
             JSONObject item = findItem(queue, candidateId);
             if (item == null) {
                 Toast.makeText(this, "Upload finished but the local queue item was removed", Toast.LENGTH_LONG).show();
+                EvidenceBindingStore.remove(this, candidateId);
                 render();
                 return;
             }
 
             if (result.outcome == NexusCloudUploadClient.Outcome.TRANSFER_CONFIRMED) {
                 item.put("evidenceTransferState", EVIDENCE_CONFIRMED);
-                item.put("cloudFileId", result.fileId);
-                item.put("cloudDriveFileId", result.driveFileId);
+                EvidenceBindingStore.recordCloudCommit(this, candidateId, result.fileId, result.driveFileId);
             } else {
                 item.put("evidenceTransferState", EVIDENCE_RETRY);
                 if (result.outcome == NexusCloudUploadClient.Outcome.AUTH_REQUIRED) {
