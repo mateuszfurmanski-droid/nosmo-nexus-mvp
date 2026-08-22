@@ -138,6 +138,11 @@ public class MainActivity extends Activity {
         addAction(root, "Riverside — confirm in Nexus", this::selectRiversideNeedsConfirmation, false);
         addSmall(root, "Riverside is not mapped to historical aliases. Until a current canonical Riverside projectId + worldId exists in Project Memory, handoff is blocked as NEEDS_USER_CONFIRMATION.");
 
+        if (hasActiveHandoff()) {
+            addSmall(root, "One Android → Nexus handoff is still pending. Project World changes and duplicate sends are locked until a matching callback arrives or you explicitly recover the batch for retry.");
+            addAction(root, "Recover pending handoff for retry", this::recoverPendingHandoff, false);
+        }
+
         addSection(root, "KNOWLEDGE VACUUM");
         addAction(root, "Add Photo", this::pickPhoto, false);
         addAction(root, "Add Document", this::pickDocument, false);
@@ -158,7 +163,18 @@ public class MainActivity extends Activity {
         setPage(root);
     }
 
+    private boolean blockProjectWorldChangeWhilePending() {
+        if (!hasActiveHandoff()) return false;
+        Toast.makeText(
+                this,
+                "Project World is locked while a handoff is pending. Confirm it or recover the batch for retry first.",
+                Toast.LENGTH_LONG
+        ).show();
+        return true;
+    }
+
     private void selectEsafe() {
+        if (blockProjectWorldChangeWhilePending()) return;
         prefs.edit()
                 .putString(PREF_PROJECT_ID, ESAFE_PROJECT_ID)
                 .putString(PREF_WORLD_ID, ESAFE_WORLD_ID)
@@ -169,6 +185,7 @@ public class MainActivity extends Activity {
     }
 
     private void selectRiversideNeedsConfirmation() {
+        if (blockProjectWorldChangeWhilePending()) return;
         prefs.edit()
                 .remove(PREF_PROJECT_ID)
                 .remove(PREF_WORLD_ID)
@@ -184,6 +201,57 @@ public class MainActivity extends Activity {
                 + "\nstatus: " + prefs.getString(PREF_PROJECT_RESOLUTION, "NEEDS_USER_CONFIRMATION")
                 + "\nprojectId: " + prefs.getString(PREF_PROJECT_ID, "—")
                 + "\nworldId: " + prefs.getString(PREF_WORLD_ID, "—");
+    }
+
+    private boolean hasActiveHandoff() {
+        return stateCount(HANDOFF_PENDING) > 0
+                || !prefs.getString(PREF_PENDING_HANDOFF_REQUEST_ID, "").isEmpty();
+    }
+
+    private boolean isValidRequestId(String value) {
+        return value != null && value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+    }
+
+    private void recoverPendingHandoff() {
+        boolean changed = false;
+        for (Candidate candidate : candidates) {
+            if (HANDOFF_PENDING.equals(candidate.handoffState)) {
+                candidate.handoffState = HANDOFF_RETRY;
+                changed = true;
+            }
+        }
+        if (changed) persistQueue();
+        prefs.edit().remove(PREF_PENDING_HANDOFF_REQUEST_ID).apply();
+        Toast.makeText(
+                this,
+                changed
+                        ? "Pending batch marked retryable. Any late callback for the old request will be ignored."
+                        : "Stale pending request state cleared.",
+                Toast.LENGTH_LONG
+        ).show();
+        showReview();
+    }
+
+    private void reconcilePendingHandoffState() {
+        int pendingCount = stateCount(HANDOFF_PENDING);
+        String requestId = prefs.getString(PREF_PENDING_HANDOFF_REQUEST_ID, "");
+
+        if (pendingCount == 0) {
+            if (!requestId.isEmpty()) {
+                prefs.edit().remove(PREF_PENDING_HANDOFF_REQUEST_ID).apply();
+            }
+            return;
+        }
+
+        if (!isValidRequestId(requestId)) {
+            for (Candidate candidate : candidates) {
+                if (HANDOFF_PENDING.equals(candidate.handoffState)) {
+                    candidate.handoffState = HANDOFF_RETRY;
+                }
+            }
+            persistQueue();
+            prefs.edit().remove(PREF_PENDING_HANDOFF_REQUEST_ID).apply();
+        }
     }
 
     private void pickPhoto() {
@@ -382,6 +450,9 @@ public class MainActivity extends Activity {
         root.addView(intentInput, fullWidth(dp(82)));
 
         addAction(root, "Approve / Retry + Send to Nexus", this::approveAndHandoff, true);
+        if (hasActiveHandoff()) {
+            addAction(root, "Recover pending handoff for retry", this::recoverPendingHandoff, false);
+        }
         addAction(root, "Back to Work Mode", this::showHome, false);
         addSmall(root, "Only LOCAL_ONLY and FAILED_RETRYABLE items can be sent. PENDING_SERVER_CONFIRMATION and HANDED_OFF items are locked. Browser launch never marks raw evidence uploaded/synced.");
         setPage(root);
@@ -405,7 +476,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (stateCount(HANDOFF_PENDING) > 0 || !prefs.getString(PREF_PENDING_HANDOFF_REQUEST_ID, "").isEmpty()) {
+        if (hasActiveHandoff()) {
             Toast.makeText(this, "Another handoff is already waiting for Nexus confirmation", Toast.LENGTH_LONG).show();
             return;
         }
@@ -609,6 +680,7 @@ public class MainActivity extends Activity {
                         item.optString("handoffState", HANDOFF_LOCAL_ONLY)
                 ));
             }
+            reconcilePendingHandoffState();
         } catch (Exception ignored) {
             prefs.edit().remove(PREF_QUEUE).remove(PREF_PENDING_HANDOFF_REQUEST_ID).apply();
         }
