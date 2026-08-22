@@ -13,6 +13,8 @@
     "validate:work-wallet-bootstrap": "esbuild ./tests/work-wallet-context-ticket-bootstrap.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-bootstrap-test.mjs && node /tmp/nexus-work-wallet-bootstrap-test.mjs",
     "validate:work-wallet-ticket-service": "esbuild ./tests/work-wallet-context-ticket-service.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-service-test.mjs && node /tmp/nexus-work-wallet-ticket-service-test.mjs",
     "validate:work-wallet-connector-account": "esbuild ./tests/work-wallet-connector-account-boundary.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-connector-account-test.mjs && node /tmp/nexus-work-wallet-connector-account-test.mjs",
+    "validate:work-wallet-context-ticket-origin": "esbuild ./tests/work-wallet-context-ticket-origin-boundary.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-context-ticket-origin-test.mjs && node /tmp/nexus-work-wallet-context-ticket-origin-test.mjs",
+    "audit:work-wallet-context-ticket-origin-order": "node ./tests/audit-work-wallet-context-ticket-origin-order.mjs",
     "smoke:work-wallet-db-context-ticket": "esbuild ./tests/work-wallet-db-context-ticket-smoke.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-db-context-ticket-smoke.mjs && node /tmp/nexus-work-wallet-db-context-ticket-smoke.mjs",
     "audit:work-wallet-db-context-ticket-smoke": "node ./tests/audit-work-wallet-db-context-ticket-smoke.mjs"
   },
