@@ -8,13 +8,29 @@ It is **not** evidence that Google Drive is live in a Nexus deployment.
 
 Current truthful status:
 
-> Authenticated backend upload path implemented; real end-to-end execution remains blocked until server OAuth, a confirmed Nexus runtime database, schema/bootstrap data and a real runtime smoke are available.
+> Authenticated backend upload path implemented; File Loader and Android Work Mode use separate server-owned provenance routes over one shared authority/provider/persistence pipeline. Real end-to-end execution remains blocked until server OAuth, a confirmed Nexus runtime database, schema/bootstrap data and a real runtime smoke are available.
 
 No PR #91 / Spark Demo surface is changed.
 
-## Endpoint
+## Endpoints and provenance
+
+File Loader:
 
 `POST /api/nexus/cloud/files`
+
+Server-owned provenance:
+
+`sourceModule = file-loader`
+
+Android Work Mode:
+
+`POST /api/nexus/cloud/android/files`
+
+Server-owned provenance:
+
+`sourceModule = android-work-mode`
+
+Both routes use the same internal handler, canonical access resolution, semantic routing, Drive writer and Project Memory persistence path. The caller does **not** submit `sourceModule` in the body or headers.
 
 Transport: `multipart/form-data`
 
@@ -30,8 +46,9 @@ Optional:
 - `classification`: `inbox | pending_graph_link | classified_by_trade | classified_by_type | audit_only`;
 - `tradeId` when trade classification requires it.
 
-The browser does **not** supply:
+The client does **not** supply:
 
+- source-module provenance;
 - Drive folder ID;
 - Drive path;
 - connector definition/account ID;
@@ -46,6 +63,8 @@ The browser does **not** supply:
 
 Maximum binary size in this first endpoint is 25 MiB.
 
+Successful responses echo the server-selected `sourceModule` so native clients can fail closed if the wrong provenance route is ever reached.
+
 ## Request authority sequence
 
 The mounted path is:
@@ -59,6 +78,8 @@ The mounted path is:
 -> `exact workspace/person/project/world ProjectParticipation + PermissionGrant`
 
 -> canonical `cloud.file.write` access decision
+
+-> server-owned source provenance
 
 -> Project/ProjectWorld semantic Cloud routing
 
@@ -119,7 +140,7 @@ Shape:
 }
 ```
 
-Folder IDs exist only in server runtime configuration, not in browser state and not as canonical Nexus identities.
+Folder IDs exist only in server runtime configuration, not in browser/native state and not as canonical Nexus identities.
 
 World IDs must be globally unambiguous in this server routing index.
 
@@ -140,7 +161,7 @@ Expected value behind the reference:
 }
 ```
 
-The secret value is consumed only by the existing PR #93 server writer. It is never returned to the browser or stored in this runtime mapping JSON.
+The secret value is consumed only by the existing PR #93 server writer. It is never returned to the client or stored in this runtime mapping JSON.
 
 ## One Drive writer
 
@@ -165,13 +186,13 @@ That writer remains responsible for:
 
 ## Idempotency and recovery
 
-The browser supplies one logical `Idempotency-Key`.
+The client supplies one logical `Idempotency-Key`.
 
 The server derives a provider identity from:
 
-`workspaceId + projectId + worldId + browser Idempotency-Key`.
+`workspaceId + projectId + worldId + Idempotency-Key`.
 
-The raw browser key is not forwarded as the provider write identity.
+The raw client key is not forwarded as the provider write identity.
 
 The same derived operation also deterministically produces:
 
@@ -180,7 +201,7 @@ The same derived operation also deterministically produces:
 
 This is required because Phase 19 exact replay compares those IDs.
 
-The Drive writer now searches the accessible Drive namespace for its private write identity rather than searching only the currently requested folder. Therefore a reused key with changed content or changed semantic target/folder is rejected before another `files.create` in sequential execution.
+The Drive writer searches the accessible Drive namespace for its private write identity rather than searching only the currently requested folder. Therefore a reused key with changed content or changed semantic target/folder is rejected before another `files.create` in sequential execution.
 
 Within one server process, concurrent requests for the same provider write identity are serialized. A waiter re-runs provider fingerprint validation after the leader completes, so it cannot blindly inherit a success for changed content/target.
 
@@ -210,13 +231,13 @@ The proposed Nexus runtime uses autoscaling, so two separate server instances co
 
 Before production release the next controlled slice must add a durable PostgreSQL write-operation ledger/lease keyed by the canonical provider operation identity. It must acquire authority before the external Drive create and retain recovery state after provider confirmation.
 
-Until that durable ledger is implemented and tested, this endpoint remains integration source, not production-ready Cloud write authority.
+Until that durable ledger is implemented and tested, these endpoints remain integration source, not production-ready Cloud write authority.
 
 ## Prepared validation
 
 The branch prepares:
 
-- source topology validator;
+- source topology/provenance validator for File Loader and Android server-owned routes;
 - pure stable-operation-ID smoke;
 - pure server runtime mapping/release-gate smoke;
 - existing Drive mock-provider smoke, including changed-target conflict;
@@ -235,12 +256,12 @@ Still required for a real E2E PASS:
 3. schema application and controlled canonical Person/binding/participation/exact Cloud allow bootstrap;
 4. server-only target config populated from verified Drive structure and explicitly released;
 5. durable cross-instance operation ledger;
-6. real authenticated upload returning a real `driveFileId` and COMMITTED Project Memory transaction;
+6. real authenticated File Loader and Android uploads returning real `driveFileId` values and COMMITTED Project Memory transactions;
 7. retry smoke for provider success / DB failure recovery.
 
 ## Explicit non-goals
 
-This endpoint does not:
+These endpoints do not:
 
 - mutate Project Graph;
 - redesign File Loader UI;
