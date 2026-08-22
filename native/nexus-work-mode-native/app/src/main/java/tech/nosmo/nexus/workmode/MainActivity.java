@@ -2,7 +2,6 @@ package tech.nosmo.nexus.workmode;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -16,7 +15,6 @@ import android.provider.CalendarContract;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
-import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -52,9 +50,8 @@ public class MainActivity extends Activity {
     private static final String HANDOFF_SCHEMA = "nexus-android-work-mode-context-v1";
     private static final String AI_CONTEXT_VERSION = "android-work-discovery-v1";
     private static final String NEXUS_INTENT = "ask-nexus";
-    private static final String NEXUS_WORKSPACE_URL = "https://nosmotechnology.co.uk/apps/nexus-graph-preview/relationship-tree/";
+    private static final String HANDOFF_PATH = "/api/nexus/android-work-mode/handoff";
 
-    // Canonical IDs from PR #90 fixture. Keep this pair together.
     private static final String ESAFE_PROJECT_ID = "project-esafe-catania";
     private static final String ESAFE_WORLD_ID = "world-esafe-catania";
 
@@ -64,7 +61,6 @@ public class MainActivity extends Activity {
     private static final int MUTED = Color.rgb(153, 181, 207);
     private static final int CYAN = Color.rgb(72, 205, 255);
     private static final int GREEN = Color.rgb(71, 222, 161);
-    private static final int AMBER = Color.rgb(255, 204, 92);
 
     private final ArrayList<Candidate> candidates = new ArrayList<>();
     private SharedPreferences prefs;
@@ -120,35 +116,31 @@ public class MainActivity extends Activity {
     private void showHome() {
         LinearLayout root = page();
         addTitle(root, "NEXUS Work Mode");
-        addBody(root, "Controlled Knowledge Vacuum: user-selected or OS-permitted sources → review → explicit Project World → Nexus handoff. No background scraper and no private app database access.");
+        addBody(root, "Controlled Knowledge Vacuum: permitted source → local candidate → review → explicit Project World → authenticated Nexus bootstrap. No background scraper and no private app database access.");
 
         addSection(root, "PROJECT WORLD");
         addBody(root, projectStatus());
-
-        Button esafe = primaryButton("Use e-SAFE Catania");
-        esafe.setOnClickListener(v -> selectEsafe());
-        root.addView(esafe, fullWidth(dp(54)));
-
-        Button riverside = secondaryButton("Riverside — confirm in Nexus");
-        riverside.setOnClickListener(v -> selectRiversideNeedsConfirmation());
-        root.addView(riverside, fullWidth(dp(50)));
-
-        addSmall(root, "Riverside is deliberately not mapped to the #90 e-SAFE fixture. Until a current canonical Riverside projectId + worldId is resolved server-side, its status is NEEDS_USER_CONFIRMATION and handoff is blocked.");
+        addAction(root, "Use e-SAFE Catania", this::selectEsafe, true);
+        addAction(root, "Riverside — confirm in Nexus", this::selectRiversideNeedsConfirmation, false);
+        addSmall(root, "Riverside is not mapped to historical aliases. Until a current canonical Riverside projectId + worldId exists in Project Memory, handoff is blocked as NEEDS_USER_CONFIRMATION.");
 
         addSection(root, "KNOWLEDGE VACUUM");
-        addAction(root, "Add Photo", this::pickPhoto);
-        addAction(root, "Add Document", this::pickDocument);
-        addAction(root, "Add Folder", this::pickFolder);
-        addAction(root, "Scan permitted Contacts + Calendar", this::startDiscovery);
-        addAction(root, "Review approved context (" + selectedCount() + ")", this::showReview);
+        addAction(root, "Add Photo", this::pickPhoto, false);
+        addAction(root, "Add Document", this::pickDocument, false);
+        addAction(root, "Add Folder", this::pickFolder, false);
+        addAction(root, "Scan permitted Contacts + Calendar", this::startDiscovery, false);
+        addAction(root, "Review approved context (" + selectedCount() + ")", this::showReview, false);
 
         addSection(root, "LAUNCHERS / DEEP LINKS — NOT API INTEGRATIONS");
-        addAction(root, "WhatsApp launcher", () -> openPackageOrUrl("com.whatsapp", "https://wa.me/"));
-        addAction(root, "Gmail launcher", () -> openPackageOrUrl("com.google.android.gm", "mailto:"));
-        addAction(root, "Teams launcher", () -> openPackageOrUrl("com.microsoft.teams", "https://teams.microsoft.com/"));
-        addAction(root, "Drive launcher", () -> openPackageOrUrl("com.google.android.apps.docs", "https://drive.google.com/"));
+        addAction(root, "WhatsApp launcher", () -> openPackageOrUrl("com.whatsapp", "https://wa.me/"), false);
+        addAction(root, "Gmail launcher", () -> openPackageOrUrl("com.google.android.gm", "mailto:"), false);
+        addAction(root, "Teams launcher", () -> openPackageOrUrl("com.microsoft.teams", "https://teams.microsoft.com/"), false);
+        addAction(root, "Drive launcher", () -> openPackageOrUrl("com.google.android.apps.docs", "https://drive.google.com/"), false);
 
-        addSmall(root, "AI boundary: this APK prepares approved metadata only. It contains no AI key, does not grant project authority, and does not execute WorkSuite actions.");
+        String configuredOrigin = configuredNexusOrigin();
+        addSmall(root, configuredOrigin.isEmpty()
+                ? "Nexus web origin: NOT CONFIGURED. This APK will fail closed rather than guess a production host. Build with NEXUS_ANDROID_WEB_ORIGIN=https://<authorised-nexus-origin>."
+                : "Nexus web origin: configured at build time. The APK sends approved metadata to the same-origin OIDC bootstrap only; no session token is placed in the URL.");
         setPage(root);
     }
 
@@ -159,7 +151,6 @@ public class MainActivity extends Activity {
                 .putString(PREF_PROJECT_LABEL, "e-SAFE Catania")
                 .putString(PREF_PROJECT_RESOLUTION, "EXACT")
                 .apply();
-        Toast.makeText(this, "e-SAFE Project World selected", Toast.LENGTH_SHORT).show();
         showHome();
     }
 
@@ -175,11 +166,10 @@ public class MainActivity extends Activity {
     }
 
     private String projectStatus() {
-        String label = prefs.getString(PREF_PROJECT_LABEL, "No Project World selected");
-        String resolution = prefs.getString(PREF_PROJECT_RESOLUTION, "NEEDS_USER_CONFIRMATION");
-        String projectId = prefs.getString(PREF_PROJECT_ID, "—");
-        String worldId = prefs.getString(PREF_WORLD_ID, "—");
-        return label + "\nstatus: " + resolution + "\nprojectId: " + projectId + "\nworldId: " + worldId;
+        return prefs.getString(PREF_PROJECT_LABEL, "No Project World selected")
+                + "\nstatus: " + prefs.getString(PREF_PROJECT_RESOLUTION, "NEEDS_USER_CONFIRMATION")
+                + "\nprojectId: " + prefs.getString(PREF_PROJECT_ID, "—")
+                + "\nworldId: " + prefs.getString(PREF_WORLD_ID, "—");
     }
 
     private void pickPhoto() {
@@ -231,9 +221,9 @@ public class MainActivity extends Activity {
         }
 
         if (requestCode == REQ_PHOTO) {
-            addUriCandidate("PHOTO", resolveMime(uri, "image/*"), uri, displayName(uri, "Selected photo"), 85);
+            addUriCandidate("PHOTO", "image/*", uri, displayName(uri, "Selected photo"), 85);
         } else if (requestCode == REQ_DOCUMENT) {
-            addUriCandidate("DOCUMENT", resolveMime(uri, "application/octet-stream"), uri, displayName(uri, "Selected document"), 80);
+            addUriCandidate("DOCUMENT", "application/octet-stream", uri, displayName(uri, "Selected document"), 80);
         } else if (requestCode == REQ_FOLDER) {
             addUriCandidate("FOLDER", "vnd.android.document/directory", uri, "User-authorised folder", 70);
         }
@@ -242,12 +232,11 @@ public class MainActivity extends Activity {
     }
 
     private void persistReadPermission(Uri uri, int returnedFlags) {
-        int flags = returnedFlags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         if ((returnedFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) == 0) return;
         try {
-            getContentResolver().takePersistableUriPermission(uri, flags & Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (Exception ignored) {
-            // Some providers do not offer persistable grants. Item remains local and may need reselection on retry.
+            // Provider grant is not persistable. Keep item local; a later retry may require reselection.
         }
     }
 
@@ -259,11 +248,8 @@ public class MainActivity extends Activity {
         if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             missing.add(Manifest.permission.READ_CALENDAR);
         }
-        if (missing.isEmpty()) {
-            scanPermittedSources();
-        } else {
-            requestPermissions(missing.toArray(new String[0]), REQ_DISCOVERY_PERMISSIONS);
-        }
+        if (missing.isEmpty()) scanPermittedSources();
+        else requestPermissions(missing.toArray(new String[0]), REQ_DISCOVERY_PERMISSIONS);
     }
 
     @Override
@@ -280,8 +266,13 @@ public class MainActivity extends Activity {
     }
 
     private void scanContacts() {
-        String[] projection = new String[]{ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
-        try (Cursor cursor = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI, projection, null, null, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY + " ASC")) {
+        String[] projection = {ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
+        try (Cursor cursor = getContentResolver().query(
+                ContactsContract.Contacts.CONTENT_URI,
+                projection,
+                null,
+                null,
+                ContactsContract.Contacts.DISPLAY_NAME_PRIMARY + " ASC")) {
             if (cursor == null) return;
             int idIx = cursor.getColumnIndex(ContactsContract.Contacts._ID);
             int nameIx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY);
@@ -289,8 +280,7 @@ public class MainActivity extends Activity {
             while (cursor.moveToNext() && added < 40) {
                 String name = safe(cursor, nameIx);
                 if (!looksWorkRelated(name)) continue;
-                String localRef = "contact:" + safe(cursor, idIx);
-                addCandidate("CONTACT", "vnd.android.cursor.item/contact", localRef, name, System.currentTimeMillis(), 60);
+                addCandidate("CONTACT", "vnd.android.cursor.item/contact", "contact:" + safe(cursor, idIx), name, System.currentTimeMillis(), 60);
                 added++;
             }
         } catch (Exception ignored) {
@@ -299,12 +289,16 @@ public class MainActivity extends Activity {
 
     private void scanCalendar() {
         long now = System.currentTimeMillis();
-        long from = now - (60L * 24L * 60L * 60L * 1000L);
-        long to = now + (120L * 24L * 60L * 60L * 1000L);
-        String[] projection = new String[]{CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART};
+        long from = now - 60L * 24L * 60L * 60L * 1000L;
+        long to = now + 120L * 24L * 60L * 60L * 1000L;
+        String[] projection = {CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART};
         String selection = CalendarContract.Events.DTSTART + ">=? AND " + CalendarContract.Events.DTSTART + "<=?";
-        String[] args = new String[]{String.valueOf(from), String.valueOf(to)};
-        try (Cursor cursor = getContentResolver().query(CalendarContract.Events.CONTENT_URI, projection, selection, args, CalendarContract.Events.DTSTART + " DESC")) {
+        try (Cursor cursor = getContentResolver().query(
+                CalendarContract.Events.CONTENT_URI,
+                projection,
+                selection,
+                new String[]{String.valueOf(from), String.valueOf(to)},
+                CalendarContract.Events.DTSTART + " DESC")) {
             if (cursor == null) return;
             int idIx = cursor.getColumnIndex(CalendarContract.Events._ID);
             int titleIx = cursor.getColumnIndex(CalendarContract.Events.TITLE);
@@ -323,7 +317,7 @@ public class MainActivity extends Activity {
 
     private boolean looksWorkRelated(String value) {
         String s = value == null ? "" : value.toLowerCase(Locale.UK);
-        String[] tokens = new String[]{"nexus", "nosmo", "site", "project", "construction", "door", "fire", "inspection", "snag", "bim", "ifc", "riverside", "esafe", "e-safe", "tesco", "halifax", "lloyds"};
+        String[] tokens = {"nexus", "nosmo", "site", "project", "construction", "door", "fire", "inspection", "snag", "bim", "ifc", "riverside", "esafe", "e-safe", "tesco", "halifax", "lloyds"};
         for (String token : tokens) if (s.contains(token)) return true;
         return false;
     }
@@ -331,10 +325,10 @@ public class MainActivity extends Activity {
     private void showReview() {
         LinearLayout root = page();
         addTitle(root, "Knowledge Vacuum Review");
-        addBody(root, "Candidates are local until you approve them. Untick anything that should not leave this review. Nexus receives item IDs, source types, MIME/type, timestamp and confidence — not the local URI or raw content in the URL handoff.");
+        addBody(root, "Candidates stay local until approval. Untick anything that should not be handed to Nexus. URL handoff contains opaque item IDs and source types only — never the local URI or raw photo/document content.");
         addBody(root, projectStatus());
 
-        if (candidates.isEmpty()) addSmall(root, "No candidates yet. Return and use Photo Picker, Document Picker, Folder Picker, or permitted Contacts/Calendar scan.");
+        if (candidates.isEmpty()) addSmall(root, "No candidates yet. Return and use the system pickers or permitted discovery scan.");
 
         for (Candidate candidate : candidates) {
             CheckBox box = new CheckBox(this);
@@ -343,9 +337,9 @@ public class MainActivity extends Activity {
             box.setTextColor(TEXT);
             box.setTextSize(13);
             box.setPadding(dp(4), dp(7), dp(4), dp(7));
-            box.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                candidate.selected = isChecked;
-                candidate.approvalState = isChecked ? "DISCOVERED" : "REJECTED";
+            box.setOnCheckedChangeListener((buttonView, checked) -> {
+                candidate.selected = checked;
+                candidate.approvalState = checked ? "DISCOVERED" : "REJECTED";
                 persistQueue();
             });
             root.addView(box, fullWidthWrap());
@@ -356,21 +350,14 @@ public class MainActivity extends Activity {
         intentInput.setText("Co to jest / gdzie powinno trafić?");
         intentInput.setTextColor(TEXT);
         intentInput.setHintTextColor(MUTED);
-        intentInput.setSingleLine(false);
         intentInput.setMinLines(2);
-        intentInput.setPadding(dp(12), dp(10), dp(12), dp(10));
         intentInput.setBackgroundColor(PANEL);
+        intentInput.setPadding(dp(12), dp(10), dp(12), dp(10));
         root.addView(intentInput, fullWidth(dp(82)));
 
-        Button handoff = primaryButton("Approve + Send to Nexus");
-        handoff.setOnClickListener(v -> approveAndHandoff());
-        root.addView(handoff, fullWidth(dp(58)));
-
-        Button back = secondaryButton("Back to Work Mode");
-        back.setOnClickListener(v -> showHome());
-        root.addView(back, fullWidth(dp(50)));
-
-        addSmall(root, "Current slice stops at PENDING_SERVER_CONFIRMATION. It never marks content synced/uploaded merely because the browser opened. Server auth, canonical Person binding, Project Participation and WorkSuite permission resolution remain authoritative.");
+        addAction(root, "Approve + Send to Nexus", this::approveAndHandoff, true);
+        addAction(root, "Back to Work Mode", this::showHome, false);
+        addSmall(root, "Opening the browser never marks the queue as uploaded/synced. Items remain PENDING_SERVER_CONFIRMATION until the authenticated Nexus boundary confirms a review state.");
         setPage(root);
     }
 
@@ -389,20 +376,31 @@ public class MainActivity extends Activity {
             return;
         }
 
-        for (Candidate candidate : candidates) {
-            if (candidate.selected) {
-                candidate.approvalState = "APPROVED";
-                candidate.handoffState = "PENDING_SERVER_CONFIRMATION";
-            }
+        String origin = configuredNexusOrigin();
+        if (origin.isEmpty()) {
+            Toast.makeText(this, "Nexus web origin is not configured in this APK", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        for (Candidate candidate : approved) {
+            candidate.approvalState = "APPROVED";
+            candidate.handoffState = "PENDING_SERVER_CONFIRMATION";
         }
         persistQueue();
 
         String userIntent = intentInput == null ? "classify approved context and propose a WorkSuite draft" : intentInput.getText().toString().trim();
         if (userIntent.isEmpty()) userIntent = "classify approved context and propose a WorkSuite draft";
-        openUrl(buildHandoffUrl(projectId, worldId, approved, userIntent));
+        openUrl(buildHandoffUrl(origin, projectId, worldId, approved, userIntent));
     }
 
-    private String buildHandoffUrl(String projectId, String worldId, ArrayList<Candidate> approved, String userIntent) {
+    private String configuredNexusOrigin() {
+        String origin = BuildConfig.NEXUS_WEB_ORIGIN == null ? "" : BuildConfig.NEXUS_WEB_ORIGIN.trim();
+        while (origin.endsWith("/")) origin = origin.substring(0, origin.length() - 1);
+        if (!origin.startsWith("https://")) return "";
+        return origin;
+    }
+
+    private String buildHandoffUrl(String origin, String projectId, String worldId, ArrayList<Candidate> approved, String userIntent) {
         StringBuilder ids = new StringBuilder();
         Set<String> sources = new LinkedHashSet<>();
         for (Candidate candidate : approved) {
@@ -417,19 +415,15 @@ public class MainActivity extends Activity {
             sourceTypes.append(source);
         }
 
-        return Uri.parse(NEXUS_WORKSPACE_URL).buildUpon()
-                .appendQueryParameter("nexusMode", "work")
-                .appendQueryParameter("nexusClient", "android-native")
-                .appendQueryParameter("nexusSurface", "ai-assistant")
+        return Uri.parse(origin + HANDOFF_PATH).buildUpon()
+                .appendQueryParameter("handoffSchema", HANDOFF_SCHEMA)
                 .appendQueryParameter("nexusIntent", NEXUS_INTENT)
                 .appendQueryParameter("nexusAiContext", AI_CONTEXT_VERSION)
-                .appendQueryParameter("handoffSchema", HANDOFF_SCHEMA)
                 .appendQueryParameter("projectId", projectId)
                 .appendQueryParameter("worldId", worldId)
                 .appendQueryParameter("projectResolution", "EXACT")
                 .appendQueryParameter("selectedItemIds", ids.toString())
                 .appendQueryParameter("sourceTypes", sourceTypes.toString())
-                .appendQueryParameter("approvedItems", String.valueOf(approved.size()))
                 .appendQueryParameter("userIntent", userIntent)
                 .appendQueryParameter("handoffState", "PENDING_SERVER_CONFIRMATION")
                 .build()
@@ -443,28 +437,14 @@ public class MainActivity extends Activity {
     }
 
     private void addUriCandidate(String source, String fallbackType, Uri uri, String name, int confidence) {
-        addCandidate(source, resolveMime(uri, fallbackType), uri.toString(), name, System.currentTimeMillis(), confidence);
+        String type = getContentResolver().getType(uri);
+        addCandidate(source, type == null ? fallbackType : type, uri.toString(), name, System.currentTimeMillis(), confidence);
     }
 
     private void addCandidate(String source, String contentType, String localReference, String name, long timestamp, int confidence) {
-        String id = stableId(source, localReference);
+        String id = UUID.nameUUIDFromBytes((source + "|" + localReference).getBytes(StandardCharsets.UTF_8)).toString();
         for (Candidate existing : candidates) if (existing.id.equals(id)) return;
-        candidates.add(new Candidate(
-                id,
-                source,
-                contentType,
-                localReference,
-                name,
-                timestamp,
-                Math.max(0, Math.min(100, confidence)),
-                true,
-                "DISCOVERED",
-                "LOCAL_ONLY"
-        ));
-    }
-
-    private String stableId(String source, String localReference) {
-        return UUID.nameUUIDFromBytes((source + "|" + localReference).getBytes(StandardCharsets.UTF_8)).toString();
+        candidates.add(new Candidate(id, source, contentType, localReference, name, timestamp, Math.max(0, Math.min(100, confidence)), true, "DISCOVERED", "LOCAL_ONLY"));
     }
 
     private int selectedCount() {
@@ -476,19 +456,9 @@ public class MainActivity extends Activity {
     private String displayName(Uri uri, String fallback) {
         try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                int ix = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                String value = safe(cursor, ix);
+                String value = safe(cursor, cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
                 if (!value.isEmpty()) return value;
             }
-        } catch (Exception ignored) {
-        }
-        return fallback;
-    }
-
-    private String resolveMime(Uri uri, String fallback) {
-        try {
-            String value = getContentResolver().getType(uri);
-            if (value != null && !value.trim().isEmpty()) return value;
         } catch (Exception ignored) {
         }
         return fallback;
@@ -528,9 +498,8 @@ public class MainActivity extends Activity {
 
     private void restoreQueue() {
         candidates.clear();
-        String raw = prefs.getString(PREF_QUEUE, "[]");
         try {
-            JSONArray array = new JSONArray(raw);
+            JSONArray array = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
                 candidates.add(new Candidate(
@@ -601,7 +570,6 @@ public class MainActivity extends Activity {
         text.setText(value);
         text.setTextColor(MUTED);
         text.setTextSize(14);
-        text.setLineSpacing(dp(2), 1.04f);
         text.setPadding(0, 0, 0, dp(12));
         root.addView(text, fullWidthWrap());
     }
@@ -621,36 +589,20 @@ public class MainActivity extends Activity {
         section.setTextColor(CYAN);
         section.setTextSize(12);
         section.setTypeface(Typeface.DEFAULT_BOLD);
-        section.setLetterSpacing(0.08f);
         section.setPadding(0, dp(12), 0, dp(8));
         root.addView(section, fullWidthWrap());
     }
 
-    private void addAction(LinearLayout root, String label, Runnable action) {
-        Button button = secondaryButton(label);
-        button.setOnClickListener(v -> action.run());
-        root.addView(button, fullWidth(dp(50)));
-    }
-
-    private Button primaryButton(String label) {
+    private void addAction(LinearLayout root, String label, Runnable action, boolean primary) {
         Button button = new Button(this);
         button.setText(label);
         button.setAllCaps(false);
-        button.setTextColor(Color.rgb(0, 21, 34));
-        button.setTextSize(14);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setBackgroundColor(GREEN);
-        return button;
-    }
-
-    private Button secondaryButton(String label) {
-        Button button = new Button(this);
-        button.setText(label);
-        button.setAllCaps(false);
-        button.setTextColor(TEXT);
         button.setTextSize(13);
-        button.setBackgroundColor(PANEL);
-        return button;
+        button.setTypeface(primary ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
+        button.setTextColor(primary ? Color.rgb(0, 21, 34) : TEXT);
+        button.setBackgroundColor(primary ? GREEN : PANEL);
+        button.setOnClickListener(v -> action.run());
+        root.addView(button, fullWidth(dp(primary ? 56 : 50)));
     }
 
     private LinearLayout.LayoutParams fullWidth(int height) {
