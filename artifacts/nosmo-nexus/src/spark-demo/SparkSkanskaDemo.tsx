@@ -14,6 +14,82 @@ const circularStatuses: CircularStatus[] = ["IN USE", "REUSABLE", "RECOVER", "RE
 const objectProfiles = ["MATERIAL", "PRODUCT", "ASSET", "COMPONENT", "EQUIPMENT"] as const;
 type ObjectProfile = (typeof objectProfiles)[number];
 
+type DemoLanguage = "en" | "pl";
+
+const polishUi: Record<string, string> = {
+  "Project": "Projekt", "Environmental": "Środowisko", "Project structure": "Struktura projektu",
+  "areas": "obszary", "tracked": "śledzone", "created locally": "utworzone lokalnie",
+  "reuse": "ponowne użycie", "recover / recycle": "odzysk / recykling",
+  "known provenance": "znane pochodzenie", "high attention": "wysoka uwaga",
+  "human decisions": "decyzje człowieka", "record edits": "edycje rekordów",
+  "Source truth": "Wiarygodność źródła", "CO₂ data": "Dane CO₂",
+  "Maintenance": "Utrzymanie", "Demo writes": "Zapisy dema",
+  "rule-based": "oparte na regułach", "browser-local": "lokalne w przeglądarce",
+  "+ Add Object": "+ Dodaj obiekt", "All circular statuses": "Wszystkie statusy cyrkularne",
+  "All provenance": "Wszystkie poziomy pochodzenia", "Object": "Obiekt", "Area": "Obszar",
+  "Location": "Lokalizacja", "Type": "Typ", "Circular": "Cyrkularność",
+  "Provenance": "Pochodzenie", "Attention": "Uwaga", "Source": "Źródło",
+  "NEW OBJECT CARD": "NOWA KARTA OBIEKTU", "Add project object": "Dodaj obiekt projektu",
+  "BROWSER-LOCAL DEMO": "DEMO LOKALNE W PRZEGLĄDARCE", "Object profile": "Profil obiektu",
+  "Name / label": "Nazwa / etykieta", "Specific type": "Szczegółowy typ",
+  "Project location": "Lokalizacja w projekcie", "Source and lifecycle": "Źródło i cykl życia",
+  "Source document / reference": "Dokument źródłowy / odniesienie", "Lifecycle state": "Stan cyklu życia",
+  "Initial circular status": "Początkowy status cyrkularny", "Creation audit": "Rejestr utworzenia",
+  "Created by": "Utworzył", "Creation note": "Notatka utworzenia",
+  "Create Object Card": "Utwórz Kartę Obiektu", "Edit record": "Edytuj rekord",
+  "Last inspection": "Ostatnia inspekcja", "Source document": "Dokument źródłowy",
+  "Edited by": "Edytował", "Change note": "Notatka zmiany",
+  "Save record update": "Zapisz aktualizację rekordu", "Evidence": "Dowody",
+  "Lifecycle timeline": "Oś czasu cyklu życia", "Maintenance / inspection": "Utrzymanie / inspekcja",
+  "Attention reason": "Powód uwagi", "Issue": "Problem", "Human circular decision": "Decyzja cyrkularna człowieka",
+  "Target circular status": "Docelowy status cyrkularny", "Decision by": "Decyzję podjął",
+  "Decision rationale": "Uzasadnienie decyzji", "Save human decision": "Zapisz decyzję człowieka",
+  "Circular / Environmental report": "Raport cyrkularny / środowiskowy",
+  "Download CSV": "Pobierz CSV", "Print / Save PDF": "Drukuj / Zapisz PDF",
+  "Circular status": "Status cyrkularny", "CO₂ reporting readiness": "Gotowość raportowania CO₂",
+  "Verified quantity": "Zweryfikowana ilość", "EPD / carbon factor": "EPD / współczynnik emisji",
+  "Maintenance attention": "Poziom uwagi utrzymaniowej", "Object creation audit": "Rejestr tworzenia obiektów",
+  "Created objects": "Utworzone obiekty", "Human decision audit": "Rejestr decyzji człowieka",
+  "Audit events": "Zdarzenia audytowe", "Objects changed": "Zmienione obiekty",
+  "Record edit audit": "Rejestr edycji rekordów", "Edit events": "Zdarzenia edycji",
+  "Objects edited": "Edytowane obiekty", "No issue recorded in demo history.": "Brak problemu w historii demonstratora.",
+  "No maintenance event recorded.": "Brak zdarzenia utrzymaniowego.",
+  "No human demo decision has been recorded for this object yet.": "Nie zapisano jeszcze decyzji demonstracyjnej dla tego obiektu.",
+  "No demo record edit has been saved yet.": "Nie zapisano jeszcze edycji rekordu demonstracyjnego.",
+  "No evidence attached to this demo object.": "Do tego obiektu demonstracyjnego nie dołączono dowodów.",
+  "No browser-local Object Card created yet.": "Nie utworzono jeszcze lokalnej Karty Obiektu.",
+  "No human demo decisions recorded yet.": "Nie zapisano jeszcze decyzji demonstracyjnych.",
+  "No demo record edits saved yet.": "Nie zapisano jeszcze edycji rekordów demonstracyjnych.",
+  "SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values": "DEMO SYNTETYCZNE · brak rzeczywistych danych projektu SKANSKA · brak zmyślonych wartości CO₂"
+};
+
+function translateDemoNode(root: HTMLElement) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const raw = node.textContent ?? "";
+    const trimmed = raw.trim();
+    if (polishUi[trimmed]) node.textContent = raw.replace(trimmed, polishUi[trimmed]);
+    else {
+      node.textContent = raw
+        .replace(/tracked records/g, "śledzonych rekordów")
+        .replace(/areas/g, "obszarów")
+        .replace(/Current status:/g, "Aktualny status:")
+        .replace(/LOW attention/g, "NISKA uwaga")
+        .replace(/MEDIUM attention/g, "ŚREDNIA uwaga")
+        .replace(/HIGH attention/g, "WYSOKA uwaga");
+    }
+    node = walker.nextNode();
+  }
+  root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[placeholder], [aria-label]").forEach((element) => {
+    const placeholder = element.getAttribute("placeholder");
+    const aria = element.getAttribute("aria-label");
+    if (placeholder === "Search ID, object, location, type or source document") element.setAttribute("placeholder", "Szukaj ID, obiektu, lokalizacji, typu lub dokumentu");
+    if (aria === "Search objects") element.setAttribute("aria-label", "Szukaj obiektów");
+  });
+}
+
+
 const decisionStorageKey = "nosmo.spark.demo.circular-decisions.v1";
 const recordEditStorageKey = "nosmo.spark.demo.record-edits.v1";
 const createdObjectStorageKey = "nosmo.spark.demo.created-objects.v1";
@@ -148,6 +224,7 @@ function buildReportCsv(
 }
 
 export default function SparkSkanskaDemo() {
+  const [language, setLanguage] = useState<DemoLanguage>("en");
   const [view, setView] = useState<"project" | "environment">("project");
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -248,8 +325,12 @@ export default function SparkSkanskaDemo() {
     setCreateOpen(true);
   };
 
+  useEffect(() => {
+    if (language === "pl") translateDemoNode(document.querySelector(".spark-workbench") as HTMLElement);
+  });
+
   return (
-    <div className="spark-workbench">
+    <div className="spark-workbench" lang={language}>
       <header className="spark-topbar">
         <div className="spark-brand">
           <img
@@ -261,6 +342,13 @@ export default function SparkSkanskaDemo() {
           <button className={view === "project" ? "active" : ""} onClick={() => setView("project")}>Project</button>
           <button className={view === "environment" ? "active" : ""} onClick={() => setView("environment")}>Environmental</button>
         </nav>
+        <button
+          type="button"
+          aria-label={language === "en" ? "Przełącz na język polski" : "Switch to English"}
+          title={language === "en" ? "Polski" : "English"}
+          onClick={() => setLanguage((current) => current === "en" ? "pl" : "en")}
+          style={{ border: "1px solid #3d4652", background: "#121820", color: "#fff", borderRadius: 4, padding: "5px 8px", cursor: "pointer", fontSize: 18 }}
+        >{language === "en" ? "🇵🇱" : "🇬🇧"}</button>
         <div className="spark-truth-inline">SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values</div>
       </header>
 
