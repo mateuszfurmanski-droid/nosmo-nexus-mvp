@@ -60,6 +60,9 @@ public class MainActivity extends Activity {
     private static final String HANDOFF_DONE = "HANDED_OFF";
     private static final String HANDOFF_RETRY = "FAILED_RETRYABLE";
 
+    private static final String EVIDENCE_PENDING_CLOUD = "PENDING_CANONICAL_CLOUD_ENDPOINT";
+    private static final String EVIDENCE_NOT_APPLICABLE = "NOT_APPLICABLE";
+
     private static final String ESAFE_PROJECT_ID = "project-esafe-catania";
     private static final String ESAFE_WORLD_ID = "world-esafe-catania";
 
@@ -85,6 +88,7 @@ public class MainActivity extends Activity {
         boolean selected;
         String approvalState;
         String handoffState;
+        String evidenceTransferState;
 
         Candidate(
                 String id,
@@ -96,7 +100,8 @@ public class MainActivity extends Activity {
                 int confidence,
                 boolean selected,
                 String approvalState,
-                String handoffState
+                String handoffState,
+                String evidenceTransferState
         ) {
             this.id = id;
             this.source = source;
@@ -108,6 +113,7 @@ public class MainActivity extends Activity {
             this.selected = selected;
             this.approvalState = approvalState;
             this.handoffState = handoffState;
+            this.evidenceTransferState = evidenceTransferState;
         }
     }
 
@@ -212,6 +218,12 @@ public class MainActivity extends Activity {
 
     private boolean isValidRequestId(String value) {
         return value != null && value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+    }
+
+    private String defaultEvidenceTransferState(String source) {
+        return "PHOTO".equals(source) || "DOCUMENT".equals(source)
+                ? EVIDENCE_PENDING_CLOUD
+                : EVIDENCE_NOT_APPLICABLE;
     }
 
     private void recoverPendingHandoff() {
@@ -417,7 +429,10 @@ public class MainActivity extends Activity {
         for (Candidate candidate : candidates) {
             CheckBox box = new CheckBox(this);
             box.setChecked(candidate.selected);
-            box.setText(candidate.source + " · " + candidate.displayName + "\n" + candidate.contentType + " · confidence " + candidate.confidence + "% · " + candidate.handoffState);
+            box.setText(candidate.source + " · " + candidate.displayName
+                    + "\n" + candidate.contentType + " · confidence " + candidate.confidence + "%"
+                    + "\nmetadata: " + candidate.handoffState
+                    + "\nevidence: " + candidate.evidenceTransferState);
             box.setTextColor(TEXT);
             box.setTextSize(13);
             box.setPadding(dp(4), dp(7), dp(4), dp(7));
@@ -433,12 +448,12 @@ public class MainActivity extends Activity {
             }
             root.addView(box, fullWidthWrap());
             if (HANDOFF_PENDING.equals(candidate.handoffState)) {
-                addSmall(root, "Waiting for Nexus confirmation — duplicate resend and local removal are locked. Recover the handoff first if this local item must be removed.");
+                addSmall(root, "Waiting for Nexus metadata confirmation — duplicate resend and local removal are locked. Raw evidence is not uploaded by this step.");
             } else if (HANDOFF_DONE.equals(candidate.handoffState)) {
-                addSmall(root, "Metadata was handed off. Raw evidence may still be local-only until canonical Cloud upload exists.");
+                addSmall(root, "Metadata was handed off. PHOTO/DOCUMENT evidence remains pending until a canonical Cloud transfer receipt exists.");
                 addAction(root, "Remove local candidate", () -> requestRemoveLocalCandidate(candidate), false);
             } else if (HANDOFF_RETRY.equals(candidate.handoffState)) {
-                addSmall(root, "Previous handoff did not complete. This item may be retried or removed locally.");
+                addSmall(root, "Previous metadata handoff did not complete. This item may be retried or removed locally.");
                 addAction(root, "Remove local candidate", () -> requestRemoveLocalCandidate(candidate), false);
             } else {
                 addAction(root, "Remove local candidate", () -> requestRemoveLocalCandidate(candidate), false);
@@ -462,7 +477,7 @@ public class MainActivity extends Activity {
             addAction(root, "Recover pending handoff for retry", this::recoverPendingHandoff, false);
         }
         addAction(root, "Back to Work Mode", this::showHome, false);
-        addSmall(root, "Only LOCAL_ONLY and FAILED_RETRYABLE items can be sent. PENDING_SERVER_CONFIRMATION and HANDED_OFF items are locked against duplicate send. Removing a local candidate never deletes Nexus/Cloud records.");
+        addSmall(root, "Metadata handoff and raw evidence transfer are separate. Only a future canonical Cloud receipt may confirm PHOTO/DOCUMENT transfer. Removing a local candidate never deletes Nexus/Cloud records.");
         setPage(root);
     }
 
@@ -701,7 +716,19 @@ public class MainActivity extends Activity {
     private void addCandidate(String source, String contentType, String localReference, String name, long timestamp, int confidence) {
         String id = UUID.nameUUIDFromBytes((source + "|" + localReference).getBytes(StandardCharsets.UTF_8)).toString();
         for (Candidate existing : candidates) if (existing.id.equals(id)) return;
-        candidates.add(new Candidate(id, source, contentType, localReference, name, timestamp, Math.max(0, Math.min(100, confidence)), true, "DISCOVERED", HANDOFF_LOCAL_ONLY));
+        candidates.add(new Candidate(
+                id,
+                source,
+                contentType,
+                localReference,
+                name,
+                timestamp,
+                Math.max(0, Math.min(100, confidence)),
+                true,
+                "DISCOVERED",
+                HANDOFF_LOCAL_ONLY,
+                defaultEvidenceTransferState(source)
+        ));
     }
 
     private int selectedCount() {
@@ -746,6 +773,7 @@ public class MainActivity extends Activity {
                 item.put("selected", candidate.selected);
                 item.put("approvalState", candidate.approvalState);
                 item.put("handoffState", candidate.handoffState);
+                item.put("evidenceTransferState", candidate.evidenceTransferState);
                 array.put(item);
             } catch (Exception ignored) {
             }
@@ -759,9 +787,10 @@ public class MainActivity extends Activity {
             JSONArray array = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
+                String source = item.getString("source");
                 candidates.add(new Candidate(
                         item.getString("id"),
-                        item.getString("source"),
+                        source,
                         item.getString("contentType"),
                         item.getString("localReference"),
                         item.optString("displayName", "Local item"),
@@ -769,7 +798,8 @@ public class MainActivity extends Activity {
                         item.optInt("confidence", 50),
                         item.optBoolean("selected", true),
                         item.optString("approvalState", "DISCOVERED"),
-                        item.optString("handoffState", HANDOFF_LOCAL_ONLY)
+                        item.optString("handoffState", HANDOFF_LOCAL_ONLY),
+                        item.optString("evidenceTransferState", defaultEvidenceTransferState(source))
                 ));
             }
             reconcilePendingHandoffState();
