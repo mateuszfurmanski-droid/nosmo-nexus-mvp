@@ -71,6 +71,9 @@ jobs:
       - name: Validate Work Wallet Context Ticket origin boundary
         run: pnpm --filter @workspace/api-server validate:work-wallet-context-ticket-origin
 
+      - name: Validate Work Wallet CORS does not grant ticket exchange authority
+        run: pnpm --filter @workspace/api-server validate:work-wallet-context-ticket-cors
+
       - name: Audit Work Wallet origin rejection before ticket consume
         run: pnpm --filter @workspace/api-server audit:work-wallet-context-ticket-origin-order
 
