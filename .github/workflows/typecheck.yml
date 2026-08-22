@@ -53,6 +53,9 @@ jobs:
       - name: Validate Work Wallet authenticated bootstrap
         run: pnpm --filter @workspace/api-server validate:work-wallet-bootstrap
 
+      - name: Validate Work Wallet bootstrap extension allowlist
+        run: pnpm --filter @workspace/api-server validate:work-wallet-bootstrap-extension-allowlist
+
       - name: Validate Work Wallet server ticket orchestration
         run: pnpm --filter @workspace/api-server validate:work-wallet-ticket-service
 
