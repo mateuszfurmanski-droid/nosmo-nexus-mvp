@@ -23,6 +23,21 @@ export {
   FABSTATION_PUBLIC_FILE_EXCHANGE_DESCRIPTOR,
   NEXUS_FABSTATION_PUBLIC_CAPABILITY_EVIDENCE_SCHEMA,
 } from './bim-fabstation/fabStationCapabilityEvidence';
+export {
+  MAX_FABSTATION_PROJECT_PACKAGE_FILE_REFERENCES,
+  MAX_FABSTATION_PROJECT_PACKAGE_MANIFEST_BYTES,
+  NEXUS_FABSTATION_PROJECT_PACKAGE_PLAN_SCHEMA,
+  createFabStationProjectPackagePlan,
+} from './bim-fabstation/fabStationProjectPackagePlan';
+export type {
+  NexusFabStationProjectPackageFileKind,
+  NexusFabStationProjectPackageFileReference,
+  NexusFabStationProjectPackagePlan,
+  NexusFabStationProjectPackagePlanInput,
+  NexusFabStationProjectPackagePlanIssue,
+  NexusFabStationProjectPackagePlanIssueCode,
+  NexusFabStationProjectPackagePlanResolution,
+} from './bim-fabstation/fabStationProjectPackagePlan';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
 export { microsoft365Connector } from './microsoft365/microsoft365Connector';
