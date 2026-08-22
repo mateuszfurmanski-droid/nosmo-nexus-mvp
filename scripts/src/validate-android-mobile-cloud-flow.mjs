@@ -19,7 +19,11 @@ const bindingStore = read('native/nexus-work-mode-native/app/src/main/java/tech/
 const shortcutActivity = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/CloudEvidenceShortcutActivity.java');
 
 requireText(auth, 'router.get("/mobile-auth/start"', 'mobile auth start route missing');
-requireText(auth, 'const callbackUrl = getOidcCallbackUrl(req);', 'mobile auth must reuse canonical HTTPS callback');
+requireText(auth, 'getMobileOidcCallbackUrl(req)', 'mobile auth must use its canonical callback resolver');
+requireText(auth, 'process.env.NEXUS_PUBLIC_ORIGIN', 'production mobile auth must bind to server-configured public origin');
+requireText(auth, 'process.env.NODE_ENV === "production"', 'production mobile auth must fail closed without configured public origin');
+requireText(auth, 'NEXUS_MOBILE_AUTH_PUBLIC_ORIGIN_NOT_CONFIGURED', 'missing mobile public origin must have explicit fail-closed error');
+requireText(auth, 'parsed.protocol !== "https:"', 'mobile auth public origin must require HTTPS');
 requireText(auth, 'code_challenge_method: "S256"', 'mobile auth must require PKCE S256');
 requireText(auth, 'MOBILE_AUTH_CALLBACK = "nosmo-nexus-workmode://auth-result"', 'fixed Android auth callback missing');
 requireText(auth, 'redirect_uri !== expectedRedirectUri', 'token exchange must reject alternate redirect URI');
