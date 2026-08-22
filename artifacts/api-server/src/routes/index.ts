@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import nexusSessionRouter from "./nexus-session";
+import workWalletContextTicketRouter from "./work-wallet-context-tickets";
 import projectsRouter from "./projects";
 import tasksRouter from "./tasks";
 import plansRouter from "./plans";
@@ -21,6 +22,12 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(authRouter);
 router.use(nexusSessionRouter);
+
+// Work Wallet Context Ticket exchange must be reachable by an exact configured
+// extension origin without a browser cookie. Its issue route applies
+// `requireWorkspace` locally and remains authenticated + same-origin only.
+router.use(workWalletContextTicketRouter);
+
 // Unauthenticated MVP file storage (upload + auto-processing). Public by design.
 router.use(filesRouter);
 
