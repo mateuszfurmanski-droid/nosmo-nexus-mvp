@@ -70,6 +70,8 @@ forbidText(handoffCallback, 'item.put(EVIDENCE_STATE_KEY, "TRANSFER_CONFIRMED")'
 requireText(bindingStore, 'nexus_work_mode_v060_evidence_bindings', 'evidence routing must use an app-private sidecar store');
 requireText(bindingStore, 'recordCloudCommit', 'canonical Cloud receipt sidecar persistence missing');
 requireText(bindingStore, 'pruneToCandidates', 'orphaned local evidence bindings must be prunable after local candidate removal');
+requireText(bindingStore, 'editor.remove(key(candidateId, "cloudFile"))', 'fresh metadata binding must clear stale Cloud receipt');
+requireText(bindingStore, 'editor.remove(key(candidateId, "driveFile"))', 'fresh metadata binding must clear stale provider receipt');
 
 requireText(cloudUi, 'HANDOFF_DONE', 'Cloud upload must require confirmed metadata handoff');
 requireText(cloudUi, 'EvidenceBindingStore.get', 'Cloud upload must consume receipt-bound routing sidecar');
@@ -80,6 +82,14 @@ requireText(cloudUi, 'android-evidence-', 'Cloud upload idempotency key must be 
 requireText(cloudUi, 'Outcome.TRANSFER_CONFIRMED', 'UI may confirm evidence only from canonical Cloud result');
 requireText(cloudUi, 'recordCloudCommit', 'canonical Cloud receipt must survive mutable queue rewrites');
 requireText(cloudUi, 'Sign out Nexus mobile session', 'Cloud UI must expose server-confirmed mobile logout');
+requireText(cloudUi, 'private final Set<String> inFlightUploads', 'Cloud UI must track active uploads in memory');
+requireText(cloudUi, 'inFlightUploads.contains(candidateId)', 'duplicate upload attempts must be rejected');
+requireText(cloudUi, 'inFlightUploads.add(candidateId)', 'candidate must be locked before streaming starts');
+requireText(cloudUi, 'inFlightUploads.remove(candidateId)', 'candidate lock must be released after result/failure');
+requireText(cloudUi, 'Wait for the active Cloud upload before signing out', 'mobile logout must be blocked during active upload');
+requireText(cloudUi, 'Wait for the active Cloud upload before leaving this screen', 'navigation must be blocked during active upload');
+requireText(cloudUi, 'public void onBackPressed()', 'system back must use the same active-upload navigation lock');
+requireText(cloudUi, 'markEvidenceRetryable', 'preparation/persistence failures must leave evidence retryable');
 
 requireText(shortcutActivity, 'CloudEvidenceActivity.class', 'launcher shortcut trampoline must only route to local Cloud evidence UI');
 forbidText(shortcutActivity, 'getStringExtra', 'shortcut trampoline must not accept caller authority extras');
