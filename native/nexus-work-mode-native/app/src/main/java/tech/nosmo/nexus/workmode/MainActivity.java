@@ -2,6 +2,7 @@ package tech.nosmo.nexus.workmode;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -431,11 +432,15 @@ public class MainActivity extends Activity {
             }
             root.addView(box, fullWidthWrap());
             if (HANDOFF_PENDING.equals(candidate.handoffState)) {
-                addSmall(root, "Waiting for Nexus confirmation — duplicate resend is locked.");
+                addSmall(root, "Waiting for Nexus confirmation — duplicate resend and local removal are locked. Recover the handoff first if this local item must be removed.");
             } else if (HANDOFF_DONE.equals(candidate.handoffState)) {
-                addSmall(root, "Already handed off — this item is locked against duplicate resend.");
+                addSmall(root, "Metadata was handed off. Raw evidence may still be local-only until canonical Cloud upload exists.");
+                addAction(root, "Remove local candidate", () -> requestRemoveLocalCandidate(candidate), false);
             } else if (HANDOFF_RETRY.equals(candidate.handoffState)) {
-                addSmall(root, "Previous handoff did not complete. This item may be retried.");
+                addSmall(root, "Previous handoff did not complete. This item may be retried or removed locally.");
+                addAction(root, "Remove local candidate", () -> requestRemoveLocalCandidate(candidate), false);
+            } else {
+                addAction(root, "Remove local candidate", () -> requestRemoveLocalCandidate(candidate), false);
             }
         }
 
@@ -454,8 +459,93 @@ public class MainActivity extends Activity {
             addAction(root, "Recover pending handoff for retry", this::recoverPendingHandoff, false);
         }
         addAction(root, "Back to Work Mode", this::showHome, false);
-        addSmall(root, "Only LOCAL_ONLY and FAILED_RETRYABLE items can be sent. PENDING_SERVER_CONFIRMATION and HANDED_OFF items are locked. Browser launch never marks raw evidence uploaded/synced.");
+        addSmall(root, "Only LOCAL_ONLY and FAILED_RETRYABLE items can be sent. PENDING_SERVER_CONFIRMATION and HANDED_OFF items are locked against duplicate send. Removing a local candidate never deletes Nexus/Cloud records.");
         setPage(root);
+    }
+
+    private void requestRemoveLocalCandidate(Candidate candidate) {
+        if (candidate == null) return;
+        if (HANDOFF_PENDING.equals(candidate.handoffState)) {
+            Toast.makeText(
+                    this,
+                    "This item is part of the pending handoff. Recover or complete that handoff before local removal.",
+                    Toast.LENGTH_LONG
+            ).show();
+            return;
+        }
+
+        String message;
+        if (HANDOFF_DONE.equals(candidate.handoffState)) {
+            message = "Nexus already accepted this item's metadata, but raw photo/document bytes may not have been uploaded yet. Removing this local candidate can remove the durable picker access needed for a later Cloud upload. This action is device-local and does not delete anything from Nexus or Cloud.";
+        } else {
+            message = "Remove this item from the device-local Work Mode queue? Exact picker read access will be released when this candidate is the last local user of that URI. No Nexus, Cloud, WorkSuite, Person, Timeline or Project Graph record will be deleted.";
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Remove local candidate?")
+                .setMessage(message)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove local", (dialog, which) -> removeLocalCandidate(candidate.id))
+                .show();
+    }
+
+    private void removeLocalCandidate(String candidateId) {
+        Candidate target = null;
+        for (Candidate candidate : candidates) {
+            if (candidate.id.equals(candidateId)) {
+                target = candidate;
+                break;
+            }
+        }
+        if (target == null) {
+            showReview();
+            return;
+        }
+        if (HANDOFF_PENDING.equals(target.handoffState)) {
+            Toast.makeText(this, "Pending handoff items cannot be removed locally", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        releasePersistedReadPermissionIfUnused(target);
+        candidates.remove(target);
+        persistQueue();
+        Toast.makeText(
+                this,
+                "Removed from the local Work Mode queue. Nexus/Cloud records were not deleted.",
+                Toast.LENGTH_LONG
+        ).show();
+        showReview();
+    }
+
+    private boolean hasOtherCandidateWithSameReference(Candidate target) {
+        if (target.localReference == null || target.localReference.isEmpty()) return false;
+        for (Candidate candidate : candidates) {
+            if (!candidate.id.equals(target.id) && target.localReference.equals(candidate.localReference)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void releasePersistedReadPermissionIfUnused(Candidate target) {
+        if (target.localReference == null || !target.localReference.startsWith("content://")) return;
+        if (hasOtherCandidateWithSameReference(target)) return;
+
+        try {
+            Uri targetUri = Uri.parse(target.localReference);
+            for (android.content.UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
+                if (permission.isReadPermission() && targetUri.equals(permission.getUri())) {
+                    getContentResolver().releasePersistableUriPermission(
+                            targetUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                    return;
+                }
+            }
+        } catch (Exception ignored) {
+            // Best-effort local cleanup only. Never enumerate/revoke unrelated grants or turn
+            // a provider-specific release failure into a Nexus/Cloud mutation.
+        }
     }
 
     private boolean isHandoffLocked(Candidate candidate) {
