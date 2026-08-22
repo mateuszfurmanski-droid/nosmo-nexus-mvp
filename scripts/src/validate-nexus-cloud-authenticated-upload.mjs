@@ -55,6 +55,10 @@ assert(
   "Cloud endpoint must create stable server-owned retry identity",
 );
 assert(
+  cloudRoute.includes("operation.providerIdempotencyKey"),
+  "Cloud endpoint must pass canonical-scope-derived provider idempotency rather than the raw browser key",
+);
+assert(
   cloudRoute.includes("resolveNexusCloudRuntimeWriteAccess"),
   "Cloud endpoint must resolve canonical access server-side",
 );
@@ -116,6 +120,12 @@ assert(
   "Drive target and secret-reference authority must come from server runtime configuration",
 );
 assert(
+  runtimeConfig.includes("root.writeEnabled !== true") &&
+    runtimeConfig.includes("NEXUS_CLOUD_GOOGLE_DRIVE_WRITE_NOT_RELEASED") &&
+    runtimeConfig.includes("verifiedAt"),
+  "Drive LIVE capability must require an explicit server-side release and verification timestamp",
+);
+assert(
   !runtimeConfig.includes("clientSecret") &&
     !runtimeConfig.includes("refreshToken") &&
     !runtimeConfig.includes("accessToken"),
@@ -137,6 +147,12 @@ assert(
   "canonical Drive writer export must exist exactly once in provider module",
 );
 assert(
+  providerWriter.includes("trashed = false and appProperties has") &&
+    !providerWriter.includes("in parents and trashed = false and appProperties has") &&
+    providerWriter.includes("NEXUS_CLOUD_GOOGLE_DRIVE_IDEMPOTENCY_TARGET_DRIFT"),
+  "provider idempotency lookup must detect changed target scope before another Drive create",
+);
+assert(
   runtimePaths.includes("scripts/src/nexus-cloud-google-drive-adapter.mjs"),
   "unified runtime must resolve the canonical Drive writer module",
 );
@@ -147,7 +163,8 @@ assert(
     operationIdentity.includes("worldId") &&
     operationIdentity.includes("idempotencyKey") &&
     operationIdentity.includes("pendingAssetId") &&
-    operationIdentity.includes("accessDecisionId"),
+    operationIdentity.includes("accessDecisionId") &&
+    operationIdentity.includes("providerIdempotencyKey"),
   "retry operation identity must freeze exact workspace/project/world/idempotency scope",
 );
 
