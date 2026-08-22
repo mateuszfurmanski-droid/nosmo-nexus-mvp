@@ -9,3 +9,4 @@ export * from "./notes";
 export * from "./conversations";
 export * from "./files";
 export * from "./nexusProjectMemoryCloud";
+export * from "./nexusRuntimeAuthority";
