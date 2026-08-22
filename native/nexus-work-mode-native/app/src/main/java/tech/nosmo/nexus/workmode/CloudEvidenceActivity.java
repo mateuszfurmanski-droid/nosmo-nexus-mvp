@@ -159,7 +159,7 @@ public final class CloudEvidenceActivity extends Activity {
                     Toast.LENGTH_LONG
             ).show();
         } catch (Exception ignored) {
-            if (newGrantRetained) releaseExactPersistedReadPermission(newUri);
+            if (newGrantRetained) releaseRejectedReselectionGrantIfNew(candidateId, newUri);
             markEvidenceReselectionRequired(candidateId);
             Toast.makeText(this, "Could not persist the reselected local evidence", Toast.LENGTH_LONG).show();
         }
@@ -515,6 +515,22 @@ public final class CloudEvidenceActivity extends Activity {
         } catch (Exception ignored) {
             // Best-effort cleanup for a rejected/uncommitted reselection only.
         }
+    }
+
+    private void releaseRejectedReselectionGrantIfNew(String candidateId, Uri newUri) {
+        if (newUri == null) return;
+        try {
+            JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
+            JSONObject item = findItem(queue, candidateId);
+            if (item != null && newUri.toString().equals(safe(item.optString("localReference", "")))) {
+                // The candidate still legitimately references this exact URI. Do not revoke its grant.
+                return;
+            }
+        } catch (Exception ignored) {
+            // If local state cannot be read, fail closed by leaving the narrowly scoped grant alone.
+            return;
+        }
+        releaseExactPersistedReadPermission(newUri);
     }
 
     private void releasePersistedReadPermissionIfUnused(
