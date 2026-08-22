@@ -10,8 +10,8 @@ import { workspacesTable } from "./workspaces";
 
 /**
  * Indexed persistence for the canonical #90 ProjectParticipation record.
- * `recordJson` contains the complete canonical record; indexed columns exist only
- * to resolve the exact workspace/person/project/world boundary efficiently.
+ * `recordJson` contains the complete canonical record; security-relevant scope
+ * and permission-reference fields are also stored explicitly for fail-closed reads.
  */
 export const nexusPmProjectParticipationsTable = pgTable(
   "nexus_pm_project_participations",
@@ -24,6 +24,7 @@ export const nexusPmProjectParticipationsTable = pgTable(
     projectId: varchar("project_id", { length: 128 }).notNull(),
     worldId: varchar("world_id", { length: 128 }).notNull(),
     participationStatus: varchar("participation_status", { length: 32 }).notNull(),
+    permissionGrantIds: jsonb("permission_grant_ids").$type<string[]>().notNull(),
     validFrom: timestamp("valid_from", { withTimezone: true }),
     validTo: timestamp("valid_to", { withTimezone: true }),
     recordJson: jsonb("record_json").notNull(),
