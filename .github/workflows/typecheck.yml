@@ -55,6 +55,9 @@ jobs:
       - name: Validate unified authenticated runtime topology
         run: node scripts/src/validate-unified-nexus-runtime.mjs
 
+      - name: Validate authenticated Nexus Cloud upload topology
+        run: node scripts/src/validate-nexus-cloud-authenticated-upload.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
@@ -66,6 +69,12 @@ jobs:
 
       - name: Smoke test canonical Nexus Cloud write access
         run: pnpm --filter @workspace/scripts smoke:nexus-cloud-access-resolver
+
+      - name: Smoke test stable Nexus Cloud retry identity
+        run: pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/lib/nexus-cloud-operation-identity.smoke.ts
+
+      - name: Smoke test server-only Nexus Cloud Drive config
+        run: pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/lib/nexus-cloud-runtime-config.smoke.ts
 
       - name: Build Nexus web application
         env:
@@ -83,6 +92,7 @@ jobs:
         env:
           PORT: 3000
           NODE_ENV: test
+          NEXUS_PUBLIC_ORIGIN: http://127.0.0.1:3000
           WORK_WALLET_DEMO_MODE: "true"
           NEXUS_IDENTITY_BINDING_MODE: "disabled"
         run: |
@@ -108,6 +118,24 @@ jobs:
             | grep '<div id="root"' > /dev/null
           curl --fail --silent --show-error http://127.0.0.1:3000/relationship-tree \
             | grep '<div id="root"' > /dev/null
+
+          # Cross-site cookie-style Cloud mutation is rejected before workspace/auth side effects.
+          cross_site_status=$(curl --silent --show-error --output /tmp/cloud-cross-site.json --write-out '%{http_code}' \
+            --request POST \
+            --header 'Origin: https://attacker.invalid' \
+            --header 'Sec-Fetch-Site: cross-site' \
+            http://127.0.0.1:3000/api/nexus/cloud/files)
+          test "$cross_site_status" = "403"
+          grep 'NEXUS_CLOUD_CROSS_SITE_MUTATION_REJECTED' /tmp/cloud-cross-site.json > /dev/null
+
+          # Same-origin request passes CSRF gate but remains unauthenticated and therefore stops at workspace gate.
+          unauth_cloud_status=$(curl --silent --show-error --output /tmp/cloud-unauth.json --write-out '%{http_code}' \
+            --request POST \
+            --header 'Origin: http://127.0.0.1:3000' \
+            --header 'Sec-Fetch-Site: same-origin' \
+            http://127.0.0.1:3000/api/nexus/cloud/files)
+          test "$unauth_cloud_status" = "401"
+          grep 'Authentication required' /tmp/cloud-unauth.json > /dev/null
 
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/integrations/work-wallet/status \
@@ -140,9 +168,10 @@ jobs:
           grep '"status":"duplicate"' /tmp/duplicate-event.json > /dev/null
 
       - name: Upload Nexus build
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: nosmo-nexus-web
           path: artifacts/nosmo-nexus/dist/public
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 1

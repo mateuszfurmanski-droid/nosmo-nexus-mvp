@@ -220,9 +220,11 @@ const buildWriteIdentity = (plan, idempotencyKey, contentSha256) => {
 };
 
 const findExistingWrite = async (plan, identity, accessToken, fetchImpl) => {
-  const folder = escapeDriveQueryValue(plan.providerTargetId);
   const key = escapeDriveQueryValue(identity.keyHash);
-  const q = `'${folder}' in parents and trashed = false and appProperties has { key='nexusWriteIdentity' and value='${key}' }`;
+  // Search the accessible Drive namespace by private write identity, not only the
+  // currently requested folder. Otherwise the same idempotency key reused with a
+  // different semantic target could bypass conflict detection and create a second file.
+  const q = `trashed = false and appProperties has { key='nexusWriteIdentity' and value='${key}' }`;
   const params = new URLSearchParams({
     q,
     spaces: "drive",
@@ -251,6 +253,13 @@ const findExistingWrite = async (plan, identity, accessToken, fetchImpl) => {
     fail(
       "NEXUS_CLOUD_GOOGLE_DRIVE_IDEMPOTENCY_CONFLICT",
       "Idempotency key was already used for different content or scope",
+    );
+  }
+
+  if (!Array.isArray(existing.parents) || !existing.parents.includes(plan.providerTargetId)) {
+    fail(
+      "NEXUS_CLOUD_GOOGLE_DRIVE_IDEMPOTENCY_TARGET_DRIFT",
+      "Existing idempotent Drive object is no longer in the configured provider target",
     );
   }
 
@@ -388,8 +397,9 @@ const executeWrite = async ({
  * The adapter deliberately accepts no browser folder id, OAuth token, project override or
  * graph mutation instruction. The provider target and secret reference must already exist
  * on the server-generated plan. Sequential retries are recovered through private Drive
- * appProperties; an in-process lock also prevents duplicate concurrent writes in one server
- * process. Cross-instance atomic provider idempotency still requires a durable server ledger.
+ * appProperties. Concurrent requests for one provider write identity are serialized in one
+ * server process and the waiter re-runs fingerprint validation after the leader completes.
+ * Cross-instance atomic provider idempotency still requires a durable server operation ledger.
  */
 export const writeNexusCloudFileToGoogleDrive = async ({
   plan,
@@ -401,13 +411,25 @@ export const writeNexusCloudFileToGoogleDrive = async ({
 }) => {
   const checkedPlan = assertWritePlan(plan);
   const body = toBuffer(binary);
-  const contentSha256 = sha256(body);
   const lockKey = sha256(
-    [checkedPlan.connectorAccountId, checkedPlan.providerTargetId, idempotencyKey, contentSha256].join("\n"),
+    [checkedPlan.connectorAccountId, requireString(idempotencyKey, "idempotency_key")].join("\n"),
   );
 
   const existingFlight = inFlightWrites.get(lockKey);
-  if (existingFlight) return existingFlight;
+  if (existingFlight) {
+    // Do not return the leader result blindly: this request may have changed
+    // content or semantic target while reusing the same write identity. Wait for
+    // the leader, then execute again so provider fingerprints decide replay vs conflict.
+    await existingFlight;
+    return executeWrite({
+      plan: checkedPlan,
+      binary: body,
+      idempotencyKey,
+      resolveSecret,
+      fetchImpl,
+      clock,
+    });
+  }
 
   const operation = executeWrite({
     plan: checkedPlan,

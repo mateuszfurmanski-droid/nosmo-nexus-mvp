@@ -25,6 +25,7 @@ export function resolveNexusRuntimeRoot(): string {
   for (const candidate of candidates) {
     if (
       existsSync(path.join(candidate, "scripts/src/work-wallet-api.mjs")) &&
+      existsSync(path.join(candidate, "scripts/src/nexus-cloud-google-drive-adapter.mjs")) &&
       existsSync(path.join(candidate, "artifacts/api-server/package.json")) &&
       existsSync(path.join(candidate, "artifacts/nosmo-nexus/package.json"))
     ) {
@@ -56,6 +57,19 @@ export function resolveWorkWalletRuntimeModulePath(): string {
 
   if (!existsSync(modulePath)) {
     throw new Error("Work Wallet runtime module is unavailable");
+  }
+
+  return modulePath;
+}
+
+export function resolveNexusGoogleDriveWriterModulePath(): string {
+  const modulePath = path.join(
+    resolveNexusRuntimeRoot(),
+    "scripts/src/nexus-cloud-google-drive-adapter.mjs",
+  );
+
+  if (!existsSync(modulePath)) {
+    throw new Error("Nexus Cloud Google Drive writer module is unavailable");
   }
 
   return modulePath;

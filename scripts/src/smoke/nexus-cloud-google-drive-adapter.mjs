@@ -64,10 +64,14 @@ const fakeFetch = async (url, options = {}) => {
 
   assert.equal(options.headers?.authorization, "Bearer smoke-access-token");
 
-  if (parsed.pathname === "/drive/v3/files/drive-folder-esafe-inbox") {
+  if (
+    parsed.pathname === "/drive/v3/files/drive-folder-esafe-inbox" ||
+    parsed.pathname === "/drive/v3/files/drive-folder-esafe-pending"
+  ) {
+    const id = parsed.pathname.split("/").pop();
     return jsonResponse(200, {
-      id: "drive-folder-esafe-inbox",
-      name: "00_INBOX",
+      id,
+      name: id === "drive-folder-esafe-inbox" ? "00_INBOX" : "01_PENDING_GRAPH_LINK",
       mimeType: "application/vnd.google-apps.folder",
       trashed: false,
       capabilities: { canAddChildren: targetWritable },
@@ -77,10 +81,16 @@ const fakeFetch = async (url, options = {}) => {
   if (parsed.pathname === "/drive/v3/files" && options.method !== "POST") {
     const query = parsed.searchParams.get("q") ?? "";
     const identityMatch = query.match(/nexusWriteIdentity' and value='([^']+)'/);
+    const parentMatch = query.match(/'([^']+)' in parents/);
     const identity = identityMatch?.[1];
+    const requestedParent = parentMatch?.[1];
     return jsonResponse(200, {
       files: identity
-        ? providerFiles.filter((file) => file.appProperties?.nexusWriteIdentity === identity)
+        ? providerFiles.filter(
+            (file) =>
+              file.appProperties?.nexusWriteIdentity === identity &&
+              (!requestedParent || file.parents?.includes(requestedParent)),
+          )
         : [],
     });
   }
@@ -170,6 +180,29 @@ assert.equal(uploadCount, 1, "conflicting retry must fail before provider create
 await assert.rejects(
   () =>
     writeNexusCloudFileToGoogleDrive({
+      plan: {
+        ...plan,
+        targetRole: "01_PENDING_GRAPH_LINK",
+        providerTargetId: "drive-folder-esafe-pending",
+      },
+      binary,
+      idempotencyKey: "cloud-write-smoke-001",
+      resolveSecret,
+      fetchImpl: fakeFetch,
+    }),
+  (error) =>
+    error instanceof NexusCloudGoogleDriveError &&
+    error.code === "NEXUS_CLOUD_GOOGLE_DRIVE_IDEMPOTENCY_CONFLICT",
+);
+assert.equal(
+  uploadCount,
+  1,
+  "same provider write identity with another semantic target must fail before second create",
+);
+
+await assert.rejects(
+  () =>
+    writeNexusCloudFileToGoogleDrive({
       plan: { ...plan, providerSourceSystem: "microsoft365" },
       binary,
       idempotencyKey: "wrong-provider",
@@ -206,6 +239,7 @@ console.log(
       providerCreateCalls: uploadCount,
       exactRetry: retry.status,
       conflictGuard: "PASS",
+      crossTargetConflictGuard: "PASS",
       targetPermissionGuard: "PASS",
       projectMemoryMutationPerformed: false,
       projectGraphMutationPerformed: false,

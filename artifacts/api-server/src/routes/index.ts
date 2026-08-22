@@ -11,15 +11,26 @@ import notesRouter from "./notes";
 import searchRouter from "./search";
 import conversationsRouter from "./conversations";
 import filesRouter from "./files";
+import nexusCloudRouter from "./nexus-cloud";
 import { requireWorkspace } from "../middlewares/requireWorkspace";
+import { requireNexusCloudMutationOrigin } from "../middlewares/requireNexusCloudMutationOrigin";
 
 const router: IRouter = Router();
 
 // Public routes — no authentication required.
 router.use(healthRouter);
 router.use(authRouter);
-// Unauthenticated MVP file storage (upload + auto-processing). Public by design.
+// Historical unauthenticated MVP file storage remains separate from Nexus Cloud.
 router.use(filesRouter);
+
+// Cloud write mutations reject cross-site cookie requests before workspace resolution.
+// The endpoint then reuses the normal authenticated workspace boundary.
+router.use(
+  "/nexus/cloud",
+  requireNexusCloudMutationOrigin,
+  requireWorkspace,
+  nexusCloudRouter,
+);
 
 // Everything below requires an authenticated user with a resolved workspace.
 // `requireWorkspace` returns 401 when unauthenticated and sets `req.workspaceId`.
