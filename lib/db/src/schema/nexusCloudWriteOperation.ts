@@ -43,6 +43,11 @@ export const nexusPmCloudWriteOperationsTable = pgTable(
     uniqueIndex("UQ_nexus_pm_cloud_write_provider_identity").on(
       table.providerWriteIdentity,
     ),
+    uniqueIndex("UQ_nexus_pm_cloud_write_provider_object").on(
+      table.workspaceId,
+      table.providerConnectorId,
+      table.providerObjectId,
+    ),
     index("IDX_nexus_pm_cloud_write_scope").on(
       table.workspaceId,
       table.projectId,
@@ -50,11 +55,6 @@ export const nexusPmCloudWriteOperationsTable = pgTable(
     ),
     index("IDX_nexus_pm_cloud_write_state").on(table.state),
     index("IDX_nexus_pm_cloud_write_lease").on(table.leaseExpiresAt),
-    index("IDX_nexus_pm_cloud_write_provider_object").on(
-      table.workspaceId,
-      table.providerConnectorId,
-      table.providerObjectId,
-    ),
   ],
 );
 
