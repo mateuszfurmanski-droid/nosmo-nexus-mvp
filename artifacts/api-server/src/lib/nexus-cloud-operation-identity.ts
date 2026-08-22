@@ -11,6 +11,7 @@ export interface NexusCloudOperationIdentity {
   operationFingerprint: string;
   pendingAssetId: string;
   accessDecisionId: string;
+  providerIdempotencyKey: string;
 }
 
 const requireNonEmpty = (value: string, label: string): string => {
@@ -23,8 +24,13 @@ const requireNonEmpty = (value: string, label: string): string => {
  * Create stable server-owned IDs for one retriable Cloud HTTP operation.
  *
  * Phase 19 exact replay compares pendingAssetId and accessDecisionId. Therefore
- * those IDs must survive a retry after provider success / DB failure. The raw
- * idempotency key is not persisted here and is not treated as authority.
+ * those IDs must survive a retry after provider success / DB failure.
+ *
+ * The provider receives a derived key namespaced by exact canonical
+ * workspace/project/world rather than the raw browser key. This permits callers
+ * to reuse a client-generated key in another Project World without creating a
+ * cross-project provider collision, while retries inside the same canonical
+ * scope still share one provider write identity.
  */
 export function createNexusCloudOperationIdentity(
   input: NexusCloudOperationIdentityInput,
@@ -50,5 +56,6 @@ export function createNexusCloudOperationIdentity(
     operationFingerprint,
     pendingAssetId: `PENDING-NCA-${operationFingerprint}`,
     accessDecisionId: `ACCESS-NCW-${operationFingerprint}`,
+    providerIdempotencyKey: `nexus-cloud:${digest}`,
   };
 }
