@@ -6,56 +6,9 @@ import {
   NexusContextTicketRateLimitError,
   NEXUS_CONTEXT_TICKET_PURPOSE,
   NEXUS_CONTEXT_TICKET_TTL_MS,
-  type ConsumedNexusContextTicket,
   type IssueNexusContextTicketInput,
-  type NexusContextTicketStore,
-  type StoredNexusContextTicket,
 } from "../src/lib/nexus-context-ticket-core";
-
-type MemoryRecord = StoredNexusContextTicket & { consumedAt?: Date };
-
-class MemoryTicketStore implements NexusContextTicketStore {
-  readonly records: MemoryRecord[] = [];
-
-  async countIssuedSince(input: {
-    workspaceId: number;
-    personId: string;
-    projectId: string;
-    since: Date;
-  }): Promise<number> {
-    return this.records.filter(
-      (record) =>
-        record.workspaceId === input.workspaceId &&
-        record.personId === input.personId &&
-        record.projectId === input.projectId &&
-        record.issuedAt >= input.since,
-    ).length;
-  }
-
-  async insert(record: StoredNexusContextTicket): Promise<void> {
-    if (this.records.some((candidate) => candidate.ticketDigest === record.ticketDigest)) {
-      throw new Error("duplicate ticket digest");
-    }
-    this.records.push({ ...record });
-  }
-
-  async consume(input: {
-    ticketDigest: string;
-    now: Date;
-  }): Promise<ConsumedNexusContextTicket | null> {
-    const record = this.records.find(
-      (candidate) => candidate.ticketDigest === input.ticketDigest,
-    );
-    if (!record || record.consumedAt || record.expiresAt <= input.now) return null;
-    record.consumedAt = input.now;
-    const {
-      ticketDigest: _ticketDigest,
-      issuedSessionDigest: _issuedSessionDigest,
-      ...safe
-    } = record;
-    return safe as ConsumedNexusContextTicket;
-  }
-}
+import { MemoryContextTicketStore } from "./helpers/memory-context-ticket-store";
 
 const baseInput = (workspaceId = 11): IssueNexusContextTicketInput => ({
   workspaceId,
@@ -74,7 +27,7 @@ const baseInput = (workspaceId = 11): IssueNexusContextTicketInput => ({
 });
 
 async function run(): Promise<void> {
-  const store = new MemoryTicketStore();
+  const store = new MemoryContextTicketStore();
   const issuedAt = new Date("2026-08-22T12:00:00.000Z");
   const issued = await issueNexusContextTicketWithStore(
     store,
@@ -92,10 +45,7 @@ async function run(): Promise<void> {
   assert.equal(store.records.length, 1);
   assert.equal(store.records[0]?.ticketDigest, digestContextTicket(issued.ticket));
   assert.notEqual(store.records[0]?.ticketDigest, issued.ticket);
-  assert.notEqual(
-    store.records[0]?.issuedSessionDigest,
-    baseInput().sessionId,
-  );
+  assert.notEqual(store.records[0]?.issuedSessionDigest, baseInput().sessionId);
   assert.equal(store.records[0]?.workspaceId, 11);
   assert.equal(store.records[0]?.nexusObjectId, "object-ww-test-001");
   assert.deepEqual(store.records[0]?.allowedActions, [NEXUS_CONTEXT_TICKET_PURPOSE]);
@@ -125,7 +75,7 @@ async function run(): Promise<void> {
     null,
   );
 
-  const expiryStore = new MemoryTicketStore();
+  const expiryStore = new MemoryContextTicketStore();
   const expiring = await issueNexusContextTicketWithStore(
     expiryStore,
     baseInput(),
@@ -140,7 +90,7 @@ async function run(): Promise<void> {
     null,
   );
 
-  const rateStore = new MemoryTicketStore();
+  const rateStore = new MemoryContextTicketStore();
   for (let index = 0; index < 10; index += 1) {
     await issueNexusContextTicketWithStore(
       rateStore,
@@ -166,7 +116,7 @@ async function run(): Promise<void> {
 
   await assert.rejects(
     issueNexusContextTicketWithStore(
-      new MemoryTicketStore(),
+      new MemoryContextTicketStore(),
       { ...baseInput(), workspaceId: 0 },
       issuedAt,
     ),

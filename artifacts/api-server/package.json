@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate:work-wallet-ticket-core": "esbuild ./tests/work-wallet-context-ticket-core.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-core-test.mjs && node /tmp/nexus-work-wallet-ticket-core-test.mjs"
+    "validate:work-wallet-ticket-core": "esbuild ./tests/work-wallet-context-ticket-core.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-core-test.mjs && node /tmp/nexus-work-wallet-ticket-core-test.mjs",
+    "validate:work-wallet-canonical-pipeline": "esbuild ./tests/work-wallet-canonical-ticket-pipeline.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-canonical-pipeline-test.mjs && node /tmp/nexus-work-wallet-canonical-pipeline-test.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
