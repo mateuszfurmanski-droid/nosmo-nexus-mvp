@@ -41,6 +41,34 @@ function getOidcCallbackUrl(req: Request): string {
   return `${getOrigin(req)}/api/callback`;
 }
 
+function normalizeHttpsOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:") return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Native/mobile OIDC must bind to one server-owned public HTTPS origin in production.
+ * Request-derived Host/X-Forwarded-Host is accepted only for non-production development
+ * where a canonical public origin may not exist yet.
+ */
+function getMobileAuthOrigin(req: Request): string | null {
+  const configured = process.env.NEXUS_PUBLIC_ORIGIN?.trim();
+  if (configured) return normalizeHttpsOrigin(configured);
+  if (process.env.NODE_ENV === "production") return null;
+  return normalizeHttpsOrigin(getOrigin(req));
+}
+
+function getMobileOidcCallbackUrl(req: Request): string | null {
+  const origin = getMobileAuthOrigin(req);
+  return origin ? `${origin}/api/callback` : null;
+}
+
 function isSameOrigin(req: Request): boolean {
   const expected = getOrigin(req);
   const origin = req.headers["origin"];
@@ -194,10 +222,14 @@ router.get("/mobile-auth/start", async (req: Request, res: Response) => {
   const codeChallenge = queryString(req.query.code_challenge);
   const state = queryString(req.query.state);
   const nonce = queryString(req.query.nonce);
-  const callbackUrl = getOidcCallbackUrl(req);
+  const callbackUrl = getMobileOidcCallbackUrl(req);
+
+  if (!callbackUrl) {
+    res.status(503).json({ error: "NEXUS_MOBILE_AUTH_PUBLIC_ORIGIN_NOT_CONFIGURED" });
+    return;
+  }
 
   if (
-    !callbackUrl.startsWith("https://") ||
     !codeChallenge ||
     !PKCE_S256_PATTERN.test(codeChallenge) ||
     !state ||
@@ -235,7 +267,6 @@ router.get("/mobile-auth/start", async (req: Request, res: Response) => {
 // Query params are not validated because the OIDC provider may include
 // parameters not expressed in the schema.
 router.get("/callback", async (req: Request, res: Response) => {
-  const callbackUrl = getOidcCallbackUrl(req);
   const mobileFlow = req.cookies?.[MOBILE_AUTH_FLOW_COOKIE];
 
   if (mobileFlow === MOBILE_AUTH_FLOW) {
@@ -266,6 +297,7 @@ router.get("/callback", async (req: Request, res: Response) => {
     return;
   }
 
+  const callbackUrl = getOidcCallbackUrl(req);
   const config = await getOidcConfig();
   const codeVerifier = req.cookies?.code_verifier;
   const nonce = req.cookies?.nonce;
@@ -355,11 +387,12 @@ router.post(
     }
 
     const { code, code_verifier, redirect_uri, state, nonce } = parsed.data;
-    const expectedRedirectUri = getOidcCallbackUrl(req);
-    if (
-      !expectedRedirectUri.startsWith("https://") ||
-      redirect_uri !== expectedRedirectUri
-    ) {
+    const expectedRedirectUri = getMobileOidcCallbackUrl(req);
+    if (!expectedRedirectUri) {
+      res.status(503).json({ error: "NEXUS_MOBILE_AUTH_PUBLIC_ORIGIN_NOT_CONFIGURED" });
+      return;
+    }
+    if (redirect_uri !== expectedRedirectUri) {
       res.status(400).json({ error: "NEXUS_MOBILE_AUTH_REDIRECT_MISMATCH" });
       return;
     }
