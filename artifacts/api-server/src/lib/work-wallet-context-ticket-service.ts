@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { NexusWorkWalletProjectMemoryScope } from "@workspace/db/nexus-work-wallet-project-memory";
 import type { NexusRuntimeIdentityContext } from "../../../../src/core/permissions/runtimeIdentityContract";
+import { WORK_WALLET_PROVIDER_ID } from "../../../../src/connectors/work-wallet/workWalletMappingContract";
 import {
   NEXUS_CONTEXT_TICKET_PURPOSE,
   type ConsumedNexusContextTicket,
@@ -95,7 +96,7 @@ function canonicalAccountMatches(
     value !== null &&
     value.id === connectorAccountId &&
     value.status === "active" &&
-    safeString(value.connectorDefinitionId, 160) &&
+    value.connectorDefinitionId === WORK_WALLET_PROVIDER_ID &&
     safeString(value.tenantId, 160) &&
     safeString(value.connectionState, 32)
   );
