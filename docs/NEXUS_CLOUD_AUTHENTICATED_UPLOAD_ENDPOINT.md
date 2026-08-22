@@ -1,71 +1,23 @@
 # Nexus Cloud authenticated upload endpoint
 
-## Status
+Status: authenticated upload source is implemented, but no live Drive/DB E2E pass is claimed.
 
-This slice source-composes the authenticated Nexus backend upload path from canonical identity/access through the existing Google Drive writer and into the Phase 19 Project Memory transaction.
+File Loader uses `POST /api/nexus/cloud/files` with server-owned `sourceModule=file-loader`.
 
-It is **not** evidence that Google Drive is live in a Nexus deployment.
+Android Work Mode uses `POST /api/nexus/cloud/android/files` with server-owned `sourceModule=android-work-mode`.
 
-Current truthful status:
+Both routes share the same canonical path:
 
-> Authenticated backend upload path implemented; File Loader and Android Work Mode use separate server-owned provenance routes over one shared authority/provider/persistence pipeline. Real end-to-end execution remains blocked until server OAuth, a confirmed Nexus runtime database, schema/bootstrap data and a real runtime smoke are available.
+`origin/Bearer gate -> authenticated session/workspace -> exact canonical Person binding -> exact ProjectParticipation + PermissionGrant -> explicit cloud.file.write -> server-owned provenance -> semantic Project World routing -> server-only provider mapping -> existing PR #93 Drive writer -> provider receipt -> canonical persistence proposal -> Phase 19 Project Memory transaction`.
 
-No PR #91 / Spark Demo surface is changed.
+Clients cannot submit or override `sourceModule`, provider target IDs, OAuth credentials, secret references, canonical Person IDs or access decisions.
 
-## Endpoints and provenance
+Successful canonical commit responses echo the server-selected `sourceModule`; Android requires `android-work-mode` before local `TRANSFER_CONFIRMED`.
 
-File Loader: `POST /api/nexus/cloud/files` -> server-owned `sourceModule=file-loader`.
+The Cloud runtime still requires `NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON`, a released/verified provider mapping, server-side OAuth secret and a confirmed Nexus runtime PostgreSQL database. No unrelated Data Fetcher DB is used.
 
-Android Work Mode: `POST /api/nexus/cloud/android/files` -> server-owned `sourceModule=android-work-mode`.
+Idempotency remains scoped to workspace/project/world + client Idempotency-Key. Drive success followed by DB failure remains explicit and retryable with the same key. Cross-instance atomic exclusion is still not production-ready and needs a durable PostgreSQL operation ledger/lease.
 
-Both routes use one shared handler. The client cannot submit or override `sourceModule` in body or headers.
+Prepared validation covers both server-owned provenance routes, stable operation identity, runtime release gates, provider replay/target drift and disposable HTTP/DB smokes. Do not report PASS until Actions reaches actual runner steps.
 
-Required multipart inputs remain `file`, `projectId`, `worldId` and `Idempotency-Key`. Optional provider-neutral classification/trade metadata is unchanged. Maximum binary size remains 25 MiB.
-
-Successful canonical commit responses echo the server-selected `sourceModule`. Android requires `android-work-mode` in that receipt before local `TRANSFER_CONFIRMED`.
-
-## Authority path
-
-`mutation origin/Bearer gate -> authenticated session/workspace -> exact provider-subject to canonical Person binding -> exact ProjectParticipation + PermissionGrant -> explicit cloud.file.write -> server-owned source provenance -> semantic Project/ProjectWorld routing -> server-only provider mapping -> Phase 17 provider plan -> existing PR #93 Drive writer -> provider receipt -> Phase 16 persistence proposal -> PR #97 DB input -> Phase 19 PostgreSQL transaction`
-
-Participation alone grants nothing and explicit deny wins.
-
-## Provider / OAuth boundary
-
-`NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON` remains server-only. It maps exact Project World semantic targets to provider folder IDs and references a `NEXUS_SECRET_*` secret; OAuth credential values are not client-visible.
-
-A mapping is not LIVE merely because it exists. `writeEnabled: true`, valid operator `verifiedAt`, actual OAuth success and provider target verification are still required.
-
-The API server does not add a second Drive writer for Android. Both routes delegate to `scripts/src/nexus-cloud-google-drive-adapter.mjs`.
-
-## Idempotency and recovery
-
-The client supplies one logical `Idempotency-Key`; the server derives the provider operation identity from workspace/project/world plus that key.
-
-The same operation deterministically produces `pendingAssetId`, `accessDecisionId` and provider idempotency identity. Reusing the operation with changed content or target is rejected before another sequential provider create.
-
-If Drive succeeds but Project Memory persistence fails, the endpoint returns `PROVIDER_WRITTEN_PERSISTENCE_FAILED`, preserves the real `driveFileId`, marks the operation recoverable and requires retry with the same idempotency key. It never reports a canonical commit in that state.
-
-## Remaining production concurrency boundary
-
-Cross-instance atomic exclusion is **not yet claimed**. An autoscaled runtime still needs a durable PostgreSQL write-operation ledger/lease before production release.
-
-## Prepared validation
-
-The branch prepares source validation for both server-owned provenance routes, stable operation identity, runtime release gates, mock Drive replay/target drift, and disposable PostgreSQL/HTTP smoke checks.
-
-These checks are not a PASS claim until GitHub Actions reaches runner steps.
-
-## External blockers for real E2E
-
-1. server-side Google OAuth refresh-token secret for the pilot Drive owner;
-2. confirmed `nosmo-nexus-mvp` PostgreSQL runtime DB, not the unrelated Data Fetcher DB;
-3. reviewed schema application plus controlled Person/binding/participation/exact Cloud allow bootstrap;
-4. released server target mapping;
-5. durable cross-instance operation ledger;
-6. real authenticated File Loader and Android uploads returning real `driveFileId` plus COMMITTED Project Memory transactions;
-7. provider-success/DB-failure recovery smoke.
-
-## Protected surfaces
-
-No PR #91, Object Card, Relationship Tree, File Loader UI, Android UI, Work Wallet, BIM/IFC/FabStation, DoorFlow, Electrical or Person Card redesign/deployment is performed by this slice.
+Protected: PR #91, accepted Object Card, Relationship Tree, File Loader UI, Android UI, Work Wallet, BIM/IFC/FabStation, DoorFlow, Electrical and Person Card. No deployment or production schema migration is performed here.
