@@ -1,6 +1,6 @@
 # Work Wallet Slice K — Canonical MV3 Overlay / Memory-Only Receiver
 
-Status: `IMPLEMENTED / BEHAVIORAL VALIDATOR ADDED / CHROME UNPACKED PENDING`
+Status: `IMPLEMENTED / BEHAVIORAL VALIDATOR ADDED / CI PUSH VALIDATION REQUESTED / CHROME UNPACKED PENDING`
 
 ## Purpose
 
@@ -96,9 +96,11 @@ If the server supplied a verified `nexusNodeId`, Project Tree navigation may use
 
 The validator is wired into `Validate and Build` before workspace typecheck.
 
+Because draft PR validation is normally skipped, this branch also allows `Validate and Build` on direct pushes to the exact bounded Slice K branch. A follow-up documentation commit was made after that trigger existed so a push validation is requested without converting the PR out of draft. A PASS is not claimed until a completed run is actually observed.
+
 ## Still pending
 
-- GitHub Actions execution on a non-skipped run;
+- confirmed GitHub Actions result for the bounded push validation;
 - unpacked Chrome smoke;
 - unpacked Edge smoke;
 - safe non-production DB schema application for the server ticket/access stores;
