@@ -26,6 +26,7 @@ export * from './ifcSourceIntake';
 export * from './ifcValidationRun';
 export * from './ifcRevisionComparison';
 export * from './ifcChangeEventReview';
+export * from './publicRepresentativeIfcEvidence';
 export * from './workSuiteHoldWork';
 export * from './workSuiteReleaseHold';
 export * from './workSuiteRaiseRfi';
