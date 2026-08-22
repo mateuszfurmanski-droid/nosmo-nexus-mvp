@@ -30,6 +30,7 @@ export * from './workSuiteHoldWork';
 export * from './workSuiteReleaseHold';
 export * from './workSuiteRaiseRfi';
 export * from './workSuiteProjectMemoryCommit';
+export * from './bimContractE2eHarness';
 export * from './demo/esafeCataniaFixtures';
 export * from './demo/esafeCataniaPhase9Fixtures';
 export * from './demo/esafeCataniaMemory';
