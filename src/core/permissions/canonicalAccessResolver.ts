@@ -8,6 +8,36 @@ import type { NexusId, NexusIsoDateTime } from '../../data/schemas/common.schema
 
 export const NEXUS_CANONICAL_ACCESS_POLICY_VERSION = 'nexus-access-v1' as const;
 
+export type NexusProjectParticipationAccessView = Pick<
+  NexusProjectParticipationRecord,
+  | 'id'
+  | 'personId'
+  | 'projectId'
+  | 'worldId'
+  | 'participationStatus'
+  | 'permissionGrantIds'
+  | 'validFrom'
+  | 'validTo'
+>;
+
+export type NexusPermissionGrantAccessView = Pick<
+  NexusPermissionGrantRecord,
+  | 'id'
+  | 'participationId'
+  | 'effect'
+  | 'moduleId'
+  | 'actionKey'
+  | 'objectScopeId'
+  | 'dataScope'
+  | 'validFrom'
+  | 'validTo'
+>;
+
+export type NexusModuleEntitlementAccessView = Pick<
+  NexusModuleEntitlementRecord,
+  'moduleId' | 'projectEnabled' | 'availabilityState' | 'competenceGateKeys'
+>;
+
 export interface NexusCanonicalAccessRequest {
   decisionId: NexusId;
   personId?: NexusId;
@@ -19,9 +49,9 @@ export interface NexusCanonicalAccessRequest {
   dataScope?: string;
   evaluatedAt: NexusIsoDateTime;
   policyVersion?: string;
-  participations: NexusProjectParticipationRecord[];
-  permissionGrants: NexusPermissionGrantRecord[];
-  moduleEntitlements?: NexusModuleEntitlementRecord[];
+  participations: NexusProjectParticipationAccessView[];
+  permissionGrants: NexusPermissionGrantAccessView[];
+  moduleEntitlements?: NexusModuleEntitlementAccessView[];
   satisfiedCompetenceGateKeys?: string[];
 }
 
@@ -47,7 +77,7 @@ const isWithinValidityWindow = (
 };
 
 const denialMatchesRequest = (
-  grant: NexusPermissionGrantRecord,
+  grant: NexusPermissionGrantAccessView,
   request: NexusCanonicalAccessRequest,
 ): boolean => {
   if (grant.effect !== 'deny') return false;
@@ -64,7 +94,7 @@ const denialMatchesRequest = (
  * data scope cannot authorize an unscoped request, and vice versa.
  */
 const exactAllowMatchesRequest = (
-  grant: NexusPermissionGrantRecord,
+  grant: NexusPermissionGrantAccessView,
   request: NexusCanonicalAccessRequest,
 ): boolean => {
   if (grant.effect !== 'allow') return false;
@@ -107,7 +137,7 @@ const buildDecision = (
 
 const resolveModuleEntitlement = (
   request: NexusCanonicalAccessRequest,
-): NexusModuleEntitlementRecord | undefined => {
+): NexusModuleEntitlementAccessView | undefined => {
   const matching = (request.moduleEntitlements ?? []).filter(
     (entitlement) => entitlement.moduleId === request.moduleId,
   );
@@ -131,7 +161,7 @@ const resolveModuleEntitlement = (
  * - role/trade membership alone never authorizes a sensitive write.
  *
  * This function performs no DB lookup and trusts none of its inputs merely
- * because they came from the browser. Runtime callers must build the inputs
+ * because they came from the browser. Runtime callers must build the views
  * from server-owned canonical persistence.
  */
 export const resolveNexusCanonicalAccess = (

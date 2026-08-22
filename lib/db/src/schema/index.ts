@@ -10,3 +10,4 @@ export * from "./conversations";
 export * from "./files";
 export * from "./nexusProjectMemoryCloud";
 export * from "./nexusRuntimeIdentity";
+export * from "./nexusProjectAccess";

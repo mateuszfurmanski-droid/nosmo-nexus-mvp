@@ -9,7 +9,8 @@
     "./nexus-cloud-persistence": "./src/nexusCloudPersistence.ts",
     "./nexus-cloud-persistence-input": "./src/nexusCloudPersistenceInput.ts",
     "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts",
-    "./nexus-runtime-identity-binding": "./src/nexusRuntimeIdentityBinding.ts"
+    "./nexus-runtime-identity-binding": "./src/nexusRuntimeIdentityBinding.ts",
+    "./nexus-project-access-persistence": "./src/nexusProjectAccessPersistence.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
