@@ -1,5 +1,18 @@
 export { googleDriveConnector } from './google-drive/googleDriveConnector';
-export { workWalletConnector } from './work-wallet/workWalletConnector';
+export {
+  WORK_WALLET_EXTERNAL_CAPABILITY_LABEL,
+  workWalletConnector,
+} from './work-wallet/workWalletConnector';
+export {
+  WORK_WALLET_PROVIDER_ID,
+  isValidWorkWalletLocator,
+  resolveWorkWalletCanonicalMapping,
+} from './work-wallet/workWalletMappingContract';
+export type {
+  ResolveWorkWalletCanonicalMappingInput,
+  WorkWalletCanonicalMappingResolution,
+  WorkWalletExactRecordLocator,
+} from './work-wallet/workWalletMappingContract';
 export { bimFabstationConnector } from './bim-fabstation/bimFabstationConnector';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
