@@ -6,6 +6,7 @@ import type { NexusApprovalRecord, NexusEvidenceRecord } from './schemas/evidenc
 import type { NexusExternalReferenceRecord } from './schemas/externalReference.schema';
 import type { NexusFileRecord, NexusDrawingReferenceRecord } from './schemas/file.schema';
 import type { NexusGraphEdgeRecord, NexusGraphNodeRecord } from './schemas/graph.schema';
+import type { NexusIssueRecord } from './schemas/issue.schema';
 import type { NexusPersonRecord, NexusProjectRoleRecord } from './schemas/person.schema';
 import type { NexusCompanyRecord, NexusProjectRecord, NexusProjectWorldRecord } from './schemas/project.schema';
 import type { NexusStorageRecord } from './schemas/storage.schema';
@@ -25,6 +26,7 @@ export interface NexusProjectMemorySnapshot {
   assets: NexusAssetRecord[];
   evidence: NexusEvidenceRecord[];
   approvals: NexusApprovalRecord[];
+  issues: NexusIssueRecord[];
   timelineEvents: NexusTimelineEventRecord[];
   graphNodes: NexusGraphNodeRecord[];
   graphEdges: NexusGraphEdgeRecord[];
@@ -62,6 +64,7 @@ export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
   assets: [],
   evidence: [],
   approvals: [],
+  issues: [],
   timelineEvents: [],
   graphNodes: [],
   graphEdges: [],
