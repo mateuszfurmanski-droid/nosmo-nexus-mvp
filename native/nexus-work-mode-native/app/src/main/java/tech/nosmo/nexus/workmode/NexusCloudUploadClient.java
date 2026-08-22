@@ -8,10 +8,8 @@ import android.provider.OpenableColumns;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -47,6 +45,9 @@ final class NexusCloudUploadClient {
 
     private static final long MAX_FILE_SIZE = 25L * 1024L * 1024L;
     private static final int MAX_RESPONSE_BYTES = 128 * 1024;
+    private static final int MAX_FILE_NAME_CHARS = 255;
+    private static final int MAX_MIME_TYPE_CHARS = 127;
+    private static final String SAFE_MIME_TYPE_PATTERN = "[A-Za-z0-9!#$&^_.+\\-]+/[A-Za-z0-9!#$&^_.+\\-]+";
 
     private NexusCloudUploadClient() {}
 
@@ -222,13 +223,8 @@ final class NexusCloudUploadClient {
     }
 
     private static void writeFileHeader(OutputStream output, String boundary, String fileName, String mimeType) throws Exception {
-        String safeName = fileName
-                .replace("\\", "_")
-                .replace("\"", "_")
-                .replace("\r", "_")
-                .replace("\n", "_");
         String part = "--" + boundary + "\r\n"
-                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + safeName + "\"\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
                 + "Content-Type: " + mimeType + "\r\n\r\n";
         output.write(part.getBytes(StandardCharsets.UTF_8));
     }
@@ -258,7 +254,33 @@ final class NexusCloudUploadClient {
                     ? "application/octet-stream"
                     : fallbackMimeType.trim();
         }
-        return new FileMeta(fileName, mime, size);
+        return new FileMeta(safeFileName(fileName), safeMimeType(mime), size);
+    }
+
+    private static String safeFileName(String fileName) {
+        String value = fileName == null ? "" : fileName.trim();
+        value = value
+                .replace("\\", "_")
+                .replace("\"", "_")
+                .replace("\r", "_")
+                .replace("\n", "_");
+        if (value.isEmpty()) value = "android-evidence";
+        if (value.length() > MAX_FILE_NAME_CHARS) {
+            value = value.substring(0, MAX_FILE_NAME_CHARS);
+        }
+        return value;
+    }
+
+    private static String safeMimeType(String mimeType) {
+        String value = mimeType == null ? "" : mimeType.trim();
+        if (
+                value.isEmpty() ||
+                value.length() > MAX_MIME_TYPE_CHARS ||
+                !value.matches(SAFE_MIME_TYPE_PATTERN)
+        ) {
+            return "application/octet-stream";
+        }
+        return value;
     }
 
     private static String readBounded(InputStream input) throws Exception {
