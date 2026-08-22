@@ -26,6 +26,9 @@ const DRAFT_EXECUTION_BOUNDARY = "worksuite-action-engine-required";
 const MAX_BOOTSTRAP_ITEMS = 20;
 const MAX_USER_INTENT = 500;
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const allowedSources = new Set([
   "CONTACT",
   "CALENDAR",
@@ -38,6 +41,7 @@ type AndroidEnvelope = {
   schema: typeof HANDOFF_SCHEMA;
   nexusIntent: typeof WORK_MODE_INTENT;
   nexusAiContext: typeof WORK_MODE_AI_CONTEXT;
+  handoffRequestId: string;
   projectId: string;
   worldId: string;
   projectResolution: "EXACT";
@@ -81,6 +85,7 @@ type ReceiptStatus = "HANDED_OFF" | "FAILED_RETRYABLE";
 
 type HandoffReceipt = {
   schema: typeof HANDOFF_RECEIPT_SCHEMA;
+  handoffRequestId: string;
   receiptId: string;
   projectId: string;
   worldId: string;
@@ -111,6 +116,10 @@ function validItemId(value: string): boolean {
   return value.length >= 8 && value.length <= 100 && /^[A-Za-z0-9._:-]+$/.test(value);
 }
 
+function validHandoffRequestId(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
 function validateEnvelope(value: unknown): AndroidEnvelope {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("INVALID_BODY");
@@ -120,6 +129,7 @@ function validateEnvelope(value: unknown): AndroidEnvelope {
   const schema = stringValue(record.schema);
   const nexusIntent = stringValue(record.nexusIntent);
   const nexusAiContext = stringValue(record.nexusAiContext);
+  const handoffRequestId = stringValue(record.handoffRequestId);
   const projectId = stringValue(record.projectId);
   const worldId = stringValue(record.worldId);
   const projectResolution = stringValue(record.projectResolution);
@@ -135,6 +145,9 @@ function validateEnvelope(value: unknown): AndroidEnvelope {
   if (schema !== HANDOFF_SCHEMA) throw new Error("UNSUPPORTED_HANDOFF_SCHEMA");
   if (nexusIntent !== WORK_MODE_INTENT) throw new Error("UNSUPPORTED_INTENT");
   if (nexusAiContext !== WORK_MODE_AI_CONTEXT) throw new Error("UNSUPPORTED_CONTEXT_VERSION");
+  if (!validHandoffRequestId(handoffRequestId)) {
+    throw new Error("INVALID_HANDOFF_REQUEST_ID");
+  }
   if (projectResolution !== "EXACT") throw new Error("PROJECT_CONFIRMATION_REQUIRED");
   if (!projectId || !worldId) throw new Error("PROJECT_WORLD_REQUIRED");
   if (projectId !== ESAFE_PROJECT_ID || worldId !== ESAFE_WORLD_ID) {
@@ -154,6 +167,7 @@ function validateEnvelope(value: unknown): AndroidEnvelope {
     schema: HANDOFF_SCHEMA,
     nexusIntent: WORK_MODE_INTENT,
     nexusAiContext: WORK_MODE_AI_CONTEXT,
+    handoffRequestId,
     projectId,
     worldId,
     projectResolution: "EXACT",
@@ -169,6 +183,7 @@ function envelopeFromQuery(req: Request): AndroidEnvelope {
     schema: req.query.handoffSchema,
     nexusIntent: req.query.nexusIntent,
     nexusAiContext: req.query.nexusAiContext,
+    handoffRequestId: req.query.handoffRequestId,
     projectId: req.query.projectId,
     worldId: req.query.worldId,
     projectResolution: req.query.projectResolution,
@@ -297,8 +312,6 @@ function resolverStatus(
     };
   }
 
-  // Exact canonical allow permits human review only. Action Engine execution and
-  // final approval remain outside this Android/AI boundary.
   return { status: "needs-review", reason: "CANONICAL_ACCESS_ALLOWED_REVIEW_ONLY" };
 }
 
@@ -330,6 +343,7 @@ function buildHandoffReceipt(
 ): HandoffReceipt {
   return {
     schema: HANDOFF_RECEIPT_SCHEMA,
+    handoffRequestId: envelope.handoffRequestId,
     receiptId: randomBytes(16).toString("hex"),
     projectId: envelope.projectId,
     worldId: envelope.worldId,
@@ -344,6 +358,7 @@ function safeReturnPath(req: Request, envelope: AndroidEnvelope): string {
     handoffSchema: envelope.schema,
     nexusIntent: envelope.nexusIntent,
     nexusAiContext: envelope.nexusAiContext,
+    handoffRequestId: envelope.handoffRequestId,
     projectId: envelope.projectId,
     worldId: envelope.worldId,
     projectResolution: envelope.projectResolution,
@@ -390,11 +405,27 @@ const envelope=${serialized};
 const statusNode=document.getElementById('status');
 const resultNode=document.getElementById('result');
 const returnLink=document.getElementById('return-link');
+function sameItems(left,right){
+  return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((value,index)=>value===right[index]);
+}
 function configureReturn(payload,responseOk){
   const receipt=payload&&payload.handoffReceipt&&typeof payload.handoffReceipt==='object'?payload.handoffReceipt:null;
-  const callbackStatus=responseOk&&receipt&&receipt.status==='HANDED_OFF'?'HANDED_OFF':'FAILED_RETRYABLE';
-  const params=new URLSearchParams({status:callbackStatus,projectId:envelope.projectId,worldId:envelope.worldId,selectedItemIds:envelope.selectedItemIds.join(',')});
-  if(receipt&&typeof receipt.receiptId==='string')params.set('receiptId',receipt.receiptId);
+  const receiptMatchesRequest=Boolean(
+    receipt&&
+    receipt.handoffRequestId===envelope.handoffRequestId&&
+    receipt.projectId===envelope.projectId&&
+    receipt.worldId===envelope.worldId&&
+    sameItems(receipt.selectedItemIds,envelope.selectedItemIds)
+  );
+  const callbackStatus=responseOk&&receiptMatchesRequest&&receipt.status==='HANDED_OFF'?'HANDED_OFF':'FAILED_RETRYABLE';
+  const params=new URLSearchParams({
+    status:callbackStatus,
+    handoffRequestId:envelope.handoffRequestId,
+    projectId:envelope.projectId,
+    worldId:envelope.worldId,
+    selectedItemIds:envelope.selectedItemIds.join(',')
+  });
+  if(receiptMatchesRequest&&typeof receipt.receiptId==='string')params.set('receiptId',receipt.receiptId);
   returnLink.href='nosmo-nexus-workmode://handoff-result?'+params.toString();
   returnLink.hidden=false;
 }
@@ -456,6 +487,7 @@ router.get("/nexus/work-mode-ai/status", (_req: Request, res: Response) => {
     contextVersion: WORK_MODE_AI_CONTEXT,
     handoffSchema: HANDOFF_SCHEMA,
     handoffReceiptSchema: HANDOFF_RECEIPT_SCHEMA,
+    handoffCorrelation: "android-one-flight-request-id",
     modelExecution: "disabled-demo-boundary",
     contentRecognition: "requires-authorised-content-transfer",
     identityBindingMode: getNexusIdentityBindingMode(),
@@ -485,6 +517,7 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
         status: "blocked",
         service: "nexus-work-mode-ai-boundary",
         handoffSchema: HANDOFF_SCHEMA,
+        handoffRequestId: envelope.handoffRequestId,
         nexusAiContext: WORK_MODE_AI_CONTEXT,
         modelExecution: "disabled-demo-boundary",
         projectMemoryRead: false,
@@ -519,6 +552,7 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
         status: "blocked",
         service: "nexus-work-mode-ai-boundary",
         handoffSchema: HANDOFF_SCHEMA,
+        handoffRequestId: envelope.handoffRequestId,
         nexusAiContext: WORK_MODE_AI_CONTEXT,
         modelExecution: "disabled-demo-boundary",
         projectMemoryRead: false,
@@ -553,6 +587,7 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
       status: "accepted",
       service: "nexus-work-mode-ai-boundary",
       handoffSchema: HANDOFF_SCHEMA,
+      handoffRequestId: envelope.handoffRequestId,
       nexusAiContext: WORK_MODE_AI_CONTEXT,
       modelExecution: "disabled-demo-boundary",
       projectMemoryRead: false,
