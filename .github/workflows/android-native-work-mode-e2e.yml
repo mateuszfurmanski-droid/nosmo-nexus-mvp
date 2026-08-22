@@ -11,6 +11,7 @@ on:
       - src/core/index.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
+      - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - .github/workflows/android-native-work-mode-e2e.yml
   pull_request:
@@ -22,6 +23,7 @@ on:
       - src/core/index.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
+      - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - .github/workflows/android-native-work-mode-e2e.yml
 
@@ -107,6 +109,7 @@ jobs:
         run: |
           ROUTE="artifacts/api-server/src/routes/nexus-android-work-mode.ts"
           ROUTES_INDEX="artifacts/api-server/src/routes/index.ts"
+          ORIGIN_BOUNDARY="artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts"
           grep -q "nexus-android-work-mode-context-v1" "$ROUTE"
           grep -q "project-esafe-catania" "$ROUTE"
           grep -q "world-esafe-catania" "$ROUTE"
@@ -117,7 +120,11 @@ jobs:
           grep -q "worksuite-action-engine-required" "$ROUTE"
           grep -q "mutationExecution: false" "$ROUTE"
           grep -q "approvalExecuted: false" "$ROUTE"
+          grep -q "router.use(androidWorkModeRequestBoundary)" "$ROUTES_INDEX"
           grep -q "router.use(nexusAndroidWorkModeRouter)" "$ROUTES_INDEX"
+          grep -q "hasBearerSession" "$ORIGIN_BOUNDARY"
+          grep -q "isSameOriginBrowserRequest" "$ORIGIN_BOUNDARY"
+          grep -q "ANDROID_WORK_MODE_ORIGIN_NOT_ALLOWED" "$ORIGIN_BOUNDARY"
           ! grep -q "req.user.id.*personId" "$ROUTE"
           ! grep -q "RIVERSIDE_DEMO_PROJECT" "$ROUTE"
           ! grep -q "NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA" "$ROUTE"
