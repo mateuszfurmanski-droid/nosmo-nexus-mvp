@@ -7,6 +7,7 @@ export type NexusFabStationKssRevisionRelation = 'HIGHER' | 'SAME' | 'LOWER' | '
 export type NexusFabStationKssRevisionIssueCode =
   | 'INVALID_FILE_NAME'
   | 'INVALID_FILE_SIZE'
+  | 'SOURCE_SHA256_REQUIRED'
   | 'INVALID_SHA256'
   | 'KISS_IDENTIFICATION_MISSING'
   | 'LINE_TOO_LONG'
@@ -64,8 +65,10 @@ export const observeFabStationKssAssemblyRevision = (
   if (!Number.isSafeInteger(input.fileSizeBytes) || input.fileSizeBytes <= 0) {
     issues.push({ code: 'INVALID_FILE_SIZE', blocking: true, message: 'KSS source requires a positive safe byte length.' });
   }
-  if (input.sourceFileSha256 && !SHA256_HEX.test(input.sourceFileSha256)) {
-    issues.push({ code: 'INVALID_SHA256', blocking: true, message: 'KSS source SHA-256 must be 64 hexadecimal characters when supplied.' });
+  if (!input.sourceFileSha256) {
+    issues.push({ code: 'SOURCE_SHA256_REQUIRED', blocking: true, message: 'Revision-routing KSS observations require an exact source SHA-256 fingerprint.' });
+  } else if (!SHA256_HEX.test(input.sourceFileSha256)) {
+    issues.push({ code: 'INVALID_SHA256', blocking: true, message: 'KSS source SHA-256 must be 64 hexadecimal characters.' });
   }
   if (!assemblyMark) {
     issues.push({ code: 'ASSEMBLY_MARK_REQUIRED', blocking: true, message: 'An exact KSS assembly mark is required.' });
@@ -123,6 +126,7 @@ export const observeFabStationKssAssemblyRevision = (
     boundaries: [
       'KSS observation reads exported revision metadata only; it does not prove fabrication status, drawing approval or as-built state.',
       'The detail record is interpreted structurally as D, Drawing No, Drawing Rev, Assembly Mark, Part Mark, Quantity, ... according to the documented KISS/KSS format.',
+      'Revision-routing KSS observations are fingerprinted so the observed source can be matched to the exact package-plan file.',
       'Non-numeric revision ordering is deliberately not guessed.',
     ],
   };
