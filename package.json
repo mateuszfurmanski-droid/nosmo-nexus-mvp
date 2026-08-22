@@ -12,6 +12,7 @@
     "smoke:bim-contract-e2e": "pnpm --filter @workspace/scripts exec tsx ../src/data/bimContractE2eSmoke.ts",
     "smoke:fabstation-package": "pnpm --filter @workspace/scripts exec tsx ../src/connectors/bim-fabstation/fabStationSyntheticPackageSmoke.ts",
     "smoke:fabstation-revision": "pnpm --filter @workspace/scripts exec tsx ../src/connectors/bim-fabstation/fabStationRevisionHandoffSmoke.ts",
+    "smoke:fabstation-revision-execution": "pnpm --filter @workspace/scripts exec tsx ../src/connectors/bim-fabstation/fabStationRevisionExecutionEvidenceSmoke.ts",
     "typecheck": "pnpm run typecheck:libs && pnpm run typecheck:bim-ifc && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
