@@ -7,7 +7,8 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate:work-wallet-ticket-core": "esbuild ./tests/work-wallet-context-ticket-core.ts --bundle --platform=node --format=esm --outfile=/tmp/nexus-work-wallet-ticket-core-test.mjs && node /tmp/nexus-work-wallet-ticket-core-test.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

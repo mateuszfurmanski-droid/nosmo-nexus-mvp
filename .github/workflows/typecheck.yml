@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - codex/work-wallet-reconcile-slice-k-extension
+      - codex/work-wallet-reconcile-slice-l-ticket-core-test
   pull_request:
   workflow_dispatch:
 
@@ -15,7 +16,7 @@ jobs:
   validate:
     # Draft PRs are used for architecture scaffolding and migration planning.
     # Run the full validation suite on main, manual dispatch, non-draft PRs, and
-    # the bounded Work Wallet extension integration branch push used for E2E validation.
+    # bounded Work Wallet integration branch pushes used for controlled validation.
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -40,6 +41,9 @@ jobs:
 
       - name: Validate Work Wallet extension ticket receiver
         run: node tools/nexus-overlay-extension/tests/validate-context-ticket-receiver.mjs
+
+      - name: Validate Work Wallet Context Ticket core
+        run: pnpm --filter @workspace/api-server validate:work-wallet-ticket-core
 
       - name: Typecheck workspace
         run: pnpm run typecheck
