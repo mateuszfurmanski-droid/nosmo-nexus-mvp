@@ -45,6 +45,14 @@ jobs:
           test -f artifacts/nosmo-nexus/dist/public/index.html
           grep -R --quiet "Spark Demo Core" artifacts/nosmo-nexus/dist/public
 
+      - name: Upload exact Spark demo build
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-demo-build
+          path: artifacts/nosmo-nexus/dist/public
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Smoke test direct Spark demo route
         env:
           PORT: 3000
