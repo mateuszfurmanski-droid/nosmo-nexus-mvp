@@ -1,5 +1,6 @@
 import type { NexusEventRecord, NexusHumanDecisionRecord } from './schemas/audit.schema';
 import type { NexusId } from './schemas/common.schema';
+import type { NexusIssueRecord } from './schemas/issue.schema';
 import type { NexusTimelineEventRecord } from './schemas/timeline.schema';
 import type { NexusProjectMemorySnapshot } from './projectMemory';
 
@@ -15,6 +16,7 @@ export type NexusWorkSuiteProjectMemoryCommitFailureCode =
   | 'OBJECT_SCOPE_MISMATCH'
   | 'ACTION_EVENT_INVALID'
   | 'HUMAN_DECISION_INVALID'
+  | 'ISSUE_RECORD_INVALID'
   | 'TIMELINE_EVENT_INVALID'
   | 'PARTIAL_COMMIT_CONFLICT'
   | 'RECORD_ID_CONFLICT';
@@ -30,6 +32,7 @@ export interface NexusWorkSuiteProjectMemoryCommitInput {
   actionEvent: NexusEventRecord;
   humanDecision: NexusHumanDecisionRecord;
   timelineEventId: NexusId;
+  issueRecord?: NexusIssueRecord;
 }
 
 export type NexusWorkSuiteProjectMemoryCommitResult =
@@ -40,6 +43,7 @@ export type NexusWorkSuiteProjectMemoryCommitResult =
       canonicalActionEventId: NexusId;
       humanDecisionId: NexusId;
       timelineEventId: NexusId;
+      issueId?: NexusId;
     }
   | {
       schema: typeof NEXUS_WORKSUITE_PROJECT_MEMORY_COMMIT_SCHEMA;
@@ -48,6 +52,7 @@ export type NexusWorkSuiteProjectMemoryCommitResult =
       canonicalActionEventId: NexusId;
       humanDecisionId: NexusId;
       timelineEventId: NexusId;
+      issueId?: NexusId;
     }
   | {
       schema: typeof NEXUS_WORKSUITE_PROJECT_MEMORY_COMMIT_SCHEMA;
@@ -73,7 +78,8 @@ const isSameTimelineProjection = (
   existing.actorPersonId === expected.actorPersonId &&
   sameRelatedIds(existing.relatedRecordIds, expected.relatedRecordIds) &&
   existing.payload?.canonicalActionEventId === expected.payload?.canonicalActionEventId &&
-  existing.payload?.sourceEventId === expected.payload?.sourceEventId;
+  existing.payload?.sourceEventId === expected.payload?.sourceEventId &&
+  existing.payload?.issueId === expected.payload?.issueId;
 
 const collectRecordIds = (collections: Array<ReadonlyArray<unknown>>): Set<NexusId> => {
   const ids = new Set<NexusId>();
@@ -100,6 +106,7 @@ const nonActionRecordIds = (memory: NexusProjectMemorySnapshot): Set<NexusId> =>
     memory.assets,
     memory.evidence,
     memory.approvals,
+    memory.issues,
     memory.graphNodes,
     memory.graphEdges,
     memory.canonicalObjects,
@@ -120,18 +127,53 @@ const nonActionRecordIds = (memory: NexusProjectMemorySnapshot): Set<NexusId> =>
     memory.temporalRecords,
   ]);
 
+const nonIssueRecordIds = (memory: NexusProjectMemorySnapshot): Set<NexusId> =>
+  collectRecordIds([
+    memory.projects,
+    memory.worlds,
+    memory.companies,
+    memory.people,
+    memory.projectRoles,
+    memory.files,
+    memory.drawingReferences,
+    memory.tasks,
+    memory.assets,
+    memory.evidence,
+    memory.approvals,
+    memory.timelineEvents,
+    memory.graphNodes,
+    memory.graphEdges,
+    memory.canonicalObjects,
+    memory.relationshipEdges,
+    memory.externalReferences,
+    memory.nexusEvents,
+    memory.fieldChanges,
+    memory.humanDecisions,
+    memory.connectorDefinitions,
+    memory.connectorAccounts,
+    memory.connectorObjectMappings,
+    memory.projectParticipations,
+    memory.roleAssignments,
+    memory.tradeAssignments,
+    memory.permissionGrants,
+    memory.moduleEntitlements,
+    memory.managerTradeContexts,
+    memory.accessDecisions,
+    memory.storageRecords,
+    memory.temporalRecords,
+  ]);
+
 /**
  * Commits one already-authorised WorkSuite action result into the existing
- * Project Memory snapshot as one semantic unit: human decision + canonical
- * action event + Timeline projection. This function is pure and does not claim
- * durable database atomicity; a persistent transaction adapter remains a later
- * server-side concern.
+ * Project Memory snapshot as one semantic unit. RFI actions may additionally
+ * include one canonical Issue record. This function is pure and does not claim
+ * durable database atomicity.
  */
 export const commitWorkSuiteActionToProjectMemory = (
   input: NexusWorkSuiteProjectMemoryCommitInput,
 ): NexusWorkSuiteProjectMemoryCommitResult => {
   const failures: NexusWorkSuiteProjectMemoryCommitFailure[] = [];
-  const { memory, actionEvent, humanDecision } = input;
+  const { memory, actionEvent, humanDecision, issueRecord } = input;
   const sourceEvent = memory.nexusEvents.find((event) => event.id === input.sourceEventId);
 
   if (!sourceEvent) {
@@ -160,24 +202,15 @@ export const commitWorkSuiteActionToProjectMemory = (
   }
 
   if (sourceEvent && actionEvent.projectId && sourceEvent.projectId !== actionEvent.projectId) {
-    failures.push({
-      code: 'PROJECT_SCOPE_MISMATCH',
-      message: 'WorkSuite action project scope does not match its source event.',
-    });
+    failures.push({ code: 'PROJECT_SCOPE_MISMATCH', message: 'WorkSuite action project scope does not match its source event.' });
   }
 
   if (sourceEvent && actionEvent.worldId && sourceEvent.worldId !== actionEvent.worldId) {
-    failures.push({
-      code: 'WORLD_SCOPE_MISMATCH',
-      message: 'WorkSuite action world scope does not match its source event.',
-    });
+    failures.push({ code: 'WORLD_SCOPE_MISMATCH', message: 'WorkSuite action world scope does not match its source event.' });
   }
 
   if (sourceEvent && sourceEvent.primaryObjectId !== actionEvent.primaryObjectId) {
-    failures.push({
-      code: 'OBJECT_SCOPE_MISMATCH',
-      message: 'WorkSuite action canonical object does not match its source event.',
-    });
+    failures.push({ code: 'OBJECT_SCOPE_MISMATCH', message: 'WorkSuite action canonical object does not match its source event.' });
   }
 
   if (
@@ -205,22 +238,44 @@ export const commitWorkSuiteActionToProjectMemory = (
     });
   }
 
-  const proposedIds = [actionEvent.id, humanDecision.id, input.timelineEventId];
-  if (
-    new Set(proposedIds).size !== proposedIds.length ||
-    proposedIds.includes(input.sourceEventId)
-  ) {
+  if (issueRecord) {
+    if (
+      issueRecord.projectId !== actionEvent.projectId ||
+      issueRecord.worldId !== actionEvent.worldId ||
+      issueRecord.primaryObjectId !== actionEvent.primaryObjectId ||
+      issueRecord.sourceEventId !== input.sourceEventId ||
+      issueRecord.sourceActionEventId !== actionEvent.id ||
+      issueRecord.raisedByPersonId !== actionEvent.actorId ||
+      !issueRecord.question.trim()
+    ) {
+      failures.push({
+        code: 'ISSUE_RECORD_INVALID',
+        message: 'Related Issue must match the action project/world/object/source/action/actor and contain a non-empty question.',
+      });
+    }
+  }
+
+  const coreIds = [actionEvent.id, humanDecision.id, input.timelineEventId];
+  const allProposedIds = issueRecord ? [...coreIds, issueRecord.id] : coreIds;
+  if (new Set(allProposedIds).size !== allProposedIds.length || allProposedIds.includes(input.sourceEventId)) {
     failures.push({
       code: 'RECORD_ID_CONFLICT',
-      message: 'Action, human-decision and Timeline IDs must be distinct and must not reuse the source event ID.',
+      message: 'Action, decision, Timeline and optional Issue IDs must be distinct and must not reuse the source event ID.',
     });
   }
 
   const foreignIds = nonActionRecordIds(memory);
-  if (proposedIds.some((id) => foreignIds.has(id))) {
+  if (coreIds.some((id) => foreignIds.has(id))) {
     failures.push({
       code: 'RECORD_ID_CONFLICT',
-      message: 'A proposed WorkSuite commit ID is already used by another Project Memory record category.',
+      message: 'A proposed WorkSuite audit/Timeline ID is already used by another Project Memory record category.',
+    });
+  }
+
+  if (issueRecord && nonIssueRecordIds(memory).has(issueRecord.id)) {
+    failures.push({
+      code: 'RECORD_ID_CONFLICT',
+      message: 'The proposed Issue ID is already used by another Project Memory record category.',
     });
   }
 
@@ -240,6 +295,9 @@ export const commitWorkSuiteActionToProjectMemory = (
 
   const projectId = actionEvent.projectId;
   const worldId = actionEvent.worldId;
+  const timelineRelatedIds = issueRecord
+    ? [input.sourceEventId, humanDecision.id, actionEvent.id, issueRecord.id]
+    : [input.sourceEventId, humanDecision.id, actionEvent.id];
   const timelineEvent: NexusTimelineEventRecord | undefined =
     projectId && worldId
       ? {
@@ -259,37 +317,46 @@ export const commitWorkSuiteActionToProjectMemory = (
           eventType: 'worksuite-action',
           eventAt: actionEvent.occurredAt,
           actorPersonId: actionEvent.actorId,
-          relatedRecordIds: [input.sourceEventId, humanDecision.id, actionEvent.id],
+          relatedRecordIds: timelineRelatedIds,
           payload: {
             canonicalActionEventId: actionEvent.id,
             sourceEventId: input.sourceEventId,
             actionEventType: actionEvent.eventType,
             eventState: actionEvent.eventState,
+            issueId: issueRecord?.id,
           },
         }
       : undefined;
 
   if (!timelineEvent) {
-    failures.push({
-      code: 'TIMELINE_EVENT_INVALID',
-      message: 'Timeline projection cannot be materialised without exact project/world scope.',
-    });
+    failures.push({ code: 'TIMELINE_EVENT_INVALID', message: 'Timeline projection cannot be materialised without exact project/world scope.' });
   }
 
   const existingAction = memory.nexusEvents.find((event) => event.id === actionEvent.id);
   const existingDecision = memory.humanDecisions.find((decision) => decision.id === humanDecision.id);
   const existingTimeline = memory.timelineEvents.find((event) => event.id === input.timelineEventId);
+  const existingIssue = issueRecord ? memory.issues.find((issue) => issue.id === issueRecord.id) : undefined;
+  const existingRecords = issueRecord
+    ? [existingAction, existingDecision, existingTimeline, existingIssue]
+    : [existingAction, existingDecision, existingTimeline];
+  const expectedCount = issueRecord ? 4 : 3;
+  const existingCount = existingRecords.filter(Boolean).length;
 
-  const existingCount = [existingAction, existingDecision, existingTimeline].filter(Boolean).length;
-
-  if (existingCount > 0 && existingCount < 3) {
+  if (existingCount > 0 && existingCount < expectedCount) {
     failures.push({
       code: 'PARTIAL_COMMIT_CONFLICT',
-      message: 'A subset of the action/decision/Timeline records already exists; fail closed rather than silently repairing a partial commit.',
+      message: 'A subset of the WorkSuite semantic commit already exists; fail closed rather than silently repairing a partial commit.',
     });
   }
 
-  if (existingCount === 3 && timelineEvent) {
+  if (existingCount === expectedCount && timelineEvent) {
+    const exactIssueRetry =
+      !issueRecord ||
+      (existingIssue?.issueKind === issueRecord.issueKind &&
+        existingIssue?.sourceEventId === issueRecord.sourceEventId &&
+        existingIssue?.sourceActionEventId === issueRecord.sourceActionEventId &&
+        existingIssue?.primaryObjectId === issueRecord.primaryObjectId &&
+        existingIssue?.question === issueRecord.question);
     const exactRetry =
       existingAction?.eventType === actionEvent.eventType &&
       existingAction?.sourceReference === actionEvent.sourceReference &&
@@ -300,6 +367,7 @@ export const commitWorkSuiteActionToProjectMemory = (
       existingDecision?.sourceRecordId === humanDecision.sourceRecordId &&
       existingDecision?.objectId === humanDecision.objectId &&
       existingDecision?.decidedByPersonId === humanDecision.decidedByPersonId &&
+      exactIssueRetry &&
       isSameTimelineProjection(existingTimeline!, timelineEvent);
 
     if (exactRetry && failures.length === 0) {
@@ -310,6 +378,7 @@ export const commitWorkSuiteActionToProjectMemory = (
         canonicalActionEventId: actionEvent.id,
         humanDecisionId: humanDecision.id,
         timelineEventId: timelineEvent.id,
+        issueId: issueRecord?.id,
       };
     }
 
@@ -322,9 +391,7 @@ export const commitWorkSuiteActionToProjectMemory = (
   if (failures.length > 0) {
     return {
       schema: NEXUS_WORKSUITE_PROJECT_MEMORY_COMMIT_SCHEMA,
-      status: failures.some((failure) =>
-        ['PARTIAL_COMMIT_CONFLICT', 'RECORD_ID_CONFLICT'].includes(failure.code),
-      )
+      status: failures.some((failure) => ['PARTIAL_COMMIT_CONFLICT', 'RECORD_ID_CONFLICT'].includes(failure.code))
         ? 'CONFLICT'
         : 'BLOCKED',
       memory,
@@ -337,6 +404,7 @@ export const commitWorkSuiteActionToProjectMemory = (
     nexusEvents: [...memory.nexusEvents, actionEvent],
     humanDecisions: [...memory.humanDecisions, humanDecision],
     timelineEvents: [...memory.timelineEvents, timelineEvent!],
+    issues: issueRecord ? [...memory.issues, issueRecord] : memory.issues,
   };
 
   return {
@@ -346,5 +414,6 @@ export const commitWorkSuiteActionToProjectMemory = (
     canonicalActionEventId: actionEvent.id,
     humanDecisionId: humanDecision.id,
     timelineEventId: timelineEvent!.id,
+    issueId: issueRecord?.id,
   };
 };
