@@ -7,6 +7,8 @@
     "hello": "tsx ./src/hello.ts",
     "serve-nexus": "node ./src/serve-nexus.mjs",
     "work-wallet-gateway": "tsx ./src/work-wallet-gateway.ts",
+    "smoke:nexus-cloud-google-drive-adapter": "node ./src/smoke/nexus-cloud-google-drive-adapter.mjs",
+    "smoke:nexus-cloud-google-drive-live": "node ./src/smoke/nexus-cloud-google-drive-live.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
