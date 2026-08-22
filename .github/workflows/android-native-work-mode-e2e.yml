@@ -163,7 +163,7 @@ jobs:
           grep -q "receiptMatchesRequest" "$ROUTE"
           grep -q "handoffCorrelation: \"android-one-flight-request-id\"" "$ROUTE"
           grep -q "nexus-android-evidence-transfer-request/v1" "$EVIDENCE"
-          grep -q "nexus-cloud-pending-asset/v2" "$EVIDENCE"
+          grep -q "NEXUS_CLOUD_PENDING_ASSET_SCHEMA" "$EVIDENCE"
           grep -q "NEXUS_CLOUD_WRITE_ACTION_KEY" "$EVIDENCE"
           grep -q "authenticated-multipart-canonical-nexus-cloud" "$EVIDENCE"
           grep -q "binaryReadPerformed: false" "$EVIDENCE"
