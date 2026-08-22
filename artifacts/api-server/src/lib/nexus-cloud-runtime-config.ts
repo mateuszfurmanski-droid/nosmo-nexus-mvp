@@ -54,12 +54,25 @@ const asString = (value: unknown, label: string, maxLength = 512): string => {
   return normalized;
 };
 
+const asIsoDateTime = (value: unknown, label: string): string => {
+  const normalized = asString(value, label, 64);
+  if (Number.isNaN(Date.parse(normalized))) {
+    throw new NexusCloudRuntimeConfigError(`NEXUS_CLOUD_CONFIG_INVALID_${label}`);
+  }
+  return normalized;
+};
+
 /**
  * Load provider authority from server configuration only.
  *
  * The browser never supplies Drive folder IDs, connector account IDs, provider
  * credentials or secret references. Project/world membership and semantic target
  * role are resolved separately through the canonical Cloud routing contract.
+ *
+ * Merely configuring mappings is not enough to advertise a LIVE write capability.
+ * A server operator must explicitly set `writeEnabled: true` and provide the time
+ * at which that release was reviewed. This flag is still not proof of a successful
+ * provider write; the PR #93 writer independently verifies OAuth and target access.
  */
 export function loadNexusCloudGoogleDriveRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -85,6 +98,13 @@ export function loadNexusCloudGoogleDriveRuntimeConfig(
   if (root.schema !== "nexus-cloud-google-drive-runtime/v1") {
     throw new NexusCloudRuntimeConfigError("NEXUS_CLOUD_CONFIG_SCHEMA_MISMATCH");
   }
+
+  if (root.writeEnabled !== true) {
+    throw new NexusCloudRuntimeConfigError(
+      "NEXUS_CLOUD_GOOGLE_DRIVE_WRITE_NOT_RELEASED",
+    );
+  }
+  const verifiedAt = asIsoDateTime(root.verifiedAt, "VERIFIED_AT");
 
   const connectorDefinitionId = asString(
     root.connectorDefinitionId,
@@ -115,20 +135,21 @@ export function loadNexusCloudGoogleDriveRuntimeConfig(
   const projectWorldIds = new Map<string, Set<string>>();
   const worlds: NexusCloudRoutingIndex["worlds"] = [];
   const targetMappings: NexusCloudProviderTargetMapping[] = [];
-  const seenWorlds = new Set<string>();
+  const seenWorldIds = new Set<string>();
 
   for (const item of root.projects) {
     const projectConfig = asObject(item, "PROJECT");
     const projectId = asString(projectConfig.projectId, "PROJECT_ID", 128);
     const worldId = asString(projectConfig.worldId, "WORLD_ID", 128);
-    const pairKey = `${projectId}\n${worldId}`;
 
-    if (seenWorlds.has(pairKey)) {
+    // Cloud routing resolves a Project World by world ID before checking project
+    // ownership, so world IDs must be globally unambiguous in this server index.
+    if (seenWorldIds.has(worldId)) {
       throw new NexusCloudRuntimeConfigError(
-        "NEXUS_CLOUD_CONFIG_DUPLICATE_PROJECT_WORLD",
+        "NEXUS_CLOUD_CONFIG_DUPLICATE_WORLD_ID",
       );
     }
-    seenWorlds.add(pairKey);
+    seenWorldIds.add(worldId);
 
     const worldsForProject = projectWorldIds.get(projectId) ?? new Set<string>();
     worldsForProject.add(worldId);
@@ -194,11 +215,12 @@ export function loadNexusCloudGoogleDriveRuntimeConfig(
     requiredCustomerRoles: [],
     sourceOfRecordRules: [
       "Nexus canonical identity remains separate from Google Drive file identity",
+      "LIVE write capability requires explicit server-side release and independent provider confirmation",
     ],
     conflictPolicy: "manual-review",
     syncPolicy: "manual",
     connectorOwner: "NOSMO Nexus server runtime",
-    lastVerifiedAt: now,
+    lastVerifiedAt: verifiedAt,
   };
 
   const connectorAccount: NexusConnectorAccountRecord = {
