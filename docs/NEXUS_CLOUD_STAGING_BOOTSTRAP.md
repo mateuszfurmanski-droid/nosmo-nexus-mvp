@@ -60,6 +60,35 @@ The temporary schema-test branch was then deleted.
 - `nexus_pm_cloud_commits`
 - `nexus_pm_cloud_write_operations`
 
+## Runtime bootstrap attempt
+
+A new Replit application could not be created because the account returned `requires_active_subscription`.
+
+The historical `Nexus Site Manager` Replit (`replId 19d9a9f1-12d3-45ae-82f5-82c944a4f3d0`) was therefore selected only as a candidate non-production staging host because it is not a protected Spark demo surface and has never been published through the current Replit deployment API.
+
+Replit was instructed to:
+
+- preserve the historical app state before replacement;
+- use GitHub repository `mateuszfurmanski-droid/nosmo-nexus-mvp`;
+- use branch `codex/nexus-cloud-runtime-preflight` at the then-current head;
+- remain unpublished;
+- keep Google Drive writes disabled;
+- accept `DATABASE_URL` and Google OAuth only through server-side secret/integration mechanisms;
+- never use the `Nexus Data Fetcher` database;
+- connect to the existing Neon `nosmo-nexus-cloud-staging` / `nexus_cloud_staging` only through a secure integration if the account supports it.
+
+Current runtime truth:
+
+- Replit update requests returned only `phase=updating`;
+- subsequent read-only Agent inspections timed out;
+- Replit application metadata still showed its old modification timestamp;
+- no secure `DATABASE_URL` attachment has been positively verified;
+- no runtime commit/head has been positively verified;
+- the app remains unpublished;
+- therefore this Replit must NOT yet be treated as the authoritative `nosmo-nexus-mvp` staging runtime.
+
+The Neon database is authoritative staging infrastructure; the Replit host remains an unverified candidate until a successful runtime readback proves exact branch/head and exact DB target without exposing credentials.
+
 ## What has NOT been done
 
 - no production database was modified;
@@ -74,7 +103,7 @@ The temporary schema-test branch was then deleted.
 
 ## Next controlled gates
 
-1. attach an actual `nosmo-nexus-mvp` staging runtime to this database through a server-only `DATABASE_URL`;
+1. positively verify an actual `nosmo-nexus-mvp` staging runtime and attach it to this database through a server-only `DATABASE_URL`;
 2. run `nexus-cloud-runtime-preflight/v1` against this exact target;
 3. capture the authenticated runtime OIDC subject and establish an exact provider-subject digest -> canonical Person binding;
 4. create one controlled e-SAFE Project Participation and explicit `cloud.file.write` allow;
