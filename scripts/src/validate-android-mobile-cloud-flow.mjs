@@ -9,6 +9,7 @@ const forbidText = (source, value, message) => {
 };
 
 const auth = read('artifacts/api-server/src/routes/auth.ts');
+const openapi = read('lib/api-spec/openapi.yaml');
 const manifest = read('native/nexus-work-mode-native/app/src/main/AndroidManifest.xml');
 const session = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/NexusMobileSession.java');
 const authCallback = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MobileAuthResultActivity.java');
@@ -29,6 +30,13 @@ requireText(auth, 'MOBILE_AUTH_CALLBACK = "nosmo-nexus-workmode://auth-result"',
 requireText(auth, 'redirect_uri !== expectedRedirectUri', 'token exchange must reject alternate redirect URI');
 requireText(auth, 'NEXUS_MOBILE_AUTH_REDIRECT_MISMATCH', 'redirect mismatch fail-closed code missing');
 forbidText(auth, 'appendQueryParameter("token"', 'server must never put Nexus session token in a callback URL');
+
+requireText(openapi, '/mobile-auth/start:', 'canonical OpenAPI must document mobile auth start');
+requireText(openapi, 'operationId: beginMobileAuthorization', 'mobile auth start operationId missing from OpenAPI');
+requireText(openapi, "pattern: '^[A-Za-z0-9_-]{43}$'", 'OpenAPI must constrain PKCE S256 challenge');
+requireText(openapi, 'NEXUS_PUBLIC_ORIGIN', 'OpenAPI must document production public-origin binding');
+requireText(openapi, '/mobile-auth/token-exchange:', 'canonical OpenAPI must retain mobile token exchange');
+requireText(openapi, '/mobile-auth/logout:', 'canonical OpenAPI must retain mobile logout');
 
 requireText(manifest, 'android.permission.INTERNET', 'native Cloud upload requires explicit INTERNET permission');
 requireText(manifest, 'android:host="auth-result"', 'mobile auth callback activity is not registered');
