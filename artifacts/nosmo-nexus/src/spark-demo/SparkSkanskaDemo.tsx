@@ -7,6 +7,7 @@ import {
   type DemoAsset,
   type Provenance,
 } from "./data";
+import compactNexusLogo from "./NEXUS_Logo_UI_Mark_N.png";
 import "./spark-demo.css";
 
 const circularStatuses: CircularStatus[] = ["IN USE", "REUSABLE", "RECOVER", "RECYCLE", "WASTE", "UNKNOWN"];
@@ -252,8 +253,8 @@ export default function SparkSkanskaDemo() {
       <header className="spark-topbar">
         <div className="spark-brand">
           <img
-            src="https://nosmotechnology.co.uk/assets/NEXUS_Logo.png"
-            alt="NEXUS"
+            src={compactNexusLogo}
+            alt="NEXUS compact logo"
           />
         </div>
         <nav className="spark-tabs" aria-label="Demo view">

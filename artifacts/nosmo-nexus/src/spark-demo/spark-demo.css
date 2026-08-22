@@ -38,9 +38,9 @@
   gap: 16px;
   padding: 0 14px;
   border-bottom: 1px solid var(--spark-line);
-  background: #07100e;
+  background: #0a0a0a;
 }
-.spark-brand { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.spark-brand { display: flex; align-items: center; gap: 8px; white-space: nowrap; background: #0a0a0a; }
 .spark-brand img { display: block; width: auto; height: 36px; object-fit: contain; }
 .spark-tabs { display: flex; align-items: stretch; height: 100%; }
 .spark-tabs button { border: 0; border-left: 1px solid transparent; border-right: 1px solid transparent; background: transparent; color: var(--spark-muted); padding: 0 13px; cursor: pointer; }
