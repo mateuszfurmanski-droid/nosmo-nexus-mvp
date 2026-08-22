@@ -12,8 +12,8 @@ interface NexusCloudProposalFileRecord {
 
 interface NexusCloudProposalCanonicalObject {
   id: string;
-  projectId: string;
-  worldId: string;
+  projectId?: string;
+  worldId?: string;
 }
 
 interface NexusCloudProposalExternalReference {
