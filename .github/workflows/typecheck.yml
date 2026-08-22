@@ -44,6 +44,9 @@ jobs:
       - name: Synthetic BIM IFC WorkSuite contract E2E smoke
         run: pnpm run smoke:bim-contract-e2e
 
+      - name: Synthetic FabStation package contract smoke
+        run: pnpm run smoke:fabstation-package
+
       - name: Build Nexus web application
         env:
           PORT: 4173
