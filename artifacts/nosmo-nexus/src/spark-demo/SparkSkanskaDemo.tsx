@@ -330,7 +330,7 @@ export default function SparkSkanskaDemo() {
   });
 
   return (
-    <div className="spark-workbench" lang={language}>
+    <div key={language} className="spark-workbench" lang={language}>
       <header className="spark-topbar">
         <div className="spark-brand">
           <img
