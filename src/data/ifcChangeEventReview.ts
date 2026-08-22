@@ -16,6 +16,7 @@ export type NexusOperationalChangeDecisionCode =
   | 'ACCEPT_AS_BUILT_DIFFERENCE';
 
 export type NexusChangeDecisionExecutionReadiness =
+  | 'EXECUTABLE_ACTION_ENGINE_AVAILABLE'
   | 'REVIEW_ONLY_ACTION_ENGINE_PORT_REQUIRED'
   | 'BLOCKED_PENDING_AUTHORISED_PROCUREMENT_CONTRACT'
   | 'BLOCKED_PENDING_HIGH_AUTHORITY_SIGNOFF';
@@ -71,13 +72,13 @@ const decisionOptionsFor = (
       code: 'HOLD_WORK',
       authorityClass: 'PROJECT_MANAGER_OR_TRADE_SUPERVISOR',
       allowedForCurrentComparison: true,
-      executionReadiness: 'REVIEW_ONLY_ACTION_ENGINE_PORT_REQUIRED',
+      executionReadiness: 'EXECUTABLE_ACTION_ENGINE_AVAILABLE',
     },
     {
       code: 'RAISE_RFI',
       authorityClass: 'PROJECT_MANAGER_OR_DESIGN_COORDINATOR',
       allowedForCurrentComparison: true,
-      executionReadiness: 'REVIEW_ONLY_ACTION_ENGINE_PORT_REQUIRED',
+      executionReadiness: 'EXECUTABLE_ACTION_ENGINE_AVAILABLE',
     },
     {
       code: 'UPDATE_PROCUREMENT',
@@ -186,6 +187,7 @@ export const createIfcChangeReviewEnvelope = (
     notes: [
       'canonicalEvent is the event identity to persist/project later; no BIM-specific parallel event ID is created.',
       'Creating or persisting this event does not apply a WorkSuite action.',
+      'HOLD_WORK and RAISE_RFI have #90-native executable Action Engine paths; they still require separate authority-safe Apply.',
       'Authority must come from active Project Participation, project function and scope; profession alone is insufficient.',
       'RELEASE_HOLD is a later compensating action and is not a primary change-review decision.',
     ],
