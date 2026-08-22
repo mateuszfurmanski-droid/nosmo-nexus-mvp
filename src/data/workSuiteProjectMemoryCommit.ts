@@ -8,6 +8,7 @@ export const NEXUS_WORKSUITE_PROJECT_MEMORY_COMMIT_SCHEMA =
 
 export type NexusWorkSuiteProjectMemoryCommitFailureCode =
   | 'SOURCE_EVENT_MISSING'
+  | 'SOURCE_LINK_MISMATCH'
   | 'PROJECT_SCOPE_MISSING'
   | 'PROJECT_SCOPE_MISMATCH'
   | 'WORLD_SCOPE_MISMATCH'
@@ -57,7 +58,9 @@ export type NexusWorkSuiteProjectMemoryCommitResult =
 
 const sameRelatedIds = (left: NexusId[], right: NexusId[]): boolean => {
   if (left.length !== right.length) return false;
-  return [...left].sort().every((value, index) => value === [...right].sort()[index]);
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((value, index) => value === sortedRight[index]);
 };
 
 const isSameTimelineProjection = (
@@ -90,6 +93,17 @@ export const commitWorkSuiteActionToProjectMemory = (
     failures.push({
       code: 'SOURCE_EVENT_MISSING',
       message: `Source canonical event ${input.sourceEventId} is not present in Project Memory.`,
+    });
+  }
+
+  if (
+    actionEvent.sourceReference !== input.sourceEventId ||
+    humanDecision.proposalReference !== input.sourceEventId ||
+    humanDecision.sourceRecordId !== input.sourceEventId
+  ) {
+    failures.push({
+      code: 'SOURCE_LINK_MISMATCH',
+      message: 'Action event and human decision must both reference the exact source canonical event supplied to the commit.',
     });
   }
 
@@ -205,6 +219,7 @@ export const commitWorkSuiteActionToProjectMemory = (
       existingAction?.projectId === actionEvent.projectId &&
       existingAction?.worldId === actionEvent.worldId &&
       existingDecision?.proposalReference === humanDecision.proposalReference &&
+      existingDecision?.sourceRecordId === humanDecision.sourceRecordId &&
       existingDecision?.objectId === humanDecision.objectId &&
       existingDecision?.decidedByPersonId === humanDecision.decidedByPersonId &&
       isSameTimelineProjection(existingTimeline!, timelineEvent);
