@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import nexusSessionRouter from "./nexus-session";
+import workWalletContextTicketBootstrapRouter from "./work-wallet-context-ticket-bootstrap";
 import workWalletContextTicketRouter from "./work-wallet-context-tickets";
 import projectsRouter from "./projects";
 import tasksRouter from "./tasks";
@@ -22,6 +23,10 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(authRouter);
 router.use(nexusSessionRouter);
+
+// The bootstrap route is auth-aware and may redirect through the existing login
+// flow before any workspace gate. It carries non-secret connector metadata only.
+router.use(workWalletContextTicketBootstrapRouter);
 
 // Work Wallet Context Ticket exchange must be reachable by an exact configured
 // extension origin without a browser cookie. Its issue route applies
