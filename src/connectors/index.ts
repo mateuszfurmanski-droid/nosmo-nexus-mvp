@@ -69,6 +69,45 @@ export {
   runFabStationSyntheticPackageSmoke,
 } from './bim-fabstation/fabStationSyntheticPackageSmoke';
 export type { NexusFabStationSyntheticPackageSmokeResult } from './bim-fabstation/fabStationSyntheticPackageSmoke';
+export {
+  MAX_FABSTATION_KSS_LINE_LENGTH,
+  NEXUS_FABSTATION_KSS_REVISION_SCHEMA,
+  compareFabStationKssAssemblyRevisions,
+  observeFabStationKssAssemblyRevision,
+} from './bim-fabstation/fabStationKssRevision';
+export type {
+  NexusFabStationKssRevisionInput,
+  NexusFabStationKssRevisionIssue,
+  NexusFabStationKssRevisionIssueCode,
+  NexusFabStationKssRevisionObservation,
+  NexusFabStationKssRevisionRelation,
+  NexusFabStationKssRevisionState,
+} from './bim-fabstation/fabStationKssRevision';
+export {
+  NEXUS_FABSTATION_REVISION_HANDOFF_SCHEMA,
+  createFabStationRevisionHandoffAdvice,
+} from './bim-fabstation/fabStationRevisionHandoff';
+export type {
+  NexusFabStationProcessingFilterRecommendation,
+  NexusFabStationRevisionHandoffAdvice,
+  NexusFabStationRevisionHandoffInput,
+  NexusFabStationRevisionHandoffIssue,
+  NexusFabStationRevisionHandoffIssueCode,
+  NexusFabStationRevisionHandoffState,
+} from './bim-fabstation/fabStationRevisionHandoff';
+export {
+  FABSTATION_SYNTHETIC_IFC_R2_BYTES,
+  FABSTATION_SYNTHETIC_IFC_R2_FILE_NAME,
+  FABSTATION_SYNTHETIC_IFC_R2_SHA256,
+  FABSTATION_SYNTHETIC_KSS_CORRECTION_BYTES,
+  FABSTATION_SYNTHETIC_KSS_CORRECTION_FILE_NAME,
+  FABSTATION_SYNTHETIC_KSS_CORRECTION_SHA256,
+  FABSTATION_SYNTHETIC_KSS_R2_BYTES,
+  FABSTATION_SYNTHETIC_KSS_R2_FILE_NAME,
+  FABSTATION_SYNTHETIC_KSS_R2_SHA256,
+  runFabStationRevisionHandoffSmoke,
+} from './bim-fabstation/fabStationRevisionHandoffSmoke';
+export type { NexusFabStationRevisionHandoffSmokeResult } from './bim-fabstation/fabStationRevisionHandoffSmoke';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
 export { microsoft365Connector } from './microsoft365/microsoft365Connector';
