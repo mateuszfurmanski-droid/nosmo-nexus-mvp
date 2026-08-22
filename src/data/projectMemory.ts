@@ -26,7 +26,11 @@ export interface NexusProjectMemorySnapshot {
   assets: NexusAssetRecord[];
   evidence: NexusEvidenceRecord[];
   approvals: NexusApprovalRecord[];
-  issues: NexusIssueRecord[];
+  /**
+   * Optional only for backward-compatible reads of pre-Issue Project Memory
+   * snapshots. Canonical constructors and all new writes materialise `issues`.
+   */
+  issues?: NexusIssueRecord[];
   timelineEvents: NexusTimelineEventRecord[];
   graphNodes: NexusGraphNodeRecord[];
   graphEdges: NexusGraphEdgeRecord[];
@@ -89,3 +93,5 @@ export const emptyProjectMemorySnapshot = (): NexusProjectMemorySnapshot => ({
   asOfContexts: [],
   temporalStateResolutions: [],
 });
+
+export const readNexusIssues = (memory: NexusProjectMemorySnapshot): NexusIssueRecord[] => memory.issues ?? [];
