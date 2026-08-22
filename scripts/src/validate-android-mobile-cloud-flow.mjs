@@ -60,7 +60,10 @@ requireText(authCallback, 'exchangeAuthorizationCode', 'auth deep link must exch
 requireText(authCallback, 'CloudEvidenceActivity.class', 'successful mobile auth must return to Cloud evidence surface');
 forbidText(authCallback, 'getQueryParameter("token")', 'auth deep link must never accept a Nexus session token');
 
-requireText(cloud, '"/api/nexus/cloud/files"', 'Android must use canonical Nexus Cloud endpoint');
+requireText(cloud, '"/api/nexus/cloud/android/files"', 'Android must use the server-owned Android Cloud provenance endpoint');
+requireText(cloud, 'ANDROID_SOURCE_MODULE = "android-work-mode"', 'Android must expect canonical android-work-mode provenance');
+requireText(cloud, 'ANDROID_SOURCE_MODULE.equals(sourceModule)', 'Android must fail closed if Cloud receipt provenance mismatches');
+forbidText(cloud, '"/api/nexus/cloud/files"', 'Android must not use the File Loader provenance endpoint');
 requireText(cloud, 'Authorization", "Bearer " + sessionToken', 'Cloud upload must use existing Bearer Nexus session');
 requireText(cloud, 'Idempotency-Key', 'Cloud upload must use stable idempotency key');
 requireText(cloud, '25L * 1024L * 1024L', 'Android must enforce canonical 25 MiB Cloud limit');
