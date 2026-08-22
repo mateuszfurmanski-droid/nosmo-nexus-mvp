@@ -38,6 +38,9 @@ jobs:
       - name: Typecheck workspace
         run: pnpm run typecheck
 
+      - name: Smoke test Nexus Cloud Google Drive adapter
+        run: pnpm --filter @workspace/scripts smoke:nexus-cloud-google-drive-adapter
+
       - name: Build Nexus web application
         env:
           PORT: 4173
