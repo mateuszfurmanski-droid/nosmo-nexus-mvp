@@ -59,6 +59,9 @@ jobs:
       - name: Audit Work Wallet DB schema invariants
         run: pnpm --filter @workspace/db audit:nexus-work-wallet-schema
 
+      - name: Audit Work Wallet development fixture bootstrap guardrails
+        run: pnpm --filter @workspace/db audit:nexus-work-wallet-dev-fixture
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
