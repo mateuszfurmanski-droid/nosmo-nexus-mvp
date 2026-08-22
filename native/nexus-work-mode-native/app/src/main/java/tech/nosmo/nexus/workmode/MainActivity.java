@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
     private static final String AI_CONTEXT_VERSION = "android-work-discovery-v1";
     private static final String NEXUS_INTENT = "ask-nexus";
     private static final String HANDOFF_PATH = "/api/nexus/android-work-mode/handoff";
+    private static final String SAFE_BOOTSTRAP_USER_INTENT = "classify approved context and propose a WorkSuite draft";
 
     private static final String HANDOFF_LOCAL_ONLY = "LOCAL_ONLY";
     private static final String HANDOFF_PENDING = "PENDING_SERVER_CONFIRMATION";
@@ -446,13 +447,15 @@ public class MainActivity extends Activity {
 
         addSection(root, "ASK NEXUS");
         intentInput = new EditText(this);
-        intentInput.setText("Co to jest / gdzie powinno trafić?");
+        intentInput.setText(SAFE_BOOTSTRAP_USER_INTENT);
+        intentInput.setEnabled(false);
         intentInput.setTextColor(TEXT);
         intentInput.setHintTextColor(MUTED);
         intentInput.setMinLines(2);
         intentInput.setBackgroundColor(PANEL);
         intentInput.setPadding(dp(12), dp(10), dp(12), dp(10));
         root.addView(intentInput, fullWidth(dp(82)));
+        addSmall(root, "Browser bootstrap uses a fixed non-sensitive intent. Free-text questions must wait for an authenticated POST/direct Nexus channel so they do not leak through URL, browser history or request logs.");
 
         addAction(root, "Approve / Retry + Send to Nexus", this::approveAndHandoff, true);
         if (hasActiveHandoff()) {
@@ -595,8 +598,7 @@ public class MainActivity extends Activity {
         persistQueue();
         prefs.edit().putString(PREF_PENDING_HANDOFF_REQUEST_ID, handoffRequestId).apply();
 
-        String userIntent = intentInput == null ? "classify approved context and propose a WorkSuite draft" : intentInput.getText().toString().trim();
-        if (userIntent.isEmpty()) userIntent = "classify approved context and propose a WorkSuite draft";
+        String userIntent = SAFE_BOOTSTRAP_USER_INTENT;
         openHandoffUrl(
                 buildHandoffUrl(origin, projectId, worldId, handoffRequestId, approved, userIntent),
                 handoffRequestId,
