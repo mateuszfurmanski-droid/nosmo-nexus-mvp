@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 /**
  * Ephemeral capability records for the Work Wallet browser Context Ticket flow.
@@ -8,12 +15,17 @@ import { index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
  * or Nexus Object identity. Those identifiers are accepted only after the
  * canonical #90 access gate passes and are stored here as capability scope.
  *
+ * Workspace scope is frozen into the capability as well. Exchange must never
+ * infer tenant/workspace ownership from a project identifier supplied by the
+ * browser or from a connector reference.
+ *
  * The raw browser-visible ticket is never persisted; only its SHA-256 digest is.
  */
 export const nexusContextTicketsTable = pgTable(
   "nexus_context_tickets",
   {
     ticketDigest: varchar("ticket_digest", { length: 64 }).primaryKey(),
+    workspaceId: integer("workspace_id").notNull(),
     personId: varchar("person_id", { length: 160 }).notNull(),
     projectId: varchar("project_id", { length: 160 }).notNull(),
     worldId: varchar("world_id", { length: 160 }).notNull(),
@@ -40,7 +52,8 @@ export const nexusContextTicketsTable = pgTable(
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
   },
   (table) => [
-    index("IDX_nexus_context_ticket_person_project_issued").on(
+    index("IDX_nexus_context_ticket_workspace_person_project_issued").on(
+      table.workspaceId,
       table.personId,
       table.projectId,
       table.issuedAt,
@@ -48,6 +61,7 @@ export const nexusContextTicketsTable = pgTable(
     index("IDX_nexus_context_ticket_expiry").on(table.expiresAt),
     index("IDX_nexus_context_ticket_consumed").on(table.consumedAt),
     index("IDX_nexus_context_ticket_scope").on(
+      table.workspaceId,
       table.projectId,
       table.worldId,
       table.nexusObjectId,
