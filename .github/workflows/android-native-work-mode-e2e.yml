@@ -11,6 +11,7 @@ on:
       - src/core/index.ts
       - src/core/permissions/canonicalAccessResolver.ts
       - artifacts/api-server/scripts/validate-android-authority-fixtures.ts
+      - artifacts/api-server/src/routes/auth.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
@@ -21,6 +22,7 @@ on:
       - lib/db/src/schema/nexusProjectAccess.ts
       - lib/db/src/schema/index.ts
       - lib/db/package.json
+      - scripts/src/validate-android-mobile-cloud-flow.mjs
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - docs/NEXUS_ANDROID_URI_GRANT_LIFECYCLE.md
       - .github/workflows/android-native-work-mode-e2e.yml
@@ -33,6 +35,7 @@ on:
       - src/core/index.ts
       - src/core/permissions/canonicalAccessResolver.ts
       - artifacts/api-server/scripts/validate-android-authority-fixtures.ts
+      - artifacts/api-server/src/routes/auth.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
@@ -43,6 +46,7 @@ on:
       - lib/db/src/schema/nexusProjectAccess.ts
       - lib/db/src/schema/index.ts
       - lib/db/package.json
+      - scripts/src/validate-android-mobile-cloud-flow.mjs
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - docs/NEXUS_ANDROID_URI_GRANT_LIFECYCLE.md
       - .github/workflows/android-native-work-mode-e2e.yml
@@ -83,6 +87,9 @@ jobs:
             --outfile=/tmp/nexus-android-authority-fixtures.mjs
           node /tmp/nexus-android-authority-fixtures.mjs
 
+      - name: Validate Android mobile auth and Cloud evidence source boundaries
+        run: node scripts/src/validate-android-mobile-cloud-flow.mjs
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -103,6 +110,8 @@ jobs:
           APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
           MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
           CALLBACK="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/HandoffResultActivity.java"
+          AUTH_CALLBACK="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MobileAuthResultActivity.java"
+          CLOUD_UI="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/CloudEvidenceActivity.java"
           MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
           test -f "$APK"
           unzip -l "$APK" | grep -q "classes.dex"
@@ -111,6 +120,7 @@ jobs:
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
           grep -q "package: name='tech.nosmo.nexus.workmode.nativebeta'" /tmp/badging.txt
+          grep -q "android.permission.INTERNET" /tmp/permissions.txt
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
           ! grep -q "android.permission.MANAGE_EXTERNAL_STORAGE" /tmp/permissions.txt
@@ -124,6 +134,9 @@ jobs:
           grep -q "Intent.ACTION_OPEN_DOCUMENT" "$MAIN"
           grep -q "Intent.ACTION_OPEN_DOCUMENT_TREE" "$MAIN"
           grep -q "HandoffResultActivity" "$MANIFEST"
+          grep -q "MobileAuthResultActivity" "$MANIFEST"
+          grep -q "CloudEvidenceActivity" "$MANIFEST"
+          grep -q "android:host=\"auth-result\"" "$MANIFEST"
           grep -q "android.intent.category.BROWSABLE" "$MANIFEST"
           grep -q "android:scheme=\"nosmo-nexus-workmode\"" "$MANIFEST"
           grep -q "PENDING_SERVER_CONFIRMATION" "$CALLBACK"
@@ -133,10 +146,12 @@ jobs:
           grep -q "isRequestId" "$CALLBACK"
           grep -q "pendingHandoffRequestId" "$MAIN" "$CALLBACK"
           grep -q "Ignored stale or unsolicited handoff callback" "$CALLBACK"
-          ! grep -q "AccessibilityService" "$MAIN" "$CALLBACK"
-          ! grep -q "WebView" "$MAIN" "$CALLBACK"
-          ! grep -q "PendingIntent" "$MAIN" "$CALLBACK"
-          ! grep -q "Clipboard" "$MAIN" "$CALLBACK"
+          grep -q "callbackMatchesPendingState" "$AUTH_CALLBACK"
+          grep -q "providerWriteConfirmed=true AND projectMemoryCommitted=true" "$CLOUD_UI"
+          ! grep -q "AccessibilityService" "$MAIN" "$CALLBACK" "$AUTH_CALLBACK" "$CLOUD_UI"
+          ! grep -q "WebView" "$MAIN" "$CALLBACK" "$AUTH_CALLBACK" "$CLOUD_UI"
+          ! grep -q "PendingIntent" "$MAIN" "$CALLBACK" "$AUTH_CALLBACK" "$CLOUD_UI"
+          ! grep -q "Clipboard" "$MAIN" "$CALLBACK" "$AUTH_CALLBACK" "$CLOUD_UI"
 
       - name: Verify canonical Android handoff and retry contract
         run: |
@@ -193,6 +208,8 @@ jobs:
           grep -q "Project World changed" "$CALLBACK"
           grep -q "handoffRequestId = safe(data.getQueryParameter" "$CALLBACK"
           grep -q "expectedRequestId" "$CALLBACK"
+          grep -q "handoffProjectId" "$CALLBACK"
+          grep -q "handoffWorldId" "$CALLBACK"
           grep -q "INVALID_HANDOFF_REQUEST_ID" "$ROUTE"
           grep -q "handoffRequestId: envelope.handoffRequestId" "$ROUTE"
           grep -q "receiptMatchesRequest" "$ROUTE"
@@ -216,6 +233,9 @@ jobs:
           ACCESS_LOADER="lib/db/src/nexusProjectAccessPersistence.ts"
           ACCESS_RESOLVER="src/core/permissions/canonicalAccessResolver.ts"
           ORIGIN_BOUNDARY="artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts"
+          AUTH_ROUTE="artifacts/api-server/src/routes/auth.ts"
+          MOBILE_SESSION="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/NexusMobileSession.java"
+          CLOUD_CLIENT="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/NexusCloudUploadClient.java"
 
           grep -q "resolveNexusPersonBinding" "$ADAPTER"
           grep -q "loadNexusProjectAccessRows" "$ADAPTER"
@@ -240,6 +260,13 @@ jobs:
           grep -q "nosmo-nexus-workmode://handoff-result" "$ROUTE"
           grep -q "hasBearerSession" "$ORIGIN_BOUNDARY"
           grep -q "isSameOriginBrowserRequest" "$ORIGIN_BOUNDARY"
+          grep -q "router.get(\"/mobile-auth/start\"" "$AUTH_ROUTE"
+          grep -q "NEXUS_MOBILE_AUTH_REDIRECT_MISMATCH" "$AUTH_ROUTE"
+          grep -q "AES/GCM/NoPadding" "$MOBILE_SESSION"
+          grep -q "AndroidKeyStore" "$MOBILE_SESSION"
+          grep -q "Authorization\", \"Bearer \" + sessionToken" "$CLOUD_CLIENT"
+          grep -q "Idempotency-Key" "$CLOUD_CLIENT"
+          grep -q '"/api/nexus/cloud/files"' "$CLOUD_CLIENT"
 
           ! test -e artifacts/api-server/src/lib/nexus-runtime-authority.ts
           ! test -e lib/db/src/schema/nexusRuntimeAuthority.ts
@@ -249,6 +276,7 @@ jobs:
           ! grep -q "RIVERSIDE_DEMO_PROJECT" "$ROUTE"
           ! grep -q "OPENAI_API_KEY" "$ROUTE"
           ! grep -q "ANTHROPIC_API_KEY" "$ROUTE"
+          ! grep -q "drive.google.com" "$CLOUD_CLIENT"
 
       - name: Stage build artifacts
         run: |
