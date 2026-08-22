@@ -1,0 +1,493 @@
+import { createHash, randomBytes } from "node:crypto";
+import { Router, type IRouter, type Request, type Response } from "express";
+
+const router: IRouter = Router();
+
+const HANDOFF_SCHEMA = "nexus-android-work-mode-context-v1";
+const WORK_MODE_INTENT = "ask-nexus";
+const WORK_MODE_AI_CONTEXT = "android-work-discovery-v1";
+const ESAFE_PROJECT_ID = "project-esafe-catania";
+const ESAFE_WORLD_ID = "world-esafe-catania";
+const DRAFT_MUTATION_MODE = "draft-only-no-mutation";
+const DRAFT_EXECUTION_BOUNDARY = "worksuite-action-engine-required";
+const MAX_BOOTSTRAP_ITEMS = 20;
+const MAX_USER_INTENT = 500;
+
+const allowedSources = new Set([
+  "CONTACT",
+  "CALENDAR",
+  "PHOTO",
+  "DOCUMENT",
+  "FOLDER",
+]);
+
+type RuntimeIdentity = {
+  authenticated: boolean;
+  identityState: "UNAUTHENTICATED" | "UNBOUND" | "BOUND";
+  personId?: string;
+  source: "server-session";
+};
+
+type AndroidEnvelope = {
+  schema: typeof HANDOFF_SCHEMA;
+  nexusIntent: typeof WORK_MODE_INTENT;
+  nexusAiContext: typeof WORK_MODE_AI_CONTEXT;
+  projectId: string;
+  worldId: string;
+  projectResolution: "EXACT";
+  selectedItemIds: string[];
+  sourceTypes: string[];
+  userIntent: string;
+  handoffState: "PENDING_SERVER_CONFIRMATION";
+};
+
+type WorkSuiteDraft = {
+  draftId: string;
+  status: "draft";
+  mutationMode: typeof DRAFT_MUTATION_MODE;
+  executionBoundary: typeof DRAFT_EXECUTION_BOUNDARY;
+  source: "android-work-mode-ai-boundary";
+  actionKind: "REVIEW_AND_CLASSIFY_APPROVED_CONTEXT";
+  proposedAction: {
+    title: string;
+    detail: string;
+    target: "project-evidence-review";
+  };
+  scope: {
+    projectId: string;
+    worldId: string;
+    selectedItemIds: string[];
+    sourceTypes: string[];
+    contextVersion: typeof WORK_MODE_AI_CONTEXT;
+  };
+  authorityRequired: {
+    authenticatedPerson: true;
+    activeProjectParticipation: true;
+    explicitPermissionDecision: true;
+    denyOverrideCheck: true;
+    workSuiteActionEngineApproval: true;
+  };
+};
+
+function noStore(res: Response) {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function splitCsv(value: unknown): string[] {
+  const input = stringValue(value);
+  if (!input) return [];
+  return input
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function validItemId(value: string): boolean {
+  return value.length >= 8 && value.length <= 100 && /^[A-Za-z0-9._:-]+$/.test(value);
+}
+
+function validateEnvelope(value: unknown): AndroidEnvelope {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("INVALID_BODY");
+  }
+
+  const record = value as Record<string, unknown>;
+  const schema = stringValue(record.schema);
+  const nexusIntent = stringValue(record.nexusIntent);
+  const nexusAiContext = stringValue(record.nexusAiContext);
+  const projectId = stringValue(record.projectId);
+  const worldId = stringValue(record.worldId);
+  const projectResolution = stringValue(record.projectResolution);
+  const userIntent = stringValue(record.userIntent);
+  const handoffState = stringValue(record.handoffState);
+  const selectedItemIds = Array.isArray(record.selectedItemIds)
+    ? record.selectedItemIds.map(stringValue).filter(Boolean)
+    : splitCsv(record.selectedItemIds);
+  const sourceTypes = Array.isArray(record.sourceTypes)
+    ? record.sourceTypes.map(stringValue).filter(Boolean)
+    : splitCsv(record.sourceTypes);
+
+  if (schema !== HANDOFF_SCHEMA) throw new Error("UNSUPPORTED_HANDOFF_SCHEMA");
+  if (nexusIntent !== WORK_MODE_INTENT) throw new Error("UNSUPPORTED_INTENT");
+  if (nexusAiContext !== WORK_MODE_AI_CONTEXT) throw new Error("UNSUPPORTED_CONTEXT_VERSION");
+  if (projectResolution !== "EXACT") throw new Error("PROJECT_CONFIRMATION_REQUIRED");
+  if (!projectId || !worldId) throw new Error("PROJECT_WORLD_REQUIRED");
+  if (projectId !== ESAFE_PROJECT_ID || worldId !== ESAFE_WORLD_ID) {
+    throw new Error("PROJECT_WORLD_NOT_AVAILABLE_IN_FOUNDATION");
+  }
+  if (!selectedItemIds.length) throw new Error("NO_APPROVED_ITEMS");
+  if (selectedItemIds.length > MAX_BOOTSTRAP_ITEMS) throw new Error("TOO_MANY_APPROVED_ITEMS");
+  if (new Set(selectedItemIds).size !== selectedItemIds.length) throw new Error("DUPLICATE_ITEM_ID");
+  if (!selectedItemIds.every(validItemId)) throw new Error("INVALID_ITEM_ID");
+  if (!sourceTypes.length || !sourceTypes.every((item) => allowedSources.has(item))) {
+    throw new Error("INVALID_SOURCE_TYPE");
+  }
+  if (!userIntent || userIntent.length > MAX_USER_INTENT) throw new Error("INVALID_USER_INTENT");
+  if (handoffState !== "PENDING_SERVER_CONFIRMATION") throw new Error("INVALID_HANDOFF_STATE");
+
+  return {
+    schema: HANDOFF_SCHEMA,
+    nexusIntent: WORK_MODE_INTENT,
+    nexusAiContext: WORK_MODE_AI_CONTEXT,
+    projectId,
+    worldId,
+    projectResolution: "EXACT",
+    selectedItemIds,
+    sourceTypes: [...new Set(sourceTypes)],
+    userIntent,
+    handoffState: "PENDING_SERVER_CONFIRMATION",
+  };
+}
+
+function envelopeFromQuery(req: Request): AndroidEnvelope {
+  return validateEnvelope({
+    schema: req.query.handoffSchema,
+    nexusIntent: req.query.nexusIntent,
+    nexusAiContext: req.query.nexusAiContext,
+    projectId: req.query.projectId,
+    worldId: req.query.worldId,
+    projectResolution: req.query.projectResolution,
+    selectedItemIds: req.query.selectedItemIds,
+    sourceTypes: req.query.sourceTypes,
+    userIntent: req.query.userIntent,
+    handoffState: req.query.handoffState,
+  });
+}
+
+/**
+ * #90 Phase 14 deliberately does not yet contain the exact provider-subject -> canonical
+ * Person binding runtime. A valid OIDC/session therefore proves authentication only.
+ * Never promote req.user.id (provider subject in the legacy auth runtime) to personId.
+ */
+function runtimeIdentity(req: Request): RuntimeIdentity {
+  if (!req.isAuthenticated() || !req.user) {
+    return {
+      authenticated: false,
+      identityState: "UNAUTHENTICATED",
+      source: "server-session",
+    };
+  }
+
+  return {
+    authenticated: true,
+    identityState: "UNBOUND",
+    source: "server-session",
+  };
+}
+
+function buildDraft(envelope: AndroidEnvelope): WorkSuiteDraft {
+  const hash = createHash("sha256")
+    .update(
+      [
+        envelope.projectId,
+        envelope.worldId,
+        ...envelope.selectedItemIds,
+        envelope.userIntent,
+      ].join("|"),
+    )
+    .digest("hex")
+    .slice(0, 20);
+
+  return {
+    draftId: `android-work-mode:${hash}`,
+    status: "draft",
+    mutationMode: DRAFT_MUTATION_MODE,
+    executionBoundary: DRAFT_EXECUTION_BOUNDARY,
+    source: "android-work-mode-ai-boundary",
+    actionKind: "REVIEW_AND_CLASSIFY_APPROVED_CONTEXT",
+    proposedAction: {
+      title: "Review and classify approved Android context",
+      detail:
+        "Create a human-reviewable evidence/context proposal only. Do not mutate Project Memory or execute Action Engine operations.",
+      target: "project-evidence-review",
+    },
+    scope: {
+      projectId: envelope.projectId,
+      worldId: envelope.worldId,
+      selectedItemIds: envelope.selectedItemIds,
+      sourceTypes: envelope.sourceTypes,
+      contextVersion: WORK_MODE_AI_CONTEXT,
+    },
+    authorityRequired: {
+      authenticatedPerson: true,
+      activeProjectParticipation: true,
+      explicitPermissionDecision: true,
+      denyOverrideCheck: true,
+      workSuiteActionEngineApproval: true,
+    },
+  };
+}
+
+function permissionDecision(identity: RuntimeIdentity, draft: WorkSuiteDraft) {
+  if (identity.identityState === "UNAUTHENTICATED") {
+    return {
+      status: "blocked",
+      reason: "UNAUTHENTICATED",
+      failedChecks: ["authenticated-person", "canonical-person-binding", "canonical-access-decision"],
+      draftActionId: draft.draftId,
+      projectId: draft.scope.projectId,
+      worldId: draft.scope.worldId,
+      mutationExecution: false,
+      approvalExecuted: false,
+      graphMutation: false,
+      fileWrite: false,
+    } as const;
+  }
+
+  if (identity.identityState === "UNBOUND" || !identity.personId) {
+    return {
+      status: "blocked",
+      reason: "IDENTITY_UNBOUND",
+      failedChecks: ["canonical-person-binding", "canonical-access-decision"],
+      draftActionId: draft.draftId,
+      projectId: draft.scope.projectId,
+      worldId: draft.scope.worldId,
+      mutationExecution: false,
+      approvalExecuted: false,
+      graphMutation: false,
+      fileWrite: false,
+    } as const;
+  }
+
+  return {
+    status: "needs-review",
+    reason: "CANONICAL_ACCESS_DECISION_REQUIRED",
+    failedChecks: ["canonical-access-decision"],
+    draftActionId: draft.draftId,
+    projectId: draft.scope.projectId,
+    worldId: draft.scope.worldId,
+    personId: identity.personId,
+    mutationExecution: false,
+    approvalExecuted: false,
+    graphMutation: false,
+    fileWrite: false,
+  } as const;
+}
+
+function deterministicAssistance(envelope: AndroidEnvelope) {
+  const primarySource = envelope.sourceTypes.includes("PHOTO")
+    ? "PHOTO_EVIDENCE_CANDIDATE"
+    : envelope.sourceTypes.includes("DOCUMENT")
+      ? "DOCUMENT_CONTEXT_CANDIDATE"
+      : envelope.sourceTypes.includes("FOLDER")
+        ? "FOLDER_CONTEXT_CANDIDATE"
+        : "WORK_CONTEXT_CANDIDATE";
+
+  return {
+    mode: "deterministic-demo-boundary",
+    modelExecution: "disabled-demo-boundary",
+    contentRecognition: "NOT_RUN_NO_RAW_CONTENT_TRANSFERRED",
+    interpretation: primarySource,
+    suggestedDestination: {
+      projectId: envelope.projectId,
+      worldId: envelope.worldId,
+      target: "project-evidence-review",
+    },
+    suggestedRelationship: "REVIEW_BEFORE_CANONICAL_LINK",
+    userIntent: envelope.userIntent,
+    approvedItemCount: envelope.selectedItemIds.length,
+    sourceTypes: envelope.sourceTypes,
+    note:
+      "Only approved metadata reached this boundary. Nexus must obtain authorised evidence content separately before any content-specific interpretation.",
+  };
+}
+
+function safeReturnPath(req: Request, envelope: AndroidEnvelope): string {
+  const query = new URLSearchParams({
+    handoffSchema: envelope.schema,
+    nexusIntent: envelope.nexusIntent,
+    nexusAiContext: envelope.nexusAiContext,
+    projectId: envelope.projectId,
+    worldId: envelope.worldId,
+    projectResolution: envelope.projectResolution,
+    selectedItemIds: envelope.selectedItemIds.join(","),
+    sourceTypes: envelope.sourceTypes.join(","),
+    userIntent: envelope.userIntent,
+    handoffState: envelope.handoffState,
+  });
+  return `${req.baseUrl}${req.path}?${query.toString()}`;
+}
+
+function renderBootstrap(res: Response, envelope: AndroidEnvelope) {
+  const nonce = randomBytes(18).toString("base64");
+  const serialized = JSON.stringify(envelope).replace(/</g, "\\u003c");
+
+  noStore(res);
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  res.setHeader(
+    "Content-Security-Policy",
+    `default-src 'none'; connect-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
+  );
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEXUS Android Work Mode handoff</title>
+<style nonce="${nonce}">
+body{margin:0;background:#04101f;color:#eef7ff;font-family:system-ui,sans-serif;padding:24px}main{max-width:760px;margin:auto}h1{font-size:28px}p{color:#9ab5cf}pre{white-space:pre-wrap;background:#0a223f;padding:16px;border-radius:12px;overflow:auto}.status{color:#48cdff;font-weight:700}
+</style>
+</head>
+<body><main>
+<h1>NEXUS Work Mode</h1>
+<p class="status" id="status">Authenticated handoff received. Validating canonical access…</p>
+<p>Android supplied approved metadata only. No local URI, raw photo/document content, provider credential or Person authority is present in this page.</p>
+<pre id="result">Submitting bounded context…</pre>
+</main>
+<script nonce="${nonce}">
+const envelope=${serialized};
+(async()=>{
+  const status=document.getElementById('status');
+  const result=document.getElementById('result');
+  try {
+    const response=await fetch('/api/nexus/work-mode-ai/context',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify(envelope),
+    });
+    const payload=await response.json();
+    status.textContent=response.ok?'Context processed — human review boundary':'Handoff blocked by Nexus authority boundary';
+    result.textContent=JSON.stringify(payload,null,2);
+  } catch {
+    status.textContent='Handoff failed — retry is safe';
+    result.textContent='No server confirmation was received. Android must keep this handoff pending.';
+  }
+})();
+</script></body></html>`);
+}
+
+router.get("/nexus/android-work-mode/handoff", (req: Request, res: Response) => {
+  try {
+    const envelope = envelopeFromQuery(req);
+    if (!req.isAuthenticated() || !req.user) {
+      const returnTo = safeReturnPath(req, envelope);
+      res.redirect(`/api/login?returnTo=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+    renderBootstrap(res, envelope);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "INVALID_HANDOFF";
+    noStore(res);
+    res.status(400).json({ error: code });
+  }
+});
+
+router.get("/nexus/work-mode-ai/status", (_req: Request, res: Response) => {
+  noStore(res);
+  res.json({
+    status: "ok",
+    service: "nexus-work-mode-ai-boundary",
+    contextVersion: WORK_MODE_AI_CONTEXT,
+    handoffSchema: HANDOFF_SCHEMA,
+    modelExecution: "disabled-demo-boundary",
+    contentRecognition: "requires-authorised-content-access",
+    projectMemoryMutation: false,
+    workSuiteExecution: false,
+  });
+});
+
+router.post("/nexus/work-mode-ai/context", (req: Request, res: Response) => {
+  if (!req.isAuthenticated() || !req.user) {
+    noStore(res);
+    res.status(401).json({ error: "UNAUTHENTICATED" });
+    return;
+  }
+
+  try {
+    const envelope = validateEnvelope(req.body);
+    const identity = runtimeIdentity(req);
+    const result = deterministicAssistance(envelope);
+    const draftAction = buildDraft(envelope);
+    const permission = permissionDecision(identity, draftAction);
+
+    noStore(res);
+    res.json({
+      status: "accepted",
+      service: "nexus-work-mode-ai-boundary",
+      handoffSchema: HANDOFF_SCHEMA,
+      nexusAiContext: WORK_MODE_AI_CONTEXT,
+      modelExecution: "disabled-demo-boundary",
+      projectMemoryRead: false,
+      projectMemoryMutation: false,
+      identity,
+      result,
+      draftAction,
+      permission,
+      handoffState: permission.status === "blocked" ? "PENDING_SERVER_CONFIRMATION" : "HANDED_OFF_FOR_REVIEW",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "INVALID_REQUEST";
+    noStore(res);
+    res.status(code === "PROJECT_WORLD_NOT_AVAILABLE_IN_FOUNDATION" ? 409 : 400).json({ error: code });
+  }
+});
+
+router.get("/nexus/worksuite/draft-actions/status", (_req: Request, res: Response) => {
+  noStore(res);
+  res.json({
+    status: "ok",
+    service: "worksuite-draft-permission-resolver",
+    executionBoundary: "validation-only-no-mutation",
+    supportedStatuses: ["blocked", "needs-review", "ready-for-approval"],
+    currentFoundationCeiling: "needs-review-until-canonical-access-resolver-runtime-is-reconciled",
+    mutationExecution: false,
+    approvalExecuted: false,
+  });
+});
+
+router.post("/nexus/worksuite/draft-actions/validate", (req: Request, res: Response) => {
+  if (!req.isAuthenticated() || !req.user) {
+    noStore(res);
+    res.status(401).json({ error: "UNAUTHENTICATED" });
+    return;
+  }
+
+  const draft = req.body?.draftAction as WorkSuiteDraft | undefined;
+  if (
+    !draft ||
+    typeof draft.draftId !== "string" ||
+    draft.mutationMode !== DRAFT_MUTATION_MODE ||
+    draft.executionBoundary !== DRAFT_EXECUTION_BOUNDARY ||
+    draft.authorityRequired?.workSuiteActionEngineApproval !== true ||
+    !draft.scope?.projectId ||
+    !draft.scope?.worldId
+  ) {
+    noStore(res);
+    res.status(400).json({ error: "INVALID_OR_UNSAFE_DRAFT_ACTION" });
+    return;
+  }
+
+  if (draft.scope.projectId !== ESAFE_PROJECT_ID || draft.scope.worldId !== ESAFE_WORLD_ID) {
+    noStore(res);
+    res.status(409).json({ error: "PROJECT_WORLD_NOT_AVAILABLE_IN_FOUNDATION" });
+    return;
+  }
+
+  const identity = runtimeIdentity(req);
+  const decision = permissionDecision(identity, draft);
+  noStore(res);
+  res.json({
+    status: "validated",
+    service: "worksuite-draft-permission-resolver",
+    identity,
+    draftAction: draft,
+    decision,
+    mutationExecution: false,
+    approvalExecuted: false,
+    graphMutation: false,
+    fileWrite: false,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+export default router;
