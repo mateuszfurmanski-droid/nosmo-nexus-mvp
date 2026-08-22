@@ -7,6 +7,7 @@ import {
   nexusPmExternalReferencesTable,
   nexusPmFilesTable,
   nexusPmStorageRecordsTable,
+  type NexusPmCloudCommitRow,
 } from "./schema/nexusProjectMemoryCloud";
 
 export interface NexusCloudDbRecordInput {
@@ -49,11 +50,59 @@ const assertNonEmpty = (value: string, label: string): string => {
   return value;
 };
 
+const isExactReplay = (
+  existingCommit: NexusPmCloudCommitRow,
+  input: NexusCloudDbCommitInput,
+): boolean =>
+  existingCommit.workspaceId === input.workspaceId &&
+  existingCommit.projectId === input.projectId &&
+  existingCommit.worldId === input.worldId &&
+  existingCommit.pendingAssetId === input.pendingAssetId &&
+  existingCommit.accessDecisionId === input.accessDecisionId &&
+  existingCommit.providerConnectorId === input.providerConnectorId &&
+  existingCommit.providerObjectId === input.providerObjectId &&
+  existingCommit.fileId === input.file.id &&
+  existingCommit.canonicalFileObjectId === input.canonicalFileObject.id &&
+  existingCommit.externalReferenceId === input.externalReference.id &&
+  existingCommit.storageRecordId === input.storageRecord.id &&
+  existingCommit.auditEventId === input.auditEvent.id;
+
+const replayResult = (
+  existingCommit: NexusPmCloudCommitRow,
+  input: NexusCloudDbCommitInput,
+): NexusCloudDbCommitResult => {
+  if (!isExactReplay(existingCommit, input)) {
+    throw new Error("NEXUS_CLOUD_DB_IDEMPOTENCY_CONFLICT");
+  }
+
+  return {
+    status: "ALREADY_COMMITTED",
+    idempotencyKey: input.idempotencyKey,
+    fileId: existingCommit.fileId,
+  };
+};
+
+const findCommitByIdempotencyKey = async (
+  input: NexusCloudDbCommitInput,
+): Promise<NexusPmCloudCommitRow | undefined> => {
+  const [existingCommit] = await db
+    .select()
+    .from(nexusPmCloudCommitsTable)
+    .where(eq(nexusPmCloudCommitsTable.idempotencyKey, input.idempotencyKey))
+    .limit(1);
+
+  return existingCommit;
+};
+
 /**
  * Persist one Phase 18 Nexus Cloud commit atomically in the existing PostgreSQL database.
  *
  * The transaction stores canonical metadata only. Binary content remains in the provider.
  * Any failed insert or uniqueness conflict rolls back the whole transaction.
+ *
+ * Concurrent exact retries are recovered after rollback: if another transaction commits the
+ * same idempotency key while this transaction is waiting on a uniqueness constraint, the
+ * caller receives ALREADY_COMMITTED instead of a raw PostgreSQL uniqueness error.
  */
 export const persistNexusCloudCommit = async (
   input: NexusCloudDbCommitInput,
@@ -76,146 +125,136 @@ export const persistNexusCloudCommit = async (
     throw new Error("NEXUS_CLOUD_DB_INVALID_PERSISTED_AT");
   }
 
-  return db.transaction(async (tx) => {
-    const [existingCommit] = await tx
-      .select()
-      .from(nexusPmCloudCommitsTable)
-      .where(eq(nexusPmCloudCommitsTable.idempotencyKey, input.idempotencyKey))
-      .limit(1);
+  try {
+    return await db.transaction(async (tx) => {
+      const [existingCommit] = await tx
+        .select()
+        .from(nexusPmCloudCommitsTable)
+        .where(eq(nexusPmCloudCommitsTable.idempotencyKey, input.idempotencyKey))
+        .limit(1);
 
-    if (existingCommit) {
-      const exactReplay =
-        existingCommit.workspaceId === input.workspaceId &&
-        existingCommit.projectId === input.projectId &&
-        existingCommit.worldId === input.worldId &&
-        existingCommit.pendingAssetId === input.pendingAssetId &&
-        existingCommit.accessDecisionId === input.accessDecisionId &&
-        existingCommit.providerConnectorId === input.providerConnectorId &&
-        existingCommit.providerObjectId === input.providerObjectId &&
-        existingCommit.fileId === input.file.id &&
-        existingCommit.canonicalFileObjectId === input.canonicalFileObject.id &&
-        existingCommit.externalReferenceId === input.externalReference.id &&
-        existingCommit.storageRecordId === input.storageRecord.id &&
-        existingCommit.auditEventId === input.auditEvent.id;
-
-      if (!exactReplay) {
-        throw new Error("NEXUS_CLOUD_DB_IDEMPOTENCY_CONFLICT");
+      if (existingCommit) {
+        return replayResult(existingCommit, input);
       }
 
-      return {
-        status: "ALREADY_COMMITTED" as const,
+      const [providerCommit] = await tx
+        .select()
+        .from(nexusPmCloudCommitsTable)
+        .where(
+          and(
+            eq(nexusPmCloudCommitsTable.workspaceId, input.workspaceId),
+            eq(nexusPmCloudCommitsTable.providerConnectorId, input.providerConnectorId),
+            eq(nexusPmCloudCommitsTable.providerObjectId, input.providerObjectId),
+          ),
+        )
+        .limit(1);
+
+      if (providerCommit) {
+        throw new Error("NEXUS_CLOUD_DB_PROVIDER_OBJECT_CONFLICT");
+      }
+
+      const [providerFile] = await tx
+        .select({ fileId: nexusPmFilesTable.fileId })
+        .from(nexusPmFilesTable)
+        .where(
+          and(
+            eq(nexusPmFilesTable.workspaceId, input.workspaceId),
+            eq(nexusPmFilesTable.providerConnectorId, input.providerConnectorId),
+            eq(nexusPmFilesTable.providerObjectId, input.providerObjectId),
+          ),
+        )
+        .limit(1);
+
+      if (providerFile) {
+        throw new Error("NEXUS_CLOUD_DB_PROVIDER_FILE_CONFLICT");
+      }
+
+      await tx.insert(nexusPmFilesTable).values({
+        fileId: input.file.id,
+        workspaceId: input.workspaceId,
+        projectId: input.projectId,
+        worldId: input.worldId,
+        providerConnectorId: input.providerConnectorId,
+        providerObjectId: input.providerObjectId,
+        storageObjectKey: input.storageObjectKey,
+        recordJson: input.file.recordJson,
+        persistedAt,
+      });
+
+      await tx.insert(nexusPmCanonicalObjectsTable).values({
+        objectId: input.canonicalFileObject.id,
+        workspaceId: input.workspaceId,
+        projectId: input.projectId,
+        worldId: input.worldId,
+        objectType: "File",
+        recordJson: input.canonicalFileObject.recordJson,
+        persistedAt,
+      });
+
+      await tx.insert(nexusPmExternalReferencesTable).values({
+        externalReferenceId: input.externalReference.id,
+        workspaceId: input.workspaceId,
+        nexusObjectId: input.canonicalFileObject.id,
+        providerConnectorId: input.providerConnectorId,
+        providerObjectId: input.providerObjectId,
+        recordJson: input.externalReference.recordJson,
+        persistedAt,
+      });
+
+      await tx.insert(nexusPmStorageRecordsTable).values({
+        storageRecordId: input.storageRecord.id,
+        workspaceId: input.workspaceId,
+        projectId: input.projectId,
+        worldId: input.worldId,
+        objectId: input.canonicalFileObject.id,
+        providerConnectorId: input.providerConnectorId,
+        storageObjectKey: input.storageObjectKey,
+        recordJson: input.storageRecord.recordJson,
+        persistedAt,
+      });
+
+      await tx.insert(nexusPmAuditEventsTable).values({
+        eventId: input.auditEvent.id,
+        workspaceId: input.workspaceId,
+        projectId: input.projectId,
+        worldId: input.worldId,
+        eventType: "CLOUD_FILE_PERSISTED",
+        recordJson: input.auditEvent.recordJson,
+        persistedAt,
+      });
+
+      await tx.insert(nexusPmCloudCommitsTable).values({
         idempotencyKey: input.idempotencyKey,
-        fileId: existingCommit.fileId,
+        workspaceId: input.workspaceId,
+        projectId: input.projectId,
+        worldId: input.worldId,
+        pendingAssetId: input.pendingAssetId,
+        accessDecisionId: input.accessDecisionId,
+        providerConnectorId: input.providerConnectorId,
+        providerObjectId: input.providerObjectId,
+        fileId: input.file.id,
+        canonicalFileObjectId: input.canonicalFileObject.id,
+        externalReferenceId: input.externalReference.id,
+        storageRecordId: input.storageRecord.id,
+        auditEventId: input.auditEvent.id,
+        committedAt: persistedAt,
+      });
+
+      return {
+        status: "COMMITTED" as const,
+        idempotencyKey: input.idempotencyKey,
+        fileId: input.file.id,
       };
+    });
+  } catch (error) {
+    // A concurrent exact retry can reach a uniqueness constraint after another
+    // transaction commits the same logical operation. Re-read only the durable
+    // commit ledger after rollback and recover strictly when it is an exact replay.
+    const committedReplay = await findCommitByIdempotencyKey(input);
+    if (committedReplay) {
+      return replayResult(committedReplay, input);
     }
 
-    const [providerCommit] = await tx
-      .select()
-      .from(nexusPmCloudCommitsTable)
-      .where(
-        and(
-          eq(nexusPmCloudCommitsTable.workspaceId, input.workspaceId),
-          eq(nexusPmCloudCommitsTable.providerConnectorId, input.providerConnectorId),
-          eq(nexusPmCloudCommitsTable.providerObjectId, input.providerObjectId),
-        ),
-      )
-      .limit(1);
-
-    if (providerCommit) {
-      throw new Error("NEXUS_CLOUD_DB_PROVIDER_OBJECT_CONFLICT");
-    }
-
-    const [providerFile] = await tx
-      .select({ fileId: nexusPmFilesTable.fileId })
-      .from(nexusPmFilesTable)
-      .where(
-        and(
-          eq(nexusPmFilesTable.workspaceId, input.workspaceId),
-          eq(nexusPmFilesTable.providerConnectorId, input.providerConnectorId),
-          eq(nexusPmFilesTable.providerObjectId, input.providerObjectId),
-        ),
-      )
-      .limit(1);
-
-    if (providerFile) {
-      throw new Error("NEXUS_CLOUD_DB_PROVIDER_FILE_CONFLICT");
-    }
-
-    await tx.insert(nexusPmFilesTable).values({
-      fileId: input.file.id,
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-      worldId: input.worldId,
-      providerConnectorId: input.providerConnectorId,
-      providerObjectId: input.providerObjectId,
-      storageObjectKey: input.storageObjectKey,
-      recordJson: input.file.recordJson,
-      persistedAt,
-    });
-
-    await tx.insert(nexusPmCanonicalObjectsTable).values({
-      objectId: input.canonicalFileObject.id,
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-      worldId: input.worldId,
-      objectType: "File",
-      recordJson: input.canonicalFileObject.recordJson,
-      persistedAt,
-    });
-
-    await tx.insert(nexusPmExternalReferencesTable).values({
-      externalReferenceId: input.externalReference.id,
-      workspaceId: input.workspaceId,
-      nexusObjectId: input.canonicalFileObject.id,
-      providerConnectorId: input.providerConnectorId,
-      providerObjectId: input.providerObjectId,
-      recordJson: input.externalReference.recordJson,
-      persistedAt,
-    });
-
-    await tx.insert(nexusPmStorageRecordsTable).values({
-      storageRecordId: input.storageRecord.id,
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-      worldId: input.worldId,
-      objectId: input.canonicalFileObject.id,
-      providerConnectorId: input.providerConnectorId,
-      storageObjectKey: input.storageObjectKey,
-      recordJson: input.storageRecord.recordJson,
-      persistedAt,
-    });
-
-    await tx.insert(nexusPmAuditEventsTable).values({
-      eventId: input.auditEvent.id,
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-      worldId: input.worldId,
-      eventType: "CLOUD_FILE_PERSISTED",
-      recordJson: input.auditEvent.recordJson,
-      persistedAt,
-    });
-
-    await tx.insert(nexusPmCloudCommitsTable).values({
-      idempotencyKey: input.idempotencyKey,
-      workspaceId: input.workspaceId,
-      projectId: input.projectId,
-      worldId: input.worldId,
-      pendingAssetId: input.pendingAssetId,
-      accessDecisionId: input.accessDecisionId,
-      providerConnectorId: input.providerConnectorId,
-      providerObjectId: input.providerObjectId,
-      fileId: input.file.id,
-      canonicalFileObjectId: input.canonicalFileObject.id,
-      externalReferenceId: input.externalReference.id,
-      storageRecordId: input.storageRecord.id,
-      auditEventId: input.auditEvent.id,
-      committedAt: persistedAt,
-    });
-
-    return {
-      status: "COMMITTED" as const,
-      idempotencyKey: input.idempotencyKey,
-      fileId: input.file.id,
-    };
-  });
+    throw error;
+  }
 };
