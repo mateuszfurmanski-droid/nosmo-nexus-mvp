@@ -82,9 +82,9 @@ public final class MobileAuthResultActivity extends Activity {
                 message,
                 longToast ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT
         ).show();
-        Intent main = new Intent(this, MainActivity.class);
-        main.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(main);
+        Intent cloud = new Intent(this, CloudEvidenceActivity.class);
+        cloud.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(cloud);
         finish();
     }
 }
