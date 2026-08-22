@@ -62,9 +62,8 @@ assert(
   "Android provenance must reuse the shared canonical Cloud source-module contract",
 );
 assert(
-  cloudRoute.includes("sourceModule,") &&
-    cloudRoute.includes("sourceModule,"),
-  "Cloud response/persistence pipeline must retain the server-selected source module",
+  cloudRoute.includes("sourceModule,"),
+  "Cloud canonical commit response must echo the server-selected source module",
 );
 assert(
   cloudRoute.includes('req.get("idempotency-key")'),
