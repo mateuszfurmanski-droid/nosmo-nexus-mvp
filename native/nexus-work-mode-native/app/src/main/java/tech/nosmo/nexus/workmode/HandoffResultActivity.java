@@ -20,6 +20,10 @@ import java.util.Set;
  * Person-binding, Project Participation or WorkSuite authority source. Server authority
  * remains entirely inside Nexus. A callback must match the locally generated one-flight
  * handoffRequestId plus the exact pending candidate set and Project World.
+ *
+ * Metadata handoff and raw evidence transfer are deliberately separate lifecycles.
+ * This callback can acknowledge metadata only. It never marks a PHOTO/DOCUMENT binary
+ * as uploaded, synced or TRANSFER_CONFIRMED.
  */
 public final class HandoffResultActivity extends Activity {
     private static final String PREFS = "nexus_work_mode_v060";
@@ -35,6 +39,10 @@ public final class HandoffResultActivity extends Activity {
     private static final String STATUS_HANDED_OFF = "HANDED_OFF";
     private static final String STATUS_FAILED_RETRYABLE = "FAILED_RETRYABLE";
     private static final String PENDING = "PENDING_SERVER_CONFIRMATION";
+
+    private static final String EVIDENCE_STATE_KEY = "evidenceTransferState";
+    private static final String EVIDENCE_PENDING_CLOUD = "PENDING_CANONICAL_CLOUD_ENDPOINT";
+    private static final String EVIDENCE_NOT_APPLICABLE = "NOT_APPLICABLE";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,11 +124,22 @@ public final class HandoffResultActivity extends Activity {
                 return;
             }
 
+            int rawEvidenceItems = 0;
             for (int i = 0; i < queue.length(); i++) {
                 JSONObject item = queue.getJSONObject(i);
                 String id = safe(item.optString("id", ""));
                 if (selectedItemIds.contains(id) && PENDING.equals(item.optString("handoffState", "LOCAL_ONLY"))) {
                     item.put("handoffState", targetState);
+
+                    String source = safe(item.optString("source", ""));
+                    if (isRawEvidenceSource(source)) {
+                        rawEvidenceItems++;
+                        if (safe(item.optString(EVIDENCE_STATE_KEY, "")).isEmpty()) {
+                            item.put(EVIDENCE_STATE_KEY, EVIDENCE_PENDING_CLOUD);
+                        }
+                    } else if (safe(item.optString(EVIDENCE_STATE_KEY, "")).isEmpty()) {
+                        item.put(EVIDENCE_STATE_KEY, EVIDENCE_NOT_APPLICABLE);
+                    }
                 }
             }
 
@@ -133,15 +152,22 @@ public final class HandoffResultActivity extends Activity {
             }
             editor.apply();
 
-            returnToWorkMode(
-                    STATUS_HANDED_OFF.equals(status)
-                            ? "Nexus confirmed handoff"
-                            : "Handoff needs retry or authority review",
-                    false
-            );
+            String message;
+            if (STATUS_HANDED_OFF.equals(status) && rawEvidenceItems > 0) {
+                message = "Nexus confirmed metadata handoff; raw evidence transfer is still pending canonical Cloud";
+            } else if (STATUS_HANDED_OFF.equals(status)) {
+                message = "Nexus confirmed metadata handoff";
+            } else {
+                message = "Handoff needs retry or authority review";
+            }
+            returnToWorkMode(message, false);
         } catch (Exception ignored) {
             returnToWorkMode("Could not apply Nexus handoff receipt", true);
         }
+    }
+
+    private boolean isRawEvidenceSource(String source) {
+        return "PHOTO".equals(source) || "DOCUMENT".equals(source);
     }
 
     private Set<String> parseItemIds(String csv) {
