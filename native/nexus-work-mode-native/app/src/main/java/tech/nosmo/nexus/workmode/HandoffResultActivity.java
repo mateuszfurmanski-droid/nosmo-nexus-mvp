@@ -137,10 +137,12 @@ public final class HandoffResultActivity extends Activity {
                     if (isRawEvidenceSource(source)) {
                         rawEvidenceItems++;
                         if (STATUS_HANDED_OFF.equals(status)) {
-                            // Bind evidence to the exact Project World confirmed by the server receipt.
-                            // Later global Project World changes must not retarget these bytes.
+                            // Keep compatibility fields in the queue, but store the immutable
+                            // receipt-derived routing facts in a separate app-private sidecar too.
+                            // MainActivity may rewrite queue JSON; it cannot silently retarget bytes.
                             item.put(HANDOFF_PROJECT_KEY, projectId);
                             item.put(HANDOFF_WORLD_KEY, worldId);
+                            EvidenceBindingStore.bindConfirmedMetadata(this, id, projectId, worldId);
                         }
                         if (safe(item.optString(EVIDENCE_STATE_KEY, "")).isEmpty()) {
                             item.put(EVIDENCE_STATE_KEY, EVIDENCE_PENDING_CLOUD);
