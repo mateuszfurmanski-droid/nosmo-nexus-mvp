@@ -152,15 +152,13 @@ function downloadReport(
   edits: RecordEditAuditEntry[],
   created: CreatedObjectEntry[],
 ) {
-  const blob = new Blob(["\uFEFF", buildReportCsv(assets, decisions, edits, created)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+  const csv = `\uFEFF${buildReportCsv(assets, decisions, edits, created)}`;
   const link = document.createElement("a");
-  link.href = url;
+  link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
   link.download = `nexus-spark-circular-report-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 export default function SparkSkanskaDemo() {
