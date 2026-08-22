@@ -3,7 +3,7 @@ import type { NexusCloudProviderWritePlan } from "../../../../src/core/storage/c
 import type { NexusCloudProviderWriteReceipt } from "../../../../src/core/storage/cloudPersistenceContract";
 import { resolveNexusGoogleDriveWriterModulePath } from "./nexus-runtime-paths";
 
-const GOOGLE_PROVIDER_REQUEST_TIMEOUT_MS = 120_000;
+const GOOGLE_PROVIDER_OPERATION_TIMEOUT_MS = 90_000;
 
 export interface NexusCloudGoogleDriveWriteResult {
   status: "WRITTEN" | "ALREADY_WRITTEN";
@@ -38,19 +38,13 @@ async function getGoogleDriveWriterModule(): Promise<GoogleDriveWriterModule> {
   return writerModulePromise;
 }
 
-const timedProviderFetch: typeof fetch = (input, init = {}) =>
-  fetch(input, {
-    ...init,
-    signal: init.signal ?? AbortSignal.timeout(GOOGLE_PROVIDER_REQUEST_TIMEOUT_MS),
-  });
-
 /**
  * Delegate to the single PR #93 Google Drive writer implementation.
  *
- * No provider write logic is copied into the API server. This keeps OAuth,
- * Drive target verification, provider idempotency and multipart Drive creation
- * in one implementation. Each external request is bounded so a provider call
- * cannot outlive the durable cross-instance operation lease indefinitely.
+ * No provider write logic is copied into the API server. The whole provider
+ * operation shares one 90-second AbortSignal, so OAuth + target verification +
+ * replay lookup + upload cannot intentionally outlive the 120-second durable
+ * lease. The remaining lease window is reserved for provider receipt persistence.
  */
 export async function writeNexusCloudGoogleDriveRuntime(input: {
   plan: NexusCloudProviderWritePlan;
@@ -58,8 +52,17 @@ export async function writeNexusCloudGoogleDriveRuntime(input: {
   idempotencyKey: string;
 }): Promise<NexusCloudGoogleDriveWriteResult> {
   const writer = await getGoogleDriveWriterModule();
+  const providerOperationSignal = AbortSignal.timeout(
+    GOOGLE_PROVIDER_OPERATION_TIMEOUT_MS,
+  );
+  const boundedFetch: typeof fetch = (request, init = {}) =>
+    fetch(request, {
+      ...init,
+      signal: init.signal ?? providerOperationSignal,
+    });
+
   return writer.writeNexusCloudFileToGoogleDrive({
     ...input,
-    fetchImpl: timedProviderFetch,
+    fetchImpl: boundedFetch,
   });
 }
