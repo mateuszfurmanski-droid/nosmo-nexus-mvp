@@ -96,10 +96,11 @@ const required = (
   reason: NexusCloudPersistenceInputReason,
   label: string,
 ): string => {
-  if (typeof value !== "string") fail(reason, `${label} is required`);
-  const normalized = value.trim();
-  if (!normalized) fail(reason, `${label} is required`);
-  return normalized;
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (normalized) return normalized;
+  }
+  throw new NexusCloudPersistenceInputError(reason, `${label} is required`);
 };
 
 const assertSingleScope = (proposal: NexusCloudPersistenceProposalDbSource): void => {
