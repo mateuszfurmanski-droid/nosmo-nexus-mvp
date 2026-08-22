@@ -119,20 +119,20 @@ if (issue.status !== "ISSUED") {
 }
 
 let rawTicket = issue.issued.ticket;
+issue.issued.ticket = "";
 assert.match(rawTicket, /^[A-Za-z0-9_-]{43}$/);
 assert.equal(issue.issued.purpose, "CONNECTOR_CONTEXT_READ");
 assert.ok(Date.parse(issue.issued.expiresAt) > issueAt.getTime());
 
-const exchangeAt = new Date();
 const exchange = await exchangeWorkWalletContextTicketService(
   dependencies,
   rawTicket,
-  exchangeAt,
+  new Date(),
 );
-rawTicket = "";
 
 assert.equal(exchange.status, "VERIFIED_CONTEXT");
 if (exchange.status !== "VERIFIED_CONTEXT") {
+  rawTicket = "";
   throw new Error(`Context Ticket exchange failed with ${exchange.status}`);
 }
 
@@ -152,12 +152,12 @@ assert.equal(
   WORK_WALLET_EXTERNAL_CAPABILITY_LABEL,
 );
 
-const replayTicket = issue.issued.ticket;
 const replay = await exchangeWorkWalletContextTicketService(
   dependencies,
-  replayTicket,
+  rawTicket,
   new Date(),
 );
+rawTicket = "";
 assert.equal(replay.status, "INVALID_TICKET");
 
 process.stdout.write(
