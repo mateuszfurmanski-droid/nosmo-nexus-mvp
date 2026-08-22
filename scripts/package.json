@@ -9,7 +9,6 @@
     "work-wallet-gateway": "tsx ./src/work-wallet-gateway.ts",
     "smoke:nexus-cloud-google-drive-adapter": "node ./src/smoke/nexus-cloud-google-drive-adapter.mjs",
     "smoke:nexus-cloud-google-drive-live": "node ./src/smoke/nexus-cloud-google-drive-live.mjs",
-    "smoke:nexus-cloud-db-input": "tsx ./src/smoke/nexus-cloud-db-input.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
