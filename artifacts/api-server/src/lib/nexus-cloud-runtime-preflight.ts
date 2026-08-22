@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import {
   loadNexusCloudGoogleDriveRuntimeConfig,
   NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_ENV,
   NexusCloudRuntimeConfigError,
 } from "./nexus-cloud-runtime-config";
+import { resolveNexusGoogleDriveWriterModulePath } from "./nexus-runtime-paths";
 
 export const NEXUS_CLOUD_PREFLIGHT_SCHEMA =
   "nexus-cloud-runtime-preflight/v1" as const;
@@ -35,7 +37,11 @@ export const NEXUS_CLOUD_ESAFE_DRIVE_TARGETS = {
   "99_AUDIT": "1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz",
 } as const;
 
-type CheckState = "PASS" | "BLOCKED" | "WARN";
+const GOOGLE_DRIVE_FOLDER_MIME = "application/vnd.google-apps.folder";
+const GOOGLE_DRIVE_API = "https://www.googleapis.com/drive/v3";
+const PROVIDER_PREFLIGHT_TIMEOUT_MS = 30_000;
+
+type CheckState = "PASS" | "BLOCKED";
 
 export interface NexusCloudPreflightCheck {
   key: string;
@@ -55,13 +61,14 @@ export interface NexusCloudRuntimePreflightResult {
     presentTableCount: number;
     candidateAuthorityPathCount: number;
   };
-  provider?: {
+  provider: {
     configPresent: boolean;
     mappingMatchesLiveEvidence: boolean;
     writeReleased: boolean;
     oauthSecretConfigured: boolean;
     oauthSecretSchemaValid: boolean;
-    providerNetworkProbePerformed: false;
+    providerNetworkProbePerformed: boolean;
+    providerNetworkProbePassed: boolean;
   };
   safety: {
     readOnlyDatabaseTransaction: true;
@@ -83,19 +90,12 @@ const blocked = (key: string, detail: string): NexusCloudPreflightCheck => ({
   detail,
 });
 
-const warn = (key: string, detail: string): NexusCloudPreflightCheck => ({
-  key,
-  state: "WARN",
-  detail,
-});
-
 const safeDatabaseFingerprint = (databaseUrl: string): string => {
   const parsed = new URL(databaseUrl);
   if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
     throw new Error("NEXUS_CLOUD_PREFLIGHT_DATABASE_URL_NOT_POSTGRES");
   }
 
-  // Do not expose host, username, database name, password or query parameters.
   const targetIdentity = [
     parsed.protocol,
     parsed.hostname.toLowerCase(),
@@ -189,6 +189,86 @@ const inspectRawProviderConfig = (env: NodeJS.ProcessEnv) => {
   };
 };
 
+type GoogleDriveCredentialModule = {
+  resolveGoogleDriveOAuthSecretFromEnv: (
+    secretReference: string,
+    env?: NodeJS.ProcessEnv,
+  ) => Promise<{
+    type: string;
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+  }>;
+  exchangeGoogleDriveAccessToken: (
+    secret: {
+      clientId: string;
+      clientSecret: string;
+      refreshToken: string;
+    },
+    fetchImpl?: typeof fetch,
+  ) => Promise<string>;
+};
+
+const runProviderReadOnlyProbe = async (
+  env: NodeJS.ProcessEnv,
+  secretReference: string,
+): Promise<void> => {
+  const moduleUrl = pathToFileURL(resolveNexusGoogleDriveWriterModulePath()).href;
+  const writer = (await import(moduleUrl)) as GoogleDriveCredentialModule;
+  if (
+    typeof writer.resolveGoogleDriveOAuthSecretFromEnv !== "function" ||
+    typeof writer.exchangeGoogleDriveAccessToken !== "function"
+  ) {
+    throw new Error("NEXUS_CLOUD_PREFLIGHT_GOOGLE_WRITER_CONTRACT_INVALID");
+  }
+
+  const signal = AbortSignal.timeout(PROVIDER_PREFLIGHT_TIMEOUT_MS);
+  const boundedFetch: typeof fetch = (request, init = {}) =>
+    fetch(request, {
+      ...init,
+      signal: init.signal ?? signal,
+    });
+
+  const secret = await writer.resolveGoogleDriveOAuthSecretFromEnv(
+    secretReference,
+    env,
+  );
+  const accessToken = await writer.exchangeGoogleDriveAccessToken(
+    secret,
+    boundedFetch,
+  );
+
+  for (const targetId of Object.values(NEXUS_CLOUD_ESAFE_DRIVE_TARGETS)) {
+    const fields = encodeURIComponent(
+      "id,mimeType,trashed,capabilities(canAddChildren)",
+    );
+    const response = await boundedFetch(
+      `${GOOGLE_DRIVE_API}/files/${encodeURIComponent(targetId)}?supportsAllDrives=true&fields=${fields}`,
+      {
+        method: "GET",
+        headers: { authorization: `Bearer ${accessToken}` },
+      },
+    );
+    if (!response.ok) {
+      throw new Error("NEXUS_CLOUD_PREFLIGHT_GOOGLE_TARGET_REQUEST_REJECTED");
+    }
+
+    const folder = (await response.json()) as Record<string, unknown>;
+    const capabilities =
+      folder.capabilities && typeof folder.capabilities === "object"
+        ? (folder.capabilities as Record<string, unknown>)
+        : undefined;
+    if (
+      folder.id !== targetId ||
+      folder.mimeType !== GOOGLE_DRIVE_FOLDER_MIME ||
+      folder.trashed === true ||
+      capabilities?.canAddChildren === false
+    ) {
+      throw new Error("NEXUS_CLOUD_PREFLIGHT_GOOGLE_TARGET_NOT_WRITABLE");
+    }
+  }
+};
+
 const inspectDatabase = async (
   env: NodeJS.ProcessEnv,
   checks: NexusCloudPreflightCheck[],
@@ -229,7 +309,20 @@ const inspectDatabase = async (
     };
   }
 
-  const client = await pool.connect();
+  let client: any;
+  try {
+    client = await pool.connect();
+  } catch {
+    checks.push(blocked("database.reachable", "PostgreSQL connection could not be established."));
+    await pool.end();
+    return {
+      targetFingerprint,
+      requiredTableCount: REQUIRED_TABLES.length,
+      presentTableCount: 0,
+      candidateAuthorityPathCount: 0,
+    };
+  }
+
   try {
     await client.query("BEGIN READ ONLY");
     await client.query("SELECT 1");
@@ -329,16 +422,16 @@ const inspectDatabase = async (
       presentTableCount: present.size,
       candidateAuthorityPathCount,
     };
-  } catch (error) {
+  } catch {
     try {
       await client.query("ROLLBACK");
     } catch {
-      // Read-only diagnostic only; no mutation exists to recover.
+      // No mutation exists to recover; keep diagnostics fail-closed.
     }
     checks.push(
       blocked(
         "database.read",
-        `Read-only PostgreSQL inspection failed: ${error instanceof Error ? error.message : "unknown error"}.`,
+        "Read-only PostgreSQL inspection failed; no database details were returned.",
       ),
     );
     return {
@@ -356,10 +449,9 @@ const inspectDatabase = async (
 /**
  * One-shot, read-only readiness report for the real Nexus Cloud runtime.
  *
- * This function intentionally closes the DB pool because it is designed for a
- * CLI/pre-deployment diagnostic process, not for an already-running API server.
  * It never runs migrations, inserts rows, performs a Google Drive create, or
- * returns database/OAuth secret values.
+ * returns database/OAuth secret values. The optional provider probe performs
+ * only OAuth token exchange and Drive folder GET/capability checks.
  */
 export async function runNexusCloudRuntimePreflight(
   env: NodeJS.ProcessEnv = process.env,
@@ -483,12 +575,45 @@ export async function runNexusCloudRuntimePreflight(
     );
   }
 
-  checks.push(
-    warn(
-      "provider.network-probe",
-      "No Google OAuth token exchange or target capability request is performed by this preflight slice.",
-    ),
-  );
+  const providerNetworkProbeRequested =
+    env.NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE === "true";
+  let providerNetworkProbePerformed = false;
+  let providerNetworkProbePassed = false;
+
+  if (!providerNetworkProbeRequested) {
+    checks.push(
+      blocked(
+        "provider.network-probe",
+        "Read-only Google OAuth/Drive capability probe has not been explicitly requested.",
+      ),
+    );
+  } else if (!oauth.schemaValid || !providerRaw.mappingMatches || !providerRaw.secretReference) {
+    checks.push(
+      blocked(
+        "provider.network-probe",
+        "Read-only provider probe cannot run until exact mapping and OAuth secret shape validate.",
+      ),
+    );
+  } else {
+    providerNetworkProbePerformed = true;
+    try {
+      await runProviderReadOnlyProbe(env, providerRaw.secretReference);
+      providerNetworkProbePassed = true;
+      checks.push(
+        pass(
+          "provider.network-probe",
+          "Real OAuth token exchange and read-only capability checks passed for all five e-SAFE Drive targets; no file was created.",
+        ),
+      );
+    } catch {
+      checks.push(
+        blocked(
+          "provider.network-probe",
+          "Real read-only Google OAuth/Drive capability probe failed; provider details were not returned.",
+        ),
+      );
+    }
+  }
 
   const database = await inspectDatabase(env, checks);
   const provider = {
@@ -497,7 +622,8 @@ export async function runNexusCloudRuntimePreflight(
     writeReleased: providerConfigValid,
     oauthSecretConfigured: oauth.configured,
     oauthSecretSchemaValid: oauth.schemaValid,
-    providerNetworkProbePerformed: false as const,
+    providerNetworkProbePerformed,
+    providerNetworkProbePassed,
   };
 
   const hasBlocker = checks.some((check) => check.state === "BLOCKED");
