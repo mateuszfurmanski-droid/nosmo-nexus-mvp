@@ -16,6 +16,7 @@ export type NexusAndroidEvidenceSource = 'PHOTO' | 'DOCUMENT';
 export type NexusAndroidEvidenceTransferState =
   | 'PENDING_CANONICAL_CLOUD_ENDPOINT'
   | 'READY_FOR_AUTHORISED_TRANSFER'
+  | 'RESELECTION_REQUIRED'
   | 'TRANSFER_CONFIRMED'
   | 'FAILED_RETRYABLE';
 
@@ -24,9 +25,14 @@ export type NexusAndroidEvidenceTransferState =
  * Canonical pending-asset schema value remains `nexus-cloud-pending-asset/v2`; this
  * contract imports the shared constant instead of redefining that protocol.
  *
+ * `RESELECTION_REQUIRED` is device-local transport recovery only: the previously
+ * user-selected content URI can no longer be read and the user must explicitly choose
+ * the original evidence again. It does not create a new metadata handoff, Person binding,
+ * Project World binding, permission grant or Cloud receipt.
+ *
  * The device-local content URI is deliberately absent. An Android transport adapter may
- * open that URI locally and stream the selected bytes only to the future authenticated
- * canonical Cloud multipart endpoint. It must never serialize the URI as Nexus authority.
+ * open that URI locally and stream the selected bytes only to the authenticated canonical
+ * Cloud multipart endpoint. It must never serialize the URI as Nexus authority.
  */
 export interface NexusAndroidEvidenceTransferRequest {
   schema: typeof NEXUS_ANDROID_EVIDENCE_TRANSFER_SCHEMA;
