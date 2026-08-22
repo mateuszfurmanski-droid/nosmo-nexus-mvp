@@ -1,8 +1,7 @@
 (() => {
   const CONFIG_KEY = "nexusWorkWalletOverlayConfig";
   const ALLOWED_API_BASES = new Set([
-    "http://127.0.0.1:3000",
-    "https://nosmotechnology.co.uk"
+    "http://127.0.0.1:3000"
   ]);
   const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 
