@@ -24,6 +24,8 @@ export type NexusFabStationProcessingFilterRecommendation =
 export type NexusFabStationRevisionHandoffIssueCode =
   | 'IFC_COMPARISON_BLOCKED'
   | 'OBJECT_SCOPE_MISMATCH'
+  | 'REVISION_LABEL_MISMATCH'
+  | 'CURRENT_IFC_PACKAGE_MISMATCH'
   | 'KSS_OBSERVATION_BLOCKED'
   | 'KSS_ASSEMBLY_MISMATCH'
   | 'CURRENT_KSS_PACKAGE_MISMATCH'
@@ -116,6 +118,28 @@ export const createFabStationRevisionHandoffAdvice = (
     });
   }
 
+  if (comparison.currentRevision !== currentPackagePlan.sourceModelRevision) {
+    issues.push({
+      code: 'REVISION_LABEL_MISMATCH',
+      blocking: true,
+      message: 'The current FabStation package plan revision label must equal the current revision label from the canonical IFC comparison.',
+    });
+  }
+
+  const currentIfcFile = currentPackagePlan.files.find((file) => file.kind === 'IFC');
+  const sourceShaDelta = comparison.diagnosticDeltas.find((delta) => delta.field === 'source-sha256');
+  if (
+    !currentIfcFile ||
+    currentIfcFile.fileName !== comparison.currentSourceFileName ||
+    (sourceShaDelta?.currentValue && currentIfcFile.sha256.toLowerCase() !== sourceShaDelta.currentValue.toLowerCase())
+  ) {
+    issues.push({
+      code: 'CURRENT_IFC_PACKAGE_MISMATCH',
+      blocking: true,
+      message: 'The current package IFC must be the exact current IFC source compared by the canonical revision comparator.',
+    });
+  }
+
   if (previousKss.state !== 'READY' || currentKss.state !== 'READY') {
     issues.push({
       code: 'KSS_OBSERVATION_BLOCKED',
@@ -136,12 +160,13 @@ export const createFabStationRevisionHandoffAdvice = (
   if (
     !currentKssFile ||
     currentKssFile.fileName !== currentKss.fileName ||
-    (currentKss.sourceFileSha256 && currentKssFile.sha256.toLowerCase() !== currentKss.sourceFileSha256.toLowerCase())
+    !currentKss.sourceFileSha256 ||
+    currentKssFile.sha256.toLowerCase() !== currentKss.sourceFileSha256.toLowerCase()
   ) {
     issues.push({
       code: 'CURRENT_KSS_PACKAGE_MISMATCH',
       blocking: true,
-      message: 'The current KSS observation must exactly match the KSS file frozen in the current FabStation package plan.',
+      message: 'The current KSS observation must exactly match the filename and SHA-256 frozen in the current FabStation package plan.',
     });
   }
 
@@ -175,8 +200,7 @@ export const createFabStationRevisionHandoffAdvice = (
     });
   }
 
-  const currentIfcFile = currentPackagePlan.files.find((file) => file.kind === 'IFC');
-  const sourceIfcChanged = comparison.diagnosticDeltas.some((delta) => delta.field === 'source-sha256');
+  const sourceIfcChanged = Boolean(sourceShaDelta);
   const comparisonSignalsChange = comparison.state === 'HUMAN_REVIEW_REQUIRED';
 
   if (
