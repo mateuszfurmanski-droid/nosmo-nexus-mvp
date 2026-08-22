@@ -14,6 +14,7 @@ import {
 const router: IRouter = Router();
 
 const HANDOFF_SCHEMA = "nexus-android-work-mode-context-v1";
+const HANDOFF_RECEIPT_SCHEMA = "nexus-android-work-mode-handoff-receipt/v1";
 const WORK_MODE_INTENT = "ask-nexus";
 const WORK_MODE_AI_CONTEXT = "android-work-discovery-v1";
 const ESAFE_PROJECT_ID = "project-esafe-catania";
@@ -77,6 +78,17 @@ type WorkSuiteDraft = {
 };
 
 type ResolverStatus = "blocked" | "needs-review" | "ready-for-approval";
+type ReceiptStatus = "HANDED_OFF" | "FAILED_RETRYABLE";
+
+type HandoffReceipt = {
+  schema: typeof HANDOFF_RECEIPT_SCHEMA;
+  receiptId: string;
+  projectId: string;
+  worldId: string;
+  selectedItemIds: string[];
+  status: ReceiptStatus;
+  issuedAt: string;
+};
 
 function noStore(res: Response) {
   res.setHeader("Cache-Control", "no-store");
@@ -173,7 +185,7 @@ async function serverIdentity(req: Request): Promise<NexusRuntimeAuthorityIdenti
     return resolveNexusRuntimeIdentity(false);
   }
 
-  // Existing auth.ts stores OIDC `sub` in req.user.id. It is used only as the
+  // Existing auth.ts stores the OIDC `sub` in req.user.id. It is used only as the
   // server-side providerSubject lookup key and is never exposed/promoted to personId.
   return resolveNexusRuntimeIdentity(true, String(req.user.id));
 }
@@ -225,6 +237,8 @@ function buildDraft(envelope: AndroidEnvelope): WorkSuiteDraft {
 function isWorkSuiteDraft(value: unknown): value is WorkSuiteDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const draft = value as Partial<WorkSuiteDraft>;
+  const selectedIds = draft.scope?.selectedItemIds;
+  const sourceTypes = draft.scope?.sourceTypes;
   return (
     typeof draft.draftId === "string" &&
     draft.status === "draft" &&
@@ -237,8 +251,15 @@ function isWorkSuiteDraft(value: unknown): value is WorkSuiteDraft {
     draft.authorityRequired?.moduleEntitlementDecision === true &&
     typeof draft.scope?.projectId === "string" &&
     typeof draft.scope?.worldId === "string" &&
-    Array.isArray(draft.scope?.selectedItemIds) &&
-    Array.isArray(draft.scope?.sourceTypes)
+    draft.scope?.contextVersion === WORK_MODE_AI_CONTEXT &&
+    Array.isArray(selectedIds) &&
+    selectedIds.length > 0 &&
+    selectedIds.length <= MAX_BOOTSTRAP_ITEMS &&
+    selectedIds.every((id) => typeof id === "string" && validItemId(id)) &&
+    new Set(selectedIds).size === selectedIds.length &&
+    Array.isArray(sourceTypes) &&
+    sourceTypes.length > 0 &&
+    sourceTypes.every((source) => typeof source === "string" && allowedSources.has(source))
   );
 }
 
@@ -272,7 +293,7 @@ function deterministicAssistance(envelope: AndroidEnvelope) {
 
 function resolverStatus(
   identity: NexusRuntimeAuthorityIdentity,
-  access?: NexusRuntimeProjectAccessDecision,
+  draftAccess?: NexusRuntimeProjectAccessDecision,
 ): { status: ResolverStatus; reason: string } {
   if (identity.identityState === "UNAUTHENTICATED") {
     return { status: "blocked", reason: "UNAUTHENTICATED" };
@@ -280,35 +301,53 @@ function resolverStatus(
   if (identity.identityState !== "BOUND" || !identity.personId) {
     return { status: "blocked", reason: "IDENTITY_UNBOUND" };
   }
-  if (!access || !access.allowedToProceedToHumanReview) {
-    return { status: "blocked", reason: access?.reason ?? "PROJECT_ACCESS_REQUIRED" };
+  if (!draftAccess || !draftAccess.allowedToProceedToHumanReview) {
+    return {
+      status: "blocked",
+      reason: draftAccess?.reason ?? "WORKSUITE_REVIEW_PERMISSION_REQUIRED",
+    };
   }
 
   // `ready-for-approval` remains intentionally unreachable until the complete
   // #90 ModuleEntitlement/competence runtime is reconciled. Explicit allow is
   // enough only to enter human review, never to execute a WorkSuite action.
-  return { status: "needs-review", reason: access.reason };
+  return { status: "needs-review", reason: draftAccess.reason };
 }
 
 function permissionPayload(
   identity: NexusRuntimeAuthorityIdentity,
   draft: WorkSuiteDraft,
-  access?: NexusRuntimeProjectAccessDecision,
+  draftAccess?: NexusRuntimeProjectAccessDecision,
 ) {
-  const decision = resolverStatus(identity, access);
+  const decision = resolverStatus(identity, draftAccess);
   return {
     ...decision,
     draftActionId: draft.draftId,
     projectId: draft.scope.projectId,
     worldId: draft.scope.worldId,
     personId: identity.personId,
-    participationId: access?.participationId ?? null,
-    matchingGrantIds: access?.matchingGrantIds ?? [],
-    policyVersion: access?.policyVersion ?? "nexus-runtime-authority-v1",
+    participationId: draftAccess?.participationId ?? null,
+    matchingGrantIds: draftAccess?.matchingGrantIds ?? [],
+    policyVersion: draftAccess?.policyVersion ?? "nexus-runtime-authority-v1",
     mutationExecution: false,
     approvalExecuted: false,
     graphMutation: false,
     fileWrite: false,
+  };
+}
+
+function buildHandoffReceipt(
+  envelope: AndroidEnvelope,
+  status: ReceiptStatus,
+): HandoffReceipt {
+  return {
+    schema: HANDOFF_RECEIPT_SCHEMA,
+    receiptId: randomBytes(16).toString("hex"),
+    projectId: envelope.projectId,
+    worldId: envelope.worldId,
+    selectedItemIds: [...envelope.selectedItemIds],
+    status,
+    issuedAt: new Date().toISOString(),
   };
 }
 
@@ -348,7 +387,7 @@ function renderBootstrap(res: Response, envelope: AndroidEnvelope) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NEXUS Android Work Mode handoff</title>
 <style nonce="${nonce}">
-body{margin:0;background:#04101f;color:#eef7ff;font-family:system-ui,sans-serif;padding:24px}main{max-width:760px;margin:auto}h1{font-size:28px}p{color:#9ab5cf}pre{white-space:pre-wrap;background:#0a223f;padding:16px;border-radius:12px;overflow:auto}.status{color:#48cdff;font-weight:700}
+body{margin:0;background:#04101f;color:#eef7ff;font-family:system-ui,sans-serif;padding:24px}main{max-width:760px;margin:auto}h1{font-size:28px}p{color:#9ab5cf}pre{white-space:pre-wrap;background:#0a223f;padding:16px;border-radius:12px;overflow:auto}.status{color:#48cdff;font-weight:700}a{display:inline-block;margin-top:14px;padding:12px 16px;border-radius:10px;background:#47dea1;color:#001522;text-decoration:none;font-weight:700}a[hidden]{display:none}
 </style>
 </head>
 <body><main>
@@ -356,12 +395,31 @@ body{margin:0;background:#04101f;color:#eef7ff;font-family:system-ui,sans-serif;
 <p class="status" id="status">Authenticated handoff received. Validating Person + Project World access…</p>
 <p>Android supplied approved metadata only. No local URI, raw photo/document content, provider credential or Person authority is present in this page.</p>
 <pre id="result">Submitting bounded context…</pre>
+<a id="return-link" hidden>Return to Work Mode</a>
 </main>
 <script nonce="${nonce}">
 const envelope=${serialized};
+const statusNode=document.getElementById('status');
+const resultNode=document.getElementById('result');
+const returnLink=document.getElementById('return-link');
+function configureReturn(payload, responseOk){
+  const receipt=payload&&payload.handoffReceipt&&typeof payload.handoffReceipt==='object'
+    ?payload.handoffReceipt:null;
+  const callbackStatus=responseOk&&receipt&&receipt.status==='HANDED_OFF'
+    ?'HANDED_OFF':'FAILED_RETRYABLE';
+  const params=new URLSearchParams({
+    status:callbackStatus,
+    projectId:envelope.projectId,
+    worldId:envelope.worldId,
+    selectedItemIds:envelope.selectedItemIds.join(','),
+  });
+  if(receipt&&typeof receipt.receiptId==='string'){
+    params.set('receiptId',receipt.receiptId);
+  }
+  returnLink.href='nosmo-nexus-workmode://handoff-result?'+params.toString();
+  returnLink.hidden=false;
+}
 (async()=>{
-  const status=document.getElementById('status');
-  const result=document.getElementById('result');
   try {
     const response=await fetch('/api/nexus/work-mode-ai/context',{
       method:'POST',
@@ -370,13 +428,21 @@ const envelope=${serialized};
       body:JSON.stringify(envelope),
     });
     const payload=await response.json();
-    status.textContent=payload.permission?.status==='needs-review'
-      ?'Context accepted — WorkSuite draft requires human review'
-      :'Handoff blocked by Nexus authority boundary';
-    result.textContent=JSON.stringify(payload,null,2);
+    if(response.ok&&payload.permission?.status==='needs-review'){
+      statusNode.textContent='Context handed off — WorkSuite draft requires human review';
+    }else if(response.ok&&payload.permission?.status==='blocked'){
+      statusNode.textContent='Context handed off — WorkSuite draft is blocked by permission';
+    }else if(response.ok){
+      statusNode.textContent='Context handed off — review Nexus decision';
+    }else{
+      statusNode.textContent='Handoff blocked by Nexus authority boundary';
+    }
+    resultNode.textContent=JSON.stringify(payload,null,2);
+    configureReturn(payload,response.ok);
   } catch {
-    status.textContent='Handoff failed — retry is safe';
-    result.textContent='No server confirmation was received. Android must keep this handoff pending.';
+    statusNode.textContent='Handoff failed — retry is safe';
+    resultNode.textContent='No server confirmation was received. Android must keep this handoff retryable.';
+    configureReturn(null,false);
   }
 })();
 </script></body></html>`);
@@ -423,6 +489,7 @@ router.get("/nexus/work-mode-ai/status", (_req: Request, res: Response) => {
     service: "nexus-work-mode-ai-boundary",
     contextVersion: WORK_MODE_AI_CONTEXT,
     handoffSchema: HANDOFF_SCHEMA,
+    handoffReceiptSchema: HANDOFF_RECEIPT_SCHEMA,
     modelExecution: "disabled-demo-boundary",
     contentRecognition: "requires-authorised-content-transfer",
     identityBindingMode: getNexusIdentityBindingMode(),
@@ -446,6 +513,7 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
 
     if (identity.identityState !== "BOUND" || !identity.personId) {
       const permission = permissionPayload(identity, draftAction);
+      const handoffReceipt = buildHandoffReceipt(envelope, "FAILED_RETRYABLE");
       noStore(res);
       res.status(403).json({
         status: "blocked",
@@ -456,25 +524,29 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
         projectMemoryRead: false,
         projectMemoryMutation: false,
         identity,
+        handoffAccess: null,
+        draftAccess: null,
         result: null,
         draftAction,
         permission,
+        handoffReceipt,
         handoffState: "PENDING_SERVER_CONFIRMATION",
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
-    const access = await resolveNexusRuntimeProjectAccess(
+    const handoffAccess = await resolveNexusRuntimeProjectAccess(
       identity.personId,
       envelope.projectId,
       envelope.worldId,
       WORK_MODE_MODULE_ID,
       HANDOFF_ACTION_KEY,
     );
-    const permission = permissionPayload(identity, draftAction, access);
 
-    if (!access.allowedToProceedToHumanReview) {
+    if (!handoffAccess.allowedToProceedToHumanReview) {
+      const permission = permissionPayload(identity, draftAction);
+      const handoffReceipt = buildHandoffReceipt(envelope, "FAILED_RETRYABLE");
       noStore(res);
       res.status(403).json({
         status: "blocked",
@@ -485,10 +557,12 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
         projectMemoryRead: false,
         projectMemoryMutation: false,
         identity,
-        access,
+        handoffAccess,
+        draftAccess: null,
         result: null,
         draftAction,
         permission,
+        handoffReceipt,
         handoffState: "PENDING_SERVER_CONFIRMATION",
         timestamp: new Date().toISOString(),
       });
@@ -496,9 +570,19 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
     }
 
     const result = deterministicAssistance(envelope);
+    const draftAccess = await resolveNexusRuntimeProjectAccess(
+      identity.personId,
+      envelope.projectId,
+      envelope.worldId,
+      WORK_MODE_MODULE_ID,
+      WORKSUITE_REVIEW_ACTION_KEY,
+    );
+    const permission = permissionPayload(identity, draftAction, draftAccess);
+    const handoffReceipt = buildHandoffReceipt(envelope, "HANDED_OFF");
+
     noStore(res);
     res.json({
-      status: "accepted-for-review",
+      status: "accepted",
       service: "nexus-work-mode-ai-boundary",
       handoffSchema: HANDOFF_SCHEMA,
       nexusAiContext: WORK_MODE_AI_CONTEXT,
@@ -506,11 +590,13 @@ router.post("/nexus/work-mode-ai/context", async (req: Request, res: Response) =
       projectMemoryRead: false,
       projectMemoryMutation: false,
       identity,
-      access,
+      handoffAccess,
+      draftAccess,
       result,
       draftAction,
       permission,
-      handoffState: "HANDED_OFF_FOR_REVIEW",
+      handoffReceipt,
+      handoffState: "HANDED_OFF",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -562,10 +648,10 @@ router.post("/nexus/worksuite/draft-actions/validate", async (req: Request, res:
 
   try {
     const identity = await serverIdentity(req);
-    let access: NexusRuntimeProjectAccessDecision | undefined;
+    let draftAccess: NexusRuntimeProjectAccessDecision | undefined;
 
     if (identity.identityState === "BOUND" && identity.personId) {
-      access = await resolveNexusRuntimeProjectAccess(
+      draftAccess = await resolveNexusRuntimeProjectAccess(
         identity.personId,
         draft.scope.projectId,
         draft.scope.worldId,
@@ -574,13 +660,13 @@ router.post("/nexus/worksuite/draft-actions/validate", async (req: Request, res:
       );
     }
 
-    const decision = permissionPayload(identity, draft, access);
+    const decision = permissionPayload(identity, draft, draftAccess);
     noStore(res);
     res.status(decision.status === "blocked" ? 403 : 200).json({
       status: "validated",
       service: "worksuite-draft-permission-resolver",
       identity,
-      access: access ?? null,
+      draftAccess: draftAccess ?? null,
       draftAction: draft,
       decision,
       mutationExecution: false,
