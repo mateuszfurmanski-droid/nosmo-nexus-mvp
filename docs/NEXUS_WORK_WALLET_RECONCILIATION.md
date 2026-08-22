@@ -1,11 +1,12 @@
 # NOSMO Nexus — Work Wallet Reconciliation
 
-Status: SLICE_A_B_IMPLEMENTED / RUNTIME_RECONCILIATION_PENDING
+Status: SLICE_A_B_C_IMPLEMENTED / IDENTITY_ACCESS_TICKET_RECONCILIATION_PENDING
 Foundation: PR #90 / `codex/nexus-mvp-modular-foundation`
 Integration branches:
 
 - Slice A: `codex/work-wallet-reconcile-slice-a`
 - Slice B: `codex/work-wallet-reconcile-slice-b`
+- Slice C: `codex/work-wallet-reconcile-slice-c-runtime`
 
 Audit baseline: `35a6757ce19fe590754fb7ad13ed48a68cb51705`
 
@@ -34,13 +35,15 @@ This reconciliation does not modify:
 
 PR #90 already contains the canonical connector catalogue and Project Memory connector/object-mapping schemas. It also contains the Phase 14 auth/identity reconciliation boundary.
 
-The current foundation inherits one historical Work Wallet gateway module at:
+The foundation inherits one historical Work Wallet gateway module at:
 
 `scripts/src/work-wallet-api.mjs`
 
-It does not contain the PKG-015 `work-wallet-context.mjs`, PKG-016 Context Ticket runtime, or `tools/nexus-overlay-extension` package.
+Before Slice C, deployment topology was split: `.replit` ran `serve-nexus`, which owned the SPA and Work Wallet gateway but did not own the existing OIDC/auth middleware, while `artifacts/api-server` owned OIDC/auth but was not the configured public runtime. This topology would make an authenticated browser Context Ticket unsafe to add because gateway and Nexus session authority would not share one public runtime.
 
-Therefore the correct reconciliation direction is:
+The foundation still does not contain the PKG-016 Context Ticket runtime or `tools/nexus-overlay-extension` package.
+
+The reconciliation direction remains:
 
 `#90 canonical contracts -> adapt existing donor runtime -> keep one gateway/context/auth path`
 
@@ -102,9 +105,24 @@ Implemented:
 6. `nexusNodeId` is never inferred from an external Work Wallet reference.
 7. `developmentContext` is derived from verification source and the external capability label remains attached to the sanitized context.
 
-Slices A/B intentionally do not create a second gateway, overlay, Person resolver, Project Participation model, connector registry, auth implementation or Context Ticket authority.
+## Slice C — one authenticated public runtime topology
 
-## Donor correction required before runtime port
+Implemented by reconciling the validated PR #57 / #60 runtime topology rather than introducing a second server:
+
+1. `.replit` now proposes building the existing Nexus web app and existing `@workspace/api-server`, then running that API server as the one public runtime.
+2. The Express runtime serves the SPA/history fallback and preserves API-route separation.
+3. The existing `scripts/src/work-wallet-api.mjs` remains the only Work Wallet gateway; it is loaded through a small runtime bridge rather than copied.
+4. The Work Wallet gateway middleware is mounted before generic `express.json()` so its existing bounded raw-body ownership is preserved.
+5. Existing Nexus `authMiddleware` remains the session/auth implementation in the same public runtime; no second OIDC/session stack is created.
+6. Global credentialed CORS is no longer reflective. Cross-origin browser access is exact-allowlist only, including exact reviewed Chromium extension origins.
+7. Security headers previously present in `serve-nexus` are preserved in the Express runtime.
+8. CI definition now targets the proposed runtime topology: web build + API build + unified runtime smoke + Work Wallet event/idempotency smoke + exact-origin CORS smoke.
+
+Important limitation: Slice C only unifies topology. It does not claim canonical Person binding, canonical Project Participation authorization or Context Ticket availability yet. Existing auth proves a Nexus browser session only. Ticket issuance remains blocked until #55/#56/#59 semantics are reconciled to current #90 access authority.
+
+Slices A/B/C intentionally do not create a second gateway, overlay, Person resolver, Project Participation model, connector registry, auth implementation or Context Ticket authority.
+
+## Donor correction required before ticket port
 
 The historical PKG-015 server mapping key used `project + external reference` for `nexusNodeId` resolution. That is weaker than the current required contract.
 
@@ -114,19 +132,38 @@ The reconciled server path must use:
 
 Only after canonical object resolution may an existing graph projection determine an appropriate Relationship Tree node/focus. A Work Wallet external ID must never be used directly as a Nexus Object/Node ID.
 
+The historical PR #56 authorization rule also cannot be restored unchanged. The current #90 authority is:
+
+`authenticated session -> exact canonical Person binding -> active Project Participation -> explicit permission/policy decision -> allowed connector action`
+
+Active participation by itself is not permission.
+
 ## Next runtime slices
 
-### Slice C — gateway + auth/access/ticket reconciliation
+### Slice D — Person + access + Context Ticket reconciliation
 
-Reuse `scripts/src/work-wallet-api.mjs` as the only gateway. Reconcile the server-side PKG-015 context intake from #58 with the Slice A/B contracts rather than restoring the old environment node-map as authority.
+Reconcile #54-#61 into the current #90 semantics without creating another Person or access authority. Provider identity -> canonical Person remains server-owned. Historical persistence may be used only as an adapter into #90 Person/Participation/Grant semantics. Require an explicit canonical #90 `allowed` access decision at ticket issue and exchange.
 
-Port/reconcile #54-#61 into the #90 runtime semantics. Provider identity -> canonical Person remains server-owned. Convert historical Project Participation persistence into #90 access inputs. Require an explicit canonical #90 allow decision at ticket issue and exchange. Preserve short TTL, single use, exact origins, no URL ticket, no persistent raw-ticket storage, no browser integration secret and no retry after consumption.
+Preserve from #59/#60/#61:
 
-### Slice D — browser client reconciliation
+- short opaque ticket;
+- 60-second TTL unless a later security review tightens it;
+- single-use atomic consumption;
+- digest-only persistence;
+- exact purpose/adapter/scope;
+- same-origin issue;
+- exact reviewed exchange origin;
+- origin rejection before consumption;
+- no ticket in URL;
+- no raw ticket in logs or persistent browser storage;
+- no browser integration secret;
+- current access re-check at exchange.
+
+### Slice E — browser client reconciliation
 
 Use the #18 -> #52 -> #63 extension lineage as the only overlay. Preserve Manifest V3, Shadow DOM, exact host permissions, route-clears-stale-context behavior and memory-only ticket handling. The extension must consume the same `nexus-work-wallet-context/v1` schema emitted by the server, including canonical object identity when present.
 
-### Slice E — browser E2E
+### Slice F — browser E2E
 
 Required labels:
 
@@ -134,7 +171,7 @@ Required labels:
 - Edge unpacked: PASS or explicit PENDING.
 - Real `portal.work-wallet.com`: no LIVE claim without authorised access and vendor/customer permission.
 
-### Slice F — official API readiness
+### Slice G — official API readiness
 
 Work Wallet public support currently exposes an Integrations API area, API-key creation with permission selection, and Zapier events. Before an official Nexus API adapter is implemented, obtain authorised customer/vendor documentation defining endpoints, scopes, rate limits, data model, webhook/event semantics, test environment and allowed use. Keep Work Wallet as source-of-record for its formal records and keep external writes disabled by default.
 

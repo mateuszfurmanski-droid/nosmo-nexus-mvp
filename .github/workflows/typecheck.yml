@@ -44,12 +44,16 @@ jobs:
           BASE_PATH: /
         run: pnpm --filter @workspace/nosmo-nexus build
 
-      - name: Smoke test production server, routes and Work Wallet API
+      - name: Build canonical Nexus API runtime
+        run: pnpm --filter @workspace/api-server build
+
+      - name: Smoke unified Nexus runtime and Work Wallet gateway
         env:
           PORT: 3000
           WORK_WALLET_DEMO_MODE: "true"
+          NEXUS_CORS_ALLOWED_ORIGINS: "https://nexus-ci.example"
         run: |
-          pnpm --filter @workspace/scripts serve-nexus > /tmp/nexus-server.log 2>&1 &
+          pnpm --filter @workspace/api-server start > /tmp/nexus-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/nexus-server.log' EXIT
 
@@ -103,6 +107,24 @@ jobs:
           curl --fail --silent --show-error \
             http://127.0.0.1:3000/api/integrations/work-wallet/demo-events \
             | grep 'ci-work-wallet-event-001' > /dev/null
+
+          allowed_origin=$(curl --silent --show-error --request OPTIONS \
+            --header 'Origin: https://nexus-ci.example' \
+            --header 'Access-Control-Request-Method: GET' \
+            --dump-header - --output /dev/null \
+            http://127.0.0.1:3000/api/healthz \
+            | tr -d '\r' \
+            | grep -i '^Access-Control-Allow-Origin:' || true)
+          test "$allowed_origin" = "Access-Control-Allow-Origin: https://nexus-ci.example"
+
+          blocked_origin=$(curl --silent --show-error --request OPTIONS \
+            --header 'Origin: https://evil.example' \
+            --header 'Access-Control-Request-Method: GET' \
+            --dump-header - --output /dev/null \
+            http://127.0.0.1:3000/api/healthz \
+            | tr -d '\r' \
+            | grep -i '^Access-Control-Allow-Origin:' || true)
+          test -z "$blocked_origin"
 
       - name: Upload Nexus build
         uses: actions/upload-artifact@v4
