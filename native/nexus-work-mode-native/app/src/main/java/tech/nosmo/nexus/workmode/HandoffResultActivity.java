@@ -18,14 +18,15 @@ import java.util.Set;
  *
  * This callback changes device-local queue state only. It is not an authentication,
  * Person-binding, Project Participation or WorkSuite authority source. Server authority
- * remains entirely inside Nexus. A success callback requires a server-generated receipt
- * and can only update candidates that are already PENDING_SERVER_CONFIRMATION.
+ * remains entirely inside Nexus. A callback must match the locally generated one-flight
+ * handoffRequestId plus the exact pending candidate set and Project World.
  */
 public final class HandoffResultActivity extends Activity {
     private static final String PREFS = "nexus_work_mode_v060";
     private static final String PREF_QUEUE = "approvalQueue";
     private static final String PREF_PROJECT_ID = "projectId";
     private static final String PREF_WORLD_ID = "worldId";
+    private static final String PREF_PENDING_HANDOFF_REQUEST_ID = "pendingHandoffRequestId";
     private static final String PREF_LAST_RECEIPT_ID = "lastHandoffReceiptId";
     private static final String PREF_LAST_RECEIPT_AT = "lastHandoffReceiptAt";
 
@@ -55,6 +56,7 @@ public final class HandoffResultActivity extends Activity {
         }
 
         String status = safe(data.getQueryParameter("status"));
+        String handoffRequestId = safe(data.getQueryParameter("handoffRequestId"));
         String receiptId = safe(data.getQueryParameter("receiptId"));
         String projectId = safe(data.getQueryParameter("projectId"));
         String worldId = safe(data.getQueryParameter("worldId"));
@@ -64,7 +66,10 @@ public final class HandoffResultActivity extends Activity {
             returnToWorkMode("Ignored invalid handoff status", true);
             return;
         }
-
+        if (!isRequestId(handoffRequestId)) {
+            returnToWorkMode("Ignored callback without a valid handoff request", true);
+            return;
+        }
         if (STATUS_HANDED_OFF.equals(status) && !isReceiptId(receiptId)) {
             returnToWorkMode("Ignored handoff without a valid server receipt", true);
             return;
@@ -79,6 +84,12 @@ public final class HandoffResultActivity extends Activity {
         }
 
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String expectedRequestId = prefs.getString(PREF_PENDING_HANDOFF_REQUEST_ID, "");
+        if (!handoffRequestId.equals(expectedRequestId)) {
+            returnToWorkMode("Ignored stale or unsolicited handoff callback", true);
+            return;
+        }
+
         String currentProjectId = prefs.getString(PREF_PROJECT_ID, "");
         String currentWorldId = prefs.getString(PREF_WORLD_ID, "");
         if (!projectId.equals(currentProjectId) || !worldId.equals(currentWorldId)) {
@@ -92,36 +103,30 @@ public final class HandoffResultActivity extends Activity {
                     ? STATUS_HANDED_OFF
                     : STATUS_FAILED_RETRYABLE;
 
-            Set<String> matched = new LinkedHashSet<>();
+            Set<String> pendingIds = new LinkedHashSet<>();
             for (int i = 0; i < queue.length(); i++) {
                 JSONObject item = queue.getJSONObject(i);
-                String id = safe(item.optString("id", ""));
-                if (!selectedItemIds.contains(id)) continue;
-
-                String currentState = safe(item.optString("handoffState", "LOCAL_ONLY"));
-                boolean compatible = PENDING.equals(currentState) || targetState.equals(currentState);
-                if (!compatible) {
-                    returnToWorkMode("Receipt does not match the pending local queue", true);
-                    return;
+                if (PENDING.equals(item.optString("handoffState", "LOCAL_ONLY"))) {
+                    pendingIds.add(safe(item.optString("id", "")));
                 }
-                matched.add(id);
             }
 
-            if (!matched.equals(selectedItemIds)) {
-                returnToWorkMode("Receipt item set does not match the pending local queue", true);
+            if (!pendingIds.equals(selectedItemIds)) {
+                returnToWorkMode("Receipt item set does not match the exact pending batch", true);
                 return;
             }
 
             for (int i = 0; i < queue.length(); i++) {
                 JSONObject item = queue.getJSONObject(i);
                 String id = safe(item.optString("id", ""));
-                if (!selectedItemIds.contains(id)) continue;
-                if (PENDING.equals(item.optString("handoffState", "LOCAL_ONLY"))) {
+                if (selectedItemIds.contains(id) && PENDING.equals(item.optString("handoffState", "LOCAL_ONLY"))) {
                     item.put("handoffState", targetState);
                 }
             }
 
-            SharedPreferences.Editor editor = prefs.edit().putString(PREF_QUEUE, queue.toString());
+            SharedPreferences.Editor editor = prefs.edit()
+                    .putString(PREF_QUEUE, queue.toString())
+                    .remove(PREF_PENDING_HANDOFF_REQUEST_ID);
             if (!receiptId.isEmpty()) {
                 editor.putString(PREF_LAST_RECEIPT_ID, receiptId)
                         .putLong(PREF_LAST_RECEIPT_AT, System.currentTimeMillis());
@@ -147,10 +152,14 @@ public final class HandoffResultActivity extends Activity {
         if (values.length > 20) return new LinkedHashSet<>();
         for (String raw : values) {
             String value = safe(raw);
-            if (!value.matches("[0-9a-fA-F-]{36}")) return new LinkedHashSet<>();
+            if (!isRequestId(value)) return new LinkedHashSet<>();
             ids.add(value);
         }
         return ids.size() == values.length ? ids : new LinkedHashSet<>();
+    }
+
+    private boolean isRequestId(String value) {
+        return value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     }
 
     private boolean isReceiptId(String value) {
