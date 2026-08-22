@@ -19,6 +19,10 @@
         </activity>
 
         <activity
+            android:name=".CloudEvidenceActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".HandoffResultActivity"
             android:exported="true"
             android:noHistory="true"
