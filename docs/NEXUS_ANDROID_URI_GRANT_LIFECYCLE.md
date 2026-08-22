@@ -1,6 +1,6 @@
 # NEXUS Android — persisted URI grant lifecycle
 
-Status: design/security rule for PR #96 Android Work Mode.
+Status: implemented security rule for PR #96 Android Work Mode.
 
 ## Scope
 
@@ -18,7 +18,7 @@ The canonical Android evidence path remains:
 
 `local picker URI -> future authenticated Nexus Cloud multipart endpoint -> cloud.file.write access decision -> provider write -> canonical persistence receipt`
 
-Therefore automatically calling `releasePersistableUriPermission(...)` when metadata becomes `HANDED_OFF` would be incorrect: it could destroy the only durable local read capability before the future authorised binary transfer occurs.
+Therefore automatically calling `releasePersistableUriPermission(...)` when metadata becomes `HANDED_OFF` would be incorrect: it could destroy the durable local read capability before the future authorised binary transfer occurs.
 
 ## Canonical lifecycle rule
 
@@ -40,44 +40,53 @@ Grant retention:
 
 Grant release:
 
-- must occur when the user explicitly removes the local candidate;
-- may occur after a future canonical Cloud binary transfer is independently confirmed **and** the user/local retention policy says the device copy is no longer required;
-- must not be triggered merely by metadata handoff receipt;
-- must not be triggered by WorkSuite review status;
-- must not be triggered by Project Graph/Timeline projection.
+- occurs on explicit local candidate removal when the exact URI is no longer referenced by another local candidate;
+- may occur later after a canonical Cloud binary transfer is independently confirmed and local retention policy says device access is no longer needed;
+- is not triggered merely by metadata handoff receipt;
+- is not triggered by WorkSuite review status;
+- is not triggered by Project Graph/Timeline projection.
 
-## Local removal semantics
+## Implemented local removal semantics
 
-Future `Remove local candidate` behavior must be device-local only:
+`Remove local candidate` is device-local only:
 
-1. reject removal while that candidate is `PENDING_SERVER_CONFIRMATION` unless the active handoff is first recovered/cancelled to `FAILED_RETRYABLE`;
-2. for a `content://` reference, attempt `releasePersistableUriPermission(uri, FLAG_GRANT_READ_URI_PERMISSION)`;
-3. tolerate providers that never granted persistable access;
-4. remove the candidate and local URI reference from SharedPreferences;
-5. do not delete or mutate any Nexus Project Memory record, Cloud object, WorkSuite record, Person record, Timeline event or Project Graph node;
-6. do not interpret local removal as revocation of any server-side record.
+1. removal is rejected while that candidate is `PENDING_SERVER_CONFIRMATION`; the active handoff must first complete or be explicitly recovered to `FAILED_RETRYABLE`;
+2. removal requires an explicit confirmation dialog;
+3. a `HANDED_OFF` item gets an additional warning that Nexus accepted metadata but raw bytes may still be local-only;
+4. for a `content://` reference, the app checks the exact persisted read grant and calls `releasePersistableUriPermission(uri, FLAG_GRANT_READ_URI_PERMISSION)` only for that exact URI;
+5. if another candidate still references the same exact local URI, the persisted grant is retained;
+6. providers that never granted persistable access are tolerated;
+7. the candidate and its local URI reference are removed from SharedPreferences;
+8. no Nexus Project Memory record, Cloud object, WorkSuite record, Person record, Timeline event or Project Graph node is deleted or mutated;
+9. local removal is not interpreted as revocation of any server-side record.
 
 ## Folder grants
 
-A folder selected through `ACTION_OPEN_DOCUMENT_TREE` may carry prefix access. Local removal must release only the exact persisted URI permission held by this Work Mode candidate. No recursive file deletion is permitted.
+A folder selected through `ACTION_OPEN_DOCUMENT_TREE` may carry prefix access. Local removal releases only the exact persisted tree URI permission held by the candidate. No recursive file deletion or child enumeration is permitted.
 
 ## Photo Picker
 
-Modern Android Photo Picker references may not use the same persistable-document grant semantics. Release logic must therefore be best-effort and must not assume every `PHOTO` candidate owns a persisted grant.
+Modern Android Photo Picker references may not use persistable-document grant semantics. Release is therefore best-effort: the app only releases a grant when the exact URI appears in Android's persisted URI permission list.
 
 ## Failure / corruption
 
-If a persisted grant cannot be released because the provider no longer exposes it, the local candidate may still be removed. Failure to release must not become a server-side Nexus mutation or permission decision.
+If a persisted grant cannot be released because the provider no longer exposes it, the local candidate may still be removed. Failure to release does not become a server-side Nexus mutation or permission decision.
 
-The app must not enumerate and revoke unrelated persisted URI grants merely to repair a corrupt Work Mode queue.
+The app never revokes unrelated persisted URI grants to repair a Work Mode queue.
 
 ## Current implementation truth
 
-PR #96 currently acquires persistable read access where the picker/provider permits it.
+PR #96 now implements:
 
-Automatic release on `HANDED_OFF` is intentionally **not implemented** because raw canonical Cloud transfer is still pending.
+- persistable read acquisition where the picker/provider permits it;
+- explicit local candidate removal;
+- `PENDING_SERVER_CONFIRMATION` removal block;
+- extra warning for `HANDED_OFF` metadata-only items;
+- duplicate-local-reference protection;
+- targeted exact-URI persisted read release;
+- device-local removal with zero server-side deletion semantics.
 
-An explicit local candidate removal control with targeted grant release remains a separate native UI hardening slice.
+Automatic release on `HANDED_OFF` remains intentionally **not implemented** because raw canonical Cloud transfer is still pending.
 
 ## Protected boundaries
 
