@@ -220,9 +220,11 @@ const buildWriteIdentity = (plan, idempotencyKey, contentSha256) => {
 };
 
 const findExistingWrite = async (plan, identity, accessToken, fetchImpl) => {
-  const folder = escapeDriveQueryValue(plan.providerTargetId);
   const key = escapeDriveQueryValue(identity.keyHash);
-  const q = `'${folder}' in parents and trashed = false and appProperties has { key='nexusWriteIdentity' and value='${key}' }`;
+  // Search the accessible Drive namespace by private write identity, not only the
+  // currently requested folder. Otherwise the same idempotency key reused with a
+  // different semantic target could bypass conflict detection and create a second file.
+  const q = `trashed = false and appProperties has { key='nexusWriteIdentity' and value='${key}' }`;
   const params = new URLSearchParams({
     q,
     spaces: "drive",
@@ -251,6 +253,13 @@ const findExistingWrite = async (plan, identity, accessToken, fetchImpl) => {
     fail(
       "NEXUS_CLOUD_GOOGLE_DRIVE_IDEMPOTENCY_CONFLICT",
       "Idempotency key was already used for different content or scope",
+    );
+  }
+
+  if (!Array.isArray(existing.parents) || !existing.parents.includes(plan.providerTargetId)) {
+    fail(
+      "NEXUS_CLOUD_GOOGLE_DRIVE_IDEMPOTENCY_TARGET_DRIFT",
+      "Existing idempotent Drive object is no longer in the configured provider target",
     );
   }
 
