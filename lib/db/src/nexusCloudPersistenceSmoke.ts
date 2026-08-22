@@ -34,6 +34,16 @@ const expectError = async (operation: () => Promise<unknown>, expectedMessage: s
   throw new Error(`NEXUS_CLOUD_DB_SMOKE_EXPECTED_${expectedMessage}`);
 };
 
+const expectAnyFailure = async (operation: () => Promise<unknown>, label: string): Promise<void> => {
+  try {
+    await operation();
+  } catch {
+    return;
+  }
+
+  throw new Error(`NEXUS_CLOUD_DB_SMOKE_EXPECTED_FAILURE_${label}`);
+};
+
 const buildInput = (
   workspaceId: number,
   namespace: string,
@@ -132,14 +142,10 @@ export const runNexusCloudPersistenceSmoke = async (
 
     const rollback = buildInput(options.workspaceId, namespace, "rollback");
     rollback.canonicalFileObject = primary.canonicalFileObject;
-    await expectError(
+    await expectAnyFailure(
       () => persistNexusCloudCommit(rollback),
-      "duplicate key value violates unique constraint \"nexus_pm_canonical_objects_pkey\"",
-    ).catch(async (error) => {
-      // PostgreSQL/driver wording is not a stable contract. Any transaction failure is
-      // acceptable here; rollback verification below is the actual assertion.
-      if (!(error instanceof Error)) throw error;
-    });
+      "ROLLBACK_TRIGGER",
+    );
 
     const [rolledBackFile] = await db
       .select({ fileId: nexusPmFilesTable.fileId })
