@@ -20,6 +20,7 @@ export * from './projectMemory';
 export * from './projectMemoryActions';
 export * from './projectMemoryInvariants';
 export * from './projectMemoryStorageInvariants';
+export * from './issueInvariants';
 export * from './ifcIdentityInvariants';
 export * from './ifcSourceIntake';
 export * from './ifcValidationRun';
