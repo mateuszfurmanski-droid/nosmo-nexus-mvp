@@ -18,137 +18,88 @@ File Loader:
 
 `POST /api/nexus/cloud/files`
 
-Server-owned provenance:
-
-`sourceModule = file-loader`
+Server-owned provenance: `file-loader`.
 
 Android Work Mode:
 
 `POST /api/nexus/cloud/android/files`
 
-Server-owned provenance:
+Server-owned provenance: `android-work-mode`.
 
-`sourceModule = android-work-mode`
+Both routes use one shared handler. The client cannot submit or override `sourceModule` in body or headers.
 
-Both routes use the same internal handler, canonical access resolution, semantic routing, Drive writer and Project Memory persistence path. The caller does **not** submit `sourceModule` in the body or headers.
+Required multipart inputs remain `file`, `projectId`, `worldId` and `Idempotency-Key`. Optional provider-neutral classification/trade metadata is unchanged. Maximum binary size remains 25 MiB.
 
-Transport: `multipart/form-data`
+Successful canonical commit responses echo the server-selected `sourceModule`. Android requires `android-work-mode` in that receipt before local `TRANSFER_CONFIRMED`.
 
-Required:
+## Authority path
 
-- file field: `file`;
-- body: `projectId`;
-- body: `worldId`;
-- header: `Idempotency-Key` (16-200 chars, restricted safe character set).
+`mutation origin/Bearer gate`
 
-Optional:
+-> authenticated session/workspace
 
-- `classification`: `inbox | pending_graph_link | classified_by_trade | classified_by_type | audit_only`;
-- `tradeId` when trade classification requires it.
-
-The client does **not** supply source-module provenance, Drive folder/path, connector authority, OAuth/secret values, canonical Person ID, participation, permission grant or access decision.
-
-Maximum binary size is 25 MiB.
-
-Successful canonical commit responses echo the server-selected `sourceModule`. Android Work Mode requires `android-work-mode` in that receipt before it may transition local evidence to `TRANSFER_CONFIRMED`.
-
-## Request authority sequence
-
-`mutation origin gate`
-
--> `authenticated session / workspace`
-
--> `exact provider subject -> canonical Person binding`
+-> exact provider-subject -> canonical Person binding
 
 -> exact ProjectParticipation + PermissionGrant
 
--> canonical `cloud.file.write`
+-> explicit `cloud.file.write`
 
 -> server-owned source provenance
 
--> semantic Project/ProjectWorld Cloud routing
+-> semantic Project/ProjectWorld routing
 
 -> server-only provider mapping
 
 -> Phase 17 provider write plan
 
--> PR #93 Google Drive writer
+-> existing PR #93 Drive writer
 
--> provider-confirmed receipt
+-> provider receipt
 
--> Phase 16 canonical persistence proposal
+-> Phase 16 persistence proposal
 
 -> PR #97 DB input bridge
 
 -> Phase 19 PostgreSQL transaction.
 
-Participation alone grants nothing. Exact explicit allow is required and explicit deny wins.
+Participation alone grants nothing and explicit deny wins.
 
-## CSRF / mobile boundary
+## Provider / OAuth boundary
 
-Cookie-authenticated browser writes require exact same-origin. Production requires `NEXUS_PUBLIC_ORIGIN`.
+`NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON` remains server-only. It maps exact Project World semantic targets to provider folder IDs and references a `NEXUS_SECRET_*` secret; OAuth credential values are not client-visible.
 
-Cross-site requests are rejected before workspace resolution.
+A mapping is not LIVE merely because it exists. `writeEnabled: true`, a valid operator `verifiedAt`, actual OAuth success and provider target verification are still required.
 
-Explicit Bearer session transport remains available for authorised native/mobile clients. Tokens never appear in URL provenance or route selection.
-
-## Server-only Drive runtime mapping
-
-Runtime mapping remains in `NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON` and contains semantic project/world -> provider target mapping plus a `NEXUS_SECRET_*` reference, never OAuth credential values.
-
-A mapping is not LIVE merely because it exists. `writeEnabled: true` and a valid operator `verifiedAt` timestamp are required, and the Drive writer independently verifies OAuth/target access on the real provider request.
-
-## One Drive writer
-
-The API server still delegates to the single existing writer:
-
-`scripts/src/nexus-cloud-google-drive-adapter.mjs`
-
-No second OAuth or Drive network implementation was created for Android.
+The API server does not add a second Drive writer for Android. Both routes delegate to `scripts/src/nexus-cloud-google-drive-adapter.mjs`.
 
 ## Idempotency and recovery
 
-The client supplies one logical `Idempotency-Key`.
+The client supplies one logical `Idempotency-Key`; the server derives the provider operation identity from workspace/project/world plus that key.
 
-The server derives provider operation identity from:
+The same operation deterministically produces `pendingAssetId`, `accessDecisionId` and provider idempotency identity. Reusing the operation with changed content or target is rejected before another sequential provider create.
 
-`workspaceId + projectId + worldId + Idempotency-Key`.
+If Drive succeeds but Project Memory persistence fails, the endpoint returns `PROVIDER_WRITTEN_PERSISTENCE_FAILED`, preserves the real `driveFileId`, marks the operation recoverable and requires retry with the same idempotency key. It never reports a canonical commit in that state.
 
-The same operation deterministically produces `pendingAssetId`, `accessDecisionId` and provider idempotency identity.
+## Remaining production concurrency boundary
 
-Reusing a logical operation with changed content or changed semantic target/folder is rejected before another sequential provider create. Within one server process, same-operation requests are serialized and waiters re-run fingerprint validation.
-
-If Drive succeeds but Project Memory persistence fails, the endpoint returns `PROVIDER_WRITTEN_PERSISTENCE_FAILED`, preserves the real `driveFileId`, reports the operation as recoverable and requires retry with the same idempotency key. It never reports a canonical commit in that state.
-
-## Remaining concurrency boundary
-
-Cross-instance atomic exclusion is **not yet claimed**.
-
-An autoscaled runtime still requires a durable PostgreSQL write-operation ledger/lease before production release so two separate server instances cannot begin the same provider create concurrently.
+Cross-instance atomic exclusion is **not yet claimed**. An autoscaled runtime still needs a durable PostgreSQL write-operation ledger/lease before production release.
 
 ## Prepared validation
 
-The branch prepares:
+The branch prepares source validation for both server-owned provenance routes, stable operation identity, runtime release gates, mock Drive replay/target drift, and disposable PostgreSQL/HTTP smoke checks.
 
-- source topology/provenance validation for File Loader and Android server-owned routes;
-- stable operation identity smoke;
-- server runtime mapping/release-gate smoke;
-- Drive mock-provider smoke including changed-target conflict;
-- disposable CI PostgreSQL schema push only;
-- cross-site mutation rejection and unauthenticated same-origin rejection.
-
-These are prepared checks, not a PASS claim until Actions reaches runner steps.
+These checks are not a PASS claim until GitHub Actions reaches runner steps.
 
 ## External blockers for real E2E
 
 1. server-side Google OAuth refresh-token secret for the pilot Drive owner;
 2. confirmed `nosmo-nexus-mvp` PostgreSQL runtime DB, not the unrelated Data Fetcher DB;
-3. reviewed schema application plus controlled canonical Person/binding/participation/exact Cloud allow bootstrap;
+3. reviewed schema application plus controlled Person/binding/participation/exact Cloud allow bootstrap;
 4. released server target mapping;
 5. durable cross-instance operation ledger;
-6. real authenticated File Loader + Android uploads returning real `driveFileId` and COMMITTED Project Memory transaction;
+6. real authenticated File Loader and Android uploads returning real `driveFileId` plus COMMITTED Project Memory transactions;
 7. provider-success/DB-failure recovery smoke.
 
-## Explicit non-goals
+## Protected surfaces
 
-No Project Graph mutation, UI redesign, Work Wallet/BIM/IFC/FabStation change, Android UI change, DoorFlow/Electrical/Person Card change, PR #91 change, deployment or production DB migration is performed by this slice.
+No PR #91, Object Card, Relationship Tree, File Loader UI, Android UI, Work Wallet, BIM/IFC/FabStation, DoorFlow, Electrical or Person Card redesign/deployment is performed by this slice.
