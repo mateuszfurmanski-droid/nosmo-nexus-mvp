@@ -66,6 +66,7 @@ public final class CloudEvidenceActivity extends Activity {
         addSection(root, "MOBILE SESSION");
         if (NexusMobileSession.hasSession(this)) {
             addBody(root, "Nexus mobile session: ACTIVE · stored encrypted with Android Keystore");
+            addAction(root, "Sign out Nexus mobile session", this::logoutMobileSession, false);
         } else {
             addBody(root, "Nexus mobile session: NOT AUTHENTICATED");
             addAction(root, "Sign in for Cloud evidence upload", this::beginMobileSignIn, true);
@@ -147,6 +148,24 @@ public final class CloudEvidenceActivity extends Activity {
             NexusMobileSession.clearPendingAuthorization(this);
             Toast.makeText(this, "Could not start Nexus mobile sign-in", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void logoutMobileSession() {
+        String origin = configuredNexusOrigin();
+        if (origin.isEmpty()) {
+            Toast.makeText(this, "Nexus HTTPS origin is not configured; server sign-out was not attempted", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Toast.makeText(this, "Signing out Nexus mobile session…", Toast.LENGTH_SHORT).show();
+        NexusMobileSession.logout(
+                getApplicationContext(),
+                origin,
+                (success, message) -> runOnUiThread(() -> {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    render();
+                })
+        );
     }
 
     private void uploadEvidence(String candidateId) {
