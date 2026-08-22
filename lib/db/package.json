@@ -15,7 +15,8 @@
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
     "bootstrap-nexus-identity": "node ./scripts/bootstrap-nexus-person-binding.mjs",
     "preflight-nexus-work-wallet-db": "node ./scripts/verify-nexus-work-wallet-db-target.mjs",
-    "assert-nexus-work-wallet-db": "node ./scripts/verify-nexus-work-wallet-db-target.mjs --assert-safe-dev"
+    "assert-nexus-work-wallet-db": "node ./scripts/verify-nexus-work-wallet-db-target.mjs --assert-safe-dev",
+    "test:nexus-work-wallet-db-preflight": "node ./scripts/test-verify-nexus-work-wallet-db-target.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
