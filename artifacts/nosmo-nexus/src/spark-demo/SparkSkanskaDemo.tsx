@@ -152,7 +152,7 @@ function downloadReport(
   edits: RecordEditAuditEntry[],
   created: CreatedObjectEntry[],
 ) {
-  const blob = new Blob([buildReportCsv(assets, decisions, edits, created)], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\uFEFF", buildReportCsv(assets, decisions, edits, created)], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -160,7 +160,7 @@ function downloadReport(
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 export default function SparkSkanskaDemo() {
