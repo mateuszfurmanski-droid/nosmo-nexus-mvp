@@ -1,6 +1,6 @@
 # Work Wallet Slice O — Server Ticket Orchestration Boundary
 
-Status: `IMPLEMENTED_IN_SOURCE / ISOLATED_SERVICE_VALIDATION_PENDING / DB_E2E_BLOCKED`
+Status: `IMPLEMENTED_IN_SOURCE / ISOLATED_SERVICE_PASS / DB_E2E_BLOCKED`
 
 ## Purpose
 
@@ -93,14 +93,31 @@ Expected marker:
 
 The validator is wired into the normal `Validate and Build` sequence after the bootstrap validator.
 
+## Isolated validation result
+
+The exact Slice O service logic was compiled with TypeScript in a local isolated mirror and executed against controlled dependency stubs. The run completed with:
+
+`WORK_WALLET_CONTEXT_TICKET_SERVICE_PASS`
+
+The isolated run exercised:
+
+- valid issue and verified exchange;
+- replay rejection;
+- unbound identity rejection;
+- access revocation after issue;
+- mapping removal after issue;
+- adapter scope tampering rejected before Project Memory reload.
+
+This is an isolated orchestration PASS. It is not a full workspace build, PostgreSQL, OIDC or browser E2E claim.
+
 ## Validation truth
 
 - GitHub Actions is currently affected by the repository runner-startup failure pattern where jobs terminate with `steps=null` before checkout; such a run is infrastructure-blocked, not a Work Wallet code validation result.
-- direct git clone in the current tool runtime still fails DNS resolution for `github.com`;
-- isolated service validation is therefore pending at the time of this document commit;
-- PostgreSQL schema is not applied;
-- live OIDC/Person binding runtime smoke is pending;
-- Chrome unpacked smoke remains blocked in the current container by browser administrator policy;
+- direct git clone in the current tool runtime still fails DNS resolution for `github.com`.
+- isolated service orchestration: PASS.
+- PostgreSQL schema is not applied.
+- live OIDC/Person binding runtime smoke is pending.
+- Chrome unpacked smoke remains blocked in the current container by browser administrator policy.
 - real authorised Work Wallet portal smoke remains pending.
 
 ## External capability
