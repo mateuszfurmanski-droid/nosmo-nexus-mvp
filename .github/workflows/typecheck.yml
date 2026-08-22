@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate web-ifc production delivery policy
+        run: node scripts/validate-web-ifc-runtime-delivery.mjs
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:

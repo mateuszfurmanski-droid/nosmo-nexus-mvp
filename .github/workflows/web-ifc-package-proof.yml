@@ -1,0 +1,92 @@
+name: Prepare web-ifc package proof
+
+on:
+  pull_request:
+    paths:
+      - 'src/bim/webIfcRuntimeDelivery.ts'
+      - 'scripts/sync-web-ifc-runtime-assets.mjs'
+      - 'scripts/validate-web-ifc-runtime-delivery.mjs'
+      - 'artifacts/nosmo-nexus/package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/web-ifc-package-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-package-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Validate source delivery contract before install
+        run: node scripts/validate-web-ifc-runtime-delivery.mjs
+
+      - name: Install existing workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate exact web-ifc package and lockfile changes
+        run: pnpm --filter @workspace/nosmo-nexus add --save-exact web-ifc@0.0.77
+
+      - name: Sync versioned same-origin runtime assets
+        run: node scripts/sync-web-ifc-runtime-assets.mjs
+
+      - name: Validate generated delivery state
+        run: node scripts/validate-web-ifc-runtime-delivery.mjs
+
+      - name: Typecheck BIM IFC delivery contract
+        run: pnpm run typecheck:bim-ifc
+
+      - name: Build Nexus web application with generated runtime assets
+        env:
+          BASE_PATH: /
+        run: pnpm --filter @workspace/nosmo-nexus build
+
+      - name: Verify generated package proof
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('artifacts/nosmo-nexus/package.json', 'utf8'));
+          const declared = pkg.dependencies?.['web-ifc'] ?? pkg.devDependencies?.['web-ifc'];
+          if (declared !== '0.0.77') throw new Error(`Expected exact web-ifc 0.0.77, found ${declared}`);
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          if (!lock.includes('web-ifc')) throw new Error('Generated pnpm-lock.yaml does not contain web-ifc.');
+          for (const file of [
+            'artifacts/nosmo-nexus/public/vendor/web-ifc/0.0.77/web-ifc-api-iife.js',
+            'artifacts/nosmo-nexus/public/vendor/web-ifc/0.0.77/web-ifc.wasm',
+            'artifacts/nosmo-nexus/public/vendor/web-ifc/0.0.77/LICENSE.md',
+            'artifacts/nosmo-nexus/public/vendor/web-ifc/0.0.77/nexus-web-ifc-runtime.json',
+          ]) {
+            if (!fs.existsSync(file)) throw new Error(`Missing generated runtime asset ${file}`);
+          }
+          NODE
+          git diff --check
+          git diff --binary > web-ifc-package-proof.patch
+
+      - name: Upload generated package proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-ifc-package-proof
+          path: |
+            artifacts/nosmo-nexus/package.json
+            pnpm-lock.yaml
+            artifacts/nosmo-nexus/public/vendor/web-ifc/0.0.77/
+            web-ifc-package-proof.patch
+          if-no-files-found: error
+          retention-days: 3
