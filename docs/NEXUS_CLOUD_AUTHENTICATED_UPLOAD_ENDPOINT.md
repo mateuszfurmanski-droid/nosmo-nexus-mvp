@@ -63,7 +63,7 @@ The client does **not** supply:
 
 Maximum binary size in this first endpoint is 25 MiB.
 
-Successful responses echo the server-selected `sourceModule` so native clients can fail closed if the wrong provenance route is ever reached.
+Successful canonical commit responses echo the server-selected `sourceModule`. Android Work Mode requires `android-work-mode` in that receipt before it may transition local evidence to `TRANSFER_CONFIRMED`.
 
 ## Request authority sequence
 
