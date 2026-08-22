@@ -110,6 +110,19 @@ requireText(cloudUi, 'Wait for the active Cloud upload before leaving this scree
 requireText(cloudUi, 'public void onBackPressed()', 'system back must use the same active-upload navigation lock');
 requireText(cloudUi, 'markEvidenceRetryable', 'preparation/persistence failures must leave evidence retryable');
 
+requireText(cloudUi, 'RESELECTION_REQUIRED', 'expired/revoked local URI access must have an explicit state');
+requireText(cloudUi, 'canReadLocalEvidence', 'Cloud UI must probe local URI readability before upload');
+requireText(cloudUi, 'Re-select original evidence', 'Cloud UI must expose explicit user-driven evidence reselection');
+requireText(cloudUi, 'Intent.ACTION_OPEN_DOCUMENT', 'reselection must use the Android system document picker');
+requireText(cloudUi, 'FLAG_GRANT_PERSISTABLE_URI_PERMISSION', 'reselection must request durable read permission');
+requireText(cloudUi, 'pendingEvidenceReselectionCandidateId', 'reselection must correlate to one local candidate across process recreation');
+requireText(cloudUi, 'EvidenceBindingStore.get(this, candidateId)', 'reselection must retain receipt-bound Project World routing');
+requireText(cloudUi, 'evidenceReselectionCount', 'reselection should leave a local audit counter');
+requireText(cloudUi, 'evidenceReselectedAt', 'reselection should leave a local audit timestamp');
+requireText(cloudUi, 'releasePersistedReadPermissionIfUnused', 'old URI permission must be released only when no other candidate uses it');
+requireText(cloudUi, 'Project World and metadata receipt were not changed', 'reselection must not be presented as a new authority/handoff');
+forbidText(cloudUi, 'EvidenceBindingStore.bindConfirmedMetadata(this, candidateId', 'reselection must not mint a new Project World binding');
+
 requireText(shortcutActivity, 'CloudEvidenceActivity.class', 'launcher shortcut trampoline must only route to local Cloud evidence UI');
 forbidText(shortcutActivity, 'getStringExtra', 'shortcut trampoline must not accept caller authority extras');
 forbidText(shortcutActivity, 'getData()', 'shortcut trampoline must not accept caller routing data');
