@@ -25,6 +25,16 @@ export type {
   WorkWalletVerificationSource,
   WorkWalletVerifiedContextResolution,
 } from './work-wallet/workWalletContextContract';
+export {
+  WORK_WALLET_CONTEXT_MODULE_ID,
+  WORK_WALLET_CONTEXT_READ_ACTION,
+  evaluateWorkWalletTicketEligibility,
+} from './work-wallet/workWalletTicketEligibility';
+export type {
+  WorkWalletTicketEligibility,
+  WorkWalletTicketEligibilityInput,
+  WorkWalletTicketEligibilityReason,
+} from './work-wallet/workWalletTicketEligibility';
 export { bimFabstationConnector } from './bim-fabstation/bimFabstationConnector';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
