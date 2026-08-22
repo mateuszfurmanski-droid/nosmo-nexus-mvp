@@ -10,6 +10,7 @@ on:
       - src/core/android/**
       - src/core/index.ts
       - src/core/permissions/canonicalAccessResolver.ts
+      - artifacts/api-server/scripts/validate-android-authority-fixtures.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
@@ -31,6 +32,7 @@ on:
       - src/core/android/**
       - src/core/index.ts
       - src/core/permissions/canonicalAccessResolver.ts
+      - artifacts/api-server/scripts/validate-android-authority-fixtures.ts
       - artifacts/api-server/src/routes/nexus-android-work-mode.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts
@@ -73,6 +75,13 @@ jobs:
 
       - name: Typecheck Nexus shared authority and API workspace
         run: pnpm run typecheck
+
+      - name: Execute canonical Android authority fixtures
+        run: |
+          pnpm --filter @workspace/api-server exec esbuild scripts/validate-android-authority-fixtures.ts \
+            --bundle --platform=node --format=esm \
+            --outfile=/tmp/nexus-android-authority-fixtures.mjs
+          node /tmp/nexus-android-authority-fixtures.mjs
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -136,6 +145,7 @@ jobs:
           EVIDENCE="src/core/android/androidEvidenceTransferContract.ts"
           ROUTE="artifacts/api-server/src/routes/nexus-android-work-mode.ts"
           URI_LIFECYCLE="docs/NEXUS_ANDROID_URI_GRANT_LIFECYCLE.md"
+          AUTH_FIXTURE="artifacts/api-server/scripts/validate-android-authority-fixtures.ts"
           grep -q "project-esafe-catania" "$MAIN"
           grep -q "world-esafe-catania" "$MAIN"
           grep -q "NEEDS_USER_CONFIRMATION" "$MAIN"
@@ -166,6 +176,9 @@ jobs:
           grep -q "Pending handoff items cannot be removed locally" "$MAIN"
           grep -q "Nexus/Cloud records were not deleted" "$MAIN"
           grep -q "does not automatically release picker access" "$URI_LIFECYCLE"
+          grep -q "participation alone never grants Android handoff" "$AUTH_FIXTURE"
+          grep -q "handoff allow does not authorize WorkSuite review" "$AUTH_FIXTURE"
+          grep -q "explicit deny wins over exact allow" "$AUTH_FIXTURE"
           grep -q "nexus-android-work-mode-context-v1" "$CONTRACT"
           grep -q "nexus-android-work-mode-handoff-receipt/v1" "$CONTRACT"
           grep -q "INVALID_HANDOFF_REQUEST_ID" "$CONTRACT"
