@@ -87,7 +87,8 @@ const requireIdempotencyKey = (req: Request): string => {
 };
 
 const safeOriginalFileName = (file: Express.Multer.File): string => {
-  const candidate = path.basename(file.originalname).trim();
+  const browserNeutralName = file.originalname.replaceAll("\\", "/");
+  const candidate = path.posix.basename(browserNeutralName).trim();
   if (!candidate || candidate.length > 255 || /[\u0000-\u001f\u007f]/.test(candidate)) {
     throw new Error("NEXUS_CLOUD_INVALID_FILE_NAME");
   }
@@ -251,7 +252,7 @@ router.post("/files", parseSingleFile, async (req, res) => {
     providerResult = await writeNexusCloudGoogleDriveRuntime({
       plan: writePlan,
       binary: req.file.buffer,
-      idempotencyKey,
+      idempotencyKey: operation.providerIdempotencyKey,
     });
   } catch (error) {
     const code = providerErrorCode(error);
