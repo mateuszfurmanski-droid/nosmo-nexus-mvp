@@ -7,6 +7,8 @@
     "hello": "tsx ./src/hello.ts",
     "serve-nexus": "node ./src/serve-nexus.mjs",
     "work-wallet-gateway": "tsx ./src/work-wallet-gateway.ts",
+    "verify:work-wallet-production-api-origin": "node ./src/verify-work-wallet-production-api-origin.mjs",
+    "audit:work-wallet-production-api-origin": "node ./src/audit-work-wallet-production-api-origin.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
