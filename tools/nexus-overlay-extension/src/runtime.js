@@ -4,8 +4,12 @@
   const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 
   function safeString(value, maxLength) {
-    const candidate = String(value ?? "").trim().slice(0, maxLength);
-    return candidate && !CONTROL_CHARACTER.test(candidate) ? candidate : null;
+    const candidate = String(value ?? "").trim();
+    return candidate &&
+      candidate.length <= maxLength &&
+      !CONTROL_CHARACTER.test(candidate)
+      ? candidate
+      : null;
   }
 
   async function getConfig() {

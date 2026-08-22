@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate Work Wallet browser input hardening
+        run: node tools/nexus-overlay-extension/tests/validate-browser-input-hardening.mjs
+
       - name: Validate Work Wallet extension content/runtime route behavior
         run: node tools/nexus-overlay-extension/tests/validate-content-route-context.mjs
 
