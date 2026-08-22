@@ -24,6 +24,9 @@ jobs:
       - name: Validate web-ifc production delivery policy
         run: node scripts/validate-web-ifc-runtime-delivery.mjs
 
+      - name: Validate FabStation smoke fixture integrity
+        run: node scripts/validate-fabstation-smoke-fixtures.mjs
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -43,6 +46,9 @@ jobs:
 
       - name: Synthetic BIM IFC WorkSuite contract E2E smoke
         run: pnpm run smoke:bim-contract-e2e
+
+      - name: Synthetic FabStation package contract smoke
+        run: pnpm run smoke:fabstation-package
 
       - name: Build Nexus web application
         env:

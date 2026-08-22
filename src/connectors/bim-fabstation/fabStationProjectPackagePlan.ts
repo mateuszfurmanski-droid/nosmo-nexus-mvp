@@ -63,6 +63,7 @@ export interface NexusFabStationProjectPackagePlan {
   nexusObjectId: NexusId;
   ifcGlobalId: string;
   sourceModelRevision: string;
+  sourceProvenanceClass: NexusSpatialHandOffPacket['object']['provenanceClass'];
   partner: typeof FABSTATION_PUBLIC_FILE_EXCHANGE_DESCRIPTOR;
   packageProfile: {
     archiveFormat: 'ZIP';
@@ -275,6 +276,7 @@ export const createFabStationProjectPackagePlan = (
     nexusObjectId: handOff.object.nexusObjectId,
     ifcGlobalId: handOff.object.ifcGlobalId,
     sourceModelRevision: handOff.object.modelRevision,
+    sourceProvenanceClass: handOff.object.provenanceClass,
     partner: FABSTATION_PUBLIC_FILE_EXCHANGE_DESCRIPTOR,
     packageProfile: {
       archiveFormat: 'ZIP',
@@ -326,7 +328,7 @@ export const createFabStationProjectPackagePlan = (
     warnings.push('No PDF drawings are planned; the current public FabStation guidance indicates Drawings will not be available.');
   }
   if (handOff.object.provenanceClass === 'SYNTHETIC_DEMO') {
-    warnings.push('Source IFC provenance is SYNTHETIC_DEMO; execution would remain demo evidence and cannot establish partner or real-project PASS.');
+    warnings.push('Source IFC provenance is SYNTHETIC_DEMO; execution remains demo evidence and cannot establish PARTNER_HANDOFF_PASS or real-project PASS.');
   }
 
   return {

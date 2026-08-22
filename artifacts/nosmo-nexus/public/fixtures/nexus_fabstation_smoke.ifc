@@ -1,0 +1,11 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('NOSMO Nexus synthetic FabStation package smoke'),'2;1');
+FILE_NAME('nexus_fabstation_smoke.ifc','2026-08-22T22:44:00',('NOSMO Nexus'),('NOSMO'),'NOSMO Nexus','NOSMO Nexus','');
+FILE_SCHEMA(('IFC2X3'));
+ENDSEC;
+DATA;
+#10=IFCPROJECT('0NXSFSPROJECT000000001',$,'NOSMO FabStation Smoke Project',$,$,$,$,$,$);
+#20=IFCBEAM('0NXSFSBEAM000000000001',$,'B1007',$,$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;

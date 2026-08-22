@@ -51,6 +51,24 @@ export type {
   NexusFabStationPartnerHandoffValidationState,
   NexusFabStationPartnerProcessingState,
 } from './bim-fabstation/fabStationManualHandoffEvidence';
+export {
+  NEXUS_FABSTATION_PACKAGE_STATUS_MAP_SCHEMA,
+  mapFabStationObservedPackageStatus,
+} from './bim-fabstation/fabStationPackageStatus';
+export type {
+  NexusFabStationObservedPackageStatus,
+  NexusFabStationPackageStatusResolution,
+} from './bim-fabstation/fabStationPackageStatus';
+export {
+  FABSTATION_SYNTHETIC_IFC_BYTES,
+  FABSTATION_SYNTHETIC_IFC_FILE_NAME,
+  FABSTATION_SYNTHETIC_IFC_SHA256,
+  FABSTATION_SYNTHETIC_KSS_BYTES,
+  FABSTATION_SYNTHETIC_KSS_FILE_NAME,
+  FABSTATION_SYNTHETIC_KSS_SHA256,
+  runFabStationSyntheticPackageSmoke,
+} from './bim-fabstation/fabStationSyntheticPackageSmoke';
+export type { NexusFabStationSyntheticPackageSmokeResult } from './bim-fabstation/fabStationSyntheticPackageSmoke';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
 export { microsoft365Connector } from './microsoft365/microsoft365Connector';
