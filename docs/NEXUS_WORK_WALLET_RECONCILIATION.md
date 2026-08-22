@@ -1,8 +1,12 @@
 # NOSMO Nexus — Work Wallet Reconciliation
 
-Status: SLICE_A_IMPLEMENTED / RUNTIME_RECONCILIATION_PENDING
+Status: SLICE_A_B_IMPLEMENTED / RUNTIME_RECONCILIATION_PENDING
 Foundation: PR #90 / `codex/nexus-mvp-modular-foundation`
-Integration branch: `codex/work-wallet-reconcile-slice-a`
+Integration branches:
+
+- Slice A: `codex/work-wallet-reconcile-slice-a`
+- Slice B: `codex/work-wallet-reconcile-slice-b`
+
 Audit baseline: `35a6757ce19fe590754fb7ad13ed48a68cb51705`
 
 External capability label:
@@ -69,7 +73,7 @@ Use these as one server lineage, with one required policy correction: PR #56's h
 
 ## Slice A — canonical mapping and capability truth
 
-Implemented on this branch:
+Implemented:
 
 1. Work Wallet catalogue mode is no longer described as current `api-sync` capability.
 2. Current canonical mode is read/context/navigation with no external write or Project Graph mutation claim.
@@ -86,7 +90,19 @@ Implemented on this branch:
 7. Fuzzy/filename/email/BIM/AI-candidate/unknown mapping methods cannot produce connector-verified Work Wallet focus.
 8. External Work Wallet identity is never promoted to Nexus canonical identity.
 
-This slice intentionally does not create a second Context Packet, gateway, overlay, Person resolver, Project Participation model, connector registry or auth implementation.
+## Slice B — canonical verified context contract
+
+Implemented:
+
+1. Preserves the historical schema name `nexus-work-wallet-context/v1` rather than creating a competing Context Packet.
+2. Builds `CONNECTOR_VERIFIED_CONTEXT` only after Slice A exact canonical mapping succeeds.
+3. Adds canonical `nexusObjectId` to the sanitized context while preserving optional `nexusNodeId` compatibility for the existing Tree handoff.
+4. `personId` input is explicitly named `canonicalPersonId`; the builder does not accept a Work Wallet user/person identifier as Nexus identity.
+5. An optional Tree `graphFocus` must declare the same `canonicalObjectId` already resolved by Project Memory; mismatched graph focus fails closed.
+6. `nexusNodeId` is never inferred from an external Work Wallet reference.
+7. `developmentContext` is derived from verification source and the external capability label remains attached to the sanitized context.
+
+Slices A/B intentionally do not create a second gateway, overlay, Person resolver, Project Participation model, connector registry, auth implementation or Context Ticket authority.
 
 ## Donor correction required before runtime port
 
@@ -100,17 +116,15 @@ Only after canonical object resolution may an existing graph projection determin
 
 ## Next runtime slices
 
-### Slice B — gateway/context reconciliation
+### Slice C — gateway + auth/access/ticket reconciliation
 
-Reuse `scripts/src/work-wallet-api.mjs` as the only gateway. Port the PKG-015 context capability from #58, but replace its old environment node-map authority with the Slice A canonical mapping boundary. Preserve `nexus-work-wallet-context/v1` unless a compatibility migration is explicitly designed for both server and extension together.
-
-### Slice C — auth/access/ticket reconciliation
+Reuse `scripts/src/work-wallet-api.mjs` as the only gateway. Reconcile the server-side PKG-015 context intake from #58 with the Slice A/B contracts rather than restoring the old environment node-map as authority.
 
 Port/reconcile #54-#61 into the #90 runtime semantics. Provider identity -> canonical Person remains server-owned. Convert historical Project Participation persistence into #90 access inputs. Require an explicit canonical #90 allow decision at ticket issue and exchange. Preserve short TTL, single use, exact origins, no URL ticket, no persistent raw-ticket storage, no browser integration secret and no retry after consumption.
 
 ### Slice D — browser client reconciliation
 
-Use the #18 -> #52 -> #63 extension lineage as the only overlay. Preserve Manifest V3, Shadow DOM, exact host permissions, route-clears-stale-context behavior and memory-only ticket handling. The extension must consume the same context schema emitted by the server.
+Use the #18 -> #52 -> #63 extension lineage as the only overlay. Preserve Manifest V3, Shadow DOM, exact host permissions, route-clears-stale-context behavior and memory-only ticket handling. The extension must consume the same `nexus-work-wallet-context/v1` schema emitted by the server, including canonical object identity when present.
 
 ### Slice E — browser E2E
 
