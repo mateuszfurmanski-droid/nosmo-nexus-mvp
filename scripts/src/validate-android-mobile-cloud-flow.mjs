@@ -121,6 +121,10 @@ requireText(cloudUi, 'evidenceReselectionCount', 'reselection should leave a loc
 requireText(cloudUi, 'evidenceReselectedAt', 'reselection should leave a local audit timestamp');
 requireText(cloudUi, 'releasePersistedReadPermissionIfUnused', 'old URI permission must be released only when no other candidate uses it');
 requireText(cloudUi, 'Project World and metadata receipt were not changed', 'reselection must not be presented as a new authority/handoff');
+requireText(cloudUi, 'only then retain a persistable grant', 'reselection must validate before retaining durable URI access');
+requireText(cloudUi, 'boolean newGrantRetained = false', 'reselection must track whether a new persisted grant was retained');
+requireText(cloudUi, 'releaseExactPersistedReadPermission(newUri)', 'failed local persistence must release the exact new retained grant');
+requireText(cloudUi, 'private boolean takePersistableReadPermission', 'grant acquisition must report whether durable access was retained');
 forbidText(cloudUi, 'EvidenceBindingStore.bindConfirmedMetadata(this, candidateId', 'reselection must not mint a new Project World binding');
 
 requireText(shortcutActivity, 'CloudEvidenceActivity.class', 'launcher shortcut trampoline must only route to local Cloud evidence UI');
