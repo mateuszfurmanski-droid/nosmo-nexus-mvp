@@ -9,5 +9,5 @@ export * from "./notes";
 export * from "./conversations";
 export * from "./files";
 export * from "./nexusProjectMemoryCloud";
-export * from "./nexusRuntimeIdentity";
+export * from "./nexusProjectMemoryIdentity";
 export * from "./nexusProjectAccess";
