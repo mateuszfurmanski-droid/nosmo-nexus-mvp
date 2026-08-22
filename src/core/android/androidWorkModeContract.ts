@@ -57,6 +57,10 @@ export interface AndroidApprovedItemRef {
  * parallel protocol. Query/bootstrap transports may flatten arrays as comma-separated
  * values; authenticated API transports should use the array form directly.
  *
+ * `handoffRequestId` is an Android-generated one-flight UUID used to bind the exported
+ * callback to the currently pending local batch. It is correlation/anti-spoof state only,
+ * never authentication or Nexus project authority.
+ *
  * Authentication/Person binding is intentionally not carried by Android. The server
  * session supplies `NexusRuntimeIdentityContext` after browser/API authentication.
  */
@@ -64,6 +68,7 @@ export interface NexusAndroidWorkModeContextEnvelope {
   schema: 'nexus-android-work-mode-context-v1';
   nexusIntent: 'ask-nexus';
   nexusAiContext: 'android-work-discovery-v1';
+  handoffRequestId: string;
   projectId: NexusId;
   worldId: NexusId;
   projectResolution: 'EXACT';
@@ -79,13 +84,15 @@ export interface NexusAndroidWorkModeContextEnvelope {
  * Server acknowledgement used only to reconcile the device-local queue after the
  * authenticated Nexus boundary has processed the bounded context.
  *
- * `receiptId` is correlation evidence, not an auth token, permission grant, Person ID,
- * Project Participation record or Action Engine approval. A FAILED_RETRYABLE receipt
- * never marks an item uploaded/synced. The native callback must only update candidates
- * that were already PENDING_SERVER_CONFIRMATION for the exact Project World.
+ * The receipt echoes the exact Android-generated `handoffRequestId`. `receiptId` remains
+ * correlation evidence, not an auth token, permission grant, Person ID, Project
+ * Participation record or Action Engine approval. A FAILED_RETRYABLE receipt never marks
+ * an item uploaded/synced. The native callback must match the exact pending request UUID,
+ * pending candidate set and Project World.
  */
 export interface NexusAndroidWorkModeHandoffReceipt {
   schema: 'nexus-android-work-mode-handoff-receipt/v1';
+  handoffRequestId: string;
   receiptId?: string;
   projectId: NexusId;
   worldId: NexusId;
@@ -96,6 +103,7 @@ export interface NexusAndroidWorkModeHandoffReceipt {
 
 export type NexusAndroidWorkModeContextValidationReason =
   | 'VALID'
+  | 'INVALID_HANDOFF_REQUEST_ID'
   | 'PROJECT_WORLD_REQUIRED'
   | 'PROJECT_CONFIRMATION_REQUIRED'
   | 'NO_APPROVED_ITEMS'
@@ -108,9 +116,16 @@ export interface NexusAndroidWorkModeContextValidation {
   reason: NexusAndroidWorkModeContextValidationReason;
 }
 
+const androidHandoffRequestIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const validateNexusAndroidWorkModeContext = (
   envelope: NexusAndroidWorkModeContextEnvelope,
 ): NexusAndroidWorkModeContextValidation => {
+  if (!androidHandoffRequestIdPattern.test(envelope.handoffRequestId)) {
+    return { valid: false, reason: 'INVALID_HANDOFF_REQUEST_ID' };
+  }
+
   if (!envelope.projectId || !envelope.worldId) {
     return { valid: false, reason: 'PROJECT_WORLD_REQUIRED' };
   }
