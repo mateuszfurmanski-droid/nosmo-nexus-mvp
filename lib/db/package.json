@@ -19,7 +19,9 @@
     "test:nexus-work-wallet-db-preflight": "node ./scripts/test-verify-nexus-work-wallet-db-target.mjs",
     "audit:nexus-work-wallet-schema": "node ./scripts/audit-nexus-work-wallet-schema.mjs",
     "bootstrap-nexus-work-wallet-dev-fixture": "node ./scripts/bootstrap-nexus-work-wallet-dev-fixture.mjs",
-    "audit:nexus-work-wallet-dev-fixture": "node ./scripts/audit-nexus-work-wallet-dev-fixture-bootstrap.mjs"
+    "audit:nexus-work-wallet-dev-fixture": "node ./scripts/audit-nexus-work-wallet-dev-fixture-bootstrap.mjs",
+    "verify:nexus-work-wallet-db-readiness": "node ./scripts/verify-nexus-work-wallet-db-readiness.mjs",
+    "audit:nexus-work-wallet-db-readiness": "node ./scripts/audit-nexus-work-wallet-db-readiness.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
