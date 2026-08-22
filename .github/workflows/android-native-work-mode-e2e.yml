@@ -15,6 +15,8 @@ on:
       - artifacts/api-server/src/lib/nexus-runtime-authority.ts
       - lib/db/src/schema/nexusRuntimeAuthority.ts
       - lib/db/src/schema/index.ts
+      - lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs
+      - lib/db/package.json
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - .github/workflows/android-native-work-mode-e2e.yml
   pull_request:
@@ -30,6 +32,8 @@ on:
       - artifacts/api-server/src/lib/nexus-runtime-authority.ts
       - lib/db/src/schema/nexusRuntimeAuthority.ts
       - lib/db/src/schema/index.ts
+      - lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs
+      - lib/db/package.json
       - docs/NEXUS_ANDROID_WORK_MODE_E2E_HANDOFF.md
       - .github/workflows/android-native-work-mode-e2e.yml
 
@@ -145,6 +149,8 @@ jobs:
           ROUTE="artifacts/api-server/src/routes/nexus-android-work-mode.ts"
           AUTHORITY="artifacts/api-server/src/lib/nexus-runtime-authority.ts"
           AUTH_SCHEMA="lib/db/src/schema/nexusRuntimeAuthority.ts"
+          BOOTSTRAP="lib/db/scripts/bootstrap-nexus-android-work-mode-authority.mjs"
+          DB_PACKAGE="lib/db/package.json"
           ROUTES_INDEX="artifacts/api-server/src/routes/index.ts"
           ORIGIN_BOUNDARY="artifacts/api-server/src/middlewares/androidWorkModeRequestBoundary.ts"
           grep -q "nexus-android-work-mode-context-v1" "$ROUTE"
@@ -169,6 +175,12 @@ jobs:
           grep -q "MODULE_ENTITLEMENT_RUNTIME_REQUIRED" "$AUTHORITY"
           grep -q "nexus_permission_grants" "$AUTH_SCHEMA"
           grep -q "nexus_project_participations" "$AUTH_SCHEMA"
+          grep -q "NEXUS_DEV_ANDROID_AUTHORITY_BOOTSTRAP" "$BOOTSTRAP"
+          grep -q "NODE_ENV === \"production\"" "$BOOTSTRAP"
+          grep -q "refuses to override canonical deny authority" "$BOOTSTRAP"
+          grep -q "worksuite.draft.review" "$BOOTSTRAP"
+          grep -q "android.work-mode.handoff" "$BOOTSTRAP"
+          grep -q "bootstrap-nexus-android-authority" "$DB_PACKAGE"
           grep -q "router.use(androidWorkModeRequestBoundary)" "$ROUTES_INDEX"
           grep -q "router.use(nexusAndroidWorkModeRouter)" "$ROUTES_INDEX"
           grep -q "hasBearerSession" "$ORIGIN_BOUNDARY"
