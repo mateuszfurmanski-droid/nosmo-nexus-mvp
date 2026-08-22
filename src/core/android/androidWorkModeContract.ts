@@ -58,7 +58,7 @@ export interface AndroidApprovedItemRef {
  * the server session supplies `NexusRuntimeIdentityContext` after browser/API authentication.
  */
 export interface NexusAndroidWorkModeContextEnvelope {
-  schema: 'nexus-android-work-mode-context/v1';
+  schema: 'nexus-android-work-mode-context-v1';
   nexusIntent: 'ask-nexus';
   nexusAiContext: 'android-work-discovery-v1';
   projectId: NexusId;
