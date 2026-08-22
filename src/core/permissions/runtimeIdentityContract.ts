@@ -4,8 +4,13 @@ import type { NexusId } from '../../data/schemas/common.schema';
 /**
  * Runtime authentication identity is deliberately separate from canonical Nexus Person identity.
  * Provider subjects, session ids and provider credentials remain server-only implementation details.
+ *
+ * `server-context-ticket` represents a short-lived server-issued capability that
+ * freezes a previously authenticated canonical Person. It is not a provider or
+ * browser-supplied identity and still requires a fresh canonical access decision.
  */
 export type NexusRuntimeIdentityState = 'UNAUTHENTICATED' | 'UNBOUND' | 'BOUND';
+export type NexusRuntimeIdentitySource = 'server-session' | 'server-context-ticket';
 
 export interface NexusRuntimeIdentityContext {
   schema: 'nexus-runtime-identity-context/v1';
@@ -13,7 +18,7 @@ export interface NexusRuntimeIdentityContext {
   identityState: NexusRuntimeIdentityState;
   personId?: NexusId;
   displayName?: string;
-  source: 'server-session';
+  source: NexusRuntimeIdentitySource;
 }
 
 export type NexusRuntimeIdentityValidationReason =
@@ -53,7 +58,7 @@ export const validateNexusRuntimeIdentityContext = (
 };
 
 /**
- * This request is the hand-off from the server-owned auth/session layer into the
+ * This request is the hand-off from a server-owned runtime identity into the
  * canonical #90 access model. It contains no OIDC subject, email-derived authority,
  * connector identity or browser-supplied role/permission grant.
  */
