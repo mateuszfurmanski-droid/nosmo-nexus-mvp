@@ -3,6 +3,8 @@ import type { NexusCloudProviderWritePlan } from "../../../../src/core/storage/c
 import type { NexusCloudProviderWriteReceipt } from "../../../../src/core/storage/cloudPersistenceContract";
 import { resolveNexusGoogleDriveWriterModulePath } from "./nexus-runtime-paths";
 
+const GOOGLE_PROVIDER_REQUEST_TIMEOUT_MS = 120_000;
+
 export interface NexusCloudGoogleDriveWriteResult {
   status: "WRITTEN" | "ALREADY_WRITTEN";
   idempotentReplay: boolean;
@@ -17,6 +19,7 @@ type GoogleDriveWriterModule = {
     plan: NexusCloudProviderWritePlan;
     binary: Buffer;
     idempotencyKey: string;
+    fetchImpl?: typeof fetch;
   }) => Promise<NexusCloudGoogleDriveWriteResult>;
 };
 
@@ -35,12 +38,19 @@ async function getGoogleDriveWriterModule(): Promise<GoogleDriveWriterModule> {
   return writerModulePromise;
 }
 
+const timedProviderFetch: typeof fetch = (input, init = {}) =>
+  fetch(input, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(GOOGLE_PROVIDER_REQUEST_TIMEOUT_MS),
+  });
+
 /**
  * Delegate to the single PR #93 Google Drive writer implementation.
  *
  * No provider write logic is copied into the API server. This keeps OAuth,
  * Drive target verification, provider idempotency and multipart Drive creation
- * in one implementation.
+ * in one implementation. Each external request is bounded so a provider call
+ * cannot outlive the durable cross-instance operation lease indefinitely.
  */
 export async function writeNexusCloudGoogleDriveRuntime(input: {
   plan: NexusCloudProviderWritePlan;
@@ -48,5 +58,8 @@ export async function writeNexusCloudGoogleDriveRuntime(input: {
   idempotencyKey: string;
 }): Promise<NexusCloudGoogleDriveWriteResult> {
   const writer = await getGoogleDriveWriterModule();
-  return writer.writeNexusCloudFileToGoogleDrive(input);
+  return writer.writeNexusCloudFileToGoogleDrive({
+    ...input,
+    fetchImpl: timedProviderFetch,
+  });
 }
