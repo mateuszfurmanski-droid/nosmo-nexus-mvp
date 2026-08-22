@@ -18,6 +18,11 @@ export type {
   NexusSpatialOperationalState,
   NexusSpatialPartnerDescriptor,
 } from './bim-fabstation/spatialHandoff';
+export {
+  FABSTATION_PUBLIC_CAPABILITY_EVIDENCE,
+  FABSTATION_PUBLIC_FILE_EXCHANGE_DESCRIPTOR,
+  NEXUS_FABSTATION_PUBLIC_CAPABILITY_EVIDENCE_SCHEMA,
+} from './bim-fabstation/fabStationCapabilityEvidence';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
 export { microsoft365Connector } from './microsoft365/microsoft365Connector';
