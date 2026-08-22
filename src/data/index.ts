@@ -26,6 +26,7 @@ export * from './ifcRevisionComparison';
 export * from './ifcChangeEventReview';
 export * from './workSuiteHoldWork';
 export * from './workSuiteReleaseHold';
+export * from './workSuiteProjectMemoryCommit';
 export * from './demo/esafeCataniaFixtures';
 export * from './demo/esafeCataniaPhase9Fixtures';
 export * from './demo/esafeCataniaMemory';

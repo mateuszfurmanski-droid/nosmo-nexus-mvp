@@ -10,6 +10,7 @@ export type NexusTimelineEventType =
   | 'approval-updated'
   | 'connector-event'
   | 'graph-link-created'
+  | 'worksuite-action'
   | 'manual-note';
 
 export interface NexusTimelineEventRecord extends NexusBaseRecord {
