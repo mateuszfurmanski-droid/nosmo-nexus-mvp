@@ -135,6 +135,8 @@ jobs:
           grep -q "Ignored stale or unsolicited handoff callback" "$CALLBACK"
           ! grep -q "AccessibilityService" "$MAIN" "$CALLBACK"
           ! grep -q "WebView" "$MAIN" "$CALLBACK"
+          ! grep -q "PendingIntent" "$MAIN" "$CALLBACK"
+          ! grep -q "Clipboard" "$MAIN" "$CALLBACK"
 
       - name: Verify canonical Android handoff and retry contract
         run: |
@@ -154,6 +156,11 @@ jobs:
           grep -q "HANDOFF_PATH = \"/api/nexus/android-work-mode/handoff\"" "$MAIN"
           grep -q "BuildConfig.NEXUS_WEB_ORIGIN" "$MAIN"
           grep -q "NEXUS_ANDROID_WEB_ORIGIN" "$APP_GRADLE"
+          grep -q "SAFE_BOOTSTRAP_USER_INTENT" "$MAIN"
+          grep -q "intentInput.setEnabled(false)" "$MAIN"
+          grep -q "String userIntent = SAFE_BOOTSTRAP_USER_INTENT" "$MAIN"
+          grep -q "Free-text questions must wait for an authenticated POST" "$MAIN"
+          ! grep -q "intentInput.getText().toString" "$MAIN"
           grep -q "isHandoffLocked" "$MAIN"
           grep -q "isHandoffEligible" "$MAIN"
           grep -q "handoffEligibleCandidates" "$MAIN"
