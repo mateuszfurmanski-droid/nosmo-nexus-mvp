@@ -1,0 +1,110 @@
+name: Build NEXUS Android Work Mode E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/android-work-mode-e2e-handoff
+    paths:
+      - native/nexus-work-mode-native/**
+      - src/core/android/**
+      - src/core/index.ts
+      - .github/workflows/android-native-work-mode-e2e.yml
+  pull_request:
+    branches:
+      - codex/nexus-mvp-modular-foundation
+    paths:
+      - native/nexus-work-mode-native/**
+      - src/core/android/**
+      - src/core/index.ts
+      - .github/workflows/android-native-work-mode-e2e.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-native-work-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK and release bundle
+        working-directory: native/nexus-work-mode-native
+        run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify APK security and picker boundary
+        run: |
+          APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
+          MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
+          MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
+          test -f "$APK"
+          unzip -l "$APK" | grep -q "classes.dex"
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          test -n "$AAPT"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
+          grep -q "package: name='tech.nosmo.nexus.workmode.nativebeta'" /tmp/badging.txt
+          grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
+          grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
+          ! grep -q "android.permission.MANAGE_EXTERNAL_STORAGE" /tmp/permissions.txt
+          ! grep -q "android.permission.READ_EXTERNAL_STORAGE" /tmp/permissions.txt
+          ! grep -q "android.permission.WRITE_EXTERNAL_STORAGE" /tmp/permissions.txt
+          ! grep -q "android.permission.QUERY_ALL_PACKAGES" /tmp/permissions.txt
+          ! grep -q "android.permission.SYSTEM_ALERT_WINDOW" /tmp/permissions.txt
+          ! grep -q "android.permission.BIND_ACCESSIBILITY_SERVICE" /tmp/permissions.txt
+          grep -q "usesCleartextTraffic=\"false\"" "$MANIFEST"
+          grep -q "MediaStore.ACTION_PICK_IMAGES" "$MAIN"
+          grep -q "Intent.ACTION_OPEN_DOCUMENT" "$MAIN"
+          grep -q "Intent.ACTION_OPEN_DOCUMENT_TREE" "$MAIN"
+
+      - name: Verify canonical Project World and handoff contract
+        run: |
+          MAIN="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MainActivity.java"
+          CONTRACT="src/core/android/androidWorkModeContract.ts"
+          grep -q "project-esafe-catania" "$MAIN"
+          grep -q "world-esafe-catania" "$MAIN"
+          grep -q "NEEDS_USER_CONFIRMATION" "$MAIN"
+          grep -q "nexusIntent" "$MAIN"
+          grep -q "ask-nexus" "$MAIN"
+          grep -q "nexusAiContext" "$MAIN"
+          grep -q "android-work-discovery-v1" "$MAIN"
+          grep -q "selectedItemIds" "$MAIN"
+          grep -q "PENDING_SERVER_CONFIRMATION" "$MAIN"
+          grep -q "nexus-android-work-mode-context/v1" "$CONTRACT"
+          grep -q "createAndroidRuntimeAccessBridgeRequest" "$CONTRACT"
+          grep -q "NexusRuntimeIdentityContext" "$CONTRACT"
+          ! grep -q "RIVERSIDE_DEMO_PROJECT" "$MAIN"
+          ! grep -q "esafe-demo" "$MAIN"
+          ! grep -q "AccessibilityService" "$MAIN"
+          ! grep -q "WebView" "$MAIN"
+
+      - name: Stage build artifacts
+        run: |
+          mkdir -p android-work-mode-e2e
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.aab
+          sha256sum android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.apk > android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.apk.sha256
+          cp /tmp/badging.txt android-work-mode-e2e/APK_BADGING.txt
+          cp /tmp/permissions.txt android-work-mode-e2e/APK_PERMISSIONS.txt
+
+      - name: Upload Android Work Mode artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Work-Mode-v0.6.0-e2e-handoff
+          path: android-work-mode-e2e/*
+          if-no-files-found: error
+          retention-days: 14
