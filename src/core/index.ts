@@ -11,6 +11,7 @@ export * from './storage/cloudAssetContract';
 export * from './storage/cloudPersistenceContract';
 export * from './storage/cloudProviderAdapterContract';
 export * from './storage/cloudProjectMemoryCommit';
+export * from './android/androidWorkModeContract';
 
 import { nexusShellCore } from './shell/shellContract';
 import { nexusGraphCore } from './graph/graphContract';
