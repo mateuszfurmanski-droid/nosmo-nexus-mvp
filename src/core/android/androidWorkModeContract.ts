@@ -43,7 +43,7 @@ export interface AndroidWorkCandidate {
   handoffState: AndroidWorkHandoffState;
 }
 
-/** Minimal provenance reference safe to include in the authenticated Nexus handoff. */
+/** Optional approved metadata. Never contains raw content or a device-local URI. */
 export interface AndroidApprovedItemRef {
   itemId: string;
   source: AndroidWorkSource;
@@ -54,8 +54,11 @@ export interface AndroidApprovedItemRef {
 
 /**
  * Extends the historical `android-work-discovery-v1` marker rather than inventing a
- * parallel protocol. Authentication/Person binding is intentionally not carried by Android;
- * the server session supplies `NexusRuntimeIdentityContext` after browser/API authentication.
+ * parallel protocol. Query/bootstrap transports may flatten arrays as comma-separated
+ * values; authenticated API transports should use the array form directly.
+ *
+ * Authentication/Person binding is intentionally not carried by Android. The server
+ * session supplies `NexusRuntimeIdentityContext` after browser/API authentication.
  */
 export interface NexusAndroidWorkModeContextEnvelope {
   schema: 'nexus-android-work-mode-context-v1';
@@ -64,9 +67,11 @@ export interface NexusAndroidWorkModeContextEnvelope {
   projectId: NexusId;
   worldId: NexusId;
   projectResolution: 'EXACT';
-  selectedItems: AndroidApprovedItemRef[];
+  selectedItemIds: string[];
+  sourceTypes: AndroidWorkSource[];
+  approvedMetadata?: AndroidApprovedItemRef[];
   userIntent: string;
-  createdAt: string;
+  createdAt?: string;
   handoffState: 'PENDING_SERVER_CONFIRMATION';
 }
 
@@ -76,6 +81,7 @@ export type NexusAndroidWorkModeContextValidationReason =
   | 'PROJECT_CONFIRMATION_REQUIRED'
   | 'NO_APPROVED_ITEMS'
   | 'DUPLICATE_ITEM_ID'
+  | 'METADATA_ITEM_NOT_SELECTED'
   | 'INVALID_CONFIDENCE';
 
 export interface NexusAndroidWorkModeContextValidation {
@@ -94,17 +100,22 @@ export const validateNexusAndroidWorkModeContext = (
     return { valid: false, reason: 'PROJECT_CONFIRMATION_REQUIRED' };
   }
 
-  if (!envelope.selectedItems.length) {
+  if (!envelope.selectedItemIds.length) {
     return { valid: false, reason: 'NO_APPROVED_ITEMS' };
   }
 
   const ids = new Set<string>();
-  for (const item of envelope.selectedItems) {
-    if (ids.has(item.itemId)) {
+  for (const itemId of envelope.selectedItemIds) {
+    if (!itemId || ids.has(itemId)) {
       return { valid: false, reason: 'DUPLICATE_ITEM_ID' };
     }
-    ids.add(item.itemId);
+    ids.add(itemId);
+  }
 
+  for (const item of envelope.approvedMetadata ?? []) {
+    if (!ids.has(item.itemId)) {
+      return { valid: false, reason: 'METADATA_ITEM_NOT_SELECTED' };
+    }
     if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 100) {
       return { valid: false, reason: 'INVALID_CONFIDENCE' };
     }
