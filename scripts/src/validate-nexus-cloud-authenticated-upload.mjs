@@ -11,6 +11,7 @@ const assert = (condition, message) => {
 
 const routes = read("artifacts/api-server/src/routes/index.ts");
 const cloudRoute = read("artifacts/api-server/src/routes/nexus-cloud.ts");
+const cloudAssetContract = read("src/core/storage/cloudAssetContract.ts");
 const originGate = read(
   "artifacts/api-server/src/middlewares/requireNexusCloudMutationOrigin.ts",
 );
@@ -44,7 +45,26 @@ assert(
 
 assert(
   cloudRoute.includes('router.post("/files"'),
-  "authenticated Cloud binary endpoint is missing",
+  "authenticated File Loader Cloud binary endpoint is missing",
+);
+assert(
+  cloudRoute.includes('router.post("/android/files"'),
+  "server-owned Android Work Mode Cloud binary endpoint is missing",
+);
+assert(
+  cloudRoute.includes('handleCloudFileUpload("file-loader")') &&
+    cloudRoute.includes('handleCloudFileUpload("android-work-mode")'),
+  "Cloud provenance must be selected by bounded server-owned routes",
+);
+assert(
+  cloudRoute.includes("type NexusCloudSourceModule") &&
+    cloudAssetContract.includes("'android-work-mode'"),
+  "Android provenance must reuse the shared canonical Cloud source-module contract",
+);
+assert(
+  cloudRoute.includes("sourceModule,") &&
+    cloudRoute.includes("sourceModule,"),
+  "Cloud response/persistence pipeline must retain the server-selected source module",
 );
 assert(
   cloudRoute.includes('req.get("idempotency-key")'),
@@ -95,13 +115,15 @@ for (const forbidden of [
   'bodyString(req, "secretReference")',
   'bodyString(req, "connectorAccountId")',
   'bodyString(req, "connectorDefinitionId")',
+  'bodyString(req, "sourceModule")',
   'req.body.providerTargetId',
   'req.body.secretReference',
   'req.body.connectorAccountId',
+  'req.body.sourceModule',
 ]) {
   assert(
     !cloudRoute.includes(forbidden),
-    `browser must not supply provider authority: ${forbidden}`,
+    `client must not supply provider/provenance authority: ${forbidden}`,
   );
 }
 
