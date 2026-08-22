@@ -38,6 +38,19 @@ export type {
   NexusFabStationProjectPackagePlanIssueCode,
   NexusFabStationProjectPackagePlanResolution,
 } from './bim-fabstation/fabStationProjectPackagePlan';
+export {
+  NEXUS_FABSTATION_MANUAL_HANDOFF_EVIDENCE_SCHEMA,
+  assessFabStationManualHandoffEvidence,
+} from './bim-fabstation/fabStationManualHandoffEvidence';
+export type {
+  NexusFabStationManualHandoffEvidenceAssessment,
+  NexusFabStationManualHandoffEvidenceInput,
+  NexusFabStationManualHandoffEvidenceIssue,
+  NexusFabStationManualHandoffEvidenceIssueCode,
+  NexusFabStationManualHandoffEvidenceResolution,
+  NexusFabStationPartnerHandoffValidationState,
+  NexusFabStationPartnerProcessingState,
+} from './bim-fabstation/fabStationManualHandoffEvidence';
 export { companyCamConnector } from './companycam/companyCamConnector';
 export { hiltiConnector } from './hilti/hiltiConnector';
 export { microsoft365Connector } from './microsoft365/microsoft365Connector';
