@@ -38,6 +38,9 @@ jobs:
       - name: Validate Work Wallet API host truth
         run: node tools/nexus-overlay-extension/tests/validate-api-host-truth.mjs
 
+      - name: Audit Work Wallet production API activation preflight
+        run: pnpm --filter @workspace/scripts audit:work-wallet-production-api-origin
+
       - name: Validate Work Wallet browser input hardening
         run: node tools/nexus-overlay-extension/tests/validate-browser-input-hardening.mjs
 
