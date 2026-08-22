@@ -67,6 +67,13 @@ requireText(cloud, '25L * 1024L * 1024L', 'Android must enforce canonical 25 MiB
 requireText(cloud, 'providerWriteConfirmed', 'Cloud success must require provider confirmation');
 requireText(cloud, 'projectMemoryCommitted', 'Cloud success must require canonical Project Memory commit');
 requireText(cloud, 'TRANSFER_CONFIRMED', 'Cloud client must expose explicit confirmed outcome');
+requireText(cloud, 'safeFileName', 'multipart filename must be sanitized before header construction');
+requireText(cloud, 'safeMimeType', 'ContentProvider MIME type must be validated before header construction');
+requireText(cloud, 'MAX_FILE_NAME_CHARS = 255', 'client filename bound must match canonical server bound');
+requireText(cloud, 'MAX_MIME_TYPE_CHARS = 127', 'MIME header value must be bounded');
+requireText(cloud, 'application/octet-stream', 'invalid MIME type must fall back to safe binary type');
+requireText(cloud, '.replace("\\r", "_")', 'filename CR sanitization missing');
+requireText(cloud, '.replace("\\n", "_")', 'filename LF sanitization missing');
 forbidText(cloud, 'drive.google.com', 'APK must not contain its own Google Drive network implementation');
 forbidText(cloud, 'GoogleAuthorizationCodeFlow', 'APK must not contain provider OAuth implementation');
 
