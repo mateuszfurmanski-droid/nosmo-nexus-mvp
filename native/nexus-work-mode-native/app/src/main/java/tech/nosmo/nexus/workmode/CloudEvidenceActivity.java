@@ -3,10 +3,12 @@ package tech.nosmo.nexus.workmode;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -17,6 +19,7 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.InputStream;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -31,12 +34,15 @@ import java.util.Set;
 public final class CloudEvidenceActivity extends Activity {
     private static final String PREFS = "nexus_work_mode_v060";
     private static final String PREF_QUEUE = "approvalQueue";
+    private static final String PREF_PENDING_RESELECTION = "pendingEvidenceReselectionCandidateId";
+    private static final int REQ_RESELECT_EVIDENCE = 401;
 
     private static final String HANDOFF_DONE = "HANDED_OFF";
     private static final String EVIDENCE_PENDING = "PENDING_CANONICAL_CLOUD_ENDPOINT";
     private static final String EVIDENCE_READY = "READY_FOR_AUTHORISED_TRANSFER";
     private static final String EVIDENCE_CONFIRMED = "TRANSFER_CONFIRMED";
     private static final String EVIDENCE_RETRY = "FAILED_RETRYABLE";
+    private static final String EVIDENCE_RESELECTION_REQUIRED = "RESELECTION_REQUIRED";
 
     private static final int BG = Color.rgb(4, 16, 31);
     private static final int PANEL = Color.rgb(10, 34, 63);
@@ -65,6 +71,93 @@ public final class CloudEvidenceActivity extends Activity {
     @Override
     public void onBackPressed() {
         backToWorkMode();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_RESELECT_EVIDENCE) return;
+
+        String candidateId = prefs.getString(PREF_PENDING_RESELECTION, "");
+        prefs.edit().remove(PREF_PENDING_RESELECTION).apply();
+        if (candidateId.isEmpty()) {
+            Toast.makeText(this, "Ignored stale evidence reselection result", Toast.LENGTH_LONG).show();
+            render();
+            return;
+        }
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            Toast.makeText(this, "Evidence reselection cancelled; Cloud upload remains blocked", Toast.LENGTH_LONG).show();
+            render();
+            return;
+        }
+
+        Uri newUri = data.getData();
+        if (!"content".equals(newUri.getScheme())) {
+            markEvidenceReselectionRequired(candidateId);
+            Toast.makeText(this, "Only a system-selected content URI can replace local evidence", Toast.LENGTH_LONG).show();
+            render();
+            return;
+        }
+
+        takePersistableReadPermission(newUri, data.getFlags());
+        if (!canReadLocalEvidence(newUri)) {
+            markEvidenceReselectionRequired(candidateId);
+            Toast.makeText(this, "The selected evidence cannot be read; choose the original evidence again", Toast.LENGTH_LONG).show();
+            render();
+            return;
+        }
+
+        try {
+            JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
+            JSONObject item = findItem(queue, candidateId);
+            EvidenceBindingStore.Binding binding = EvidenceBindingStore.get(this, candidateId);
+            if (
+                    item == null ||
+                    binding == null ||
+                    !HANDOFF_DONE.equals(item.optString("handoffState", "")) ||
+                    EVIDENCE_CONFIRMED.equals(item.optString("evidenceTransferState", ""))
+            ) {
+                Toast.makeText(this, "Evidence is no longer eligible for local reselection", Toast.LENGTH_LONG).show();
+                render();
+                return;
+            }
+
+            String source = safe(item.optString("source", ""));
+            String mimeType = safe(getContentResolver().getType(newUri));
+            if ("PHOTO".equals(source) && !mimeType.startsWith("image/")) {
+                markEvidenceReselectionRequired(candidateId);
+                Toast.makeText(this, "Re-select the original photo evidence", Toast.LENGTH_LONG).show();
+                render();
+                return;
+            }
+            if (!isRawEvidenceSource(source)) {
+                Toast.makeText(this, "Only PHOTO/DOCUMENT evidence can be reselected here", Toast.LENGTH_LONG).show();
+                render();
+                return;
+            }
+
+            String oldReference = safe(item.optString("localReference", ""));
+            item.put("localReference", newUri.toString());
+            if (!mimeType.isEmpty()) item.put("contentType", mimeType);
+            item.put("evidenceTransferState", EVIDENCE_RETRY);
+            item.put("evidenceReselectedAt", System.currentTimeMillis());
+            item.put("evidenceReselectionCount", item.optInt("evidenceReselectionCount", 0) + 1);
+            prefs.edit().putString(PREF_QUEUE, queue.toString()).apply();
+
+            if (!oldReference.equals(newUri.toString())) {
+                releasePersistedReadPermissionIfUnused(queue, candidateId, oldReference);
+            }
+
+            Toast.makeText(
+                    this,
+                    "Local evidence access restored. Project World and metadata receipt were not changed.",
+                    Toast.LENGTH_LONG
+            ).show();
+        } catch (Exception ignored) {
+            markEvidenceReselectionRequired(candidateId);
+            Toast.makeText(this, "Could not persist the reselected local evidence", Toast.LENGTH_LONG).show();
+        }
+        render();
     }
 
     private void render() {
@@ -162,6 +255,12 @@ public final class CloudEvidenceActivity extends Activity {
             return;
         }
 
+        if (EVIDENCE_RESELECTION_REQUIRED.equals(evidenceState)) {
+            addSmall(root, "The original content URI is no longer readable. Re-select the same original evidence; Nexus metadata and Project World binding remain unchanged.");
+            addAction(root, "Re-select original evidence", () -> beginEvidenceReselection(id), false);
+            return;
+        }
+
         if (
                 EVIDENCE_PENDING.equals(evidenceState) ||
                 EVIDENCE_READY.equals(evidenceState) ||
@@ -255,6 +354,18 @@ public final class CloudEvidenceActivity extends Activity {
                 return;
             }
 
+            Uri localUri = Uri.parse(localReference);
+            if (!canReadLocalEvidence(localUri)) {
+                markEvidenceReselectionRequired(candidateId);
+                Toast.makeText(
+                        this,
+                        "Local evidence access expired or was revoked. Re-select the original evidence before retrying.",
+                        Toast.LENGTH_LONG
+                ).show();
+                render();
+                return;
+            }
+
             inFlightUploads.add(candidateId);
             item.put("evidenceTransferState", EVIDENCE_READY);
             prefs.edit().putString(PREF_QUEUE, queue.toString()).apply();
@@ -265,7 +376,7 @@ public final class CloudEvidenceActivity extends Activity {
                     getApplicationContext(),
                     origin,
                     token,
-                    Uri.parse(localReference),
+                    localUri,
                     item.optString("displayName", "android-evidence"),
                     item.optString("contentType", "application/octet-stream"),
                     binding.projectId,
@@ -311,12 +422,139 @@ public final class CloudEvidenceActivity extends Activity {
         render();
     }
 
+    private void beginEvidenceReselection(String candidateId) {
+        if (!inFlightUploads.isEmpty()) {
+            Toast.makeText(this, "Wait for the active Cloud upload before re-selecting evidence", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!prefs.getString(PREF_PENDING_RESELECTION, "").isEmpty()) {
+            Toast.makeText(this, "Another evidence reselection is already pending", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        try {
+            JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
+            JSONObject item = findItem(queue, candidateId);
+            if (
+                    item == null ||
+                    EvidenceBindingStore.get(this, candidateId) == null ||
+                    !HANDOFF_DONE.equals(item.optString("handoffState", "")) ||
+                    EVIDENCE_CONFIRMED.equals(item.optString("evidenceTransferState", ""))
+            ) {
+                Toast.makeText(this, "Evidence is not eligible for local reselection", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            String source = safe(item.optString("source", ""));
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            if ("PHOTO".equals(source)) {
+                intent.setType("image/*");
+            } else if ("DOCUMENT".equals(source)) {
+                intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                        "application/pdf",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "text/plain"
+                });
+            } else {
+                Toast.makeText(this, "Only PHOTO/DOCUMENT evidence can be reselected", Toast.LENGTH_LONG).show();
+                return;
+            }
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            prefs.edit().putString(PREF_PENDING_RESELECTION, candidateId).apply();
+            startActivityForResult(intent, REQ_RESELECT_EVIDENCE);
+        } catch (Exception ignored) {
+            prefs.edit().remove(PREF_PENDING_RESELECTION).apply();
+            Toast.makeText(this, "Could not open the system evidence picker", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean canReadLocalEvidence(Uri uri) {
+        if (uri == null || !"content".equals(uri.getScheme())) return false;
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            return input != null;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void takePersistableReadPermission(Uri uri, int returnedFlags) {
+        if ((returnedFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) == 0) return;
+        try {
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (Exception ignored) {
+            // Some providers grant only temporary read access. The next preflight will fail
+            // closed into RESELECTION_REQUIRED if that access later disappears.
+        }
+    }
+
+    private void releasePersistedReadPermissionIfUnused(
+            JSONArray queue,
+            String currentCandidateId,
+            String oldReference
+    ) {
+        if (oldReference == null || !oldReference.startsWith("content://")) return;
+        try {
+            for (int i = 0; i < queue.length(); i++) {
+                JSONObject other = queue.getJSONObject(i);
+                String otherId = safe(other.optString("id", ""));
+                if (currentCandidateId.equals(otherId)) continue;
+                if (oldReference.equals(safe(other.optString("localReference", "")))) return;
+            }
+
+            Uri oldUri = Uri.parse(oldReference);
+            for (android.content.UriPermission permission : getContentResolver().getPersistedUriPermissions()) {
+                if (permission.isReadPermission() && oldUri.equals(permission.getUri())) {
+                    getContentResolver().releasePersistableUriPermission(
+                            oldUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                    return;
+                }
+            }
+        } catch (Exception ignored) {
+            // Best-effort cleanup only. Never revoke unrelated grants or mutate Nexus/Cloud.
+        }
+    }
+
+    private String displayName(Uri uri, String fallback) {
+        try (Cursor cursor = getContentResolver().query(
+                uri,
+                new String[]{OpenableColumns.DISPLAY_NAME},
+                null,
+                null,
+                null
+        )) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0 && !cursor.isNull(index)) {
+                    String value = safe(cursor.getString(index));
+                    if (!value.isEmpty()) return value;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return fallback;
+    }
+
+    private void markEvidenceReselectionRequired(String candidateId) {
+        setEvidenceState(candidateId, EVIDENCE_RESELECTION_REQUIRED);
+    }
+
     private void markEvidenceRetryable(String candidateId) {
+        setEvidenceState(candidateId, EVIDENCE_RETRY);
+    }
+
+    private void setEvidenceState(String candidateId, String state) {
         try {
             JSONArray queue = new JSONArray(prefs.getString(PREF_QUEUE, "[]"));
             JSONObject item = findItem(queue, candidateId);
             if (item != null && !EVIDENCE_CONFIRMED.equals(item.optString("evidenceTransferState", ""))) {
-                item.put("evidenceTransferState", EVIDENCE_RETRY);
+                item.put("evidenceTransferState", state);
                 prefs.edit().putString(PREF_QUEUE, queue.toString()).apply();
             }
         } catch (Exception ignored) {
