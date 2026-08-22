@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "./index";
-import { nexusRuntimeIdentityBindingsTable } from "./schema/nexusRuntimeIdentity";
+import {
+  nexusIdentityBindingsTable,
+  nexusPmPeopleTable,
+} from "./schema/nexusProjectMemoryIdentity";
 
 export interface NexusRuntimeIdentityBindingLookupInput {
   providerKey: string;
@@ -11,6 +14,7 @@ export interface NexusRuntimeIdentityBindingLookupInput {
 export interface NexusRuntimeIdentityBindingResolution {
   bindingId: string;
   canonicalPersonId: string;
+  displayName: string;
   verifiedAt: Date;
 }
 
@@ -28,11 +32,14 @@ export const fingerprintNexusProviderSubject = (providerSubject: string): string
 };
 
 /**
- * Resolve one exact external provider subject to a canonical Nexus Person ID.
+ * Resolve one exact external provider subject to an existing canonical Nexus Person.
  *
- * This lookup does not create a Person, infer identity from email/name, or grant
- * project authority. The returned Person ID must still enter the canonical
- * Project Participation + PermissionGrant resolver before any Cloud write.
+ * This is intentionally the shared #106-compatible identity boundary:
+ * provider/issuer + SHA-256(subject) -> nexus_pm_people.person_id.
+ *
+ * The lookup never creates a Person, never matches email/display name and never
+ * grants project authority. A BOUND Person must still pass Project Participation
+ * + explicit PermissionGrant evaluation before a Cloud write.
  */
 export const resolveNexusRuntimeIdentityBinding = async (
   input: NexusRuntimeIdentityBindingLookupInput,
@@ -40,22 +47,31 @@ export const resolveNexusRuntimeIdentityBinding = async (
   const providerKey = input.providerKey.trim();
   if (!providerKey) throw new Error("NEXUS_RUNTIME_IDENTITY_EMPTY_PROVIDER_KEY");
 
-  const providerSubjectSha256 = fingerprintNexusProviderSubject(input.providerSubject);
+  const providerSubjectDigest = fingerprintNexusProviderSubject(input.providerSubject);
 
   try {
     const rows = await db
       .select({
-        bindingId: nexusRuntimeIdentityBindingsTable.bindingId,
-        canonicalPersonId: nexusRuntimeIdentityBindingsTable.canonicalPersonId,
-        verifiedAt: nexusRuntimeIdentityBindingsTable.verifiedAt,
+        bindingId: nexusIdentityBindingsTable.bindingId,
+        canonicalPersonId: nexusPmPeopleTable.personId,
+        displayName: nexusPmPeopleTable.displayName,
+        personStatus: nexusPmPeopleTable.status,
+        bindingStatus: nexusIdentityBindingsTable.status,
+        verifiedAt: nexusIdentityBindingsTable.verifiedAt,
+        revokedAt: nexusIdentityBindingsTable.revokedAt,
       })
-      .from(nexusRuntimeIdentityBindingsTable)
+      .from(nexusIdentityBindingsTable)
+      .innerJoin(
+        nexusPmPeopleTable,
+        eq(nexusPmPeopleTable.personId, nexusIdentityBindingsTable.personId),
+      )
       .where(
         and(
-          eq(nexusRuntimeIdentityBindingsTable.providerKey, providerKey),
-          eq(nexusRuntimeIdentityBindingsTable.providerSubjectSha256, providerSubjectSha256),
-          eq(nexusRuntimeIdentityBindingsTable.status, "ACTIVE"),
-          isNull(nexusRuntimeIdentityBindingsTable.revokedAt),
+          eq(nexusIdentityBindingsTable.provider, providerKey),
+          eq(nexusIdentityBindingsTable.providerSubjectDigest, providerSubjectDigest),
+          eq(nexusIdentityBindingsTable.status, "ACTIVE"),
+          isNull(nexusIdentityBindingsTable.revokedAt),
+          eq(nexusPmPeopleTable.status, "active"),
         ),
       )
       .limit(2);
@@ -68,13 +84,23 @@ export const resolveNexusRuntimeIdentityBinding = async (
     }
 
     const row = rows[0]!;
-    if (!row.canonicalPersonId.trim()) {
+    if (
+      !row.canonicalPersonId.trim() ||
+      row.bindingStatus !== "ACTIVE" ||
+      row.personStatus !== "active" ||
+      row.revokedAt !== null
+    ) {
       throw new NexusRuntimeIdentityBindingStoreError(
         "NEXUS_RUNTIME_IDENTITY_BINDING_INVALID_PERSON",
       );
     }
 
-    return row;
+    return {
+      bindingId: row.bindingId,
+      canonicalPersonId: row.canonicalPersonId,
+      displayName: row.displayName,
+      verifiedAt: row.verifiedAt,
+    };
   } catch (error) {
     if (error instanceof NexusRuntimeIdentityBindingStoreError) throw error;
     throw new NexusRuntimeIdentityBindingStoreError(undefined, error);
