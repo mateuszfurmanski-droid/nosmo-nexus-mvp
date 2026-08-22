@@ -44,6 +44,9 @@ jobs:
       - name: Smoke test Nexus Cloud persistence input bridge
         run: pnpm --filter @workspace/scripts exec tsx ../lib/db/src/nexusCloudPersistenceInputSmoke.ts
 
+      - name: Smoke test canonical Nexus Cloud write access
+        run: pnpm --filter @workspace/scripts smoke:nexus-cloud-access-resolver
+
       - name: Build Nexus web application
         env:
           PORT: 4173
