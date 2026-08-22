@@ -79,8 +79,9 @@ const parseTimestamp = (value: NexusIsoDateTime): number => Date.parse(value);
 
 /**
  * First authority-safe WorkSuite Action Engine slice on the #90 foundation.
- * It applies a Nexus-local HOLD_WORK as canonical audit records only. It does
- * not modify BIM, task, procurement, evidence or external partner state.
+ * It produces the canonical records for a Nexus-local HOLD_WORK application.
+ * Atomic persistence of the returned records is a separate Project Memory
+ * transaction concern; BIM and external partner state remain untouched.
  */
 export const applyWorkSuiteHoldWork = (input: NexusHoldWorkApplyInput): NexusHoldWorkApplyResult => {
   const failures: NexusWorkSuiteApplyFailure[] = [];
@@ -178,13 +179,6 @@ export const applyWorkSuiteHoldWork = (input: NexusHoldWorkApplyInput): NexusHol
     ? resolveWorkSuiteActionRevision(input.projectEvents, projectId, worldId)
     : 0;
 
-  if (input.expectedRevision !== currentRevision) {
-    failures.push({
-      code: 'STORE_REVISION_CONFLICT',
-      message: `Expected WorkSuite action revision ${input.expectedRevision}, current revision is ${currentRevision}.`,
-    });
-  }
-
   const existingBySource = input.projectEvents.find(
     (event) =>
       event.eventType === WORKSUITE_HOLD_WORK_EVENT_TYPE &&
@@ -209,6 +203,13 @@ export const applyWorkSuiteHoldWork = (input: NexusHoldWorkApplyInput): NexusHol
     failures.push({
       code: 'APPLICATION_ID_CONFLICT',
       message: 'applicationEventId is already used by another canonical event.',
+    });
+  }
+
+  if (input.expectedRevision !== currentRevision) {
+    failures.push({
+      code: 'STORE_REVISION_CONFLICT',
+      message: `Expected WorkSuite action revision ${input.expectedRevision}, current revision is ${currentRevision}.`,
     });
   }
 
@@ -294,15 +295,17 @@ export const resolveEffectiveHoldState = (
   worldId: NexusId,
   objectId: NexusId,
 ): { state: NexusEffectiveHoldState; sourceHoldEvent?: NexusEventRecord } => {
-  const holds = events.filter(
-    (event) =>
-      event.eventType === WORKSUITE_HOLD_WORK_EVENT_TYPE &&
-      event.eventState === 'APPLIED' &&
-      event.projectId === projectId &&
-      event.worldId === worldId &&
-      event.primaryObjectId === objectId,
-  );
+  const holds = events
+    .filter(
+      (event) =>
+        event.eventType === WORKSUITE_HOLD_WORK_EVENT_TYPE &&
+        event.eventState === 'APPLIED' &&
+        event.projectId === projectId &&
+        event.worldId === worldId &&
+        event.primaryObjectId === objectId,
+    )
+    .sort((left, right) => parseTimestamp(left.recordedAt) - parseTimestamp(right.recordedAt));
 
-  const latest = holds.at(-1);
+  const latest = holds[holds.length - 1];
   return latest ? { state: 'HELD', sourceHoldEvent: latest } : { state: 'NONE' };
 };
