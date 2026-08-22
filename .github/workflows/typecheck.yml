@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck workspace
         run: pnpm run typecheck
 
+      - name: Synthetic BIM IFC WorkSuite contract E2E smoke
+        run: pnpm run smoke:bim-contract-e2e
+
       - name: Build Nexus web application
         env:
           PORT: 4173
