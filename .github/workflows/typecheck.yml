@@ -41,6 +41,9 @@ jobs:
       - name: Smoke test Nexus Cloud Google Drive adapter
         run: pnpm --filter @workspace/scripts smoke:nexus-cloud-google-drive-adapter
 
+      - name: Smoke test Nexus Cloud persistence input bridge
+        run: pnpm --filter @workspace/scripts smoke:nexus-cloud-db-input
+
       - name: Build Nexus web application
         env:
           PORT: 4173
