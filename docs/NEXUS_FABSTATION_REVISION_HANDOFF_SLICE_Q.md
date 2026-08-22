@@ -10,20 +10,20 @@ Connect the existing canonical IFC revision comparator from PR #101 to the publi
 
 Canonical sequence:
 
-`IFC revision A + IFC revision B -> #101 compare same IFC GlobalId -> KSS assembly revision observation -> FabStation incremental package advice -> human review/upload`
+`IFC revision A + IFC revision B -> #101 same-GlobalId comparison -> fingerprinted KSS revision observation -> exact current package binding -> FabStation incremental package advice -> human review/upload`
 
 ## Official FabStation revision rules used
 
 Current public FabStation documentation states:
 
-- every project-package upload, including revision/sequence uploads, requires a KSS file;
-- incremental uploads should contain revised or additional files rather than blindly resending the whole project;
-- for FabStation Steel, model revision is derived from KSS assembly revision data;
-- with Processing Filter ON, new assemblies and higher revisions are processed while same/lower revisions are ignored;
+- every revision/sequence project-package upload requires a KSS;
+- incremental uploads should contain revised/additional files rather than blindly resending the whole project;
+- FabStation Steel model revision is derived from KSS assembly revision data;
+- Processing Filter ON processes new assemblies/higher revisions and ignores same/lower revisions;
 - Processing Filter OFF processes all assemblies in the uploaded KSS;
 - OFF is the documented path when correcting an incorrectly exported assembly without increasing its revision number;
-- PDF files with the same filename replace the current drawing while a different filename is added as another drawing;
-- current steel project IFC evidence remains IFC2x3.
+- same PDF filename replaces the current drawing while a different filename adds another drawing;
+- current public Steel IFC evidence remains IFC2x3.
 
 Official evidence:
 
@@ -32,13 +32,13 @@ Official evidence:
 - https://www.fabstation.com/kb/creating-zip/
 - https://www.fabstation.com/kb/manual_kss/
 
-No API, SDK, webhook or live-sync capability is inferred from these manual package rules.
+No API, SDK, webhook, deep-link or live-sync capability is inferred from these manual package rules.
 
-## Revision B fixtures
+## Revision fixtures
 
-Adds deterministic repo fixtures:
+### Revision B IFC
 
-### `nexus_fabstation_smoke_r2.ifc`
+`nexus_fabstation_smoke_r2.ifc`
 
 - IFC2X3;
 - 474 bytes;
@@ -46,46 +46,47 @@ Adds deterministic repo fixtures:
 - same IFCPROJECT GlobalId as revision A: `0NXSFSPROJECT000000001`;
 - same IFCBEAM GlobalId: `0NXSFSBEAM000000000001`;
 - diagnostic STEP ID changes `#20 -> #200`;
-- bounded metadata changes from `B1007` to `B1007 Rev 1 / Revised beam / B1007-R1`.
+- bounded metadata changes to `B1007 Rev 1 / Revised beam / B1007-R1`.
 
-### `nexus_fabstation_smoke_r2.kss`
+### Revision B KSS
+
+`nexus_fabstation_smoke_r2.kss`
 
 - 135 bytes;
 - SHA-256 `c0504ca7bfb7bba8b0c8c4165d6955e7a6db07c99b2ff25addb75afa8bf9fb0f`;
-- assembly B1007 revision changes `0 -> 1`.
+- B1007 revision `0 -> 1`.
 
-### `nexus_fabstation_smoke_correction.kss`
+### Same-revision correction KSS
+
+`nexus_fabstation_smoke_correction.kss`
 
 - 146 bytes;
 - SHA-256 `a19d16b0e995845ca817754218b6849a6e54687a6de1a1e4b6d6d01de850eb6a`;
-- assembly B1007 remains revision `0` while representing the documented same-revision correction scenario.
+- B1007 remains revision `0` for the correction-without-revision-increase scenario.
 
-## Fixture validator
-
-Adds:
+## Fixture integrity
 
 `node scripts/validate-fabstation-revision-smoke-fixtures.mjs`
 
-It checks actual repo bytes/hashes, IFC2X3 lineage/object identity, expected diagnostic STEP ID, bounded metadata change, KISS identification, B1007 revision values and KSS 254-character line limit.
+Checks actual repo bytes/hashes, IFC2X3 lineage/object identity, diagnostic STEP ID, bounded metadata change, KISS identification, B1007 revision values and KSS 254-character line limit.
 
 Local result:
 
 `FABSTATION_REVISION_SMOKE_FIXTURES_PASS`
 
-## KSS revision observation
+## Fingerprinted KSS observation
 
-Adds:
+Adds `nexus-fabstation-kss-revision/v1`.
 
-`nexus-fabstation-kss-revision/v1`
-
-The bounded observer reads only the fields needed for revision routing:
+The observer reads only the fields required for routing:
 
 `D, Drawing No, Drawing Rev, Assembly Mark, Part Mark, Quantity, ...`
 
 It requires:
 
 - `.kss` source;
-- valid size/fingerprint when supplied;
+- positive bounded file size;
+- **mandatory exact SHA-256 fingerprint**;
 - KISS identification record;
 - line length <=254;
 - exact assembly mark;
@@ -93,53 +94,53 @@ It requires:
 
 Revision relation:
 
-- equal value -> `SAME`;
-- strictly numeric increase -> `HIGHER`;
-- strictly numeric decrease -> `LOWER`;
-- non-numeric ordering that cannot be proven -> `UNDETERMINED` and human review.
+- same exact value -> `SAME`;
+- proven numeric increase -> `HIGHER`;
+- proven numeric decrease -> `LOWER`;
+- ordering Nexus cannot prove -> `UNDETERMINED` / human review.
 
-Nexus deliberately does not guess alphanumeric revision ordering.
+Nexus does not guess alphanumeric revision ordering.
 
 ## Reuse of canonical IFC comparison
 
-Slice Q imports the existing PR #101 result:
+Slice Q imports PR #101 `nexus-ifc-revision-comparison/v1` directly.
 
-`nexus-ifc-revision-comparison/v1`
+No second IFC comparator exists.
 
-No second IFC comparator is introduced.
+The revision handoff is blocked if #101 returns `COMPARISON_BLOCKED`. The IFC GlobalId remains the cross-revision model-source identity; STEP/express ID is diagnostic only.
 
-The revision handoff is blocked when #101 returns `COMPARISON_BLOCKED`.
+## Exact current-source binding
 
-The same IFC GlobalId remains canonical model-source identity across revisions. STEP/express ID changes remain diagnostic only.
+Before FabStation advice can be package-ready, Slice Q proves that the current package is the exact source set reviewed by the revision flow:
 
-## FabStation revision handoff contract
+- comparison Nexus Object ID == package Nexus Object ID;
+- comparison IFC GlobalId == package IFC GlobalId;
+- `comparison.currentRevision == package.sourceModelRevision`;
+- package IFC filename == `comparison.currentSourceFileName`;
+- when #101 exposes a changed current source SHA in its diagnostic delta, package IFC SHA must equal that exact current SHA;
+- current KSS observation filename + mandatory SHA must equal the KSS frozen in the package plan.
 
-Adds:
+Mismatch is `BLOCKED`; same names or revision labels are not accepted as sufficient identity.
 
-`nexus-fabstation-revision-handoff/v1`
+## Revision handoff contract
+
+Adds `nexus-fabstation-revision-handoff/v1`.
 
 ### Normal higher revision
 
-If:
+For a valid `0 -> 1` KSS revision:
 
-- #101 comparison is not blocked;
-- previous/current KSS target the exact same assembly;
-- current KSS matches the current package plan;
-- KSS revision is `HIGHER`;
+- state `REVISION_PACKAGE_READY`;
+- Processing Filter `ON`;
+- current KSS always included;
+- current IFC included only when #101 source fingerprint changed;
+- only explicitly declared revised/additional PDFs included.
 
-then:
-
-- state: `REVISION_PACKAGE_READY`;
-- Processing Filter recommendation: `ON`;
-- current KSS is always selected;
-- current IFC is selected only when the source fingerprint changed;
-- only explicitly selected revised/additional PDFs are included.
-
-This follows the incremental-package boundary rather than resending unchanged project files.
+This follows FabStation's incremental-package guidance.
 
 ### Same revision + changed IFC
 
-If the IFC source/change signal changed but the KSS revision remains `SAME`, Nexus does not auto-select a filter.
+If #101 shows source/change evidence but KSS revision is unchanged, Nexus does not guess.
 
 Without explicit override:
 
@@ -148,68 +149,65 @@ Without explicit override:
 With:
 
 - `correctionWithoutRevisionIncrease=true`;
-- non-empty human correction reason;
+- non-empty human reason;
 
-then:
+result:
 
-- state: `REVISION_PACKAGE_READY`;
-- Processing Filter recommendation: `OFF`.
+- `REVISION_PACKAGE_READY`;
+- Processing Filter `OFF`.
 
-This models the documented FabStation correction case where the assembly export is fixed without increasing its revision number.
+This is the documented correction path for an export fixed without raising the assembly revision.
 
-### Lower / ambiguous revisions
+### Fail-closed cases
 
+- #101 comparison blocked -> `BLOCKED`;
+- current IFC/package source mismatch -> `BLOCKED`;
+- current revision label/package mismatch -> `BLOCKED`;
+- KSS without fingerprint -> `BLOCKED`;
+- KSS/package fingerprint mismatch -> `BLOCKED`;
 - lower KSS revision -> `BLOCKED`;
-- unprovable non-numeric ordering -> `HUMAN_REVIEW_REQUIRED`;
-- missing/ambiguous KSS observation -> `BLOCKED`.
-
-## PDF boundary
-
-The contract never assumes all PDFs are revised.
-
-Only caller-supplied IDs that already exist as PDF files in the current package plan may be selected as revised/additional PDFs. Invalid IDs fail closed.
+- missing/ambiguous KSS observation -> `BLOCKED`;
+- unprovable revision ordering -> `HUMAN_REVIEW_REQUIRED`;
+- invalid revised/additional PDF selection -> `BLOCKED`;
+- correction override when KSS is already higher -> `BLOCKED`.
 
 ## Synthetic revision smoke
 
-Adds:
-
 `pnpm run smoke:fabstation-revision`
 
-The deterministic flow proves:
+Deterministic assertions:
 
-1. revision A and B pass bounded IFC2X3 intake;
-2. IFCPROJECT GlobalId remains the same;
-3. IFCBEAM GlobalId remains the same;
-4. diagnostic STEP ID changes `20 -> 200`;
-5. PR #101 returns `HUMAN_REVIEW_REQUIRED` for bounded metadata/source change;
-6. KSS revision `0 -> 1` resolves `HIGHER`;
-7. normal revision advice is package-ready + Processing Filter ON;
-8. changed IFC + same KSS revision without override remains human-review-required;
-9. explicit same-revision correction reason produces package-ready + Processing Filter OFF;
-10. provenance remains `SYNTHETIC_DEMO` and no partner PASS is released.
+1. revisions A/B pass IFC2X3 intake;
+2. IFCPROJECT GlobalId remains stable;
+3. IFCBEAM GlobalId remains stable;
+4. STEP ID changes `20 -> 200` diagnostic-only;
+5. #101 returns `HUMAN_REVIEW_REQUIRED` for bounded metadata/source change;
+6. KSS `0 -> 1` = `HIGHER`;
+7. normal revision -> package-ready + Filter ON;
+8. changed IFC + unchanged KSS revision without override -> human review;
+9. explicit same-revision correction reason -> package-ready + Filter OFF;
+10. synthetic provenance remains synthetic and cannot release partner PASS.
 
 Expected marker:
 
 `FABSTATION_REVISION_HANDOFF_SMOKE_PASS`
 
-## CI wiring
+## Validation wiring and truth
 
-The existing `Validate and Build` flow now adds:
+`Validate and Build` now includes the zero-dependency revision fixture validator before install and the revision contract smoke after the existing FabStation package smoke.
 
-- zero-dependency revision fixture validation before dependency install;
-- `smoke:fabstation-revision` after the existing package smoke.
+Current evidence:
 
-Current GitHub Actions account quota/budget still blocks runner execution before steps, so repository CI PASS is not claimed.
-
-## Validation truth
-
-- actual revision fixture integrity: LOCAL PASS (`FABSTATION_REVISION_SMOKE_FIXTURES_PASS`);
-- source contracts/smoke: implemented and typecheck-wired;
-- GitHub runner execution: BLOCKED_BY_ACTIONS_QUOTA;
+- actual revision fixture integrity: LOCAL PASS — `FABSTATION_REVISION_SMOKE_FIXTURES_PASS`;
+- isolated decision mirror: `FABSTATION_REVISION_SLICE_Q_ISOLATED_BEHAVIOR_PASS`;
+- source/typecheck/smoke wiring: prepared;
+- GitHub runner execution: `BLOCKED_BY_ACTIONS_QUOTA`;
 - repository-wide CI PASS: NOT CLAIMED;
 - real project revision pair: NOT VALIDATED;
 - real FabStation revision package: NOT EXECUTED.
 
-## Protected boundaries
+## Boundaries
 
-No PR #91/Spark Object Card changes. No Work Wallet, Nexus Cloud/Drive behavior, Android Work Mode, DoorFlow, Electrical, Person Card UI or Relationship Tree gesture/layout changes. No automatic upload, partner mutation or merge.
+No ZIP creation, partner upload/API call, state mutation or `PARTNER_HANDOFF_PASS`. Synthetic provenance cannot promote a real gate.
+
+No PR #91/Spark Object Card change. No Work Wallet, Nexus Cloud/Drive behavior, Android Work Mode, DoorFlow, Electrical, Person Card UI or Relationship Tree gesture/layout change. No automatic merge/deploy.
