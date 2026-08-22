@@ -65,6 +65,19 @@ assert(
   "OAuth preflight may validate shape but must not print secret values",
 );
 assert(
+  preflight.includes("NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE") &&
+    preflight.includes("exchangeGoogleDriveAccessToken") &&
+    preflight.includes('method: "GET"') &&
+    preflight.includes("capabilities(canAddChildren)") &&
+    preflight.includes("providerNetworkProbePassed"),
+  "READY must require an explicit real OAuth + read-only Drive capability probe",
+);
+assert(
+  !preflight.includes('method: "POST"') &&
+    !preflight.includes("upload/drive/v3"),
+  "runtime preflight must never contain a Drive create/upload path",
+);
+assert(
   cli.includes("--require-ready") &&
     cli.includes("READY_FOR_CONTROLLED_E2E"),
   "CLI must support a deploy-gating readiness exit mode",
