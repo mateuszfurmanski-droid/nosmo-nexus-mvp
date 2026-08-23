@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server typecheck",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server typecheck && node artifacts/api-server/build-vercel-staging.mjs",
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -8,7 +8,7 @@
     }
   ],
   "functions": {
-    "api/index.ts": {
+    "api/index.mjs": {
       "maxDuration": 60,
       "includeFiles": "{scripts/src/nexus-cloud-google-drive-adapter.mjs,scripts/src/work-wallet-api.mjs,artifacts/api-server/package.json,artifacts/nosmo-nexus/package.json}"
     }
