@@ -1,6 +1,6 @@
 # Nexus Cloud Staging Bootstrap
 
-Status date: 2026-08-22
+Status date: 2026-08-23
 
 ## Purpose
 
@@ -101,35 +101,55 @@ A new isolated Vercel project was successfully created without reusing any histo
 
 - Vercel project name: `nosmo-nexus-cloud-staging`
 - Vercel project ID: `prj_SlNzV4zgxagf5clGrH8UbFZyJwCK`
-- environment: preview/non-production only
+- environment: non-production staging project; provider writes disabled
 - first dedicated preview deployment: `dpl_7RkPyy2niZTd9PBqzsUvRNWfS1Jp`
-- database-probe deployment: `dpl_Eqquyyfjuv9Q2uPtE5SzH8q562fB`
-- current probe URL: `https://nosmo-nexus-cloud-staging-dbcb3ffx0.vercel.app`
+- initial database-probe deployment: `dpl_Eqquyyfjuv9Q2uPtE5SzH8q562fB`
+- current database-probe redeployment: `dpl_6z7KeEfNuQQ179PVVF34e5FXuVnV`
+- current probe URL: `https://nosmo-nexus-cloud-staging-5cz1ovoje.vercel.app`
 - Google Drive writes: disabled
 
 The probe deployment contains a GET-only `/api/preflight` endpoint intended to inspect the exact Neon staging schema without returning credentials or performing database/provider writes.
 
 The deployment build reached `READY` and the serverless runtime executed.
 
-Current Vercel -> Neon attachment truth:
+## Verified Vercel -> Neon attachment
 
-- `/api/preflight` returned HTTP `503` with `DATABASE_URL_NOT_CONFIGURED`;
-- the endpoint therefore failed closed before any database operation;
-- the deployment helper accepted only deployment files and did not persist the attempted deployment-level environment input;
-- no database credential was embedded in source/deployment files;
-- a later attempt to create a disposable read-only SQL login with an explicit password was blocked by platform secret-safety checks before execution, so no such role was created;
-- a persistent `DATABASE_URL` still must be attached through the hosting platform's secure environment/Marketplace secret mechanism.
+A persistent `DATABASE_URL` was attached manually through the Vercel project's secure Environment Variables UI, marked Sensitive, and the database-probe preview was redeployed without build cache.
 
-This is now the preferred staging host direction. The historical Replit candidate should not be used unless its exact runtime state later becomes independently verifiable.
+The fresh preview reached `READY` and `/api/preflight` executed against the real Neon staging database.
+
+Sanitized probe result:
+
+- schema: `nexus-cloud-staging-runtime-probe/v1`;
+- status: `BLOCKED`;
+- environment: `non-production`;
+- source head: `null` in the minimal probe;
+- resolved database name: `nexus_cloud_staging`;
+- exact expected database attestation: `false`;
+- required table count: `14`;
+- present table count: `14`;
+- missing tables: `[]`;
+- provider write enabled: `false`;
+- database mutation performed: `false`;
+- provider write performed: `false`;
+- secret values returned: `false`.
+
+This positively verifies that the Vercel staging runtime can connect to the intended Neon database and read the complete current Cloud-required schema. The earlier `DATABASE_URL_NOT_CONFIGURED` blocker is resolved.
+
+The remaining `BLOCKED` status is no longer a database-connectivity failure. The minimal probe still reports `exactExpectedDatabase=false`, so exact target attestation must be resolved before treating the probe as a release gate. Provider writes also remain intentionally disabled.
+
+The only runtime log emitted for the successful database read was a `pg` SSL-mode compatibility warning. No credential, host, password, or secret value was returned by the probe.
+
+The dedicated Vercel project is now the preferred staging host direction. The historical Replit candidate should not be used unless its exact runtime state later becomes independently verifiable.
 
 ## GitHub Actions truth
 
-The latest #137 validation run still failed before runner step execution with `steps=null`.
+The latest #137 validation runs continue to fail before runner step execution with `steps=null`.
 
 Therefore:
 
 - no CI typecheck/build PASS is claimed;
-- the real Neon database smoke above is independently executed evidence and is not derived from GitHub Actions.
+- the real Neon database smoke and Vercel -> Neon read-only probe above are independently executed evidence and are not derived from GitHub Actions.
 
 ## What has NOT been done
 
@@ -137,7 +157,8 @@ Therefore:
 - no historical Replit database was reused;
 - no canonical real user/Person binding was seeded;
 - no Project Participation or `cloud.file.write` grant was created for a real user;
-- no persistent Vercel `DATABASE_URL` secret has been attached yet;
+- no full `nosmo-nexus-mvp` authenticated API runtime has been deployed to Vercel yet;
+- exact expected-database attestation in the minimal Vercel probe is not yet satisfied;
 - no Google OAuth refresh-token credential was configured;
 - no real provider-network preflight was executed from the application runtime;
 - no Google Drive file was created;
@@ -147,10 +168,10 @@ Therefore:
 
 ## Next controlled gates
 
-1. attach the exact Neon `nexus_cloud_staging` connection through the Vercel project's secure environment/Marketplace secret mechanism;
-2. rerun the Vercel GET-only preflight and require exact database + `14 / 14` tables;
-3. deploy the actual `nosmo-nexus-mvp` authenticated API runtime/bundle rather than the minimal probe;
-4. capture the authenticated runtime subject and establish the exact provider-subject digest -> canonical Person binding;
+1. resolve the minimal Vercel probe's exact-target attestation so the known `nexus_cloud_staging` target is explicitly accepted rather than merely connected;
+2. deploy the actual `nosmo-nexus-mvp` authenticated API runtime/bundle rather than the minimal probe;
+3. establish a stable runtime identity path for Vercel staging and capture the authenticated subject;
+4. establish the exact provider-subject digest -> canonical Person binding;
 5. create one controlled e-SAFE Project Participation and explicit `cloud.file.write` allow;
 6. configure the server-only Google OAuth refresh-token credential;
 7. run the explicit GET-only provider probe for all five verified e-SAFE Drive targets;
