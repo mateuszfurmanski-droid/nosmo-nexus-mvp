@@ -1,0 +1,78 @@
+name: OpenProject Ephemeral E2E
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/openproject-ephemeral-e2e.yml"
+      - "scripts/openproject-ephemeral-e2e.mjs"
+      - "src/connectors/openproject/**"
+      - "src/connectors/index.ts"
+      - "src/registry/connectorRegistry.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/openProjectEphemeralSnapshot.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/connectorRuntimeProjection.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/AdaptiveConnectorLab.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ephemeral-openproject-read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Nexus branch
+        uses: actions/checkout@v4
+
+      - name: Start pinned OpenProject Community Edition
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRET_KEY_BASE="$(openssl rand -hex 64)"
+          docker run -d \
+            --name nexus-openproject-e2e \
+            -p 8080:80 \
+            -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+            -e OPENPROJECT_HOST__NAME=127.0.0.1:8080 \
+            -e OPENPROJECT_HTTPS=false \
+            -e OPENPROJECT_DEFAULT__LANGUAGE=en \
+            -e OPENPROJECT_SEED__ADMIN__USER__PASSWORD='NexusE2E-Only-2026!' \
+            -e OPENPROJECT_SEED__ADMIN__USER__PASSWORD__RESET=false \
+            openproject/openproject:17.6.0
+
+          for i in {1..120}; do
+            if curl -sS -o /dev/null http://127.0.0.1:8080/api/v3; then
+              echo "OPENPROJECT_BACKEND_REACHABLE"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs --tail 200 nexus-openproject-e2e || true
+          exit 1
+
+      - name: Create disposable API token
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_TOKEN="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); puts t.value'\'' ' | tail -n 1 | tr -d '\r')"
+          if [ -z "$API_TOKEN" ]; then
+            echo "OPENPROJECT_E2E_TOKEN_EMPTY"
+            exit 1
+          fi
+          echo "::add-mask::$API_TOKEN"
+          echo "OPENPROJECT_E2E_API_TOKEN=$API_TOKEN" >> "$GITHUB_ENV"
+
+      - name: Execute Nexus OpenProject E2E
+        env:
+          OPENPROJECT_E2E_BASE_URL: http://127.0.0.1:8080
+        run: node scripts/openproject-ephemeral-e2e.mjs
+
+      - name: OpenProject diagnostics
+        if: failure()
+        run: docker logs --tail 260 nexus-openproject-e2e || true
+
+      - name: Stop OpenProject
+        if: always()
+        run: docker rm -f nexus-openproject-e2e || true
