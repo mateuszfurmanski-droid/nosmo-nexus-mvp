@@ -15,6 +15,22 @@ const objectProfiles = ["MATERIAL", "PRODUCT", "ASSET", "COMPONENT", "EQUIPMENT"
 type ObjectProfile = (typeof objectProfiles)[number];
 
 type DemoLanguage = "en" | "pl";
+type DemoTheme = "gold" | "green" | "blue" | "white" | "black";
+
+const themeStorageKey = "nosmo.spark.demo.theme.v1";
+const demoThemes: Array<{ id: DemoTheme; label: string; color: string }> = [
+  { id: "gold", label: "Gold", color: "#f0c24f" },
+  { id: "green", label: "Green", color: "#9de6c2" },
+  { id: "blue", label: "Nexus Blue", color: "#55bdf2" },
+  { id: "white", label: "White", color: "#f4f1e7" },
+  { id: "black", label: "Black", color: "#111111" },
+];
+
+function loadTheme(): DemoTheme {
+  if (typeof window === "undefined") return "gold";
+  const stored = window.localStorage.getItem(themeStorageKey);
+  return demoThemes.some((theme) => theme.id === stored) ? (stored as DemoTheme) : "gold";
+}
 
 const polishUi: Record<string, string> = {
   "Project": "Projekt", "Environmental": "Środowisko", "Project structure": "Struktura projektu",
@@ -225,6 +241,8 @@ function buildReportCsv(
 
 export default function SparkSkanskaDemo() {
   const [language, setLanguage] = useState<DemoLanguage>("en");
+  const [theme, setTheme] = useState<DemoTheme>(loadTheme);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [view, setView] = useState<"project" | "environment">("project");
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -245,6 +263,9 @@ export default function SparkSkanskaDemo() {
   useEffect(() => {
     try { window.localStorage.setItem(createdObjectStorageKey, JSON.stringify(createdObjects)); } catch { /* best effort */ }
   }, [createdObjects]);
+  useEffect(() => {
+    try { window.localStorage.setItem(themeStorageKey, theme); } catch { /* best effort */ }
+  }, [theme]);
 
   const decisionOverrides = useMemo(() => {
     const result: Record<string, CircularStatus> = {};
@@ -330,7 +351,7 @@ export default function SparkSkanskaDemo() {
   });
 
   return (
-    <div key={language} className="spark-workbench" lang={language}>
+    <div key={language} className="spark-workbench" lang={language} data-spark-theme={theme}>
       <header className="spark-topbar">
         <div className="spark-brand">
           <img
@@ -347,9 +368,30 @@ export default function SparkSkanskaDemo() {
           aria-label={language === "en" ? "Przełącz na język polski" : "Switch to English"}
           title={language === "en" ? "Polski" : "English"}
           onClick={() => setLanguage((current) => current === "en" ? "pl" : "en")}
-          style={{ border: "1px solid #3d4652", background: "#121820", color: "#fff", borderRadius: 4, padding: "5px 8px", cursor: "pointer", fontSize: 18 }}
+          className="spark-language-button"
         >{language === "en" ? "🇵🇱" : "🇬🇧"}</button>
         <div className="spark-truth-inline">SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values</div>
+        <div className="spark-skin-shell">
+          <button
+            type="button"
+            className="spark-skin-trigger"
+            aria-label="Choose interface skin"
+            aria-expanded={themeMenuOpen}
+            title="Interface skin"
+            onClick={() => setThemeMenuOpen((open) => !open)}
+          >☰</button>
+          {themeMenuOpen && <div className="spark-skin-menu" role="menu" aria-label="Interface skin">
+            <strong>Skin</strong>
+            {demoThemes.map((item) => <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={theme === item.id}
+              className={theme === item.id ? "active" : ""}
+              key={item.id}
+              onClick={() => { setTheme(item.id); setThemeMenuOpen(false); }}
+            ><span className="spark-skin-swatch" style={{ background: item.color }} />{item.label}<span>{theme === item.id ? "✓" : ""}</span></button>)}
+          </div>}
+        </div>
       </header>
 
       <section className="spark-contextbar">
