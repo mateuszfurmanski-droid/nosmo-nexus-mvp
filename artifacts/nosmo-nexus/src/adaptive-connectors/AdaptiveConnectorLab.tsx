@@ -3,6 +3,10 @@ import {
   connectorRuntimeProjections,
   type AdaptiveConnectorId,
 } from "./connectorRuntimeProjection";
+import {
+  snipePublicDemoAssetLabel,
+  snipePublicDemoSnapshot,
+} from "./snipePublicDemoSnapshot";
 import "./nexus-visual-baseline.css";
 
 type ConnectorId = "nexus" | AdaptiveConnectorId;
@@ -52,9 +56,9 @@ const connectors: ConnectorProfile[] = [
     subtitle: "Snipe-IT engine candidate",
     experience: "Licensed-source UI / API candidate",
     sourceBoundary: "External asset record remains source-owned; Nexus stores mapping/context.",
-    notice: "The server-side read adapter exists on the parent connector branch. No instance URL or credential is stored in this browser surface and no automatic graph mutation is enabled.",
+    notice: "The server-side read adapter exists on the parent connector branch. The asset shown here is a sanitised, ephemeral snapshot obtained by CI from the official public Snipe-IT develop demo. It does not mean a persistent Nexus tenant is configured and no credential is exposed to this browser surface.",
     actionLabel: "Read configured assets",
-    sourceExample: "Asset HW-0042 · Cordless drill",
+    sourceExample: `${snipePublicDemoSnapshot.asset.assetTag} · ${snipePublicDemoAssetLabel}`,
   },
   {
     id: "odk",
@@ -125,9 +129,14 @@ export default function AdaptiveConnectorLab() {
           </article>
 
           <article className="nx-lab-node asset">
-            <strong>{active.id === "snipe-it" ? "Tool Asset · HW-0042" : "Object Card · Door 02.14"}</strong>
+            <strong>
+              {active.id === "snipe-it"
+                ? `Tool Asset · ${snipePublicDemoSnapshot.asset.assetTag}`
+                : "Object Card · Door 02.14"}
+            </strong>
             <small>{active.sourceExample}</small>
             {active.id !== "nexus" && <div className="source">SOURCE · {active.shortLabel}</div>}
+            {active.id === "snipe-it" && <div className="source">PUBLIC DEMO SNAPSHOT · EPHEMERAL</div>}
           </article>
 
           <article className="nx-lab-node task">
@@ -185,6 +194,19 @@ export default function AdaptiveConnectorLab() {
                 <div className="nx-lab-row"><span>Read capabilities</span><strong>{runtime.readCapabilityCount}</strong></div>
                 <div className="nx-lab-row"><span>Graph mutation flag</span><strong>{runtime.canUpdateProjectGraph ? "contract allows · release still gated" : "disabled"}</strong></div>
                 <div className="nx-lab-row"><span>Nexus evidence flag</span><strong>{runtime.canCreateNexusEvidence ? "contract allows · policy still gated" : "disabled"}</strong></div>
+              </section>
+            )}
+
+            {active.id === "snipe-it" && (
+              <section className="nx-lab-section">
+                <h2>Upstream E2E proof · public demo snapshot</h2>
+                <div className="nx-lab-row"><span>Source</span><strong>{snipePublicDemoSnapshot.sourceLabel}</strong></div>
+                <div className="nx-lab-row"><span>Asset</span><strong>{snipePublicDemoSnapshot.asset.assetTag} · {snipePublicDemoAssetLabel}</strong></div>
+                <div className="nx-lab-row"><span>Type</span><strong>{snipePublicDemoSnapshot.asset.category} · {snipePublicDemoSnapshot.asset.manufacturer}</strong></div>
+                <div className="nx-lab-row"><span>Status</span><strong>{snipePublicDemoSnapshot.asset.status}</strong></div>
+                <div className="nx-lab-row"><span>Location</span><strong>{snipePublicDemoSnapshot.asset.location}</strong></div>
+                <div className="nx-lab-row"><span>Captured</span><strong>{snipePublicDemoSnapshot.capturedAt}</strong></div>
+                <div className="nx-lab-row"><span>Persistence</span><strong>ephemeral CI snapshot · not a configured Nexus tenant</strong></div>
               </section>
             )}
 
