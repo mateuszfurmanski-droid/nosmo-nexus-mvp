@@ -10,4 +10,6 @@ Safety rules:
 - Connector presentation never grants API, write, permission, source-of-record or partner authority.
 - Work Wallet is represented only as a restricted Nexus-side context because no vendor UI approval is recorded.
 - Snipe-IT and ODK contexts correspond to the read-adapter candidates in the parent PR; no live tenant or secret is configured here.
+- Runtime labels are projected from the actual parent connector contracts, not duplicated capability claims in the visual component.
+- Future live checks may supply only a client-safe probe (`configured`, `reachable`, `lastError`); credentials and tokens must remain server-side.
 - Closing the visual-lab PR removes this experiment without changing the parent connector contracts.
