@@ -21,6 +21,12 @@ import {
 } from "../lib/auth";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+const MOBILE_AUTH_FLOW_COOKIE = "nexus_mobile_auth_flow";
+const MOBILE_AUTH_STATE_COOKIE = "nexus_mobile_auth_state";
+const MOBILE_AUTH_FLOW = "android-work-mode-v1";
+const MOBILE_AUTH_CALLBACK = "nosmo-nexus-workmode://auth-result";
+const PKCE_S256_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const OIDC_CORRELATION_PATTERN = /^[A-Za-z0-9._~-]{32,128}$/;
 
 const router: IRouter = Router();
 
@@ -29,6 +35,38 @@ function getOrigin(req: Request): string {
   const host =
     req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
   return `${proto}://${host}`;
+}
+
+function getOidcCallbackUrl(req: Request): string {
+  return `${getOrigin(req)}/api/callback`;
+}
+
+function normalizeHttpsOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:") return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Native/mobile OIDC must bind to one server-owned public HTTPS origin in production.
+ * Request-derived Host/X-Forwarded-Host is accepted only for non-production development
+ * where a canonical public origin may not exist yet.
+ */
+function getMobileAuthOrigin(req: Request): string | null {
+  const configured = process.env.NEXUS_PUBLIC_ORIGIN?.trim();
+  if (configured) return normalizeHttpsOrigin(configured);
+  if (process.env.NODE_ENV === "production") return null;
+  return normalizeHttpsOrigin(getOrigin(req));
+}
+
+function getMobileOidcCallbackUrl(req: Request): string | null {
+  const origin = getMobileAuthOrigin(req);
+  return origin ? `${origin}/api/callback` : null;
 }
 
 function isSameOrigin(req: Request): boolean {
@@ -70,11 +108,41 @@ function setOidcCookie(res: Response, name: string, value: string) {
   });
 }
 
+function clearBrowserOidcCookies(res: Response): void {
+  res.clearCookie("code_verifier", { path: "/" });
+  res.clearCookie("nonce", { path: "/" });
+  res.clearCookie("state", { path: "/" });
+  res.clearCookie("return_to", { path: "/" });
+}
+
+function clearMobileAuthCookies(res: Response): void {
+  res.clearCookie(MOBILE_AUTH_FLOW_COOKIE, { path: "/" });
+  res.clearCookie(MOBILE_AUTH_STATE_COOKIE, { path: "/" });
+}
+
+function queryString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 function getSafeReturnTo(value: unknown): string {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
     return "/dashboard";
   }
   return value;
+}
+
+function mobileAuthReturnUrl(input: {
+  status: "AUTHORIZATION_CODE" | "FAILED";
+  code?: string;
+  state?: string;
+  error?: string;
+}): string {
+  const url = new URL(MOBILE_AUTH_CALLBACK);
+  url.searchParams.set("status", input.status);
+  if (input.code) url.searchParams.set("code", input.code);
+  if (input.state) url.searchParams.set("state", input.state);
+  if (input.error) url.searchParams.set("error", input.error);
+  return url.toString();
 }
 
 async function upsertUser(claims: Record<string, unknown>) {
@@ -114,7 +182,7 @@ router.get("/auth/user", (req: Request, res: Response) => {
 
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const callbackUrl = getOidcCallbackUrl(req);
 
   const returnTo = getSafeReturnTo(req.query.returnTo);
 
@@ -133,6 +201,7 @@ router.get("/login", async (req: Request, res: Response) => {
     nonce,
   });
 
+  clearMobileAuthCookies(res);
   setOidcCookie(res, "code_verifier", codeVerifier);
   setOidcCookie(res, "nonce", nonce);
   setOidcCookie(res, "state", state);
@@ -141,12 +210,95 @@ router.get("/login", async (req: Request, res: Response) => {
   res.redirect(redirectTo.href);
 });
 
+/**
+ * Start native Android OIDC without registering a second provider redirect URI.
+ *
+ * Android owns the PKCE verifier and sends only its S256 challenge plus fresh
+ * state/nonce. The provider still redirects to the existing HTTPS /api/callback.
+ * That callback forwards the short-lived, PKCE-bound authorization code to the
+ * fixed Android deep link. No Nexus session ID or provider token enters a URL.
+ */
+router.get("/mobile-auth/start", async (req: Request, res: Response) => {
+  const codeChallenge = queryString(req.query.code_challenge);
+  const state = queryString(req.query.state);
+  const nonce = queryString(req.query.nonce);
+  const callbackUrl = getMobileOidcCallbackUrl(req);
+
+  if (!callbackUrl) {
+    res.status(503).json({ error: "NEXUS_MOBILE_AUTH_PUBLIC_ORIGIN_NOT_CONFIGURED" });
+    return;
+  }
+
+  if (
+    !codeChallenge ||
+    !PKCE_S256_PATTERN.test(codeChallenge) ||
+    !state ||
+    !OIDC_CORRELATION_PATTERN.test(state) ||
+    !nonce ||
+    !OIDC_CORRELATION_PATTERN.test(nonce)
+  ) {
+    res.status(400).json({ error: "NEXUS_MOBILE_AUTH_START_INVALID" });
+    return;
+  }
+
+  try {
+    const config = await getOidcConfig();
+    const redirectTo = oidc.buildAuthorizationUrl(config, {
+      redirect_uri: callbackUrl,
+      scope: "openid email profile offline_access",
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      prompt: "login consent",
+      state,
+      nonce,
+    });
+
+    clearBrowserOidcCookies(res);
+    setOidcCookie(res, MOBILE_AUTH_FLOW_COOKIE, MOBILE_AUTH_FLOW);
+    setOidcCookie(res, MOBILE_AUTH_STATE_COOKIE, state);
+    res.setHeader("Cache-Control", "no-store");
+    res.redirect(redirectTo.href);
+  } catch (err) {
+    req.log.error({ err }, "Mobile auth bootstrap unavailable");
+    res.status(503).json({ error: "NEXUS_MOBILE_AUTH_START_UNAVAILABLE" });
+  }
+});
+
 // Query params are not validated because the OIDC provider may include
 // parameters not expressed in the schema.
 router.get("/callback", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const mobileFlow = req.cookies?.[MOBILE_AUTH_FLOW_COOKIE];
 
+  if (mobileFlow === MOBILE_AUTH_FLOW) {
+    const expectedState = req.cookies?.[MOBILE_AUTH_STATE_COOKIE];
+    const state = queryString(req.query.state);
+    const code = queryString(req.query.code);
+    clearMobileAuthCookies(res);
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+
+    if (!expectedState || !state || state !== expectedState || !code) {
+      res.redirect(
+        mobileAuthReturnUrl({
+          status: "FAILED",
+          error: "MOBILE_AUTH_CALLBACK_REJECTED",
+        }),
+      );
+      return;
+    }
+
+    res.redirect(
+      mobileAuthReturnUrl({
+        status: "AUTHORIZATION_CODE",
+        code,
+        state,
+      }),
+    );
+    return;
+  }
+
+  const callbackUrl = getOidcCallbackUrl(req);
+  const config = await getOidcConfig();
   const codeVerifier = req.cookies?.code_verifier;
   const nonce = req.cookies?.nonce;
   const expectedState = req.cookies?.state;
@@ -174,11 +326,7 @@ router.get("/callback", async (req: Request, res: Response) => {
   }
 
   const returnTo = getSafeReturnTo(req.cookies?.return_to);
-
-  res.clearCookie("code_verifier", { path: "/" });
-  res.clearCookie("nonce", { path: "/" });
-  res.clearCookie("state", { path: "/" });
-  res.clearCookie("return_to", { path: "/" });
+  clearBrowserOidcCookies(res);
 
   const claims = tokens.claims();
   if (!claims) {
@@ -239,11 +387,20 @@ router.post(
     }
 
     const { code, code_verifier, redirect_uri, state, nonce } = parsed.data;
+    const expectedRedirectUri = getMobileOidcCallbackUrl(req);
+    if (!expectedRedirectUri) {
+      res.status(503).json({ error: "NEXUS_MOBILE_AUTH_PUBLIC_ORIGIN_NOT_CONFIGURED" });
+      return;
+    }
+    if (redirect_uri !== expectedRedirectUri) {
+      res.status(400).json({ error: "NEXUS_MOBILE_AUTH_REDIRECT_MISMATCH" });
+      return;
+    }
 
     try {
       const config = await getOidcConfig();
 
-      const callbackUrl = new URL(redirect_uri);
+      const callbackUrl = new URL(expectedRedirectUri);
       callbackUrl.searchParams.set("code", code);
       callbackUrl.searchParams.set("state", state);
       callbackUrl.searchParams.set("iss", ISSUER_URL);
@@ -280,6 +437,7 @@ router.post(
       };
 
       const sid = await createSession(sessionData);
+      res.setHeader("Cache-Control", "no-store");
       res.json(ExchangeMobileAuthorizationCodeResponse.parse({ token: sid }));
     } catch (err) {
       req.log.error({ err }, "Mobile token exchange error");
@@ -293,6 +451,7 @@ router.post("/mobile-auth/logout", async (req: Request, res: Response) => {
   if (sid) {
     await deleteSession(sid);
   }
+  res.setHeader("Cache-Control", "no-store");
   res.json(LogoutMobileSessionResponse.parse({ success: true }));
 });
 

@@ -1,0 +1,182 @@
+import type { NexusId } from '../../data/schemas/common.schema';
+import type {
+  NexusRuntimeAccessBridgeRequest,
+  NexusRuntimeIdentityContext,
+} from '../permissions/runtimeIdentityContract';
+
+/**
+ * Native Android Work Mode is a field-intake client for Nexus, not an authority source.
+ * Local references may exist on-device, but raw content/URI values are deliberately absent
+ * from the server handoff envelope below.
+ */
+export type AndroidWorkSource =
+  | 'CONTACT'
+  | 'CALENDAR'
+  | 'PHOTO'
+  | 'DOCUMENT'
+  | 'FOLDER';
+
+export type AndroidWorkCandidateApprovalState =
+  | 'DISCOVERED'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export type AndroidWorkProjectResolution = 'EXACT' | 'NEEDS_USER_CONFIRMATION';
+
+export type AndroidWorkHandoffState =
+  | 'LOCAL_ONLY'
+  | 'PENDING_SERVER_CONFIRMATION'
+  | 'HANDED_OFF'
+  | 'FAILED_RETRYABLE';
+
+/** Device-local candidate. `localReference` must never be treated as a Nexus canonical ID. */
+export interface AndroidWorkCandidate {
+  id: string;
+  source: AndroidWorkSource;
+  contentType: string;
+  localReference: string;
+  timestamp?: string;
+  suggestedProjectId?: NexusId;
+  suggestedWorldId?: NexusId;
+  confidence: number;
+  approvalState: AndroidWorkCandidateApprovalState;
+  handoffState: AndroidWorkHandoffState;
+}
+
+/** Optional approved metadata. Never contains raw content or a device-local URI. */
+export interface AndroidApprovedItemRef {
+  itemId: string;
+  source: AndroidWorkSource;
+  contentType: string;
+  timestamp?: string;
+  confidence: number;
+}
+
+/**
+ * Extends the historical `android-work-discovery-v1` marker rather than inventing a
+ * parallel protocol. Query/bootstrap transports may flatten arrays as comma-separated
+ * values; authenticated API transports should use the array form directly.
+ *
+ * `handoffRequestId` is an Android-generated one-flight UUID used to bind the exported
+ * callback to the currently pending local batch. It is correlation/anti-spoof state only,
+ * never authentication or Nexus project authority.
+ *
+ * Authentication/Person binding is intentionally not carried by Android. The server
+ * session supplies `NexusRuntimeIdentityContext` after browser/API authentication.
+ */
+export interface NexusAndroidWorkModeContextEnvelope {
+  schema: 'nexus-android-work-mode-context-v1';
+  nexusIntent: 'ask-nexus';
+  nexusAiContext: 'android-work-discovery-v1';
+  handoffRequestId: string;
+  projectId: NexusId;
+  worldId: NexusId;
+  projectResolution: 'EXACT';
+  selectedItemIds: string[];
+  sourceTypes: AndroidWorkSource[];
+  approvedMetadata?: AndroidApprovedItemRef[];
+  userIntent: string;
+  createdAt?: string;
+  handoffState: 'PENDING_SERVER_CONFIRMATION';
+}
+
+/**
+ * Server acknowledgement used only to reconcile the device-local queue after the
+ * authenticated Nexus boundary has processed the bounded context.
+ *
+ * The receipt echoes the exact Android-generated `handoffRequestId`. `receiptId` remains
+ * correlation evidence, not an auth token, permission grant, Person ID, Project
+ * Participation record or Action Engine approval. A FAILED_RETRYABLE receipt never marks
+ * an item uploaded/synced. The native callback must match the exact pending request UUID,
+ * pending candidate set and Project World.
+ */
+export interface NexusAndroidWorkModeHandoffReceipt {
+  schema: 'nexus-android-work-mode-handoff-receipt/v1';
+  handoffRequestId: string;
+  receiptId?: string;
+  projectId: NexusId;
+  worldId: NexusId;
+  selectedItemIds: string[];
+  status: 'HANDED_OFF' | 'FAILED_RETRYABLE';
+  issuedAt: string;
+}
+
+export type NexusAndroidWorkModeContextValidationReason =
+  | 'VALID'
+  | 'INVALID_HANDOFF_REQUEST_ID'
+  | 'PROJECT_WORLD_REQUIRED'
+  | 'PROJECT_CONFIRMATION_REQUIRED'
+  | 'NO_APPROVED_ITEMS'
+  | 'DUPLICATE_ITEM_ID'
+  | 'METADATA_ITEM_NOT_SELECTED'
+  | 'INVALID_CONFIDENCE';
+
+export interface NexusAndroidWorkModeContextValidation {
+  valid: boolean;
+  reason: NexusAndroidWorkModeContextValidationReason;
+}
+
+const androidHandoffRequestIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const validateNexusAndroidWorkModeContext = (
+  envelope: NexusAndroidWorkModeContextEnvelope,
+): NexusAndroidWorkModeContextValidation => {
+  if (!androidHandoffRequestIdPattern.test(envelope.handoffRequestId)) {
+    return { valid: false, reason: 'INVALID_HANDOFF_REQUEST_ID' };
+  }
+
+  if (!envelope.projectId || !envelope.worldId) {
+    return { valid: false, reason: 'PROJECT_WORLD_REQUIRED' };
+  }
+
+  if (envelope.projectResolution !== 'EXACT') {
+    return { valid: false, reason: 'PROJECT_CONFIRMATION_REQUIRED' };
+  }
+
+  if (!envelope.selectedItemIds.length) {
+    return { valid: false, reason: 'NO_APPROVED_ITEMS' };
+  }
+
+  const ids = new Set<string>();
+  for (const itemId of envelope.selectedItemIds) {
+    if (!itemId || ids.has(itemId)) {
+      return { valid: false, reason: 'DUPLICATE_ITEM_ID' };
+    }
+    ids.add(itemId);
+  }
+
+  for (const item of envelope.approvedMetadata ?? []) {
+    if (!ids.has(item.itemId)) {
+      return { valid: false, reason: 'METADATA_ITEM_NOT_SELECTED' };
+    }
+    if (!Number.isFinite(item.confidence) || item.confidence < 0 || item.confidence > 100) {
+      return { valid: false, reason: 'INVALID_CONFIDENCE' };
+    }
+  }
+
+  return { valid: true, reason: 'VALID' };
+};
+
+/** Current #90 fixture pair. Keep project and world IDs together. */
+export const NEXUS_ANDROID_ESAFE_PROJECT_WORLD = {
+  projectId: 'project-esafe-catania' as NexusId,
+  worldId: 'world-esafe-catania' as NexusId,
+} as const;
+
+/**
+ * Server-side bridge only. Android must never populate provider subject, role or permission.
+ * A BOUND Person still proceeds fail-closed to canonical Project Participation/access policy.
+ */
+export const createAndroidRuntimeAccessBridgeRequest = (
+  envelope: NexusAndroidWorkModeContextEnvelope,
+  identity: NexusRuntimeIdentityContext,
+  actionKey = 'android.work-mode.handoff',
+): NexusRuntimeAccessBridgeRequest => ({
+  schema: 'nexus-runtime-access-bridge-request/v1',
+  identity,
+  projectId: envelope.projectId,
+  worldId: envelope.worldId,
+  moduleId: 'soft',
+  actionKey,
+});

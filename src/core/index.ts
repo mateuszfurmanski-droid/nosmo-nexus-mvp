@@ -5,12 +5,15 @@ export * from './timeline/timelineContract';
 export * from './events/eventBus';
 export * from './permissions/permissionContract';
 export * from './permissions/runtimeIdentityContract';
+export * from './permissions/canonicalAccessResolver';
 export * from './storage/storageContract';
 export * from './storage/cloudRouting';
 export * from './storage/cloudAssetContract';
 export * from './storage/cloudPersistenceContract';
 export * from './storage/cloudProviderAdapterContract';
 export * from './storage/cloudProjectMemoryCommit';
+export * from './android/androidWorkModeContract';
+export * from './android/androidEvidenceTransferContract';
 
 import { nexusShellCore } from './shell/shellContract';
 import { nexusGraphCore } from './graph/graphContract';

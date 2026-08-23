@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+def nexusWebOrigin = (System.getenv('NEXUS_ANDROID_WEB_ORIGIN') ?: '').trim()
+def escapedNexusWebOrigin = nexusWebOrigin.replace('\\', '\\\\').replace('"', '\\"')
+
+android {
+    namespace 'tech.nosmo.nexus.workmode'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'tech.nosmo.nexus.workmode'
+        minSdk 26
+        targetSdk 35
+        versionCode 16
+        versionName '0.6.0-e2e-handoff'
+        buildConfigField 'String', 'NEXUS_WEB_ORIGIN', "\"${escapedNexusWebOrigin}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.nativebeta'
+            versionNameSuffix '-beta'
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}
