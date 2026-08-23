@@ -2,12 +2,28 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { once } from 'node:events';
 import { strict as assert } from 'node:assert';
 
-import { ErpNextServerClient } from '../src/connectors/erpnext/erpNextClient';
-import { QFieldCloudServerClient } from '../src/connectors/qfield/qFieldCloudClient';
-import { OpenMaintServerClient } from '../src/connectors/openmaint/openMaintClient';
-import { BcfServerClient } from '../src/connectors/bcf/bcfClient';
-import { projectMultitradeExternalRecord } from '../src/connectors/multitradeContextProjection';
 import type { NexusConnectorHttpFetch } from '../src/connectors/snipe-it/snipeItClient';
+
+const loadRuntimeModule = async <T>(specifier: string): Promise<T> => {
+  const imported = (await import(specifier)) as { default?: unknown } & Record<string, unknown>;
+  return (imported.default ?? imported) as T;
+};
+
+const { ErpNextServerClient } = await loadRuntimeModule<typeof import('../src/connectors/erpnext/erpNextClient')>(
+  '../src/connectors/erpnext/erpNextClient.ts',
+);
+const { QFieldCloudServerClient } = await loadRuntimeModule<typeof import('../src/connectors/qfield/qFieldCloudClient')>(
+  '../src/connectors/qfield/qFieldCloudClient.ts',
+);
+const { OpenMaintServerClient } = await loadRuntimeModule<typeof import('../src/connectors/openmaint/openMaintClient')>(
+  '../src/connectors/openmaint/openMaintClient.ts',
+);
+const { BcfServerClient } = await loadRuntimeModule<typeof import('../src/connectors/bcf/bcfClient')>(
+  '../src/connectors/bcf/bcfClient.ts',
+);
+const { projectMultitradeExternalRecord } = await loadRuntimeModule<
+  typeof import('../src/connectors/multitradeContextProjection')
+>('../src/connectors/multitradeContextProjection.ts');
 
 const ERPNEXT_AUTH = 'token nexus-e2e-key:nexus-e2e-secret';
 const QFIELD_AUTH = 'Bearer nexus-qfield-e2e';
