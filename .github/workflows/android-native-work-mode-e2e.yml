@@ -126,7 +126,7 @@ jobs:
           ! grep -q '"/api/nexus/cloud/files"' "$CLOUD_CLIENT"
 
       - name: Prepare downloadable Android build
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -140,7 +140,7 @@ jobs:
           cp /tmp/permissions.txt android-work-mode-e2e/APK_PERMISSIONS.txt
 
       - name: Upload Android Work Mode build
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: NEXUS-Work-Mode-v0.6.0-e2e-handoff
