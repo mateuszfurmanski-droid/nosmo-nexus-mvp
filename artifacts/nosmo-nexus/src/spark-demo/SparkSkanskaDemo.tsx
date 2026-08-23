@@ -20,16 +20,16 @@ type DemoTheme = "gold" | "green" | "blue" | "white" | "black";
 const themeStorageKey = "nosmo.spark.demo.theme.v1";
 const demoThemes: Array<{ id: DemoTheme; label: string; color: string }> = [
   { id: "gold", label: "Gold", color: "#f0c24f" },
-  { id: "green", label: "Green", color: "#9de6c2" },
+  { id: "green", label: "Eco Green", color: "#9de6c2" },
   { id: "blue", label: "Nexus Blue", color: "#55bdf2" },
   { id: "white", label: "White", color: "#f4f1e7" },
   { id: "black", label: "Black", color: "#111111" },
 ];
 
 function loadTheme(): DemoTheme {
-  if (typeof window === "undefined") return "gold";
+  if (typeof window === "undefined") return "green";
   const stored = window.localStorage.getItem(themeStorageKey);
-  return demoThemes.some((theme) => theme.id === stored) ? (stored as DemoTheme) : "gold";
+  return demoThemes.some((theme) => theme.id === stored) ? (stored as DemoTheme) : "green";
 }
 
 const polishUi: Record<string, string> = {
