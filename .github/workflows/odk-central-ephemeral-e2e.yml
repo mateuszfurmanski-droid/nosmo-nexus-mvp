@@ -22,11 +22,11 @@ jobs:
         env:
           POSTGRES_USER: jubilant
           POSTGRES_PASSWORD: jubilant
-          POSTGRES_DB: jubilant_test
+          POSTGRES_DB: jubilant
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U jubilant -d jubilant_test"
+          --health-cmd "pg_isready -U jubilant -d jubilant"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -53,7 +53,7 @@ jobs:
         env:
           PGPASSWORD: jubilant
         run: |
-          psql -h 127.0.0.1 -U jubilant -d jubilant_test -v ON_ERROR_STOP=1 <<'SQL'
+          psql -h 127.0.0.1 -U jubilant -d jubilant -v ON_ERROR_STOP=1 <<'SQL'
           CREATE EXTENSION IF NOT EXISTS citext;
           CREATE EXTENSION IF NOT EXISTS pg_trgm;
           CREATE EXTENSION IF NOT EXISTS pgrowlocks;
@@ -66,14 +66,12 @@ jobs:
       - name: Migrate ephemeral ODK database
         working-directory: .odk-central-backend
         env:
-          NODE_CONFIG_ENV: test
           BCRYPT: insecure
         run: node lib/bin/run-migrations.js
 
       - name: Seed ephemeral ODK admin
         working-directory: .odk-central-backend
         env:
-          NODE_CONFIG_ENV: test
           BCRYPT: insecure
         run: |
           node - <<'NODE'
@@ -94,7 +92,6 @@ jobs:
       - name: Start ODK Central Backend
         working-directory: .odk-central-backend
         env:
-          NODE_CONFIG_ENV: test
           BCRYPT: insecure
         run: |
           nohup node lib/bin/run-server.js > /tmp/odk-central-e2e.log 2>&1 &
