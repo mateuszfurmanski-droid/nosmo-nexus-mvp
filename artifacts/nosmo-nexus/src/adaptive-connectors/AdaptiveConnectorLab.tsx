@@ -4,6 +4,7 @@ import {
   type AdaptiveConnectorId,
 } from "./connectorRuntimeProjection";
 import { odkEphemeralSnapshot } from "./odkEphemeralSnapshot";
+import { odkDemoContextMapping } from "./odkDemoContextMapping";
 import {
   snipePublicDemoAssetLabel,
   snipePublicDemoSnapshot,
@@ -228,6 +229,10 @@ export default function AdaptiveConnectorLab() {
                 <div className="nx-lab-row"><span>Submission</span><strong>{odkEphemeralSnapshot.submission.instanceId}</strong></div>
                 <div className="nx-lab-row"><span>Captured</span><strong>{odkEphemeralSnapshot.capturedAt}</strong></div>
                 <div className="nx-lab-row"><span>Persistence</span><strong>disposable CI database · not ODK Cloud or a configured customer tenant</strong></div>
+                <div className="nx-lab-row"><span>Nexus mapping</span><strong>{odkDemoContextMapping.mappingKind}</strong></div>
+                <div className="nx-lab-row"><span>Context links</span><strong>{odkDemoContextMapping.contextLinks.map((link) => `${link.objectType} · ${link.relationship}`).join(" · ")}</strong></div>
+                <div className="nx-lab-row"><span>Evidence promotion</span><strong>review required · canonical evidence not created</strong></div>
+                <div className="nx-lab-row"><span>Graph mutation</span><strong>disabled</strong></div>
               </section>
             )}
 
