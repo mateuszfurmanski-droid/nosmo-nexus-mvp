@@ -1,15 +1,11 @@
-import { createRequire } from "node:module";
-import type { NextFunction, Request, Response } from "express";
-import { authMiddleware } from "./middlewares/authMiddleware.js";
-import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloudMutationOrigin.js";
-import { requireWorkspace } from "./middlewares/requireWorkspace.js";
-import nexusCloudRouter from "./routes/nexus-cloud.js";
-import { logger } from "./lib/logger.js";
-
-const require = createRequire(import.meta.url);
-const express = require("express") as any;
-const cookieParser = require("cookie-parser") as any;
-const pinoHttp = require("pino-http") as any;
+import express, { type Express } from "express";
+import cookieParser from "cookie-parser";
+import pinoHttp from "pino-http";
+import { authMiddleware } from "./middlewares/authMiddleware";
+import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloudMutationOrigin";
+import { requireWorkspace } from "./middlewares/requireWorkspace";
+import nexusCloudRouter from "./routes/nexus-cloud";
+import { logger } from "./lib/logger";
 
 /**
  * Narrow serverless staging runtime for the real Nexus Cloud backend path.
@@ -19,26 +15,27 @@ const pinoHttp = require("pino-http") as any;
  * validate the real identity/access/provider/persistence boundary without
  * coupling the exercise to a frontend deployment.
  */
-const app = express();
+const app: Express = express();
 
 app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req: Request) {
+      req(req) {
         return {
+          id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res: Response) {
+      res(res) {
         return { statusCode: res.statusCode };
       },
     },
   }),
 );
 
-app.use((_req: Request, res: Response, next: NextFunction) => {
+app.use((_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -47,7 +44,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.get("/api/nexus/cloud/_staging/health", (_req: Request, res: Response) => {
+app.get("/api/nexus/cloud/_staging/health", (_req, res) => {
   res.json({
     status: "ok",
     service: "nosmo-nexus-cloud-staging-runtime",
