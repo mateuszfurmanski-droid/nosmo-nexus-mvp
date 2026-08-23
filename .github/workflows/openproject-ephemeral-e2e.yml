@@ -30,13 +30,16 @@ jobs:
         run: |
           set -euo pipefail
           SECRET_KEY_BASE="$(openssl rand -hex 64)"
+          HASHED_TOKEN_PEPPER="$(openssl rand -hex 32)"
           docker run -d \
             --name nexus-openproject-e2e \
             -p 8080:80 \
             -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+            -e OPENPROJECT_HASHED__TOKEN__PEPPER="$HASHED_TOKEN_PEPPER" \
             -e OPENPROJECT_HOST__NAME=127.0.0.1:8080 \
             -e OPENPROJECT_HTTPS=false \
             -e OPENPROJECT_DEFAULT__LANGUAGE=en \
+            -e OPENPROJECT_API__TOKENS__ENABLED=true \
             -e OPENPROJECT_SEED__ADMIN__USER__PASSWORD='NexusE2E-Only-2026!' \
             -e OPENPROJECT_SEED__ADMIN__USER__PASSWORD__RESET=false \
             openproject/openproject:17.6.0
