@@ -9,11 +9,9 @@ globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(artifactDir, "dist");
-const outfile = path.join(distDir, "vercel-cloud-staging.mjs");
 
+await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
-await rm(outfile, { force: true });
-await rm(`${outfile}.map`, { force: true });
 
 await esbuild({
   entryPoints: [path.join(artifactDir, "src/vercel-cloud-staging.ts")],
@@ -21,7 +19,8 @@ await esbuild({
   target: "node22",
   bundle: true,
   format: "esm",
-  outfile,
+  outdir: distDir,
+  outExtension: { ".js": ".mjs" },
   sourcemap: "linked",
   logLevel: "info",
   external: ["*.node", "*.wasm", "mupdf"],
