@@ -1,4 +1,8 @@
-export type NexusCorePhase = 'phase-4-skeleton' | 'phase-5-wire' | 'phase-6-runtime';
+export type NexusCorePhase =
+  | 'phase-4-skeleton'
+  | 'phase-5-wire'
+  | 'phase-6-runtime'
+  | 'phase-18-cloud-transaction-foundation';
 
 export interface NexusCoreContract {
   id: string;
