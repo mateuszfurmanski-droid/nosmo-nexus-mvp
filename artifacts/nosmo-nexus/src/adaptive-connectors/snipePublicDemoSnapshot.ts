@@ -3,6 +3,7 @@ export const snipePublicDemoSnapshot = {
   sourceLabel: "Official Snipe-IT public develop demo",
   ephemeral: true,
   capturedAt: "2026-08-23T02:29:17.537Z",
+  verifiedBy: "Snipe-IT Public Demo Smoke",
   asset: {
     id: 2608,
     assetTag: "7052772301",
