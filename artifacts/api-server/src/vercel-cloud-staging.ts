@@ -1,11 +1,15 @@
-import express, { type Express } from "express";
-import cookieParser from "cookie-parser";
-import pinoHttp from "pino-http";
+import { createRequire } from "node:module";
+import type { NextFunction, Request, Response } from "express";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
 import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloudMutationOrigin.js";
 import { requireWorkspace } from "./middlewares/requireWorkspace.js";
 import nexusCloudRouter from "./routes/nexus-cloud.js";
 import { logger } from "./lib/logger.js";
+
+const require = createRequire(import.meta.url);
+const express = require("express") as any;
+const cookieParser = require("cookie-parser") as any;
+const pinoHttp = require("pino-http") as any;
 
 /**
  * Narrow serverless staging runtime for the real Nexus Cloud backend path.
@@ -15,27 +19,26 @@ import { logger } from "./lib/logger.js";
  * validate the real identity/access/provider/persistence boundary without
  * coupling the exercise to a frontend deployment.
  */
-const app: Express = express();
+const app = express();
 
 app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req) {
+      req(req: Request) {
         return {
-          id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res) {
+      res(res: Response) {
         return { statusCode: res.statusCode };
       },
     },
   }),
 );
 
-app.use((_req, res, next) => {
+app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -44,7 +47,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.get("/api/nexus/cloud/_staging/health", (_req, res) => {
+app.get("/api/nexus/cloud/_staging/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     service: "nosmo-nexus-cloud-staging-runtime",
