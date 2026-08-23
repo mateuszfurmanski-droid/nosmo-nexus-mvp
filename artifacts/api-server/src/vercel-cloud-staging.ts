@@ -1,11 +1,11 @@
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
-import { authMiddleware } from "./middlewares/authMiddleware";
-import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloudMutationOrigin";
-import { requireWorkspace } from "./middlewares/requireWorkspace";
-import nexusCloudRouter from "./routes/nexus-cloud";
-import { logger } from "./lib/logger";
+import { authMiddleware } from "./middlewares/authMiddleware.js";
+import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloudMutationOrigin.js";
+import { requireWorkspace } from "./middlewares/requireWorkspace.js";
+import nexusCloudRouter from "./routes/nexus-cloud.js";
+import { logger } from "./lib/logger.js";
 
 /**
  * Narrow serverless staging runtime for the real Nexus Cloud backend path.
