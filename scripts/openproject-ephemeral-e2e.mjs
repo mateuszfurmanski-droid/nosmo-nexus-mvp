@@ -5,10 +5,11 @@ if (!token) {
   throw new Error('OPENPROJECT_E2E_API_TOKEN_REQUIRED');
 }
 
+const basicToken = Buffer.from(`apikey:${token}`, 'utf8').toString('base64');
 const headers = {
   Accept: 'application/hal+json',
   'Content-Type': 'application/json',
-  Authorization: `Bearer ${token}`,
+  Authorization: `Basic ${basicToken}`,
 };
 
 async function request(path, init = {}) {
