@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/layout";
 import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
+import AdaptiveConnectorLab from "@/adaptive-connectors/AdaptiveConnectorLab";
 
 // Pages
 import NexusLaunchpad from "@/pages/nexus-launchpad";
@@ -38,6 +39,7 @@ function Router() {
   return (
     <Switch>
       {/* Specialist full-screen workflows intentionally run without the app shell. */}
+      <Route path="/adaptive-connectors-lab" component={AdaptiveConnectorLab} />
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
