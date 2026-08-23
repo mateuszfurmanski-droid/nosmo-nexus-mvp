@@ -14,7 +14,7 @@ const circularStatuses: CircularStatus[] = ["IN USE", "REUSABLE", "RECOVER", "RE
 const objectProfiles = ["MATERIAL", "PRODUCT", "ASSET", "COMPONENT", "EQUIPMENT"] as const;
 type ObjectProfile = (typeof objectProfiles)[number];
 
-type DemoLanguage = "en" | "pl";
+type DemoLanguage = "en" | "pl" | "sv";
 type DemoTheme = "gold" | "green" | "blue" | "white" | "black";
 
 const themeStorageKey = "nosmo.spark.demo.theme.v1";
@@ -79,29 +79,69 @@ const polishUi: Record<string, string> = {
   "SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values": "DEMO SYNTETYCZNE · brak rzeczywistych danych projektu SKANSKA · brak zmyślonych wartości CO₂"
 };
 
-function translateDemoNode(root: HTMLElement) {
+const swedishUi: Record<string, string> = {
+  "Project": "Projekt", "Environmental": "Miljö", "Project structure": "Projektstruktur",
+  "areas": "områden", "tracked": "spårade", "created locally": "skapade lokalt",
+  "reuse": "återbruk", "recover / recycle": "återvinning", "known provenance": "känd härkomst",
+  "high attention": "hög prioritet", "human decisions": "mänskliga beslut", "record edits": "poständringar",
+  "Source truth": "Källstatus", "CO₂ data": "CO₂-data", "Maintenance": "Underhåll",
+  "Demo writes": "Demoändringar", "rule-based": "regelbaserat", "browser-local": "lokalt i webbläsaren",
+  "+ Add Object": "+ Lägg till objekt", "All circular statuses": "Alla cirkulära statusar",
+  "All provenance": "All härkomst", "Object": "Objekt", "Area": "Område", "Location": "Plats",
+  "Type": "Typ", "Circular": "Cirkulär", "Provenance": "Härkomst", "Attention": "Prioritet", "Source": "Källa",
+  "NEW OBJECT CARD": "NYTT OBJEKTKORT", "Add project object": "Lägg till projektobjekt",
+  "BROWSER-LOCAL DEMO": "LOKAL WEBBLÄSARDEMO", "Object profile": "Objektprofil",
+  "Name / label": "Namn / etikett", "Specific type": "Specifik typ", "Project location": "Projektplats",
+  "Source and lifecycle": "Källa och livscykel", "Source document / reference": "Källdokument / referens",
+  "Lifecycle state": "Livscykelstatus", "Initial circular status": "Inledande cirkulär status",
+  "Creation audit": "Skapandelogg", "Created by": "Skapad av", "Creation note": "Skapandeanteckning",
+  "Create Object Card": "Skapa objektkort", "Edit record": "Redigera post", "Last inspection": "Senaste inspektion",
+  "Source document": "Källdokument", "Edited by": "Redigerad av", "Change note": "Ändringsanteckning",
+  "Save record update": "Spara poständring", "Evidence": "Underlag", "Lifecycle timeline": "Livscykeltidslinje",
+  "Maintenance / inspection": "Underhåll / inspektion", "Attention reason": "Orsak till prioritet", "Issue": "Problem",
+  "Human circular decision": "Mänskligt cirkulärt beslut", "Target circular status": "Målets cirkulära status",
+  "Decision by": "Beslut av", "Decision rationale": "Beslutsmotivering", "Save human decision": "Spara mänskligt beslut",
+  "Circular / Environmental report": "Cirkulär- / miljörapport", "Download CSV": "Ladda ned CSV",
+  "Print / Save PDF": "Skriv ut / Spara PDF", "Circular status": "Cirkulär status",
+  "CO₂ reporting readiness": "Beredskap för CO₂-rapportering", "Verified quantity": "Verifierad mängd",
+  "EPD / carbon factor": "EPD / koldioxidfaktor", "Maintenance attention": "Underhållsprioritet",
+  "Object creation audit": "Logg för skapade objekt", "Created objects": "Skapade objekt",
+  "Human decision audit": "Logg för mänskliga beslut", "Audit events": "Logghändelser",
+  "Objects changed": "Ändrade objekt", "Record edit audit": "Poständringslogg", "Edit events": "Ändringshändelser",
+  "Objects edited": "Redigerade objekt", "No issue recorded in demo history.": "Inget problem registrerat i demohistoriken.",
+  "No maintenance event recorded.": "Ingen underhållshändelse registrerad.",
+  "No human demo decision has been recorded for this object yet.": "Inget mänskligt demobeslut har ännu registrerats för objektet.",
+  "No demo record edit has been saved yet.": "Ingen demoredigering har sparats ännu.",
+  "No evidence attached to this demo object.": "Inget underlag är kopplat till demoobjektet.",
+  "No browser-local Object Card created yet.": "Inget lokalt objektkort har skapats ännu.",
+  "No human demo decisions recorded yet.": "Inga mänskliga demobeslut har registrerats ännu.",
+  "No demo record edits saved yet.": "Inga demoredigeringar har sparats ännu.",
+  "SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values": "SYNTETISK DEMO · inga verkliga SKANSKA-projektdata · inga påhittade CO₂-värden"
+};
+
+function translateDemoNode(root: HTMLElement, translations: Record<string, string>, targetLanguage: "pl" | "sv") {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let node = walker.nextNode();
   while (node) {
     const raw = node.textContent ?? "";
     const trimmed = raw.trim();
-    if (polishUi[trimmed]) node.textContent = raw.replace(trimmed, polishUi[trimmed]);
+    if (translations[trimmed]) node.textContent = raw.replace(trimmed, translations[trimmed]);
     else {
-      node.textContent = raw
-        .replace(/tracked records/g, "śledzonych rekordów")
-        .replace(/areas/g, "obszarów")
-        .replace(/Current status:/g, "Aktualny status:")
-        .replace(/LOW attention/g, "NISKA uwaga")
-        .replace(/MEDIUM attention/g, "ŚREDNIA uwaga")
-        .replace(/HIGH attention/g, "WYSOKA uwaga");
+      node.textContent = targetLanguage === "pl" ? raw
+        .replace(/tracked records/g, "śledzonych rekordów").replace(/areas/g, "obszarów")
+        .replace(/Current status:/g, "Aktualny status:").replace(/LOW attention/g, "NISKA uwaga")
+        .replace(/MEDIUM attention/g, "ŚREDNIA uwaga").replace(/HIGH attention/g, "WYSOKA uwaga") : raw
+        .replace(/tracked records/g, "spårade poster").replace(/areas/g, "områden")
+        .replace(/Current status:/g, "Aktuell status:").replace(/LOW attention/g, "LÅG prioritet")
+        .replace(/MEDIUM attention/g, "MEDEL prioritet").replace(/HIGH attention/g, "HÖG prioritet");
     }
     node = walker.nextNode();
   }
   root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[placeholder], [aria-label]").forEach((element) => {
     const placeholder = element.getAttribute("placeholder");
     const aria = element.getAttribute("aria-label");
-    if (placeholder === "Search ID, object, location, type or source document") element.setAttribute("placeholder", "Szukaj ID, obiektu, lokalizacji, typu lub dokumentu");
-    if (aria === "Search objects") element.setAttribute("aria-label", "Szukaj obiektów");
+    if (placeholder === "Search ID, object, location, type or source document") element.setAttribute("placeholder", targetLanguage === "pl" ? "Szukaj ID, obiektu, lokalizacji, typu lub dokumentu" : "Sök ID, objekt, plats, typ eller källdokument");
+    if (aria === "Search objects") element.setAttribute("aria-label", targetLanguage === "pl" ? "Szukaj obiektów" : "Sök objekt");
   });
 }
 
@@ -347,7 +387,8 @@ export default function SparkSkanskaDemo() {
   };
 
   useEffect(() => {
-    if (language === "pl") translateDemoNode(document.querySelector(".spark-workbench") as HTMLElement);
+    if (language === "pl") translateDemoNode(document.querySelector(".spark-workbench") as HTMLElement, polishUi, "pl");
+    if (language === "sv") translateDemoNode(document.querySelector(".spark-workbench") as HTMLElement, swedishUi, "sv");
   });
 
   return (
@@ -365,11 +406,11 @@ export default function SparkSkanskaDemo() {
         </nav>
         <button
           type="button"
-          aria-label={language === "en" ? "Przełącz na język polski" : "Switch to English"}
-          title={language === "en" ? "Polski" : "English"}
-          onClick={() => setLanguage((current) => current === "en" ? "pl" : "en")}
+          aria-label={language === "en" ? "Przełącz na język polski" : language === "pl" ? "Byt till svenska" : "Switch to English"}
+          title={language === "en" ? "Polski" : language === "pl" ? "Svenska" : "English"}
+          onClick={() => setLanguage((current) => current === "en" ? "pl" : current === "pl" ? "sv" : "en")}
           className="spark-language-button"
-        >{language === "en" ? "🇵🇱" : "🇬🇧"}</button>
+        >{language === "en" ? "🇵🇱" : language === "pl" ? "🇸🇪" : "🇬🇧"}</button>
         <div className="spark-truth-inline">SYNTHETIC DEMO · no real SKANSKA project data · no fabricated CO₂ values</div>
         <div className="spark-skin-shell">
           <button
