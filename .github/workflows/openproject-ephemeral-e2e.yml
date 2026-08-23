@@ -52,16 +52,25 @@ jobs:
           docker logs --tail 200 nexus-openproject-e2e || true
           exit 1
 
-      - name: Create disposable API token
+      - name: Create and verify disposable API token
         shell: bash
         run: |
           set -euo pipefail
-          API_TOKEN="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); puts t.value'\'' ' | tail -n 1 | tr -d '\r')"
+          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); STDOUT.write("NEXUS_OPENPROJECT_TOKEN=#{t.value}\\n")'\'' ')"
+          API_TOKEN="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN=//p' | tail -n 1 | tr -d '\r')"
           if [ -z "$API_TOKEN" ]; then
             echo "OPENPROJECT_E2E_TOKEN_EMPTY"
             exit 1
           fi
           echo "::add-mask::$API_TOKEN"
+          if ! curl -fsS \
+            -H "Accept: application/hal+json" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            http://127.0.0.1:8080/api/v3/users/me > /tmp/openproject-e2e-me.json; then
+            echo "OPENPROJECT_E2E_TOKEN_PROBE_FAILED"
+            exit 1
+          fi
+          node -e 'const fs=require("fs"); const me=JSON.parse(fs.readFileSync("/tmp/openproject-e2e-me.json","utf8")); if(!me || !Number.isInteger(me.id)) process.exit(1); console.log("OPENPROJECT_E2E_TOKEN_VERIFIED")'
           echo "OPENPROJECT_E2E_API_TOKEN=$API_TOKEN" >> "$GITHUB_ENV"
 
       - name: Execute Nexus OpenProject E2E
