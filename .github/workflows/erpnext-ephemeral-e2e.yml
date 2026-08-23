@@ -112,36 +112,61 @@ jobs:
             docker compose --project-name "$ERPNEXT_COMPOSE_PROJECT" --file "$ERPNEXT_COMPOSE_FILE" "$@"
           }
 
+          credential_log=/tmp/erpnext-generate-keys.log
+          api_key_file=/tmp/erpnext-api-key
+          api_secret_file=/tmp/erpnext-api-secret
+
           compose exec -T backend \
             bench --site frontend execute frappe.core.doctype.user.user.generate_keys \
-            --args '["Administrator"]' >/tmp/erpnext-generate-keys.log
+            --args '["Administrator"]' >"$credential_log"
 
-          api_key_raw="$(compose exec -T backend \
-            bench --site frontend execute frappe.db.get_value \
-            --args '["User","Administrator","api_key"]')"
-          api_secret_raw="$(compose exec -T backend \
-            bench --site frontend execute frappe.utils.password.get_decrypted_password \
-            --args '["User","Administrator"]' \
-            --kwargs '{"fieldname":"api_secret"}')"
+          python - "$credential_log" "$api_key_file" "$api_secret_file" <<'PY'
+          import ast
+          import json
+          import os
+          import sys
+          from pathlib import Path
 
-          clean_value() {
-            printf '%s\n' "$1" \
-              | tr -d '\r' \
-              | sed '/^[[:space:]]*$/d' \
-              | tail -n 1 \
-              | sed -e "s/^[\"']//" -e "s/[\"']$//"
-          }
+          source_path, api_key_path, api_secret_path = sys.argv[1:]
+          lines = Path(source_path).read_text(encoding="utf-8", errors="replace").splitlines()
+          credentials = None
 
-          api_key="$(clean_value "$api_key_raw")"
-          api_secret="$(clean_value "$api_secret_raw")"
+          for raw_line in reversed(lines):
+              line = raw_line.strip()
+              if not line or "api_key" not in line or "api_secret" not in line:
+                  continue
+              for parser in (json.loads, ast.literal_eval):
+                  try:
+                      candidate = parser(line)
+                  except Exception:
+                      continue
+                  if isinstance(candidate, dict) and candidate.get("api_key") and candidate.get("api_secret"):
+                      credentials = candidate
+                      break
+              if credentials is not None:
+                  break
 
-          if [ -z "$api_key" ] || [ -z "$api_secret" ] || [ "$api_key" = "None" ] || [ "$api_secret" = "None" ]; then
-            echo "ERPNEXT_DISPOSABLE_API_TOKEN_INVALID"
-            exit 1
-          fi
+          if credentials is None:
+              raise SystemExit("ERPNEXT_GENERATE_KEYS_OUTPUT_INVALID")
+
+          api_key = str(credentials["api_key"]).strip()
+          api_secret = str(credentials["api_secret"]).strip()
+          if not api_key or not api_secret:
+              raise SystemExit("ERPNEXT_GENERATE_KEYS_OUTPUT_EMPTY")
+
+          Path(api_key_path).write_text(api_key, encoding="utf-8")
+          Path(api_secret_path).write_text(api_secret, encoding="utf-8")
+          os.chmod(api_key_path, 0o600)
+          os.chmod(api_secret_path, 0o600)
+          PY
+
+          api_key="$(cat "$api_key_file")"
+          api_secret="$(cat "$api_secret_file")"
 
           echo "::add-mask::$api_key"
           echo "::add-mask::$api_secret"
+
+          rm -f "$credential_log" "$api_key_file" "$api_secret_file"
 
           identity="$(curl --fail --silent --show-error \
             --header "Authorization: token $api_key:$api_secret" \
