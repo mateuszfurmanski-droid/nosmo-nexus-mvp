@@ -27,6 +27,15 @@ export {
   openMaintTradesConnector, openMaintTradesPresentation,
   bcfTradesConnector, bcfTradesPresentation,
 } from './multiTradeConnectors';
+export {
+  projectMultitradeExternalRecord,
+  type MultitradeConnectorId,
+  type MultitradeContextLink,
+  type MultitradeContextProjection,
+  type MultitradeExternalReference,
+  type ProjectMultitradeExternalRecordInput,
+} from './multitradeContextProjection';
+export { multitradeSharedE2EContract } from './multitradeSharedE2EContract';
 export * from './connectorPresentationContract';
 
 import { googleDriveConnector } from './google-drive/googleDriveConnector';
