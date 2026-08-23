@@ -1,6 +1,7 @@
 export const odkEphemeralSnapshot = {
   source: "odk-central-backend-v2026.2.0-ephemeral-github-runner",
   sourceLabel: "ODK Central Backend v2026.2.0 · disposable GitHub runner",
+  e2eMarker: "ODK_CENTRAL_E2E_OK",
   ephemeral: true,
   capturedAt: "2026-08-23T07:03:29.415Z",
   project: {
