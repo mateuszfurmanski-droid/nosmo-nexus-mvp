@@ -1,0 +1,206 @@
+name: ERPNext Ephemeral Upstream E2E
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/erpnext-ephemeral-e2e.yml'
+      - 'scripts/erpnext-ephemeral-e2e.mts'
+      - 'src/connectors/erpnext/**'
+      - 'src/connectors/snipe-it/snipeItClient.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ERPNEXT_E2E_CONFIG_COMMIT: 4b9d35666abd84157ffadbf67558bbd3e1e39de7
+  ERPNEXT_E2E_IMAGE: frappe/erpnext:v16.32.3
+  ERPNEXT_E2E_BASE_URL: http://127.0.0.1:8080
+  ERPNEXT_COMPOSE_FILE: /tmp/nexus-frappe-pwd.yml
+  ERPNEXT_COMPOSE_PROJECT: nexus-erpnext-e2e
+
+jobs:
+  real-upstream-read:
+    if: github.event_name != 'pull_request' || github.head_ref == 'codex/erpnext-ephemeral-upstream-e2e'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Nexus branch
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Nexus dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Fetch pinned official Frappe Docker disposable config
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/frappe/frappe_docker/${ERPNEXT_E2E_CONFIG_COMMIT}/pwd.yml" \
+            --output "$ERPNEXT_COMPOSE_FILE"
+          grep -q "image: ${ERPNEXT_E2E_IMAGE}" "$ERPNEXT_COMPOSE_FILE"
+          grep -q 'bench new-site' "$ERPNEXT_COMPOSE_FILE"
+          grep -q -- '--install-app erpnext' "$ERPNEXT_COMPOSE_FILE"
+          echo "ERPNEXT_OFFICIAL_COMPOSE_PIN_VERIFIED"
+
+      - name: Start real disposable ERPNext upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose \
+            --project-name "$ERPNEXT_COMPOSE_PROJECT" \
+            --file "$ERPNEXT_COMPOSE_FILE" \
+            up -d
+
+          create_site_id="$(docker compose --project-name "$ERPNEXT_COMPOSE_PROJECT" --file "$ERPNEXT_COMPOSE_FILE" ps -q create-site)"
+          if [ -z "$create_site_id" ]; then
+            echo "ERPNEXT_CREATE_SITE_CONTAINER_MISSING"
+            exit 1
+          fi
+
+          ready=0
+          for attempt in $(seq 1 210); do
+            status="$(docker inspect --format '{{.State.Status}}' "$create_site_id")"
+            exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$create_site_id")"
+            if [ "$status" = "exited" ]; then
+              if [ "$exit_code" != "0" ]; then
+                echo "ERPNEXT_CREATE_SITE_FAILED_$exit_code"
+                docker logs --tail 240 "$create_site_id" || true
+                exit 1
+              fi
+              if curl --fail --silent --show-error \
+                "$ERPNEXT_E2E_BASE_URL/api/method/ping" \
+                | grep -q 'pong'; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 2
+          done
+
+          if [ "$ready" != "1" ]; then
+            echo "ERPNEXT_UPSTREAM_NOT_READY"
+            docker compose --project-name "$ERPNEXT_COMPOSE_PROJECT" --file "$ERPNEXT_COMPOSE_FILE" ps || true
+            docker compose --project-name "$ERPNEXT_COMPOSE_PROJECT" --file "$ERPNEXT_COMPOSE_FILE" logs --tail 240 create-site backend frontend db || true
+            exit 1
+          fi
+
+          docker compose --project-name "$ERPNEXT_COMPOSE_PROJECT" --file "$ERPNEXT_COMPOSE_FILE" exec -T backend bench version
+          echo "ERPNEXT_REAL_UPSTREAM_READY"
+
+      - name: Generate disposable Administrator API token inside ERPNext
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose() {
+            docker compose --project-name "$ERPNEXT_COMPOSE_PROJECT" --file "$ERPNEXT_COMPOSE_FILE" "$@"
+          }
+
+          credential_log=/tmp/erpnext-generate-keys.log
+          api_key_file=/tmp/erpnext-api-key
+          api_secret_file=/tmp/erpnext-api-secret
+
+          compose exec -T backend \
+            bench --site frontend execute frappe.core.doctype.user.user.generate_keys \
+            --args '["Administrator"]' >"$credential_log"
+
+          python - "$credential_log" "$api_key_file" "$api_secret_file" <<'PY'
+          import ast
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          source_path, api_key_path, api_secret_path = sys.argv[1:]
+          lines = Path(source_path).read_text(encoding="utf-8", errors="replace").splitlines()
+          credentials = None
+
+          for raw_line in reversed(lines):
+              line = raw_line.strip()
+              if not line or "api_key" not in line or "api_secret" not in line:
+                  continue
+              for parser in (json.loads, ast.literal_eval):
+                  try:
+                      candidate = parser(line)
+                  except Exception:
+                      continue
+                  if isinstance(candidate, dict) and candidate.get("api_key") and candidate.get("api_secret"):
+                      credentials = candidate
+                      break
+              if credentials is not None:
+                  break
+
+          if credentials is None:
+              raise SystemExit("ERPNEXT_GENERATE_KEYS_OUTPUT_INVALID")
+
+          api_key = str(credentials["api_key"]).strip()
+          api_secret = str(credentials["api_secret"]).strip()
+          if not api_key or not api_secret:
+              raise SystemExit("ERPNEXT_GENERATE_KEYS_OUTPUT_EMPTY")
+
+          Path(api_key_path).write_text(api_key, encoding="utf-8")
+          Path(api_secret_path).write_text(api_secret, encoding="utf-8")
+          os.chmod(api_key_path, 0o600)
+          os.chmod(api_secret_path, 0o600)
+          PY
+
+          api_key="$(cat "$api_key_file")"
+          api_secret="$(cat "$api_secret_file")"
+
+          echo "::add-mask::$api_key"
+          echo "::add-mask::$api_secret"
+
+          rm -f "$credential_log" "$api_key_file" "$api_secret_file"
+
+          identity="$(curl --fail --silent --show-error \
+            --header "Authorization: token $api_key:$api_secret" \
+            --header 'Accept: application/json' \
+            "$ERPNEXT_E2E_BASE_URL/api/method/frappe.auth.get_logged_user")"
+          printf '%s' "$identity" | grep -q 'Administrator'
+
+          echo "ERPNEXT_E2E_API_KEY=$api_key" >> "$GITHUB_ENV"
+          echo "ERPNEXT_E2E_API_SECRET=$api_secret" >> "$GITHUB_ENV"
+          echo "ERPNEXT_DISPOSABLE_API_TOKEN_VERIFIED"
+
+      - name: Execute Nexus ERPNext adapter against real upstream
+        run: pnpm --dir scripts exec tsx ./erpnext-ephemeral-e2e.mts
+
+      - name: ERPNext diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          docker compose \
+            --project-name "$ERPNEXT_COMPOSE_PROJECT" \
+            --file "$ERPNEXT_COMPOSE_FILE" \
+            ps || true
+          docker compose \
+            --project-name "$ERPNEXT_COMPOSE_PROJECT" \
+            --file "$ERPNEXT_COMPOSE_FILE" \
+            logs --tail 320 create-site backend frontend db || true
+
+      - name: Destroy disposable ERPNext upstream
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$ERPNEXT_COMPOSE_FILE" ]; then
+            docker compose \
+              --project-name "$ERPNEXT_COMPOSE_PROJECT" \
+              --file "$ERPNEXT_COMPOSE_FILE" \
+              down --volumes --remove-orphans || true
+          fi
