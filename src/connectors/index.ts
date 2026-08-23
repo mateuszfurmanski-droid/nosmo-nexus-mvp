@@ -11,6 +11,12 @@ export { snipeItConnector, snipeItPresentation } from './snipe-it/snipeItConnect
 export { SnipeItServerClient } from './snipe-it/snipeItClient';
 export { odkFieldFormsConnector, odkFieldFormsPresentation } from './odk/odkConnector';
 export { OdkCentralServerClient } from './odk/odkCentralClient';
+export {
+  mapOdkSubmissionToNexusContext,
+  type MapOdkSubmissionContextInput,
+  type NexusOdkContextLink,
+  type NexusOdkSubmissionContextMapping,
+} from './odk/odkSubmissionContextMapping';
 export * from './connectorPresentationContract';
 
 import { googleDriveConnector } from './google-drive/googleDriveConnector';
