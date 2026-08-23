@@ -96,8 +96,7 @@ const required = (
   reason: NexusCloudPersistenceInputReason,
   label: string,
 ): string => {
-  if (typeof value !== "string") fail(reason, `${label} is required`);
-  const normalized = value.trim();
+  const normalized = typeof value === "string" ? value.trim() : "";
   if (!normalized) fail(reason, `${label} is required`);
   return normalized;
 };
