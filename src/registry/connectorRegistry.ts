@@ -54,6 +54,17 @@ export const nexusConnectors: NexusConnectorDefinition[] = [
     notes: 'Open-source candidate with read adapter implemented; no Central tenant or bearer token is configured in the repository.',
   },
   {
+    id: 'openproject-work',
+    name: 'Nexus Work / OpenProject',
+    category: 'project-work-management',
+    status: 'planned',
+    sourceOfTruth: 'Configured customer-owned OpenProject instance',
+    nexusRole: 'Read project and work-package references into Nexus task, person, approval and project context through a server-side API adapter.',
+    objectLinks: ['Project', 'Task', 'Person', 'Approval', 'Evidence', 'Asset', 'Room'],
+    actions: ['read-project-reference', 'read-work-package-reference', 'open-source-record', 'map-work-package-reference-later'],
+    notes: 'Open-source candidate with read adapter implemented; no persistent OpenProject tenant or API token is configured in the repository.',
+  },
+  {
     id: 'companycam',
     name: 'CompanyCam',
     category: 'photo-evidence',
