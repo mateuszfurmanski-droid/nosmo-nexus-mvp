@@ -50,6 +50,8 @@ app.get("/api/nexus/cloud/_staging/health", (_req, res) => {
     service: "nosmo-nexus-cloud-staging-runtime",
     environment: "non-production",
     cloudRouter: "canonical-repo-router",
+    postgresIdentityBindingConfigured:
+      process.env.NEXUS_IDENTITY_BINDING_MODE === "postgres",
     providerWriteReleased: false,
   });
 });
