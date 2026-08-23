@@ -17,6 +17,16 @@ export {
   type NexusOdkContextLink,
   type NexusOdkSubmissionContextMapping,
 } from './odk/odkSubmissionContextMapping';
+export { ErpNextServerClient } from './erpnext/erpNextClient';
+export { QFieldCloudServerClient } from './qfield/qFieldCloudClient';
+export { OpenMaintServerClient } from './openmaint/openMaintClient';
+export { BcfServerClient } from './bcf/bcfClient';
+export {
+  erpNextTradesConnector, erpNextTradesPresentation,
+  qFieldTradesConnector, qFieldTradesPresentation,
+  openMaintTradesConnector, openMaintTradesPresentation,
+  bcfTradesConnector, bcfTradesPresentation,
+} from './multiTradeConnectors';
 export * from './connectorPresentationContract';
 
 import { googleDriveConnector } from './google-drive/googleDriveConnector';
@@ -30,6 +40,12 @@ import { communicationConnector } from './gmail-whatsapp/communicationConnector'
 import { supplierConnector } from './suppliers/supplierConnector';
 import { snipeItConnector, snipeItPresentation } from './snipe-it/snipeItConnector';
 import { odkFieldFormsConnector, odkFieldFormsPresentation } from './odk/odkConnector';
+import {
+  erpNextTradesConnector, erpNextTradesPresentation,
+  qFieldTradesConnector, qFieldTradesPresentation,
+  openMaintTradesConnector, openMaintTradesPresentation,
+  bcfTradesConnector, bcfTradesPresentation,
+} from './multiTradeConnectors';
 
 export const nexusConnectorContracts = [
   googleDriveConnector,
@@ -42,10 +58,18 @@ export const nexusConnectorContracts = [
   supplierConnector,
   snipeItConnector,
   odkFieldFormsConnector,
+  erpNextTradesConnector,
+  qFieldTradesConnector,
+  openMaintTradesConnector,
+  bcfTradesConnector,
 ];
 
 export const nexusConnectorPresentations = [
   workWalletPresentation,
   snipeItPresentation,
   odkFieldFormsPresentation,
+  erpNextTradesPresentation,
+  qFieldTradesPresentation,
+  openMaintTradesPresentation,
+  bcfTradesPresentation,
 ];
