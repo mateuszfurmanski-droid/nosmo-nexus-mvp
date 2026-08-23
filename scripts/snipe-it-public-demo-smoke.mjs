@@ -20,10 +20,17 @@ function cookieHeader() {
   return [...cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
 }
 
-function requiredCsrf(html) {
+function requiredFormCsrf(html) {
   const match = html.match(/name=["']_token["'][^>]*value=["']([^"']+)["']/i)
     ?? html.match(/value=["']([^"']+)["'][^>]*name=["']_token["']/i);
-  if (!match) throw new Error('SNIPE_DEMO_CSRF_NOT_FOUND');
+  if (!match) throw new Error('SNIPE_DEMO_LOGIN_CSRF_NOT_FOUND');
+  return match[1];
+}
+
+function requiredMetaCsrf(html) {
+  const match = html.match(/<meta[^>]*name=["']csrf-token["'][^>]*content=["']([^"']+)["'][^>]*>/i)
+    ?? html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']csrf-token["'][^>]*>/i);
+  if (!match) throw new Error('SNIPE_DEMO_AUTH_CSRF_NOT_FOUND');
   return match[1];
 }
 
@@ -51,10 +58,10 @@ async function main() {
   }
 
   const loginHtml = await loginPage.text();
-  const csrf = requiredCsrf(loginHtml);
+  const loginCsrf = requiredFormCsrf(loginHtml);
 
   const loginBody = new URLSearchParams({
-    _token: csrf,
+    _token: loginCsrf,
     username: USERNAME,
     password: PASSWORD,
   });
@@ -86,7 +93,9 @@ async function main() {
   if (authenticatedPage.status !== 200) {
     throw new Error(`SNIPE_DEMO_AUTH_PAGE_HTTP_${authenticatedPage.status}`);
   }
-  await authenticatedPage.arrayBuffer();
+
+  const authenticatedHtml = await authenticatedPage.text();
+  const apiCsrf = requiredMetaCsrf(authenticatedHtml);
 
   if (!cookieJar.has('snipeit_passport_token')) {
     throw new Error('SNIPE_DEMO_FRESH_API_COOKIE_NOT_ISSUED');
@@ -97,6 +106,8 @@ async function main() {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-TOKEN': apiCsrf,
+      Referer: `${BASE_URL}/hardware`,
     },
   });
 
