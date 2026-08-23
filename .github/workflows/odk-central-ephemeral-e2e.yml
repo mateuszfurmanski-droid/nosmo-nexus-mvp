@@ -1,0 +1,121 @@
+name: ODK Central Ephemeral E2E
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/odk-central-ephemeral-e2e.yml"
+      - "scripts/odk-central-ephemeral-e2e.mjs"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/odkEphemeralSnapshot.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/AdaptiveConnectorLab.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ephemeral-central-read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:14.20-alpine
+        env:
+          POSTGRES_USER: jubilant
+          POSTGRES_PASSWORD: jubilant
+          POSTGRES_DB: jubilant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jubilant -d jubilant"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout Nexus branch
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned ODK Central Backend
+        uses: actions/checkout@v4
+        with:
+          repository: getodk/central-backend
+          ref: v2026.2.0
+          path: .odk-central-backend
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: .odk-central-backend/package-lock.json
+
+      - name: Prepare PostgreSQL extensions
+        env:
+          PGPASSWORD: jubilant
+        run: |
+          psql -h 127.0.0.1 -U jubilant -d jubilant -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS citext;
+          CREATE EXTENSION IF NOT EXISTS pg_trgm;
+          CREATE EXTENSION IF NOT EXISTS pgrowlocks;
+          SQL
+
+      - name: Install pinned ODK Central Backend
+        working-directory: .odk-central-backend
+        run: npm ci
+
+      - name: Migrate ephemeral ODK database
+        working-directory: .odk-central-backend
+        env:
+          BCRYPT: insecure
+        run: node lib/bin/run-migrations.js
+
+      - name: Seed ephemeral ODK admin
+        working-directory: .odk-central-backend
+        env:
+          BCRYPT: insecure
+        run: |
+          node - <<'NODE'
+          const { createUser, promoteUser } = require('./lib/task/account');
+          const email = 'nexus-e2e@example.invalid';
+          const password = 'NexusE2E-Only-2026!';
+          (async () => {
+            await createUser(email, password);
+            await promoteUser(email);
+            console.log('ODK_E2E_ADMIN_READY');
+          })().catch((error) => {
+            console.error('ODK_E2E_ADMIN_FAILED');
+            console.error(error?.message || String(error));
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Start ODK Central Backend
+        working-directory: .odk-central-backend
+        env:
+          BCRYPT: insecure
+        run: |
+          nohup node lib/bin/run-server.js > /tmp/odk-central-e2e.log 2>&1 &
+          echo $! > /tmp/odk-central-e2e.pid
+          for i in {1..30}; do
+            if curl -sS -o /dev/null http://127.0.0.1:8383/v1/projects; then
+              echo "ODK_CENTRAL_BACKEND_READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          tail -n 120 /tmp/odk-central-e2e.log || true
+          exit 1
+
+      - name: Execute Nexus ODK E2E
+        run: node scripts/odk-central-ephemeral-e2e.mjs
+
+      - name: ODK server diagnostics
+        if: failure()
+        run: tail -n 160 /tmp/odk-central-e2e.log || true
+
+      - name: Stop ODK Central Backend
+        if: always()
+        run: |
+          if [ -f /tmp/odk-central-e2e.pid ]; then
+            kill "$(cat /tmp/odk-central-e2e.pid)" || true
+          fi
