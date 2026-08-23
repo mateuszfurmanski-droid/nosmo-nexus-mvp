@@ -59,16 +59,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); STDOUT.write("NEXUS_OPENPROJECT_TOKEN=#{t.plain_value}\\n")'\'' ')"
+          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); ok=(Token::API.find_by_plaintext_value(t.plain_value)&.id == t.id); STDOUT.write("NEXUS_OPENPROJECT_TOKEN_OK=#{ok}\\nNEXUS_OPENPROJECT_TOKEN=#{t.plain_value}\\n")'\'' ')"
+          TOKEN_OK="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN_OK=//p' | tail -n 1 | tr -d '\r')"
           API_TOKEN="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN=//p' | tail -n 1 | tr -d '\r')"
-          if [ -z "$API_TOKEN" ]; then
-            echo "OPENPROJECT_E2E_TOKEN_EMPTY"
+          if [ "$TOKEN_OK" != "true" ] || [ -z "$API_TOKEN" ]; then
+            echo "OPENPROJECT_E2E_TOKEN_CREATE_INVALID"
             exit 1
           fi
           echo "::add-mask::$API_TOKEN"
           if ! curl -fsS \
+            -u "apikey:$API_TOKEN" \
             -H "Accept: application/hal+json" \
-            -H "Authorization: Bearer $API_TOKEN" \
             http://127.0.0.1:8080/api/v3/users/me > /tmp/openproject-e2e-me.json; then
             echo "OPENPROJECT_E2E_TOKEN_PROBE_FAILED"
             exit 1
