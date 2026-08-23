@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); STDOUT.write("NEXUS_OPENPROJECT_TOKEN=#{t.value}\\n")'\'' ')"
+          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); STDOUT.write("NEXUS_OPENPROJECT_TOKEN=#{t.plain_value}\\n")'\'' ')"
           API_TOKEN="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN=//p' | tail -n 1 | tr -d '\r')"
           if [ -z "$API_TOKEN" ]; then
             echo "OPENPROJECT_E2E_TOKEN_EMPTY"
