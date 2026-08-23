@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/layout";
 import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
+import SparkSkanskaDemo from "@/spark-demo/SparkSkanskaDemo";
 
 // Pages
 import NexusLaunchpad from "@/pages/nexus-launchpad";
@@ -37,7 +38,8 @@ import ExternalTools from "@/pages/external-tools";
 function Router() {
   return (
     <Switch>
-      {/* Specialist full-screen workflows intentionally run without the app shell. */}
+      {/* Narrow full-screen demonstrators/workflows intentionally run without the legacy app shell. */}
+      <Route path="/spark-skanska-demo" component={SparkSkanskaDemo} />
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
