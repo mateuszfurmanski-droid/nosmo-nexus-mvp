@@ -3,6 +3,7 @@ import {
   connectorRuntimeProjections,
   type AdaptiveConnectorId,
 } from "./connectorRuntimeProjection";
+import { odkEphemeralSnapshot } from "./odkEphemeralSnapshot";
 import {
   snipePublicDemoAssetLabel,
   snipePublicDemoSnapshot,
@@ -68,9 +69,9 @@ const connectors: ConnectorProfile[] = [
     subtitle: "ODK Central engine candidate",
     experience: "Licensed-source UI / API candidate",
     sourceBoundary: "ODK submission stays externally identified; Nexus links evidence/context.",
-    notice: "The Central read adapter exists on the parent connector branch. No tenant or App User secret is exposed to the browser. External identities are not promoted to Nexus Person identities.",
+    notice: "The Central read adapter exists on the parent connector branch. The form and submission shown here are a sanitised snapshot from a disposable ODK Central Backend v2026.2.0 CI instance. This is not a persistent customer tenant, no bearer token is exposed to the browser, and external identities are not promoted to Nexus Person identities.",
     actionLabel: "Read configured forms",
-    sourceExample: "Fire door inspection · Submission demo-018",
+    sourceExample: `${odkEphemeralSnapshot.form.name} · ${odkEphemeralSnapshot.submission.instanceId}`,
   },
 ];
 
@@ -132,11 +133,14 @@ export default function AdaptiveConnectorLab() {
             <strong>
               {active.id === "snipe-it"
                 ? `Tool Asset · ${snipePublicDemoSnapshot.asset.assetTag}`
-                : "Object Card · Door 02.14"}
+                : active.id === "odk"
+                  ? `Inspection Form · ${odkEphemeralSnapshot.form.xmlFormId}`
+                  : "Object Card · Door 02.14"}
             </strong>
             <small>{active.sourceExample}</small>
             {active.id !== "nexus" && <div className="source">SOURCE · {active.shortLabel}</div>}
             {active.id === "snipe-it" && <div className="source">PUBLIC DEMO SNAPSHOT · EPHEMERAL</div>}
+            {active.id === "odk" && <div className="source">UPSTREAM BACKEND SNAPSHOT · EPHEMERAL</div>}
           </article>
 
           <article className="nx-lab-node task">
@@ -146,7 +150,11 @@ export default function AdaptiveConnectorLab() {
 
           <article className="nx-lab-node evidence">
             <strong>Evidence</strong>
-            <small>{active.id === "odk" ? "Submission reference linked to task" : "Photo / document / source reference"}</small>
+            <small>
+              {active.id === "odk"
+                ? `${odkEphemeralSnapshot.submission.instanceId} · ${odkEphemeralSnapshot.project.name}`
+                : "Photo / document / source reference"}
+            </small>
             {active.id !== "nexus" && <div className="source">PROVENANCE · {active.shortLabel}</div>}
           </article>
 
@@ -207,6 +215,19 @@ export default function AdaptiveConnectorLab() {
                 <div className="nx-lab-row"><span>Location</span><strong>{snipePublicDemoSnapshot.asset.location}</strong></div>
                 <div className="nx-lab-row"><span>Captured</span><strong>{snipePublicDemoSnapshot.capturedAt}</strong></div>
                 <div className="nx-lab-row"><span>Persistence</span><strong>ephemeral CI snapshot · not a configured Nexus tenant</strong></div>
+              </section>
+            )}
+
+            {active.id === "odk" && (
+              <section className="nx-lab-section">
+                <h2>Upstream E2E proof · ephemeral Central snapshot</h2>
+                <div className="nx-lab-row"><span>Source</span><strong>{odkEphemeralSnapshot.sourceLabel}</strong></div>
+                <div className="nx-lab-row"><span>Project</span><strong>#{odkEphemeralSnapshot.project.id} · {odkEphemeralSnapshot.project.name}</strong></div>
+                <div className="nx-lab-row"><span>Form</span><strong>{odkEphemeralSnapshot.form.xmlFormId} · v{odkEphemeralSnapshot.form.version}</strong></div>
+                <div className="nx-lab-row"><span>Form state</span><strong>{odkEphemeralSnapshot.form.state}</strong></div>
+                <div className="nx-lab-row"><span>Submission</span><strong>{odkEphemeralSnapshot.submission.instanceId}</strong></div>
+                <div className="nx-lab-row"><span>Captured</span><strong>{odkEphemeralSnapshot.capturedAt}</strong></div>
+                <div className="nx-lab-row"><span>Persistence</span><strong>disposable CI database · not ODK Cloud or a configured customer tenant</strong></div>
               </section>
             )}
 
