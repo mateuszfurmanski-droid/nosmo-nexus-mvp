@@ -14,7 +14,7 @@ export const openProjectWorkConnector = defineNexusConnector({
     notes: 'Open-source candidate with server-side read adapter. No persistent OpenProject tenant or API token is configured in this repository.',
   },
   mode: 'api-sync',
-  authMode: 'bearer-token',
+  authMode: 'api-key',
   ownsData: true,
   storesExternalRecordOnly: true,
   canCreateNexusEvidence: false,
@@ -70,6 +70,7 @@ export const openProjectWorkPresentation = defineNexusConnectorPresentation({
     prohibitedTransformations: [
       'Do not imply OpenProject Foundation or OpenProject GmbH endorsement or partnership.',
       'Do not expose OpenProject API tokens in browser-visible configuration.',
+      'Use API-token Basic authentication only over TLS outside isolated localhost test environments.',
       'Do not copy an external assignee into canonical Nexus Person identity without verified identity mapping.',
       'Do not promote work-package state to Nexus approval/evidence state without explicit mapping rules.',
     ],
