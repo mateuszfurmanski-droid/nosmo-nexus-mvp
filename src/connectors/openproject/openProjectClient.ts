@@ -30,7 +30,7 @@ interface OpenProjectCollection<T> {
 
 export interface OpenProjectServerClientOptions {
   baseUrl: string;
-  bearerToken: string;
+  apiToken: string;
   fetchImpl: NexusConnectorHttpFetch;
 }
 
@@ -42,16 +42,23 @@ const collectionElements = <T>(payload: unknown, errorCode: string): T[] => {
   return elements;
 };
 
+const encodeBasic = (value: string): string => {
+  if (typeof globalThis.btoa !== 'function') {
+    throw new Error('OPENPROJECT_BASIC_AUTH_ENCODER_UNAVAILABLE');
+  }
+  return globalThis.btoa(value);
+};
+
 export class OpenProjectServerClient {
   private readonly baseUrl: string;
-  private readonly bearerToken: string;
+  private readonly apiToken: string;
   private readonly fetchImpl: NexusConnectorHttpFetch;
 
   constructor(options: OpenProjectServerClientOptions) {
     if (!options.baseUrl.trim()) throw new Error('OPENPROJECT_BASE_URL_REQUIRED');
-    if (!options.bearerToken.trim()) throw new Error('OPENPROJECT_BEARER_TOKEN_REQUIRED');
+    if (!options.apiToken.trim()) throw new Error('OPENPROJECT_API_TOKEN_REQUIRED');
     this.baseUrl = normalizeBaseUrl(options.baseUrl.trim());
-    this.bearerToken = options.bearerToken.trim();
+    this.apiToken = options.apiToken.trim();
     this.fetchImpl = options.fetchImpl;
   }
 
@@ -60,7 +67,7 @@ export class OpenProjectServerClient {
       method: 'GET',
       headers: {
         Accept: 'application/hal+json',
-        Authorization: `Bearer ${this.bearerToken}`,
+        Authorization: `Basic ${encodeBasic(`apikey:${this.apiToken}`)}`,
       },
     });
     const payload = await response.json();
