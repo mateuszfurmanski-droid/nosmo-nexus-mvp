@@ -1,0 +1,185 @@
+name: QFieldCloud Ephemeral Upstream E2E
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/qfieldcloud-ephemeral-e2e.yml'
+      - 'scripts/qfieldcloud-ephemeral-e2e.mts'
+      - 'src/connectors/qfield/**'
+      - 'src/connectors/connectorContract.ts'
+      - 'src/connectors/multiTradeConnectors.ts'
+      - 'src/connectors/snipe-it/snipeItClient.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QFIELDCLOUD_UPSTREAM_COMMIT: 371b0d88a2956c20e530f988140b899550f7a10a
+  QFIELDCLOUD_UPSTREAM_DIR: /tmp/nexus-qfieldcloud-upstream
+  QFIELDCLOUD_E2E_BASE_URL: http://127.0.0.1:8011
+  QFIELDCLOUD_E2E_USERNAME: nexus_e2e
+  QFIELDCLOUD_E2E_PROJECT_NAME: nexus_ephemeral_field_project
+
+jobs:
+  real-upstream-read:
+    if: github.event_name != 'pull_request' || github.head_ref == 'codex/qfieldcloud-ephemeral-upstream-e2e'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout Nexus branch
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Nexus dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Fetch pinned official QFieldCloud backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$QFIELDCLOUD_UPSTREAM_DIR"
+          git init "$QFIELDCLOUD_UPSTREAM_DIR"
+          git -C "$QFIELDCLOUD_UPSTREAM_DIR" remote add origin https://github.com/opengisch/QFieldCloud.git
+          git -C "$QFIELDCLOUD_UPSTREAM_DIR" fetch --depth 1 origin "$QFIELDCLOUD_UPSTREAM_COMMIT"
+          git -C "$QFIELDCLOUD_UPSTREAM_DIR" checkout --detach FETCH_HEAD
+          test "$(git -C "$QFIELDCLOUD_UPSTREAM_DIR" rev-parse HEAD)" = "$QFIELDCLOUD_UPSTREAM_COMMIT"
+          cp "$QFIELDCLOUD_UPSTREAM_DIR/.env.example" "$QFIELDCLOUD_UPSTREAM_DIR/.env"
+          cat >> "$QFIELDCLOUD_UPSTREAM_DIR/.env" <<'EOF'
+          COMPOSE_PROJECT_NAME=nexus-qfieldcloud-e2e
+          QFIELDCLOUD_WORKER_REPLICAS=0
+          ACCOUNT_EMAIL_VERIFICATION=none
+          EOF
+          echo "QFIELDCLOUD_OFFICIAL_UPSTREAM_PIN_VERIFIED"
+
+      - name: Build and initialise disposable QFieldCloud backend
+        shell: bash
+        working-directory: /tmp/nexus-qfieldcloud-upstream
+        run: |
+          set -euo pipefail
+          docker compose up -d db memcached rustfs
+
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker compose exec -T db pg_isready -U qfieldcloud_db_admin -d qfieldcloud_db >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "QFIELDCLOUD_DATABASE_NOT_READY"
+            docker compose ps || true
+            docker compose logs --tail 200 db || true
+            exit 1
+          fi
+
+          docker compose build app createbuckets
+          docker compose run --rm createbuckets
+          docker compose run --rm app python manage.py migrate --noinput
+
+          password="$(openssl rand -hex 18)"
+          echo "::add-mask::$password"
+          docker compose run --rm -e QFIELDCLOUD_E2E_PASSWORD="$password" app python manage.py shell -c '
+          import os
+          from qfieldcloud.core.models import Person
+          from qfieldcloud.core.tests.utils import setup_subscription_plans
+          from qfieldcloud.project.models import Project
+          setup_subscription_plans()
+          username = "nexus_e2e"
+          user = Person.objects.create_user(username=username, password=os.environ["QFIELDCLOUD_E2E_PASSWORD"])
+          Project.objects.create(name="nexus_ephemeral_field_project", owner=user, is_public=False, description="Disposable Nexus QFieldCloud connector E2E project")
+          '
+
+          echo "QFIELDCLOUD_E2E_PASSWORD=$password" >> "$GITHUB_ENV"
+          docker compose up -d app
+
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent --show-error "$QFIELDCLOUD_E2E_BASE_URL/api/v1/status/" >/tmp/qfieldcloud-status.json; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "QFIELDCLOUD_APP_NOT_READY"
+            docker compose ps || true
+            docker compose logs --tail 280 app db memcached rustfs || true
+            exit 1
+          fi
+          echo "QFIELDCLOUD_REAL_UPSTREAM_READY"
+
+      - name: Authenticate and resolve disposable project
+        shell: bash
+        working-directory: /tmp/nexus-qfieldcloud-upstream
+        run: |
+          set -euo pipefail
+          login_json="$(curl --fail --silent --show-error \
+            --request POST \
+            --header 'Accept: application/json' \
+            --data-urlencode "username=$QFIELDCLOUD_E2E_USERNAME" \
+            --data-urlencode "password=$QFIELDCLOUD_E2E_PASSWORD" \
+            "$QFIELDCLOUD_E2E_BASE_URL/api/v1/auth/login/")"
+
+          token="$(printf '%s' "$login_json" | jq -r '.token // empty')"
+          if [ -z "$token" ]; then
+            echo "QFIELDCLOUD_LOGIN_TOKEN_MISSING"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+
+          projects_json="$(curl --fail --silent --show-error \
+            --header "Authorization: Token $token" \
+            --header 'Accept: application/json' \
+            "$QFIELDCLOUD_E2E_BASE_URL/api/v1/projects/")"
+
+          project_id="$(printf '%s' "$projects_json" | jq -r --arg name "$QFIELDCLOUD_E2E_PROJECT_NAME" '
+            (if type == "array" then . else (.results // []) end)
+            | map(select(.name == $name))
+            | if length == 1 then .[0].id else empty end
+          ')"
+          if [ -z "$project_id" ]; then
+            echo "QFIELDCLOUD_EPHEMERAL_PROJECT_NOT_RESOLVED"
+            exit 1
+          fi
+
+          echo "QFIELDCLOUD_E2E_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "QFIELDCLOUD_E2E_PROJECT_ID=$project_id" >> "$GITHUB_ENV"
+          echo "QFIELDCLOUD_DISPOSABLE_TOKEN_AND_PROJECT_VERIFIED"
+
+      - name: Execute Nexus QFieldCloud adapter against real upstream
+        run: pnpm --dir scripts exec tsx ./qfieldcloud-ephemeral-e2e.mts
+
+      - name: QFieldCloud diagnostics
+        if: failure()
+        shell: bash
+        working-directory: /tmp/nexus-qfieldcloud-upstream
+        run: |
+          docker compose ps || true
+          docker compose logs --tail 320 app db memcached rustfs || true
+
+      - name: Destroy disposable QFieldCloud upstream
+        if: always()
+        shell: bash
+        run: |
+          if [ -d "$QFIELDCLOUD_UPSTREAM_DIR" ]; then
+            cd "$QFIELDCLOUD_UPSTREAM_DIR"
+            docker compose down --volumes --remove-orphans || true
+          fi
+          rm -rf "$QFIELDCLOUD_UPSTREAM_DIR"
