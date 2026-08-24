@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - codex/skanska-property-commercial-operations-demo
+  pull_request:
+    branches:
+      - codex/spark-skanska-demo-core
+    paths:
+      - "artifacts/nosmo-nexus/src/App.tsx"
+      - "artifacts/nosmo-nexus/src/skanska-property-demo/**"
+      - "docs/NEXUS_SKANSKA_PROPERTY_COMMERCIAL_OPERATIONS_DEMO.md"
+      - ".github/workflows/skanska-property-demo-check.yml"
   workflow_dispatch:
 
 permissions:
