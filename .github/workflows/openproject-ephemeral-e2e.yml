@@ -59,11 +59,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); r=APITokens::CreateService.new(user:u, model:Token::API.new).call(token_name:"Nexus E2E"); raise(r.errors.full_messages.join(", ")) unless r.success?; t=r.result; p=t.plain_value; ok=p.present? && (Token::API.find_by_plaintext_value(p)&.id == t.id); STDOUT.write("NEXUS_OPENPROJECT_TOKEN_OK=#{ok}\\nNEXUS_OPENPROJECT_TOKEN=#{p}\\n")'\'' ')"
-          TOKEN_OK="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN_OK=//p' | tail -n 1 | tr -d '\r')"
-          API_TOKEN="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN=//p' | tail -n 1 | tr -d '\r')"
-          if [ "$TOKEN_OK" != "true" ] || [ -z "$API_TOKEN" ]; then
-            echo "OPENPROJECT_E2E_TOKEN_CREATE_INVALID"
+          docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); r=APITokens::CreateService.new(user:u, model:Token::API.new).call(token_name:"Nexus E2E"); raise(r.errors.full_messages.join(", ")) unless r.success?; t=r.result; plaintext=t.plain_value; raise "NEXUS_API_TOKEN_PLAINTEXT_MISSING" if plaintext.blank?; found=Token::API.find_by_plaintext_value(plaintext); raise "NEXUS_API_TOKEN_LOOKUP_MISMATCH" unless found&.id == t.id; File.binwrite("/tmp/nexus-openproject-api-token", plaintext)'\'' '
+          API_TOKEN="$(docker exec nexus-openproject-e2e cat /tmp/nexus-openproject-api-token | tr -d '\r\n')"
+          if [ -z "$API_TOKEN" ]; then
+            echo "OPENPROJECT_E2E_TOKEN_EMPTY"
             exit 1
           fi
           echo "::add-mask::$API_TOKEN"
