@@ -10,6 +10,7 @@ on:
     paths:
       - "artifacts/nosmo-nexus/src/App.tsx"
       - "artifacts/nosmo-nexus/src/skanska-property-demo/**"
+      - "scripts/src/skanska-property-demo-contract-check.ts"
       - "docs/NEXUS_SKANSKA_PROPERTY_COMMERCIAL_OPERATIONS_DEMO.md"
       - ".github/workflows/skanska-property-demo-check.yml"
   workflow_dispatch:
@@ -40,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate commercial graph and workflow contract
+        run: pnpm --filter @workspace/scripts exec tsx ./src/skanska-property-demo-contract-check.ts
+
       - name: Build workspace type declarations
         run: pnpm run typecheck:libs
 
@@ -56,6 +60,7 @@ jobs:
           test -f artifacts/nosmo-nexus/dist/public/index.html
           grep -R --quiet "SKANSKA PROPERTY OPERATIONS DEMO" artifacts/nosmo-nexus/dist/public
           grep -R --quiet "Everything SKANSKA knows about this physical object" artifacts/nosmo-nexus/dist/public
+          grep -R --quiet "Confirm route + create ESG evidence" artifacts/nosmo-nexus/dist/public
 
       - name: Smoke test direct commercial demo route
         env:
