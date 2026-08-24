@@ -119,9 +119,20 @@ Dedicated workflow:
 Checks:
 
 - frozen dependency install;
+- workspace type-declaration build (`typecheck:libs`);
 - Nexus web typecheck;
 - Nexus web build;
 - commercial demo markers present in build output;
 - direct `/skanska-property-demo` route smoke through the repository-native Nexus server.
 
-A public preview is not considered valid until a deployment reaches READY and the direct route is verified. The linked `nosmo-nexus-cloud-staging` Vercel project is not treated as proof for this UI because current branch auto-deployments there are failing and that project is primarily the Cloud staging runtime.
+The dedicated check passed on the commercial branch after the workspace declaration prerequisite was made explicit.
+
+## Vercel preview boundary
+
+This isolated branch contains a branch-local `vercel.json` that builds only the Nexus web artifact and serves SPA routes from `artifacts/nosmo-nexus/dist/public`. It does not change the Nexus Cloud staging runtime code or PR #150.
+
+A deployment of the commercial branch reached `READY`, confirming that the previous unrelated `artifacts/mockup-sandbox` / missing `PORT` root-build failure is no longer in the commercial preview path.
+
+The connected Vercel project `nosmo-nexus-cloud-staging` currently enforces Vercel Authentication on preview aliases. Therefore the deployment is **READY but not anonymously public**: unauthenticated requests redirect to Vercel SSO. A temporary Vercel share link can be generated for review, but it expires and is not the Definition-of-Done stable public URL.
+
+The demo must not be called fully public/mobile-verified until deployment protection is disabled for the intended public preview or the same branch is deployed to a separate public preview project. No change to the Cloud staging protection policy is made from this branch.
