@@ -10,6 +10,12 @@ import {
   sourceSystems,
   spaces,
 } from "../../artifacts/nosmo-nexus/src/skanska-property-demo/data";
+import {
+  buildCommercialDemoGraph,
+  validateCommercialGraphProjection,
+  type CommercialGraphNodeType,
+  type CommercialWorkflowStage,
+} from "../../artifacts/nosmo-nexus/src/skanska-property-demo/graph";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`SKANSKA Property demo contract failed: ${message}`);
@@ -92,6 +98,59 @@ for (const id of requiredSourceIds) {
 }
 assert(sourceSystems.every((source) => !/LIVE API|VENDOR APPROVED/i.test(source.status)), "demo must not imply unverified live vendor/API capability");
 
+const stageRequirements: Array<{ stage: CommercialWorkflowStage; nodeTypes: CommercialGraphNodeType[] }> = [
+  { stage: "issue", nodeTypes: ["PROPERTY_PORTFOLIO", "BUILDING", "FLOOR", "SPACE", "ASSET", "MATERIAL", "PERSON", "COMPANY", "ISSUE", "INSPECTION", "DOCUMENT", "PHOTO", "MAINTENANCE_EVENT"] },
+  { stage: "task", nodeTypes: ["TASK"] },
+  { stage: "evidence", nodeTypes: ["TASK", "PHOTO", "INSPECTION"] },
+  { stage: "approved", nodeTypes: ["APPROVAL"] },
+  { stage: "updated", nodeTypes: ["REPLACEMENT_EVENT"] },
+  { stage: "reuse", nodeTypes: ["REUSE_EVENT"] },
+  { stage: "esg", nodeTypes: ["ESG_EVIDENCE"] },
+];
+
+for (const requirement of stageRequirements) {
+  const graph = buildCommercialDemoGraph(requirement.stage);
+  const validation = validateCommercialGraphProjection(graph);
+  assert(validation.valid, `${requirement.stage} graph projection invalid: ${validation.errors.join(", ")}`);
+  for (const nodeType of requirement.nodeTypes) {
+    assert(graph.nodes.some((item) => item.type === nodeType), `${requirement.stage} graph is missing ${nodeType}`);
+  }
+}
+
+const issueGraph = buildCommercialDemoGraph("issue");
+const taskGraph = buildCommercialDemoGraph("task");
+const evidenceGraph = buildCommercialDemoGraph("evidence");
+const approvedGraph = buildCommercialDemoGraph("approved");
+const updatedGraph = buildCommercialDemoGraph("updated");
+const reuseGraph = buildCommercialDemoGraph("reuse");
+const esgGraph = buildCommercialDemoGraph("esg");
+
+assert(!issueGraph.nodes.some((item) => item.type === "TASK"), "task must not exist before Facility Manager creates it");
+assert(taskGraph.nodes.some((item) => item.id === "task:ahu-04-bearing-inspection"), "task stage must create the AHU-04 task graph node");
+assert(evidenceGraph.edges.some((item) => item.relation === "PRODUCED_EVIDENCE"), "evidence stage must link task to evidence");
+assert(approvedGraph.edges.some((item) => item.relation === "APPROVED_BY" && item.to === "person-anna-fm"), "approval must remain a distinct human relation");
+assert(updatedGraph.edges.some((item) => item.relation === "TRIGGERED_REPLACEMENT"), "approved asset history must open replacement planning");
+assert(reuseGraph.edges.some((item) => item.relation === "HAS_REUSE_ROUTE"), "replacement flow must create a reuse route");
+assert(esgGraph.edges.some((item) => item.relation === "HAS_ESG_EVIDENCE"), "final graph must attach ESG evidence to the same asset/reuse history");
+assert(esgGraph.nodes.every((item) => item.provenance === "SYNTHETIC_DEMO"), "all generated graph nodes must preserve synthetic provenance");
+
+const finalRequiredRelations = [
+  "LOCATED_IN",
+  "COMPOSED_OF",
+  "OWNED_BY",
+  "SERVICED_BY",
+  "HAS_ISSUE",
+  "HAS_TASK",
+  "PRODUCED_EVIDENCE",
+  "APPROVED_BY",
+  "TRIGGERED_REPLACEMENT",
+  "HAS_REUSE_ROUTE",
+  "HAS_ESG_EVIDENCE",
+] as const;
+for (const relation of finalRequiredRelations) {
+  assert(esgGraph.edges.some((item) => item.relation === relation), `final graph is missing relation ${relation}`);
+}
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const componentPath = path.resolve(here, "../../artifacts/nosmo-nexus/src/skanska-property-demo/SkanskaPropertyDemo.tsx");
 const cssPath = path.resolve(here, "../../artifacts/nosmo-nexus/src/skanska-property-demo/skanska-property-demo.css");
@@ -128,6 +187,10 @@ console.log(
       replacementCases,
       sources: sourceSystems.length,
       workflowAsset: workflowAsset.tag,
+      graphSchema: esgGraph.schema,
+      finalGraphNodes: esgGraph.nodes.length,
+      finalGraphEdges: esgGraph.edges.length,
+      finalWorkflowStage: esgGraph.workflowStage,
     },
     null,
     2,
