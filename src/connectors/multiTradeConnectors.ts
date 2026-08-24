@@ -89,7 +89,7 @@ export const qFieldTradesConnector = defineNexusConnector({
     objectLinks: ['Project', 'Floor', 'Room', 'Asset', 'Task', 'Evidence'],
     actions: ['read-field-project-reference', 'read-project-detail-reference'],
   },
-  mode: 'api-sync', authMode: 'bearer-token', ownsData: true, storesExternalRecordOnly: true,
+  mode: 'api-sync', authMode: 'api-token', ownsData: true, storesExternalRecordOnly: true,
   canCreateNexusEvidence: false, canUpdateProjectGraph: false,
   capabilities: [{ id: 'read-field-projects', label: 'Read QFieldCloud project references', direction: 'read', linkedObjects: ['Project', 'Floor', 'Room', 'Asset', 'Task'] }],
   migrationPhase: 'phase-3-migrate',
