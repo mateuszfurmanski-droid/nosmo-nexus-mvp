@@ -112,7 +112,7 @@ export const openMaintTradesConnector = defineNexusConnector({
     objectLinks: ['Project', 'Floor', 'Room', 'Asset', 'Task', 'Inspection', 'Evidence'],
     actions: ['read-maintenance-class-reference', 'read-asset-card-reference'],
   },
-  mode: 'api-sync', authMode: 'bearer-token', ownsData: true, storesExternalRecordOnly: true,
+  mode: 'api-sync', authMode: 'session-token', ownsData: true, storesExternalRecordOnly: true,
   canCreateNexusEvidence: false, canUpdateProjectGraph: false,
   capabilities: [{ id: 'read-maintenance-cards', label: 'Read authorised maintenance/asset card references', direction: 'read', linkedObjects: ['Asset', 'Task', 'Inspection', 'Room'] }],
   migrationPhase: 'phase-3-migrate',
