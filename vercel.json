@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/nosmo-nexus typecheck && BASE_PATH=/ pnpm --filter @workspace/nosmo-nexus build",
+  "outputDirectory": "artifacts/nosmo-nexus/dist/public",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
