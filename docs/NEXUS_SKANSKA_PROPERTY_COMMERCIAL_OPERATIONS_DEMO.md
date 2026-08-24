@@ -75,6 +75,56 @@ Primary asset: `AHU-04 — Air Handling Unit 04`.
 14. Confirm the circular route.
 15. ESG evidence is generated from the same asset history with provenance and carbon-integrity boundaries.
 
+## Typed Building Graph projection
+
+The commercial fixture now has an explicit typed graph contract in:
+
+`artifacts/nosmo-nexus/src/skanska-property-demo/graph.ts`
+
+Schema:
+
+`nexus-commercial-building-graph/v1`
+
+The projection models typed nodes for:
+
+- PROPERTY_PORTFOLIO;
+- BUILDING;
+- FLOOR;
+- SPACE;
+- ASSET;
+- MATERIAL;
+- PERSON;
+- COMPANY;
+- ISSUE;
+- TASK;
+- INSPECTION;
+- DOCUMENT;
+- PHOTO;
+- MAINTENANCE_EVENT;
+- APPROVAL;
+- REPLACEMENT_EVENT;
+- REUSE_EVENT;
+- ESG_EVIDENCE.
+
+It also models explicit edges such as:
+
+- CONTAINS;
+- LOCATED_ON / LOCATED_IN;
+- COMPOSED_OF;
+- INSTALLED_BY / INSTALLED_BY_COMPANY;
+- OWNED_BY / SERVICED_BY;
+- HAS_ISSUE / HAS_TASK;
+- ASSIGNED_TO / ABOUT_ASSET;
+- PRODUCED_EVIDENCE;
+- APPROVED_BY;
+- TRIGGERED_REPLACEMENT;
+- HAS_REUSE_ROUTE;
+- HAS_ESG_EVIDENCE.
+
+The graph projection is stage-aware. The AHU task is absent in the initial issue state, appears only after the Facility Manager creates it, and later workflow stages add evidence, approval, replacement, reuse and ESG nodes/edges. This makes the demo contract testable as a changing graph rather than only as a sequence of screens.
+
+Every generated graph node remains `SYNTHETIC_DEMO`.
+
 ## Relationship model represented in the demo
 
 `SKANSKA PROPERTY -> BUILDING -> FLOOR -> SPACE -> ASSET`
@@ -104,6 +154,18 @@ The Sources tab explicitly presents:
 - FabStation / spatial connector: candidate hand-off, still evidence-gated;
 - LCA/material data: external factor source; no live quantitative factor is claimed here.
 
+The current openMAINT PR #161 has a separate successful disposable real-application compatibility check. That strengthens the credibility of FM/CAFM as an upstream source but does not turn this commercial demo into a live CAFM implementation or authorise upstream writes.
+
+## Canonical runtime fold-in
+
+The current browser workflow state is demonstrator state, not canonical WorkSuite / Android / Cloud authority.
+
+The controlled productionisation path is documented in:
+
+`docs/NEXUS_SKANSKA_PROPERTY_FOUNDATION_FOLDIN_PLAN.md`
+
+Canonical donor stacks are reused deliberately rather than bulk-merged or copied. In particular, future production task execution/evidence must fold into the #90-lineage WorkSuite, Project Memory, Android Work Mode and Nexus Cloud paths instead of creating commercial-property-specific copies.
+
 ## Theme / UI
 
 Default theme is Eco (`green`). The demonstrator uses the same theme preference storage key as the existing SKANSKA demo so the current Nexus skin choice follows the user between demonstrators.
@@ -118,21 +180,30 @@ Dedicated workflow:
 
 Checks:
 
+- full-history checkout for isolation validation;
+- explicit allowlist diff guard against protected PR #91 base;
 - frozen dependency install;
+- commercial fixture referential-integrity checks;
+- typed graph validation for every workflow stage;
+- required final graph relations through ESG evidence;
 - workspace type-declaration build (`typecheck:libs`);
 - Nexus web typecheck;
 - Nexus web build;
 - commercial demo markers present in build output;
 - direct `/skanska-property-demo` route smoke through the repository-native Nexus server.
 
-The dedicated check passed on the commercial branch after the workspace declaration prerequisite was made explicit.
+The operator walkthrough and acceptance checklist are documented in:
+
+`docs/NEXUS_SKANSKA_PROPERTY_DEMO_OPERATOR_RUNBOOK.md`
 
 ## Vercel preview boundary
 
-This isolated branch contains a branch-local `vercel.json` that builds only the Nexus web artifact and serves SPA routes from `artifacts/nosmo-nexus/dist/public`. It does not change the Nexus Cloud staging runtime code or PR #150.
+This isolated branch contains a branch-local `vercel.json` that builds only the Nexus web artifact and serves SPA routes from `artifacts/nosmo-nexus/dist/public`. It does not change the Nexus Cloud staging runtime code or protected Cloud implementation PRs.
 
-A deployment of the commercial branch reached `READY`, confirming that the previous unrelated `artifacts/mockup-sandbox` / missing `PORT` root-build failure is no longer in the commercial preview path.
+Commercial branch deployments reach `READY`, confirming that the unrelated `artifacts/mockup-sandbox` / missing `PORT` root-build failure is not in the commercial preview path.
 
-The connected Vercel project `nosmo-nexus-cloud-staging` currently enforces Vercel Authentication on preview aliases. Therefore the deployment is **READY but not anonymously public**: unauthenticated requests redirect to Vercel SSO. A temporary Vercel share link can be generated for review, but it expires and is not the Definition-of-Done stable public URL.
+The connected Vercel project `nosmo-nexus-cloud-staging` currently enforces Vercel Authentication on preview aliases. Therefore a deployment is **READY but not anonymously public**: unauthenticated requests redirect to Vercel SSO. A temporary Vercel share link can be generated for review, but it expires and is not the Definition-of-Done stable public URL.
 
-The demo must not be called fully public/mobile-verified until deployment protection is disabled for the intended public preview or the same branch is deployed to a separate public preview project. No change to the Cloud staging protection policy is made from this branch.
+A safer stable-public option is a dedicated public demo deployment or controlled public-preview mirror. The public `NOSMO-website` repository already hosts isolated Nexus demo directories, but no commercial bundle is copied there from source by hand: the public mirror should be produced from a validated build artifact or dedicated deployment path so it cannot drift into a second source implementation.
+
+The demo must not be called fully public/mobile-verified until that stable public path exists. No change to the Cloud staging protection policy is made from this branch.
