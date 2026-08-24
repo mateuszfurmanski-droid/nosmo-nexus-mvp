@@ -162,9 +162,10 @@ export function NexusCoreSourcePalette({
     if (!payload) return;
 
     if (droppedInPackage && payload.kind !== "work-package") {
+      const sourceKind: SourceKind = payload.kind;
       setPackageItems((current) => {
-        if (current.some((item) => item.kind === payload.kind)) return current;
-        return [...current, { id: `${payload.kind}-${Date.now()}`, kind: payload.kind, label: payload.label }];
+        if (current.some((item) => item.kind === sourceKind)) return current;
+        return [...current, { id: `${sourceKind}-${Date.now()}`, kind: sourceKind, label: payload.label }];
       });
       setMessage(`${payload.label} added to Work Package. Composition is local UI state only.`);
       return;
