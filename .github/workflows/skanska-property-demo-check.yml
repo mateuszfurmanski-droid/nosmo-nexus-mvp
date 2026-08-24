@@ -1,0 +1,68 @@
+name: SKANSKA Property Demo Check
+
+on:
+  push:
+    branches:
+      - codex/skanska-property-commercial-operations-demo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  commercial-property-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Nexus web application
+        run: pnpm --filter @workspace/nosmo-nexus typecheck
+
+      - name: Build Nexus web application
+        env:
+          BASE_PATH: /
+        run: pnpm --filter @workspace/nosmo-nexus build
+
+      - name: Verify commercial demo is in build output
+        run: |
+          test -f artifacts/nosmo-nexus/dist/public/index.html
+          grep -R --quiet "SKANSKA PROPERTY OPERATIONS DEMO" artifacts/nosmo-nexus/dist/public
+          grep -R --quiet "Everything SKANSKA knows about this physical object" artifacts/nosmo-nexus/dist/public
+
+      - name: Smoke test direct commercial demo route
+        env:
+          PORT: 3000
+        run: |
+          pnpm --filter @workspace/scripts serve-nexus > /tmp/skanska-property-demo-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/skanska-property-demo-server.log' EXIT
+
+          ready=0
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/health > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 0.5
+          done
+
+          test "$ready" = "1"
+          curl --fail --silent --show-error http://127.0.0.1:3000/skanska-property-demo > /tmp/skanska-property-demo.html
+          grep --quiet '<div id="root"></div>' /tmp/skanska-property-demo.html
