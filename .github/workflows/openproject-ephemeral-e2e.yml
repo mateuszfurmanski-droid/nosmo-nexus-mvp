@@ -66,13 +66,41 @@ jobs:
             exit 1
           fi
           echo "::add-mask::$API_TOKEN"
-          if ! curl -fsS \
-            -u "apikey:$API_TOKEN" \
-            -H "Accept: application/hal+json" \
-            http://127.0.0.1:8080/api/v3/users/me > /tmp/openproject-e2e-me.json; then
-            echo "OPENPROJECT_E2E_TOKEN_PROBE_FAILED"
+
+          PROBE_OK=false
+          for i in {1..30}; do
+            STATUS="$(curl -sS \
+              -o /tmp/openproject-e2e-me.json \
+              -w '%{http_code}' \
+              -u "apikey:$API_TOKEN" \
+              -H "Accept: application/hal+json" \
+              http://127.0.0.1:8080/api/v3/users/me || true)"
+
+            case "$STATUS" in
+              200)
+                PROBE_OK=true
+                break
+                ;;
+              000|502|503)
+                echo "OPENPROJECT_E2E_TOKEN_PROBE_TRANSIENT_$STATUS"
+                sleep 2
+                ;;
+              401|403)
+                echo "OPENPROJECT_E2E_TOKEN_AUTH_FAILED_$STATUS"
+                exit 1
+                ;;
+              *)
+                echo "OPENPROJECT_E2E_TOKEN_PROBE_UNEXPECTED_$STATUS"
+                exit 1
+                ;;
+            esac
+          done
+
+          if [ "$PROBE_OK" != "true" ]; then
+            echo "OPENPROJECT_E2E_TOKEN_PROBE_TIMEOUT"
             exit 1
           fi
+
           node -e 'const fs=require("fs"); const me=JSON.parse(fs.readFileSync("/tmp/openproject-e2e-me.json","utf8")); if(!me || !Number.isInteger(me.id)) process.exit(1); console.log("OPENPROJECT_E2E_TOKEN_VERIFIED")'
           echo "OPENPROJECT_E2E_API_TOKEN=$API_TOKEN" >> "$GITHUB_ENV"
 
