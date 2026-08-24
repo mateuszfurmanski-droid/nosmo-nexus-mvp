@@ -143,23 +143,33 @@ jobs:
           fi
           echo "OPENMAINT_REAL_RUNTIME_READY"
 
-      - name: Authenticate to disposable openMAINT runtime
+      - name: Authenticate and verify stable REST v3 runtime
         shell: bash
         run: |
           set -euo pipefail
 
           session_token=""
-          for attempt in $(seq 1 60); do
-            status="$(curl --silent --show-error \
+          last_login_status="none"
+          last_classes_status="none"
+
+          # This community package may trigger one Tomcat context redeploy shortly
+          # after the UI first becomes reachable. A session created immediately before
+          # that redeploy is valid, but the next endpoint can momentarily return 404.
+          # Accept readiness only when one freshly-created session and the protected
+          # class collection both succeed in the same attempt.
+          for attempt in $(seq 1 90); do
+            login_status="$(curl --silent --show-error \
               --output /tmp/openmaint-session.json \
               --write-out '%{http_code}' \
               --request POST \
               --header 'Content-Type: application/json' \
               --data '{"username":"admin","password":"admin"}' \
               "${OPENMAINT_E2E_BASE_URL}/services/rest/v3/sessions?scope=service&returnId=true" || true)"
+            last_login_status="$login_status"
 
-            if [ "$status" = "200" ]; then
-              session_token="$(python - <<'PY'
+            candidate_token=""
+            if [ "$login_status" = "200" ]; then
+              candidate_token="$(python - <<'PY'
           import json
           from pathlib import Path
           try:
@@ -171,39 +181,50 @@ jobs:
               pass
           PY
               )"
-              if [ -n "$session_token" ]; then
-                break
+            fi
+
+            if [ -n "$candidate_token" ]; then
+              echo "::add-mask::$candidate_token"
+              classes_status="$(curl --silent --show-error \
+                --output /tmp/openmaint-classes.json \
+                --write-out '%{http_code}' \
+                --header "CMDBuild-Authorization: $candidate_token" \
+                --header 'Accept: application/json' \
+                "${OPENMAINT_E2E_BASE_URL}/services/rest/v3/classes" || true)"
+              last_classes_status="$classes_status"
+
+              if [ "$classes_status" = "200" ]; then
+                if python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              payload = json.loads(Path('/tmp/openmaint-classes.json').read_text(encoding='utf-8'))
+              rows = payload.get('data')
+              if not isinstance(rows, list) or not rows:
+                  raise SystemExit(1)
+              print(f'OPENMAINT_AUTHORISED_CLASS_PREFLIGHT_PASS classes={len(rows)}')
+          except Exception:
+              raise SystemExit(1)
+          PY
+                then
+                  session_token="$candidate_token"
+                  break
+                fi
               fi
             fi
+
             sleep 3
           done
 
+          rm -f /tmp/openmaint-session.json /tmp/openmaint-classes.json
+
           if [ -z "$session_token" ]; then
-            echo "OPENMAINT_SESSION_TOKEN_NOT_OBTAINED"
-            cat /tmp/openmaint-session.json 2>/dev/null || true
+            echo "OPENMAINT_STABLE_REST_V3_NOT_READY login_status=$last_login_status classes_status=$last_classes_status"
             exit 1
           fi
 
-          echo "::add-mask::$session_token"
           echo "OPENMAINT_E2E_SESSION_TOKEN=$session_token" >> "$GITHUB_ENV"
-          rm -f /tmp/openmaint-session.json
-
-          curl --fail --silent --show-error \
-            --header "CMDBuild-Authorization: $session_token" \
-            --header 'Accept: application/json' \
-            "${OPENMAINT_E2E_BASE_URL}/services/rest/v3/classes" \
-            --output /tmp/openmaint-classes.json
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path('/tmp/openmaint-classes.json').read_text(encoding='utf-8'))
-          rows = payload.get('data')
-          if not isinstance(rows, list) or not rows:
-              raise SystemExit('OPENMAINT_AUTHORISED_CLASS_PREFLIGHT_EMPTY')
-          print(f'OPENMAINT_AUTHORISED_CLASS_PREFLIGHT_PASS classes={len(rows)}')
-          PY
-          rm -f /tmp/openmaint-classes.json
+          echo "OPENMAINT_STABLE_REST_V3_READY"
 
       - name: Execute Nexus openMAINT adapter against real runtime
         run: pnpm --dir scripts exec tsx ./openmaint-ephemeral-e2e.mts
