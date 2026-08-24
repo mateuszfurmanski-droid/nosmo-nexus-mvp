@@ -1,0 +1,225 @@
+name: openMAINT Ephemeral Upstream E2E
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/openmaint-ephemeral-e2e.yml'
+      - 'scripts/openmaint-ephemeral-e2e.mts'
+      - 'src/connectors/openmaint/**'
+      - 'src/connectors/connectorContract.ts'
+      - 'src/connectors/multiTradeConnectors.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENMAINT_E2E_PACKAGING_COMMIT: 29378affd13f875c5a8185e829ddd0b158050ae2
+  OPENMAINT_E2E_IMAGE: itmicus/cmdbuild:om-2.4.2-4.2.0
+  OPENMAINT_E2E_BASE_URL: http://127.0.0.1:8090/cmdbuild
+  OPENMAINT_E2E_NETWORK: nexus-openmaint-e2e
+  OPENMAINT_E2E_DB_CONTAINER: nexus-openmaint-db
+  OPENMAINT_E2E_APP_CONTAINER: nexus-openmaint-app
+
+jobs:
+  real-upstream-read:
+    if: github.event_name != 'pull_request' || github.head_ref == 'codex/openmaint-ephemeral-upstream-e2e'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Nexus branch
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Nexus dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Verify pinned openMAINT packaging evidence and pull runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          packaging_root="https://raw.githubusercontent.com/itmicus/cmdbuild_docker/${OPENMAINT_E2E_PACKAGING_COMMIT}"
+          curl --fail --silent --show-error --location \
+            "${packaging_root}/openmaint-2.4.2-4.2.0/Dockerfile" \
+            --output /tmp/openmaint-Dockerfile
+          curl --fail --silent --show-error --location \
+            "${packaging_root}/docker-build.sh" \
+            --output /tmp/cmdbuild-docker-build.sh
+
+          grep -q 'openmaint-2.4.2-4.2.0.war' /tmp/openmaint-Dockerfile
+          grep -q 'itmicus/cmdbuild:om-2.4.2-4.2.0' /tmp/cmdbuild-docker-build.sh
+          echo "OPENMAINT_PACKAGING_PIN_VERIFIED"
+
+          docker pull "$OPENMAINT_E2E_IMAGE"
+          image_digest="$(docker image inspect "$OPENMAINT_E2E_IMAGE" --format '{{index .RepoDigests 0}}')"
+          if [ -z "$image_digest" ]; then
+            echo "OPENMAINT_IMAGE_DIGEST_MISSING"
+            exit 1
+          fi
+          echo "OPENMAINT_E2E_IMAGE_DIGEST=$image_digest" >> "$GITHUB_ENV"
+          echo "Resolved runtime image: $image_digest"
+
+      - name: Start disposable openMAINT runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker network create "$OPENMAINT_E2E_NETWORK"
+
+          docker run -d \
+            --name "$OPENMAINT_E2E_DB_CONTAINER" \
+            --network "$OPENMAINT_E2E_NETWORK" \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=nexus-openmaint-postgres \
+            -e POSTGRES_INITDB_ARGS=--encoding=UTF-8 \
+            postgis/postgis:17-3.5-alpine
+
+          db_ready=0
+          for attempt in $(seq 1 90); do
+            if docker exec "$OPENMAINT_E2E_DB_CONTAINER" pg_isready -U postgres >/dev/null 2>&1; then
+              db_ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$db_ready" != "1" ]; then
+            echo "OPENMAINT_POSTGRES_NOT_READY"
+            docker logs --tail 200 "$OPENMAINT_E2E_DB_CONTAINER" || true
+            exit 1
+          fi
+
+          docker run -d \
+            --name "$OPENMAINT_E2E_APP_CONTAINER" \
+            --network "$OPENMAINT_E2E_NETWORK" \
+            --publish 127.0.0.1:8090:8080 \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=nexus-openmaint-postgres \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_HOST="$OPENMAINT_E2E_DB_CONTAINER" \
+            -e POSTGRES_DB=openmaint \
+            -e OPENMAINT_DB_USER=openmaint \
+            -e OPENMAINT_DB_PASSWORD=nexus-openmaint-app \
+            -e CMDBUILD_DUMP=demo.dump.xz \
+            -e 'JAVA_OPTS=-Xms768m -Xmx3800m -XX:MaxMetaspaceSize=768m' \
+            "$OPENMAINT_E2E_IMAGE"
+
+          http_ready=0
+          for attempt in $(seq 1 180); do
+            if curl --silent --show-error --location \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "http://127.0.0.1:8090/cmdbuild/ui" | grep -Eq '^(200|302)$'; then
+              http_ready=1
+              break
+            fi
+            if [ "$(docker inspect --format '{{.State.Running}}' "$OPENMAINT_E2E_APP_CONTAINER" 2>/dev/null || echo false)" != "true" ]; then
+              echo "OPENMAINT_APP_EXITED_DURING_STARTUP"
+              docker logs --tail 320 "$OPENMAINT_E2E_APP_CONTAINER" || true
+              exit 1
+            fi
+            sleep 5
+          done
+
+          if [ "$http_ready" != "1" ]; then
+            echo "OPENMAINT_HTTP_NOT_READY"
+            docker logs --tail 320 "$OPENMAINT_E2E_APP_CONTAINER" || true
+            exit 1
+          fi
+          echo "OPENMAINT_REAL_RUNTIME_READY"
+
+      - name: Authenticate to disposable openMAINT runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          session_token=""
+          for attempt in $(seq 1 60); do
+            status="$(curl --silent --show-error \
+              --output /tmp/openmaint-session.json \
+              --write-out '%{http_code}' \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --data '{"username":"admin","password":"admin"}' \
+              "${OPENMAINT_E2E_BASE_URL}/services/rest/v3/sessions?scope=service&returnId=true" || true)"
+
+            if [ "$status" = "200" ]; then
+              session_token="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              payload = json.loads(Path('/tmp/openmaint-session.json').read_text(encoding='utf-8'))
+              value = payload.get('data', {}).get('_id', '')
+              if value and value != 'current':
+                  print(value)
+          except Exception:
+              pass
+          PY
+              )"
+              if [ -n "$session_token" ]; then
+                break
+              fi
+            fi
+            sleep 3
+          done
+
+          if [ -z "$session_token" ]; then
+            echo "OPENMAINT_SESSION_TOKEN_NOT_OBTAINED"
+            cat /tmp/openmaint-session.json 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "::add-mask::$session_token"
+          echo "OPENMAINT_E2E_SESSION_TOKEN=$session_token" >> "$GITHUB_ENV"
+          rm -f /tmp/openmaint-session.json
+
+          curl --fail --silent --show-error \
+            --header "CMDBuild-Authorization: $session_token" \
+            --header 'Accept: application/json' \
+            "${OPENMAINT_E2E_BASE_URL}/services/rest/v3/classes" \
+            --output /tmp/openmaint-classes.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/openmaint-classes.json').read_text(encoding='utf-8'))
+          rows = payload.get('data')
+          if not isinstance(rows, list) or not rows:
+              raise SystemExit('OPENMAINT_AUTHORISED_CLASS_PREFLIGHT_EMPTY')
+          print(f'OPENMAINT_AUTHORISED_CLASS_PREFLIGHT_PASS classes={len(rows)}')
+          PY
+          rm -f /tmp/openmaint-classes.json
+
+      - name: Execute Nexus openMAINT adapter against real runtime
+        run: pnpm --dir scripts exec tsx ./openmaint-ephemeral-e2e.mts
+
+      - name: openMAINT diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          docker ps -a --filter "name=$OPENMAINT_E2E_APP_CONTAINER" --filter "name=$OPENMAINT_E2E_DB_CONTAINER" || true
+          docker logs --tail 400 "$OPENMAINT_E2E_APP_CONTAINER" || true
+          docker logs --tail 200 "$OPENMAINT_E2E_DB_CONTAINER" || true
+
+      - name: Destroy disposable openMAINT runtime
+        if: always()
+        shell: bash
+        run: |
+          docker rm -f "$OPENMAINT_E2E_APP_CONTAINER" >/dev/null 2>&1 || true
+          docker rm -f "$OPENMAINT_E2E_DB_CONTAINER" >/dev/null 2>&1 || true
+          docker network rm "$OPENMAINT_E2E_NETWORK" >/dev/null 2>&1 || true
