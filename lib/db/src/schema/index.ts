@@ -9,3 +9,6 @@ export * from "./notes";
 export * from "./conversations";
 export * from "./files";
 export * from "./nexusProjectMemoryCloud";
+export * from "./nexusProjectMemoryIdentity";
+export * from "./nexusProjectMemoryAccess";
+export * from "./nexusProjectMemoryWork";
