@@ -11,6 +11,8 @@ export { snipeItConnector, snipeItPresentation } from './snipe-it/snipeItConnect
 export { SnipeItServerClient } from './snipe-it/snipeItClient';
 export { odkFieldFormsConnector, odkFieldFormsPresentation } from './odk/odkConnector';
 export { OdkCentralServerClient } from './odk/odkCentralClient';
+export { openProjectWorkConnector, openProjectWorkPresentation } from './openproject/openProjectConnector';
+export { OpenProjectServerClient } from './openproject/openProjectClient';
 export * from './connectorPresentationContract';
 
 import { googleDriveConnector } from './google-drive/googleDriveConnector';
@@ -24,6 +26,7 @@ import { communicationConnector } from './gmail-whatsapp/communicationConnector'
 import { supplierConnector } from './suppliers/supplierConnector';
 import { snipeItConnector, snipeItPresentation } from './snipe-it/snipeItConnector';
 import { odkFieldFormsConnector, odkFieldFormsPresentation } from './odk/odkConnector';
+import { openProjectWorkConnector, openProjectWorkPresentation } from './openproject/openProjectConnector';
 
 export const nexusConnectorContracts = [
   googleDriveConnector,
@@ -36,10 +39,12 @@ export const nexusConnectorContracts = [
   supplierConnector,
   snipeItConnector,
   odkFieldFormsConnector,
+  openProjectWorkConnector,
 ];
 
 export const nexusConnectorPresentations = [
   workWalletPresentation,
   snipeItPresentation,
   odkFieldFormsPresentation,
+  openProjectWorkPresentation,
 ];

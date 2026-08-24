@@ -2,8 +2,9 @@ import { workWalletConnector } from "../../../../src/connectors/work-wallet/work
 import { workWalletPresentation } from "../../../../src/connectors/work-wallet/workWalletPresentation";
 import { snipeItConnector, snipeItPresentation } from "../../../../src/connectors/snipe-it/snipeItConnector";
 import { odkFieldFormsConnector, odkFieldFormsPresentation } from "../../../../src/connectors/odk/odkConnector";
+import { openProjectWorkConnector, openProjectWorkPresentation } from "../../../../src/connectors/openproject/openProjectConnector";
 
-export type AdaptiveConnectorId = "work-wallet" | "snipe-it" | "odk";
+export type AdaptiveConnectorId = "work-wallet" | "snipe-it" | "odk" | "openproject";
 
 export type ConnectorRuntimeProbe = {
   configured: boolean;
@@ -51,6 +52,10 @@ const sourceContracts = {
     runtime: odkFieldFormsConnector,
     presentation: odkFieldFormsPresentation,
   },
+  openproject: {
+    runtime: openProjectWorkConnector,
+    presentation: openProjectWorkPresentation,
+  },
 } as const;
 
 function resolveState(
@@ -61,9 +66,6 @@ function resolveState(
 
   if (probe?.lastError) return "ERROR";
 
-  // Closed-vendor/context-only connectors must never look live merely because a
-  // presentation skin exists. Work Wallet remains contract/reference-only until
-  // a stronger runtime/approval path is explicitly released.
   if (
     presentation.maximumExperienceLevel === "context" ||
     runtime.authMode === "pending" ||
@@ -131,4 +133,5 @@ export const connectorRuntimeProjections: Record<AdaptiveConnectorId, ConnectorR
   "work-wallet": projectConnectorRuntime("work-wallet"),
   "snipe-it": projectConnectorRuntime("snipe-it"),
   odk: projectConnectorRuntime("odk"),
+  openproject: projectConnectorRuntime("openproject"),
 };

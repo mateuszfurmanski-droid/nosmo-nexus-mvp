@@ -1,0 +1,118 @@
+name: OpenProject Ephemeral E2E
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/openproject-ephemeral-e2e.yml"
+      - "scripts/openproject-ephemeral-e2e.mjs"
+      - "src/connectors/openproject/**"
+      - "src/connectors/index.ts"
+      - "src/registry/connectorRegistry.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/openProjectEphemeralSnapshot.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/connectorRuntimeProjection.ts"
+      - "artifacts/nosmo-nexus/src/adaptive-connectors/AdaptiveConnectorLab.tsx"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ephemeral-openproject-read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Nexus branch
+        uses: actions/checkout@v4
+
+      - name: Start pinned OpenProject Community Edition
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRET_KEY_BASE="$(openssl rand -hex 64)"
+          HASHED_TOKEN_PEPPER="$(openssl rand -hex 32)"
+          docker run -d \
+            --name nexus-openproject-e2e \
+            -p 8080:80 \
+            -e SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+            -e OPENPROJECT_HASHED__TOKEN__PEPPER="$HASHED_TOKEN_PEPPER" \
+            -e OPENPROJECT_HOST__NAME=127.0.0.1:8080 \
+            -e OPENPROJECT_HTTPS=false \
+            -e OPENPROJECT_DEFAULT__LANGUAGE=en \
+            -e OPENPROJECT_API__TOKENS__ENABLED=true \
+            -e OPENPROJECT_SEED__ADMIN__USER__PASSWORD='NexusE2E-Only-2026!' \
+            -e OPENPROJECT_SEED__ADMIN__USER__PASSWORD__RESET=false \
+            openproject/openproject:17.6.0
+
+          for i in {1..120}; do
+            if curl -sS -o /dev/null http://127.0.0.1:8080/api/v3; then
+              echo "OPENPROJECT_BACKEND_REACHABLE"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs --tail 200 nexus-openproject-e2e || true
+          exit 1
+
+      - name: Create and verify disposable API token
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); r=APITokens::CreateService.new(user:u, model:Token::API.new).call(token_name:"Nexus E2E"); raise(r.errors.full_messages.join(", ")) unless r.success?; t=r.result; plaintext=t.plain_value; raise "NEXUS_API_TOKEN_PLAINTEXT_MISSING" if plaintext.blank?; found=Token::API.find_by_plaintext_value(plaintext); raise "NEXUS_API_TOKEN_LOOKUP_MISMATCH" unless found&.id == t.id; File.binwrite("/tmp/nexus-openproject-api-token", plaintext)'\'' '
+          API_TOKEN="$(docker exec nexus-openproject-e2e cat /tmp/nexus-openproject-api-token | tr -d '\r\n')"
+          if [ -z "$API_TOKEN" ]; then
+            echo "OPENPROJECT_E2E_TOKEN_EMPTY"
+            exit 1
+          fi
+          echo "::add-mask::$API_TOKEN"
+
+          PROBE_OK=false
+          for i in {1..30}; do
+            STATUS="$(curl -sS \
+              -o /tmp/openproject-e2e-me.json \
+              -w '%{http_code}' \
+              -u "apikey:$API_TOKEN" \
+              -H "Accept: application/hal+json" \
+              http://127.0.0.1:8080/api/v3/users/me || true)"
+
+            case "$STATUS" in
+              200)
+                PROBE_OK=true
+                break
+                ;;
+              000|502|503)
+                echo "OPENPROJECT_E2E_TOKEN_PROBE_TRANSIENT_$STATUS"
+                sleep 2
+                ;;
+              401|403)
+                echo "OPENPROJECT_E2E_TOKEN_AUTH_FAILED_$STATUS"
+                exit 1
+                ;;
+              *)
+                echo "OPENPROJECT_E2E_TOKEN_PROBE_UNEXPECTED_$STATUS"
+                exit 1
+                ;;
+            esac
+          done
+
+          if [ "$PROBE_OK" != "true" ]; then
+            echo "OPENPROJECT_E2E_TOKEN_PROBE_TIMEOUT"
+            exit 1
+          fi
+
+          node -e 'const fs=require("fs"); const me=JSON.parse(fs.readFileSync("/tmp/openproject-e2e-me.json","utf8")); if(!me || !Number.isInteger(me.id)) process.exit(1); console.log("OPENPROJECT_E2E_TOKEN_VERIFIED")'
+          echo "OPENPROJECT_E2E_API_TOKEN=$API_TOKEN" >> "$GITHUB_ENV"
+
+      - name: Execute Nexus OpenProject E2E
+        env:
+          OPENPROJECT_E2E_BASE_URL: http://127.0.0.1:8080
+        run: node scripts/openproject-ephemeral-e2e.mjs
+
+      - name: OpenProject diagnostics
+        if: failure()
+        run: docker logs --tail 260 nexus-openproject-e2e || true
+
+      - name: Stop OpenProject
+        if: always()
+        run: docker rm -f nexus-openproject-e2e || true
