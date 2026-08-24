@@ -12,7 +12,9 @@ on:
       - "artifacts/nosmo-nexus/src/skanska-property-demo/**"
       - "scripts/src/skanska-property-demo-contract-check.ts"
       - "docs/NEXUS_SKANSKA_PROPERTY_COMMERCIAL_OPERATIONS_DEMO.md"
+      - "docs/NEXUS_SKANSKA_PROPERTY_DEMO_OPERATOR_RUNBOOK.md"
       - ".github/workflows/skanska-property-demo-check.yml"
+      - "vercel.json"
   workflow_dispatch:
 
 permissions:
@@ -26,6 +28,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Guard isolated commercial-demo diff
+        shell: bash
+        run: |
+          git fetch origin codex/spark-skanska-demo-core --depth=1
+          changed="$(git diff --name-only FETCH_HEAD...HEAD)"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(\.github/workflows/skanska-property-demo-check\.yml|artifacts/nosmo-nexus/src/App\.tsx|artifacts/nosmo-nexus/src/skanska-property-demo/.*|scripts/src/skanska-property-demo-contract-check\.ts|docs/NEXUS_SKANSKA_PROPERTY_COMMERCIAL_OPERATIONS_DEMO\.md|docs/NEXUS_SKANSKA_PROPERTY_DEMO_OPERATOR_RUNBOOK\.md|vercel\.json)$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Commercial demo branch changed files outside the isolated allowlist:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+          echo "Commercial demo diff is isolated to the approved file set."
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
