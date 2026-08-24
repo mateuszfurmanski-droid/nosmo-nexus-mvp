@@ -4,6 +4,7 @@ import {
   type AdaptiveConnectorId,
 } from "./connectorRuntimeProjection";
 import { odkEphemeralSnapshot } from "./odkEphemeralSnapshot";
+import { openProjectEphemeralSnapshot } from "./openProjectEphemeralSnapshot";
 import {
   snipePublicDemoAssetLabel,
   snipePublicDemoSnapshot,
@@ -73,6 +74,18 @@ const connectors: ConnectorProfile[] = [
     actionLabel: "Read configured forms",
     sourceExample: `${odkEphemeralSnapshot.form.name} · ${odkEphemeralSnapshot.submission.instanceId}`,
   },
+  {
+    id: "openproject",
+    runtimeId: "openproject",
+    label: "Nexus Work",
+    shortLabel: "W",
+    subtitle: "OpenProject work-package engine candidate",
+    experience: "Licensed-source UI / API candidate",
+    sourceBoundary: "OpenProject project and work-package records remain source-owned; Nexus stores verified mappings and operating context only.",
+    notice: "The work-package read adapter is validated against a disposable OpenProject Community Edition v17.6.0 instance. The project and task below are a sanitised CI snapshot, not a persistent customer tenant. External assignees, statuses and approvals are not automatically promoted into Nexus Person, Evidence or Approval truth.",
+    actionLabel: "Read configured work packages",
+    sourceExample: `#${openProjectEphemeralSnapshot.workPackage.id} · ${openProjectEphemeralSnapshot.workPackage.subject}`,
+  },
 ];
 
 export default function AdaptiveConnectorLab() {
@@ -135,17 +148,29 @@ export default function AdaptiveConnectorLab() {
                 ? `Tool Asset · ${snipePublicDemoSnapshot.asset.assetTag}`
                 : active.id === "odk"
                   ? `Inspection Form · ${odkEphemeralSnapshot.form.xmlFormId}`
-                  : "Object Card · Door 02.14"}
+                  : active.id === "openproject"
+                    ? `Project · ${openProjectEphemeralSnapshot.project.identifier}`
+                    : "Object Card · Door 02.14"}
             </strong>
             <small>{active.sourceExample}</small>
             {active.id !== "nexus" && <div className="source">SOURCE · {active.shortLabel}</div>}
             {active.id === "snipe-it" && <div className="source">PUBLIC DEMO SNAPSHOT · EPHEMERAL</div>}
             {active.id === "odk" && <div className="source">UPSTREAM BACKEND SNAPSHOT · EPHEMERAL</div>}
+            {active.id === "openproject" && <div className="source">UPSTREAM WORK SNAPSHOT · EPHEMERAL</div>}
           </article>
 
           <article className="nx-lab-node task">
-            <strong>Task · Install / inspect</strong>
-            <small>Operational action remains linked to project, person, object and evidence.</small>
+            <strong>
+              {active.id === "openproject"
+                ? `Work Package · #${openProjectEphemeralSnapshot.workPackage.id}`
+                : "Task · Install / inspect"}
+            </strong>
+            <small>
+              {active.id === "openproject"
+                ? `${openProjectEphemeralSnapshot.workPackage.subject} · ${openProjectEphemeralSnapshot.workPackage.status}`
+                : "Operational action remains linked to project, person, object and evidence."}
+            </small>
+            {active.id === "openproject" && <div className="source">SOURCE · {active.shortLabel}</div>}
           </article>
 
           <article className="nx-lab-node evidence">
@@ -153,7 +178,9 @@ export default function AdaptiveConnectorLab() {
             <small>
               {active.id === "odk"
                 ? `${odkEphemeralSnapshot.submission.instanceId} · ${odkEphemeralSnapshot.project.name}`
-                : "Photo / document / source reference"}
+                : active.id === "openproject"
+                  ? `${openProjectEphemeralSnapshot.workPackage.type} · ${openProjectEphemeralSnapshot.workPackage.project}`
+                  : "Photo / document / source reference"}
             </small>
             {active.id !== "nexus" && <div className="source">PROVENANCE · {active.shortLabel}</div>}
           </article>
@@ -228,6 +255,19 @@ export default function AdaptiveConnectorLab() {
                 <div className="nx-lab-row"><span>Submission</span><strong>{odkEphemeralSnapshot.submission.instanceId}</strong></div>
                 <div className="nx-lab-row"><span>Captured</span><strong>{odkEphemeralSnapshot.capturedAt}</strong></div>
                 <div className="nx-lab-row"><span>Persistence</span><strong>disposable CI database · not ODK Cloud or a configured customer tenant</strong></div>
+              </section>
+            )}
+
+            {active.id === "openproject" && (
+              <section className="nx-lab-section">
+                <h2>Upstream E2E proof · ephemeral work snapshot</h2>
+                <div className="nx-lab-row"><span>Source</span><strong>{openProjectEphemeralSnapshot.sourceLabel}</strong></div>
+                <div className="nx-lab-row"><span>Project</span><strong>#{openProjectEphemeralSnapshot.project.id} · {openProjectEphemeralSnapshot.project.name}</strong></div>
+                <div className="nx-lab-row"><span>Identifier</span><strong>{openProjectEphemeralSnapshot.project.identifier}</strong></div>
+                <div className="nx-lab-row"><span>Work package</span><strong>#{openProjectEphemeralSnapshot.workPackage.id} · {openProjectEphemeralSnapshot.workPackage.subject}</strong></div>
+                <div className="nx-lab-row"><span>Type / status</span><strong>{openProjectEphemeralSnapshot.workPackage.type} · {openProjectEphemeralSnapshot.workPackage.status}</strong></div>
+                <div className="nx-lab-row"><span>Captured</span><strong>{openProjectEphemeralSnapshot.capturedAt}</strong></div>
+                <div className="nx-lab-row"><span>Persistence</span><strong>disposable Community Edition CI instance · not a configured customer tenant</strong></div>
               </section>
             )}
 
