@@ -7,6 +7,7 @@ import { FocusProvider } from "@/focus/focus-context";
 import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
 import SparkSkanskaDemo from "@/spark-demo/SparkSkanskaDemo";
+import SkanskaPropertyDemo from "@/skanska-property-demo/SkanskaPropertyDemo";
 
 // Pages
 import NexusLaunchpad from "@/pages/nexus-launchpad";
@@ -40,6 +41,7 @@ function Router() {
     <Switch>
       {/* Narrow full-screen demonstrators/workflows intentionally run without the legacy app shell. */}
       <Route path="/spark-skanska-demo" component={SparkSkanskaDemo} />
+      <Route path="/skanska-property-demo" component={SkanskaPropertyDemo} />
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
