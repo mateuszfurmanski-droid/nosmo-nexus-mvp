@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); t=Token::API.create!(user:u, data:{name:"Nexus E2E"}); ok=(Token::API.find_by_plaintext_value(t.plain_value)&.id == t.id); STDOUT.write("NEXUS_OPENPROJECT_TOKEN_OK=#{ok}\\nNEXUS_OPENPROJECT_TOKEN=#{t.plain_value}\\n")'\'' ')"
+          TOKEN_OUTPUT="$(docker exec nexus-openproject-e2e bash -lc 'RAILS_ENV=production bundle exec rails runner '\''u=User.find_by!(login:"admin"); r=APITokens::CreateService.new(user:u, model:Token::API.new).call(token_name:"Nexus E2E"); raise(r.errors.full_messages.join(", ")) unless r.success?; t=r.result; p=t.plain_value; ok=p.present? && (Token::API.find_by_plaintext_value(p)&.id == t.id); STDOUT.write("NEXUS_OPENPROJECT_TOKEN_OK=#{ok}\\nNEXUS_OPENPROJECT_TOKEN=#{p}\\n")'\'' ')"
           TOKEN_OK="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN_OK=//p' | tail -n 1 | tr -d '\r')"
           API_TOKEN="$(printf '%s\n' "$TOKEN_OUTPUT" | sed -n 's/^NEXUS_OPENPROJECT_TOKEN=//p' | tail -n 1 | tr -d '\r')"
           if [ "$TOKEN_OK" != "true" ] || [ -z "$API_TOKEN" ]; then
