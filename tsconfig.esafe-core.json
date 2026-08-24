@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true
+  },
+  "files": [
+    "src/data/projectMemoryWorkCycle.ts",
+    "src/data/demo/esafeCataniaCoreWorkFixtures.ts",
+    "src/data/demo/esafeCataniaMemory.ts",
+    "src/data/demo/esafeCataniaCoreWorkSmoke.ts"
+  ]
+}
