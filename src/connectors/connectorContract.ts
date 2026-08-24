@@ -2,7 +2,7 @@ import type { NexusConnectorDefinition, NexusObjectType } from '../registry/regi
 
 export type NexusConnectorMode = 'reference-only' | 'deep-link' | 'file-export' | 'api-sync' | 'manual-handoff';
 export type NexusConnectorDirection = 'read' | 'write' | 'read-write';
-export type NexusConnectorAuthMode = 'none' | 'manual' | 'oauth' | 'api-key' | 'bearer-token' | 'service-account' | 'pending';
+export type NexusConnectorAuthMode = 'none' | 'manual' | 'oauth' | 'api-key' | 'api-token' | 'bearer-token' | 'service-account' | 'pending';
 
 export interface NexusConnectorCapability {
   id: string;
