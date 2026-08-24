@@ -22,4 +22,5 @@ export * from './projectMemoryStorageInvariants';
 export * from './demo/esafeCataniaFixtures';
 export * from './demo/esafeCataniaPhase9Fixtures';
 export * from './demo/esafeCataniaCoreWorkFixtures';
+export * from './demo/esafeCataniaRuntimeScope';
 export * from './demo/esafeCataniaMemory';
