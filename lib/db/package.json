@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./nexus-cloud-persistence": "./src/nexusCloudPersistence.ts",
-    "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts"
+    "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts",
+    "./nexus-core-work-persistence": "./src/nexusCoreWorkPersistence.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
