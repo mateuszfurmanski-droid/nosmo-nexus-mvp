@@ -6,11 +6,12 @@ import {
   startNexusTask,
 } from '../projectMemoryWorkCycle';
 import type { NexusProjectMemorySnapshot } from '../projectMemory';
+import type { NexusPermissionGrantRecord } from '../schemas/access.schema';
 
 const TASK_ID = 'task-esafe-demo-review-survey';
 const PERSON_ID = 'person-esafe-demo-manager';
 
-const assert = (condition: unknown, message: string): asserts condition => {
+const assert: (condition: unknown, message: string) => asserts condition = (condition, message) => {
   if (!condition) throw new Error(`E_SAFE_CORE_WORK_SMOKE_FAILED: ${message}`);
 };
 
@@ -123,11 +124,11 @@ export const runEsafeCataniaCoreWorkSmoke = (): true => {
 
   const allowGrant = initial.permissionGrants.find((grant) => grant.id === 'permission-esafe-core-task-start');
   assert(allowGrant, 'task-start allow grant must exist');
-  const denyGrant = {
+  const denyGrant: NexusPermissionGrantRecord = {
     ...allowGrant,
     id: 'permission-esafe-core-task-start-deny-smoke',
     title: 'Explicit deny smoke',
-    effect: 'deny' as const,
+    effect: 'deny',
     reason: 'Smoke proof that explicit deny wins.',
   };
   const deniedMemory: NexusProjectMemorySnapshot = {
