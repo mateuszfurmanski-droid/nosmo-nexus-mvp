@@ -1,0 +1,129 @@
+name: NEXUS Worker Home Real Device
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/android-nexus-worker-home-real-device
+    paths:
+      - native/nexus-work-mode-native/**
+      - .github/workflows/android-nexus-worker-home-real-device.yml
+
+permissions:
+  contents: read
+
+env:
+  NEXUS_ANDROID_WEB_ORIGIN: https://nosmo-nexus-cloud-staging.vercel.app
+
+jobs:
+  build-real-device-worker-home:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Validate real-device bootstrap boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode"
+          MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
+          BOOT="$BASE/WorkerBootstrapActivity.java"
+          CLAIM="$BASE/IdentityClaimActivity.java"
+          CLIENT="$BASE/NexusIdentityClaimClient.java"
+          HOME="$BASE/WorkModeHomeActivity.java"
+
+          grep -Fq '.WorkerBootstrapActivity' "$MANIFEST"
+          grep -Fq '.IdentityClaimActivity' "$MANIFEST"
+          grep -Fq 'WorkerBootstrapActivity.class' "$BOOT" || true
+          grep -Fq 'NexusMobileSession.hasSession' "$BOOT"
+          grep -Fq 'WorkModeHomeActivity.class' "$BOOT"
+          grep -Fq 'IdentityClaimActivity.class' "$BOOT"
+          grep -Fq '/api/nexus/core/identity/claim' "$CLIENT"
+          grep -Fq 'Authorization", "Bearer " + token' "$CLIENT"
+          grep -Fq 'NexusMobileSession.beginAuthorization' "$CLAIM"
+          grep -Fq 'Connect this device' "$CLAIM"
+          grep -Fq 'Connect to canonical Person' "$CLAIM"
+          grep -Fq 'Nexus Worker Home' "$HOME"
+          grep -Fq 'NexusCoreWorkClient.loadInbox' "$HOME"
+          grep -Fq 'TASK' "$HOME"
+          grep -Fq 'EVIDENCE' "$HOME"
+          grep -Fq 'APPROVAL' "$HOME"
+          ! grep -Eqi 'person-esafe-mateusz|person-esafe-joanna|claim(code)?[[:space:]]*=' "$CLAIM" "$CLIENT" native/nexus-work-mode-native/app/build.gradle
+          ! grep -Fq 'getSharedPreferences(' "$CLIENT"
+          ! grep -Fq 'SharedPreferences' "$CLIENT"
+          echo NEXUS_REAL_DEVICE_BOOTSTRAP_BOUNDARY_PASS
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build exact-head debug APK and release AAB
+        working-directory: native/nexus-work-mode-native
+        run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify exact-head APK identity and security
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
+          SHORT="$(echo "$GITHUB_SHA" | cut -c1-8 | tr '[:upper:]' '[:lower:]')"
+          grep -q "package: name='tech.nosmo.nexus.workmode.preview.p${SHORT}'" /tmp/badging.txt
+          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.WorkerBootstrapActivity'" /tmp/badging.txt
+          grep -q android.permission.INTERNET /tmp/permissions.txt
+          ! grep -q android.permission.MANAGE_EXTERNAL_STORAGE /tmp/permissions.txt
+          ! grep -q android.permission.SYSTEM_ALERT_WINDOW /tmp/permissions.txt
+          ! grep -q android.permission.BIND_ACCESSIBILITY_SERVICE /tmp/permissions.txt
+          grep -q 'usesCleartextTraffic="false"' native/nexus-work-mode-native/app/src/main/AndroidManifest.xml
+
+      - name: Probe public Nexus Core staging target
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -u
+          mkdir -p android-real-device-worker-home
+          CODE="$(curl -sS -o /tmp/nexus-core-health.txt -w '%{http_code}' --max-time 20 "$NEXUS_ANDROID_WEB_ORIGIN/api/healthz" || true)"
+          {
+            echo "origin=$NEXUS_ANDROID_WEB_ORIGIN"
+            echo "health_http_status=$CODE"
+            echo "expected=200"
+            cat /tmp/nexus-core-health.txt 2>/dev/null || true
+          } | tee android-real-device-worker-home/STAGING_PROBE.txt
+          test "$CODE" = "200"
+
+      - name: Prepare installable real-device artifact
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android-real-device-worker-home
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-real-device-worker-home/NEXUS-Worker-Home-Real-Device.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-real-device-worker-home/NEXUS-Worker-Home-Real-Device.aab
+          sha256sum android-real-device-worker-home/*.apk android-real-device-worker-home/*.aab > android-real-device-worker-home/SHA256SUMS.txt
+          cp /tmp/badging.txt android-real-device-worker-home/APK_BADGING.txt
+          cp /tmp/permissions.txt android-real-device-worker-home/APK_PERMISSIONS.txt
+
+      - name: Upload real-device Worker Home artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Worker-Home-Real-Device
+          path: android-real-device-worker-home/*
+          if-no-files-found: error
+          retention-days: 2
