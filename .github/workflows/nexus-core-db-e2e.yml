@@ -119,4 +119,4 @@ jobs:
       - name: Assert no push-force migration path remains
         shell: bash
         run: |
-          ! grep -R --line-number --fixed-strings 'drizzle-kit push --force' lib/db package.json .github/workflows/nexus-core-db-e2e.yml
+          ! grep -R --line-number --fixed-strings 'drizzle-kit push --force' lib/db package.json
