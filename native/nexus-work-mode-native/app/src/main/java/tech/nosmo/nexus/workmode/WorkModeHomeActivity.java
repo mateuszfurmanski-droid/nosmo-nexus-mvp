@@ -60,7 +60,9 @@ public final class WorkModeHomeActivity extends Activity {
         root.addView(subtitle, fullWidthWrap());
 
         GridLayout grid = new GridLayout(this);
-        grid.setColumnCount(2);
+        int screenWidthDp = getResources().getConfiguration().screenWidthDp;
+        int columnCount = screenWidthDp > 0 && screenWidthDp < 420 ? 1 : 2;
+        grid.setColumnCount(columnCount);
         grid.setUseDefaultMargins(false);
         root.addView(grid, fullWidthWrap());
 
@@ -80,6 +82,7 @@ public final class WorkModeHomeActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
+        scroll.setFillViewport(true);
         scroll.addView(root, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(scroll);
     }
