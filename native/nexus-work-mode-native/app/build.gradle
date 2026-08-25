@@ -4,6 +4,10 @@ plugins {
 
 def nexusWebOrigin = (System.getenv('NEXUS_ANDROID_WEB_ORIGIN') ?: '').trim()
 def escapedNexusWebOrigin = nexusWebOrigin.replace('\\', '\\\\').replace('"', '\\"')
+def previewSha = (System.getenv('GITHUB_SHA') ?: 'localpreview').toLowerCase().replaceAll('[^a-z0-9]', '')
+if (previewSha.length() > 8) previewSha = previewSha.substring(0, 8)
+if (previewSha.isEmpty()) previewSha = 'local'
+def previewPackageSegment = "p${previewSha}"
 
 android {
     namespace 'tech.nosmo.nexus.workmode'
@@ -13,8 +17,8 @@ android {
         applicationId 'tech.nosmo.nexus.workmode'
         minSdk 26
         targetSdk 35
-        versionCode 16
-        versionName '0.6.0-e2e-handoff'
+        versionCode 17
+        versionName '0.7.0-worker-home'
         buildConfigField 'String', 'NEXUS_WEB_ORIGIN', "\"${escapedNexusWebOrigin}\""
     }
 
@@ -24,11 +28,11 @@ android {
 
     buildTypes {
         debug {
-            // Keep CI/device smoke builds installable beside any previously signed
-            // NEXUS Work Mode beta already present on the handset. Ephemeral CI
-            // debug signing keys must never block device validation.
-            applicationIdSuffix '.foldtest'
-            versionNameSuffix '-foldtest'
+            // CI debug keystores are ephemeral. Give every exact-head preview its own package
+            // so a new runner signature never collides with an already installed preview.
+            // Production/release applicationId is unchanged.
+            applicationIdSuffix ".preview.${previewPackageSegment}"
+            versionNameSuffix "-preview-${previewPackageSegment}"
         }
         release {
             minifyEnabled false

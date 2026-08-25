@@ -7,16 +7,17 @@ import android.os.Bundle;
 /**
  * Parameter-free launcher shortcut trampoline.
  *
- * It grants no session, Project World, candidate or Cloud authority. All evidence
- * state is re-read from app-private storage and all server access is re-authorised.
+ * It grants no session, Project World, candidate or Cloud authority. The shortcut opens
+ * the Nexus-native Evidence Home, which can then enter the existing canonical Cloud
+ * Evidence pipeline without creating a second evidence implementation.
  */
 public final class CloudEvidenceShortcutActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Intent cloud = new Intent(this, CloudEvidenceActivity.class);
-        cloud.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(cloud);
+        Intent evidenceHome = new Intent(this, EvidenceHomeActivity.class);
+        evidenceHome.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(evidenceHome);
         finish();
     }
 }
