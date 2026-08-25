@@ -8,7 +8,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -22,9 +21,8 @@ import org.json.JSONObject;
 /**
  * Nexus Worker Home.
  *
- * This surface is a thin read-through UI over the canonical recipient projection.
- * It does not create a second assignment store, Person binding, session model,
- * evidence pipeline or Project World authority on the device.
+ * Thin read-through UI over the canonical recipient projection. No second assignment
+ * store, Person binding, session model, evidence pipeline or Project World authority.
  */
 public final class WorkModeHomeActivity extends Activity {
     private static final int BG = Color.rgb(8, 15, 12);
@@ -35,12 +33,17 @@ public final class WorkModeHomeActivity extends Activity {
     private static final int ECO = Color.rgb(111, 196, 137);
     private static final int ECO_DARK = Color.rgb(20, 48, 31);
     private static final int WARNING = Color.rgb(236, 191, 102);
+    private static final int WARNING_DARK = Color.rgb(55, 43, 20);
     private static final int ERROR = Color.rgb(240, 137, 137);
+    private static final int ERROR_DARK = Color.rgb(57, 27, 27);
 
     private TextView assignmentState;
     private TextView assignmentTitle;
     private TextView assignmentMeta;
     private TextView assignmentItems;
+    private TextView lifecycleTask;
+    private TextView lifecycleEvidence;
+    private TextView lifecycleApproval;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,16 +76,14 @@ public final class WorkModeHomeActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
-        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
+        shell.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
                 1f
-        );
-        shell.addView(scroll, scrollParams);
+        ));
 
         addHeader(content);
-        addCurrentWork(content);
-        addWorkTools(content);
+        addAdaptiveWorkspace(content);
         addAuthorityBoundary(content);
         addBottomNavigation(shell);
 
@@ -99,26 +100,54 @@ public final class WorkModeHomeActivity extends Activity {
         brand.addView(text("NOSMO", 11, MUTED, true), wrap());
         brand.addView(text("NEXUS", 20, TEXT, true), wrap());
         row.addView(brand, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView mode = pill("WORK MODE", ECO, ECO_DARK);
-        row.addView(mode, wrap());
+        row.addView(pill("WORK MODE", ECO, ECO_DARK), wrap());
         root.addView(row, fullWidthWrap());
 
         TextView project = text("e-SAFE CATANIA  /  MY WORK", 11, ECO, true);
         project.setPadding(0, dp(18), 0, dp(6));
         root.addView(project, fullWidthWrap());
 
-        TextView title = text("Current work", 30, TEXT, true);
-        root.addView(title, fullWidthWrap());
+        root.addView(text("Nexus Worker Home", 30, TEXT, true), fullWidthWrap());
 
-        TextView subtitle = text("Only what is assigned to this worker. No app launcher, no noise.", 13, MUTED, false);
+        TextView subtitle = text("Current work, evidence and project context. Only what is assigned to this worker. No app launcher, no noise.", 13, MUTED, false);
         subtitle.setPadding(0, dp(4), 0, dp(16));
         root.addView(subtitle, fullWidthWrap());
     }
 
-    private void addCurrentWork(LinearLayout root) {
+    private void addAdaptiveWorkspace(LinearLayout root) {
+        int screenWidthDp = getResources().getConfiguration().screenWidthDp;
+        boolean foldWide = screenWidthDp >= 700;
+
+        LinearLayout workspace = new LinearLayout(this);
+        workspace.setOrientation(foldWide ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
+        workspace.setGravity(Gravity.TOP);
+
+        LinearLayout currentWork = createCurrentWorkCard();
+        LinearLayout tools = createWorkTools();
+
+        if (foldWide) {
+            LinearLayout.LayoutParams workParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.35f);
+            LinearLayout.LayoutParams toolParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.85f);
+            toolParams.setMargins(dp(12), 0, 0, 0);
+            workspace.addView(currentWork, workParams);
+            workspace.addView(tools, toolParams);
+        } else {
+            LinearLayout.LayoutParams workParams = fullWidthWrap();
+            workParams.setMargins(0, 0, 0, dp(22));
+            workspace.addView(currentWork, workParams);
+            workspace.addView(tools, fullWidthWrap());
+        }
+
+        root.addView(workspace, fullWidthWrap());
+    }
+
+    private LinearLayout createCurrentWorkCard() {
         LinearLayout card = panel(SURFACE, 18);
         card.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+        TextView section = text("CURRENT WORK", 10, MUTED, true);
+        section.setPadding(0, 0, 0, dp(8));
+        card.addView(section, fullWidthWrap());
 
         assignmentState = pill("SYNCING", ECO, ECO_DARK);
         card.addView(assignmentState, wrap());
@@ -134,36 +163,66 @@ public final class WorkModeHomeActivity extends Activity {
         assignmentItems.setPadding(0, dp(12), 0, dp(14));
         card.addView(assignmentItems, fullWidthWrap());
 
+        card.addView(createLifecycle(), fullWidthWrap());
+
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setPadding(0, dp(14), 0, 0);
 
         Button open = actionButton("Open Work Package", true);
+        open.setMinimumHeight(dp(50));
         open.setOnClickListener(v -> openCanonicalWorkInbox());
         actions.addView(open, weightedButton());
 
         Button evidence = actionButton("+ Evidence", false);
+        evidence.setMinimumHeight(dp(50));
         evidence.setOnClickListener(v -> openEvidenceCapture());
         LinearLayout.LayoutParams evidenceParams = weightedButton();
         evidenceParams.setMargins(dp(8), 0, 0, 0);
         actions.addView(evidence, evidenceParams);
 
         card.addView(actions, fullWidthWrap());
-
-        LinearLayout.LayoutParams cardParams = fullWidthWrap();
-        cardParams.setMargins(0, 0, 0, dp(22));
-        root.addView(card, cardParams);
+        return card;
     }
 
-    private void addWorkTools(LinearLayout root) {
+    private LinearLayout createLifecycle() {
+        LinearLayout block = panel(SURFACE_ALT, 12);
+        block.setPadding(dp(10), dp(10), dp(10), dp(10));
+
+        TextView label = text("WORK CYCLE", 9, MUTED, true);
+        label.setPadding(0, 0, 0, dp(7));
+        block.addView(label, fullWidthWrap());
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        lifecycleTask = lifecycleChip("TASK");
+        lifecycleEvidence = lifecycleChip("EVIDENCE");
+        lifecycleApproval = lifecycleChip("APPROVAL");
+
+        row.addView(lifecycleTask, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(arrow(), wrap());
+        row.addView(lifecycleEvidence, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(arrow(), wrap());
+        row.addView(lifecycleApproval, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        block.addView(row, fullWidthWrap());
+        return block;
+    }
+
+    private LinearLayout createWorkTools() {
+        LinearLayout tools = new LinearLayout(this);
+        tools.setOrientation(LinearLayout.VERTICAL);
+
         TextView heading = text("WORK TOOLS", 11, MUTED, true);
         heading.setPadding(0, 0, 0, dp(8));
-        root.addView(heading, fullWidthWrap());
+        tools.addView(heading, fullWidthWrap());
 
         LinearLayout first = new LinearLayout(this);
         first.setOrientation(LinearLayout.HORIZONTAL);
         first.addView(toolCard("CHECKLISTS", "From assigned work", this::openCanonicalWorkInbox), weightedCard(false));
         first.addView(toolCard("DOCUMENTS", "Recipient files", () -> showPending("Documents")), weightedCard(true));
-        root.addView(first, fullWidthWrap());
+        tools.addView(first, fullWidthWrap());
 
         LinearLayout second = new LinearLayout(this);
         second.setOrientation(LinearLayout.HORIZONTAL);
@@ -171,7 +230,19 @@ public final class WorkModeHomeActivity extends Activity {
         rowParams.setMargins(0, dp(8), 0, 0);
         second.addView(toolCard("EVIDENCE", "Camera / upload", this::openEvidenceCapture), weightedCard(false));
         second.addView(toolCard("PROJECT", "Relationship Tree", this::openNexusProjectWorld), weightedCard(true));
-        root.addView(second, rowParams);
+        tools.addView(second, rowParams);
+
+        LinearLayout projectContext = panel(SURFACE, 14);
+        projectContext.setPadding(dp(14), dp(14), dp(14), dp(14));
+        TextView contextLabel = text("PROJECT CONTEXT", 9, ECO, true);
+        projectContext.addView(contextLabel, fullWidthWrap());
+        TextView context = text("e-SAFE Catania\nProject World → assigned Work Package → Evidence → human Approval", 12, TEXT, false);
+        context.setPadding(0, dp(6), 0, 0);
+        projectContext.addView(context, fullWidthWrap());
+        LinearLayout.LayoutParams contextParams = fullWidthWrap();
+        contextParams.setMargins(0, dp(10), 0, 0);
+        tools.addView(projectContext, contextParams);
+        return tools;
     }
 
     private void addAuthorityBoundary(LinearLayout root) {
@@ -190,8 +261,8 @@ public final class WorkModeHomeActivity extends Activity {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(8), dp(8), dp(8), dp(10));
-        nav.setBackgroundColor(SURFACE);
+        nav.setPadding(dp(8), dp(7), dp(8), dp(9));
+        nav.setBackground(rounded(SURFACE, 0, Color.rgb(38, 57, 47)));
 
         nav.addView(navButton("WORK", this::openCanonicalWorkInbox, true), navWeight());
         nav.addView(navButton("CAMERA", this::openEvidenceCapture, false), navWeight());
@@ -206,16 +277,16 @@ public final class WorkModeHomeActivity extends Activity {
     }
 
     private void refreshCurrentWork() {
-        assignmentState.setText("SYNCING");
-        assignmentState.setTextColor(ECO);
+        setAssignmentPill("SYNCING", ECO, ECO_DARK);
+        updateLifecycle("unknown");
         NexusCoreWorkClient.loadInbox(this, configuredNexusOrigin(), (success, httpStatus, message, payload) ->
                 runOnUiThread(() -> {
                     if (!success || payload == null) {
-                        assignmentState.setText("OFFLINE / UNBOUND");
-                        assignmentState.setTextColor(ERROR);
+                        setAssignmentPill("OFFLINE / UNBOUND", ERROR, ERROR_DARK);
                         assignmentTitle.setText("Work assignment unavailable");
                         assignmentMeta.setText(message);
                         assignmentItems.setText("No local or synthetic Work Package is shown when Nexus Core cannot resolve the bound Person.");
+                        updateLifecycle("unknown");
                         return;
                     }
                     renderCurrentWork(payload);
@@ -227,11 +298,11 @@ public final class WorkModeHomeActivity extends Activity {
         JSONArray tasks = payload.optJSONArray("tasks");
         int count = tasks == null ? 0 : tasks.length();
         if (count == 0) {
-            assignmentState.setText("NO ASSIGNMENT");
-            assignmentState.setTextColor(WARNING);
+            setAssignmentPill("NO ASSIGNMENT", WARNING, WARNING_DARK);
             assignmentTitle.setText("No work assigned right now");
             assignmentMeta.setText("Bound Person resolved · Project Memory " + payload.optString("version", "unversioned"));
             assignmentItems.setText("When a manager assigns a Work Package, it will appear here automatically.");
+            updateLifecycle("unknown");
             return;
         }
 
@@ -239,8 +310,9 @@ public final class WorkModeHomeActivity extends Activity {
         if (task == null) return;
 
         String taskStatus = task.optString("taskStatus", "assigned");
-        assignmentState.setText(taskStatus.replace('-', ' ').toUpperCase());
-        assignmentState.setTextColor(ECO);
+        int stateColor = "blocked".equals(taskStatus) ? WARNING : ECO;
+        int stateBg = "blocked".equals(taskStatus) ? WARNING_DARK : ECO_DARK;
+        setAssignmentPill(taskStatus.replace('-', ' ').toUpperCase(), stateColor, stateBg);
         assignmentTitle.setText(task.optString("title", "Assigned Work Package"));
 
         JSONObject workPackage = task.optJSONObject("workPackage");
@@ -258,6 +330,55 @@ public final class WorkModeHomeActivity extends Activity {
         assignmentItems.setText(count > 1
                 ? "This is your next Work Package. " + (count - 1) + " more assignment(s) are waiting in Work Inbox."
                 : "This is your current canonical assignment. Open it to Start, add Evidence or Finish → Approval.");
+        updateLifecycle(taskStatus);
+    }
+
+    private void updateLifecycle(String taskStatus) {
+        setLifecycleChip(lifecycleTask, MUTED, SURFACE);
+        setLifecycleChip(lifecycleEvidence, MUTED, SURFACE);
+        setLifecycleChip(lifecycleApproval, MUTED, SURFACE);
+
+        if ("todo".equals(taskStatus)) {
+            setLifecycleChip(lifecycleTask, WARNING, WARNING_DARK);
+        } else if ("in-progress".equals(taskStatus) || "blocked".equals(taskStatus)) {
+            setLifecycleChip(lifecycleTask, ECO, ECO_DARK);
+            setLifecycleChip(lifecycleEvidence, WARNING, WARNING_DARK);
+        } else if ("ready-for-review".equals(taskStatus)) {
+            setLifecycleChip(lifecycleTask, ECO, ECO_DARK);
+            setLifecycleChip(lifecycleEvidence, ECO, ECO_DARK);
+            setLifecycleChip(lifecycleApproval, WARNING, WARNING_DARK);
+        } else if ("approved".equals(taskStatus) || "done".equals(taskStatus)) {
+            setLifecycleChip(lifecycleTask, ECO, ECO_DARK);
+            setLifecycleChip(lifecycleEvidence, ECO, ECO_DARK);
+            setLifecycleChip(lifecycleApproval, ECO, ECO_DARK);
+        }
+    }
+
+    private void setAssignmentPill(String label, int textColor, int backgroundColor) {
+        assignmentState.setText(label);
+        assignmentState.setTextColor(textColor);
+        assignmentState.setBackground(rounded(backgroundColor, 99, backgroundColor));
+    }
+
+    private void setLifecycleChip(TextView chip, int textColor, int backgroundColor) {
+        if (chip == null) return;
+        chip.setTextColor(textColor);
+        chip.setBackground(rounded(backgroundColor, 99, backgroundColor));
+    }
+
+    private TextView lifecycleChip(String value) {
+        TextView chip = text(value, 9, MUTED, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(7), dp(6), dp(7), dp(6));
+        chip.setBackground(rounded(SURFACE, 99, SURFACE));
+        return chip;
+    }
+
+    private TextView arrow() {
+        TextView arrow = text("›", 16, MUTED, true);
+        arrow.setGravity(Gravity.CENTER);
+        arrow.setPadding(dp(3), 0, dp(3), 0);
+        return arrow;
     }
 
     private LinearLayout toolCard(String title, String subtitle, Runnable action) {
