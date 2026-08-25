@@ -170,7 +170,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
 
-          grep -q "package: name='tech.nosmo.nexus.workmode.nativebeta'" /tmp/badging.txt
+          grep -q "package: name='tech.nosmo.nexus.workmode.foldtest'" /tmp/badging.txt
+          grep -q "versionName='0.6.0-e2e-handoff-foldtest'" /tmp/badging.txt
           grep -q "android.permission.INTERNET" /tmp/permissions.txt
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
@@ -193,7 +194,7 @@ jobs:
           set -euo pipefail
           mkdir -p android-work-mode-e2e
           cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk \
-            android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.apk
+            android-work-mode-e2e/NEXUS-Work-Mode-Fold-Test.apk
           cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab \
             android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.aab
           sha256sum android-work-mode-e2e/* > android-work-mode-e2e/SHA256SUMS.txt
@@ -204,7 +205,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile'
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-v0.6.0-e2e-handoff
+          name: NEXUS-Work-Mode-Fold-Test
           path: android-work-mode-e2e/*
           if-no-files-found: error
           retention-days: 1
