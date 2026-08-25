@@ -11,6 +11,7 @@ import notesRouter from "./notes";
 import searchRouter from "./search";
 import conversationsRouter from "./conversations";
 import filesRouter from "./files";
+import nexusCoreIdentityClaimRouter from "./nexus-core-identity-claim";
 import nexusCoreE2eRouter from "./nexus-core-e2e";
 import { requireWorkspace } from "../middlewares/requireWorkspace";
 import { resolveNexusCoreWorkspace } from "../middlewares/resolveNexusCoreWorkspace";
@@ -22,6 +23,11 @@ router.use(healthRouter);
 router.use(authRouter);
 // Unauthenticated MVP file storage (upload + auto-processing). Public by design.
 router.use(filesRouter);
+
+// One-time identity claim must run after authMiddleware but before Core workspace
+// resolution because its sole purpose is to create the exact provider-subject-digest
+// -> canonical Person binding needed by the downstream Core authority boundary.
+router.use(nexusCoreIdentityClaimRouter);
 
 // Canonical Core resolves the shared project workspace from authenticated Person ->
 // exactly one active Project Participation. It must not use the legacy personal starter
