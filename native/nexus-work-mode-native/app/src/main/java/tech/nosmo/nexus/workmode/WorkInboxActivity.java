@@ -26,6 +26,7 @@ public final class WorkInboxActivity extends Activity {
     private static final int ECO = Color.rgb(111, 196, 137);
     private static final int ECO_DARK = Color.rgb(20, 48, 31);
     private static final int WARNING = Color.rgb(236, 191, 102);
+    private static final int WARNING_DARK = Color.rgb(55, 43, 20);
     private static final int ERROR = Color.rgb(240, 137, 137);
 
     private LinearLayout list;
@@ -129,7 +130,7 @@ public final class WorkInboxActivity extends Activity {
         if (count == 0) {
             LinearLayout empty = panel(SURFACE, 16);
             empty.setPadding(dp(16), dp(18), dp(16), dp(18));
-            empty.addView(pill("NO ASSIGNMENT", WARNING, Color.rgb(55, 43, 20)), wrap());
+            empty.addView(pill("NO ASSIGNMENT", WARNING, WARNING_DARK), wrap());
             TextView title = text("Nothing assigned right now", 19, TEXT, true);
             title.setPadding(0, dp(12), 0, dp(5));
             empty.addView(title, fullWidthWrap());
@@ -154,12 +155,9 @@ public final class WorkInboxActivity extends Activity {
 
         String taskId = task.optString("id", "");
         String taskStatus = task.optString("taskStatus", "unknown");
-
-        LinearLayout stateRow = new LinearLayout(this);
-        stateRow.setOrientation(LinearLayout.HORIZONTAL);
-        stateRow.setGravity(Gravity.CENTER_VERTICAL);
-        stateRow.addView(pill(taskStatus.replace('-', ' ').toUpperCase(), ECO, ECO_DARK), wrap());
-        card.addView(stateRow, fullWidthWrap());
+        int statusColor = "blocked".equals(taskStatus) ? WARNING : ECO;
+        int statusBg = "blocked".equals(taskStatus) ? WARNING_DARK : ECO_DARK;
+        card.addView(pill(taskStatus.replace('-', ' ').toUpperCase(), statusColor, statusBg), wrap());
 
         TextView title = text(task.optString("title", "Work Package"), 21, TEXT, true);
         title.setPadding(0, dp(12), 0, dp(4));
@@ -173,6 +171,8 @@ public final class WorkInboxActivity extends Activity {
         TextView packageMeta = text(itemCount + " Work Package item(s)", 11, MUTED, true);
         packageMeta.setPadding(0, 0, 0, dp(8));
         card.addView(packageMeta, fullWidthWrap());
+
+        card.addView(workCycle(taskStatus), fullWidthWrap());
 
         if (packageItems != null) {
             for (int index = 0; index < packageItems.length(); index++) {
@@ -231,13 +231,73 @@ public final class WorkInboxActivity extends Activity {
         return card;
     }
 
+    private LinearLayout workCycle(String taskStatus) {
+        LinearLayout block = panel(SURFACE_ALT, 12);
+        block.setPadding(dp(10), dp(9), dp(10), dp(9));
+        LinearLayout.LayoutParams blockParams = fullWidthWrap();
+        blockParams.setMargins(0, dp(2), 0, dp(8));
+        block.setLayoutParams(blockParams);
+
+        TextView label = text("TASK  →  EVIDENCE  →  APPROVAL", 9, MUTED, true);
+        label.setPadding(0, 0, 0, dp(7));
+        block.addView(label, fullWidthWrap());
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        int taskColor = MUTED;
+        int taskBg = SURFACE;
+        int evidenceColor = MUTED;
+        int evidenceBg = SURFACE;
+        int approvalColor = MUTED;
+        int approvalBg = SURFACE;
+
+        if ("todo".equals(taskStatus)) {
+            taskColor = WARNING; taskBg = WARNING_DARK;
+        } else if ("in-progress".equals(taskStatus) || "blocked".equals(taskStatus)) {
+            taskColor = ECO; taskBg = ECO_DARK;
+            evidenceColor = WARNING; evidenceBg = WARNING_DARK;
+        } else if ("ready-for-review".equals(taskStatus)) {
+            taskColor = ECO; taskBg = ECO_DARK;
+            evidenceColor = ECO; evidenceBg = ECO_DARK;
+            approvalColor = WARNING; approvalBg = WARNING_DARK;
+        } else if ("approved".equals(taskStatus) || "done".equals(taskStatus)) {
+            taskColor = ECO; taskBg = ECO_DARK;
+            evidenceColor = ECO; evidenceBg = ECO_DARK;
+            approvalColor = ECO; approvalBg = ECO_DARK;
+        }
+
+        row.addView(cycleChip("TASK", taskColor, taskBg), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(cycleArrow(), wrap());
+        row.addView(cycleChip("EVIDENCE", evidenceColor, evidenceBg), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(cycleArrow(), wrap());
+        row.addView(cycleChip("APPROVAL", approvalColor, approvalBg), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        block.addView(row, fullWidthWrap());
+        return block;
+    }
+
+    private TextView cycleChip(String label, int textColor, int backgroundColor) {
+        TextView chip = text(label, 9, textColor, true);
+        chip.setGravity(Gravity.CENTER);
+        chip.setPadding(dp(6), dp(6), dp(6), dp(6));
+        chip.setBackground(rounded(backgroundColor, 99, backgroundColor));
+        return chip;
+    }
+
+    private TextView cycleArrow() {
+        TextView arrow = text("›", 16, MUTED, true);
+        arrow.setGravity(Gravity.CENTER);
+        arrow.setPadding(dp(3), 0, dp(3), 0);
+        return arrow;
+    }
+
     private LinearLayout packageItem(String kind, String label) {
         LinearLayout row = panel(SURFACE_ALT, 12);
         row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(11), dp(9), dp(11), dp(9));
 
-        TextView kindView = text(kind.toUpperCase(), 9, ECO, true);
-        row.addView(kindView, fullWidthWrap());
+        row.addView(text(kind.toUpperCase(), 9, ECO, true), fullWidthWrap());
         TextView labelView = text(label, 12, TEXT, false);
         labelView.setPadding(0, dp(2), 0, 0);
         row.addView(labelView, fullWidthWrap());
@@ -276,6 +336,7 @@ public final class WorkInboxActivity extends Activity {
         button.setTypeface(Typeface.DEFAULT_BOLD);
         button.setTextColor(primary ? Color.rgb(9, 24, 14) : TEXT);
         button.setPadding(dp(10), dp(10), dp(10), dp(10));
+        button.setMinimumHeight(dp(50));
         button.setBackground(rounded(
                 primary ? ECO : SURFACE_ALT,
                 12,
