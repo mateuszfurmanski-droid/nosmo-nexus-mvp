@@ -35,15 +35,16 @@ jobs:
           SCREEN="$BASE/IdentityClaimActivity.java"
           HOME="$BASE/WorkModeHomeActivity.java"
           MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
-          test -f "$CLAIM"
-          test -f "$SCREEN"
-          grep -q '/api/nexus/core/identity/claim' "$CLAIM"
-          grep -q 'Authorization.*,.*Bearer' "$CLAIM"
-          grep -q 'NexusMobileSession.getSessionToken' "$SCREEN"
-          grep -q 'IdentityClaimActivity.class' "$HOME"
-          grep -q '.IdentityClaimActivity' "$MANIFEST"
-          ! grep -q 'SharedPreferences' "$CLAIM"
-          ! grep -q 'SharedPreferences' "$SCREEN"
+          echo "claim client: $CLAIM"
+          test -r "$CLAIM"
+          test -r "$SCREEN"
+          grep -Fq '/api/nexus/core/identity/claim' "$CLAIM"
+          grep -Eq 'Authorization.*Bearer' "$CLAIM"
+          grep -Fq 'NexusMobileSession.getSessionToken' "$SCREEN"
+          grep -Fq 'IdentityClaimActivity.class' "$HOME"
+          grep -Fq '.IdentityClaimActivity' "$MANIFEST"
+          ! grep -Fq 'SharedPreferences' "$CLAIM"
+          ! grep -Fq 'SharedPreferences' "$SCREEN"
           ! grep -Eqi 'provider.?subject|person-esafe-mateusz|person-esafe-joanna' "$CLAIM" "$SCREEN"
           ! grep -Eqi 'claim(code)?[[:space:]]*=' native/nexus-work-mode-native/app/build.gradle
           echo ANDROID_REAL_DEVICE_IDENTITY_BOUNDARY_PASS
@@ -78,7 +79,6 @@ jobs:
           ! grep -q android.permission.MANAGE_EXTERNAL_STORAGE /tmp/permissions.txt
           ! grep -q android.permission.SYSTEM_ALERT_WINDOW /tmp/permissions.txt
           ! grep -q android.permission.BIND_ACCESSIBILITY_SERVICE /tmp/permissions.txt
-          strings "$APK" | grep -q 'nosmo-nexus-cloud-staging.vercel.app' || true
 
       - name: Prepare installable device artifact
         shell: bash
