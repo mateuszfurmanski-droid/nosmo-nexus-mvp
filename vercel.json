@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server typecheck && node artifacts/api-server/build-vercel-core-staging.mjs",
+  "env": {
+    "NEXUS_IDENTITY_BINDING_MODE": "postgres"
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/",
+      "destination": "/api"
+    }
+  ],
+  "functions": {
+    "api/index.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "artifacts/api-server/dist/**"
+    }
+  }
+}
