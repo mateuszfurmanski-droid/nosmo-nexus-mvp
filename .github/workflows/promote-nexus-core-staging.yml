@@ -1,0 +1,89 @@
+name: Promote NEXUS Core to Staging Target
+
+on:
+  push:
+    branches:
+      - ops/promote-nexus-core-staging
+    paths:
+      - .github/workflows/promote-nexus-core-staging.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_PROJECT_ID: prj_SlNzV4zgxagf5clGrH8UbFZyJwCK
+  VERCEL_TEAM_ID: team_xYGLaQSQvOQxxs3S5O6cfkQR
+  VERCEL_DEPLOYMENT_ID: dpl_4P8GmnxLx7DvLMN5pXxNhkiTgx5t
+  EXPECTED_GITHUB_SHA: 2cd95a3fffc132c9bf8be4573b6ba9ed2f2c453f
+  STAGING_HEALTH_URL: https://nosmo-nexus-cloud-staging.vercel.app/api/healthz
+
+jobs:
+  promote-exact-validated-deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Require existing Vercel token without exposing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN repository secret is not configured"
+            exit 2
+          fi
+          echo "VERCEL_TOKEN_PRESENT"
+
+      - name: Verify exact staging project, deployment and Git SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESPONSE="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v13/deployments/${VERCEL_DEPLOYMENT_ID}?teamId=${VERCEL_TEAM_ID}")"
+          ACTUAL_PROJECT="$(jq -r '.project.id // empty' <<<"$RESPONSE")"
+          ACTUAL_SHA="$(jq -r '.meta.githubCommitSha // empty' <<<"$RESPONSE")"
+          ACTUAL_STATE="$(jq -r '.readyState // .state // empty' <<<"$RESPONSE")"
+          ACTUAL_TARGET="$(jq -r '.target // "preview"' <<<"$RESPONSE")"
+          test "$ACTUAL_PROJECT" = "$VERCEL_PROJECT_ID"
+          test "$ACTUAL_SHA" = "$EXPECTED_GITHUB_SHA"
+          test "$ACTUAL_STATE" = "READY"
+          test "$ACTUAL_TARGET" = "preview"
+          echo "EXACT_STAGING_DEPLOYMENT_VERIFIED"
+
+      - name: Promote only the verified deployment inside staging project
+        shell: bash
+        run: |
+          set -euo pipefail
+          BODY_FILE="$(mktemp)"
+          STATUS="$(curl --silent --show-error \
+            --output "$BODY_FILE" \
+            --write-out '%{http_code}' \
+            --request POST \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/promote/${VERCEL_DEPLOYMENT_ID}?teamId=${VERCEL_TEAM_ID}")"
+          if [ "$STATUS" != "201" ] && [ "$STATUS" != "202" ]; then
+            cat "$BODY_FILE"
+            echo "::error::Vercel staging promotion failed with HTTP ${STATUS}"
+            exit 1
+          fi
+          echo "STAGING_PROMOTION_ACCEPTED_HTTP_${STATUS}"
+
+      - name: Verify public staging health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            STATUS="$(curl --silent --show-error --output /tmp/staging-health.json --write-out '%{http_code}' "$STAGING_HEALTH_URL" || true)"
+            if [ "$STATUS" = "200" ] && jq -e '.status == "ok"' /tmp/staging-health.json >/dev/null 2>&1; then
+              echo "PUBLIC_STAGING_CORE_HEALTH_PASS"
+              cat /tmp/staging-health.json
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Staging promotion was accepted but public health did not become ready"
+          cat /tmp/staging-health.json 2>/dev/null || true
+          exit 1
