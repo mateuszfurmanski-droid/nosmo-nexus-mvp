@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server typecheck && node artifacts/api-server/build-vercel-staging.mjs",
+  "env": {
+    "NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON": "{\"schema\":\"nexus-cloud-google-drive-runtime/v1\",\"writeEnabled\":false,\"connectorDefinitionId\":\"connector-google-drive-nexus-cloud-staging\",\"connectorAccountId\":\"connector-account-google-drive-esafe-staging\",\"tenantId\":\"esafe-catania-staging\",\"secretReference\":\"NEXUS_SECRET_GOOGLE_DRIVE_ESAFE_STAGING\",\"projects\":[{\"projectId\":\"project-esafe-catania\",\"worldId\":\"world-esafe-catania\",\"targets\":{\"00_INBOX\":\"1xsIITjBwTEE1z7whhub3RnsSXfrxwur9\",\"01_PENDING_GRAPH_LINK\":\"1Pb1F_2PYtRt3YwhGFNdCLBK03s9TPbGZ\",\"02_BY_TRADE\":\"1YnBK64v0ZfVTodBJXjAXPmNrug_qpR0P\",\"03_BY_TYPE\":\"1LvwOZXJ5emW1N058kIMD9XV70J6cFhr9\",\"99_AUDIT\":\"1tObyu3iGZhwrXCU4CCmCVR-BPFkw7Eaz\"}}]}"
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
