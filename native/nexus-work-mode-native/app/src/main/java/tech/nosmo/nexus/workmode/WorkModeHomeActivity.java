@@ -18,17 +18,14 @@ import android.widget.Toast;
 /**
  * Role/device-adaptive Work Mode launcher surface.
  *
- * This activity is UI-only. It does not introduce a second Android authority,
- * project store, session model or evidence pipeline. Existing MainActivity and
- * cloud/auth activities remain the operational implementation underneath it.
+ * This activity remains UI-only. Canonical recipient work is loaded by
+ * WorkInboxActivity through the existing Nexus mobile session and Core API.
  */
 public final class WorkModeHomeActivity extends Activity {
     private static final int BG = Color.rgb(4, 16, 31);
     private static final int PANEL = Color.rgb(10, 34, 63);
-    private static final int PANEL_DISABLED = Color.rgb(29, 42, 56);
     private static final int TEXT = Color.rgb(238, 247, 255);
     private static final int MUTED = Color.rgb(153, 181, 207);
-    private static final int CYAN = Color.rgb(72, 205, 255);
     private static final int GREEN = Color.rgb(71, 222, 161);
 
     @Override
@@ -65,14 +62,14 @@ public final class WorkModeHomeActivity extends Activity {
         root.addView(grid, fullWidthWrap());
 
         addTile(grid, "NEXUS\nPROJECT WORLD", true, this::openNexusProjectWorld);
-        addTile(grid, "WORK INBOX\nCURRENT WORK MODE", false, this::openExistingWorkMode);
+        addTile(grid, "WORK INBOX\nASSIGNED TO ME", false, this::openWorkInbox);
         addTile(grid, "WORK CAMERA\nEVIDENCE", false, this::openEvidenceCapture);
-        addTile(grid, "TASKS\nNEXUS", false, () -> openNexusPath("/tasks"));
+        addTile(grid, "TASKS\nCURRENT PACKAGE", false, this::openWorkInbox);
         addTile(grid, "DOCUMENTS\nPENDING PROJECTION", false, () -> showPending("Documents"));
-        addTile(grid, "CHECKLISTS\nPENDING PROJECTION", false, () -> showPending("Checklists"));
+        addTile(grid, "CHECKLISTS\nCURRENT PACKAGE", false, this::openWorkInbox);
 
         TextView boundary = new TextView(this);
-        boundary.setText("NEXUS is an explicit user-visible entry. Pending tiles do not invent recipient data before the canonical assignment projection is wired.");
+        boundary.setText("Work Inbox, Tasks and Checklists are recipient projections from canonical Project Memory. Android does not assign work or own a second project store.");
         boundary.setTextColor(MUTED);
         boundary.setTextSize(11);
         boundary.setPadding(0, dp(16), 0, 0);
@@ -134,9 +131,8 @@ public final class WorkModeHomeActivity extends Activity {
         return origin;
     }
 
-    private void openExistingWorkMode() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    private void openWorkInbox() {
+        Intent intent = new Intent(this, WorkInboxActivity.class);
         startActivity(intent);
     }
 
