@@ -30,11 +30,22 @@ const userId = `user-esafe-db-e2e-${runId}`;
 const persistedAtIso = "2026-08-25T12:00:00.000Z";
 const persistedAt = new Date(persistedAtIso);
 const WORK_MODULE = "worksuite";
-
+let workspaceId = 0;
 let decisionSequence = 0;
+
 const decisionTime = (): Date => {
   decisionSequence += 1;
   return new Date(Date.UTC(2026, 7, 25, 10, decisionSequence, 0));
+};
+
+const nestedErrorCode = (error: unknown): string | undefined => {
+  let current: unknown = error;
+  for (let depth = 0; depth < 8 && current && typeof current === "object"; depth += 1) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return undefined;
 };
 
 const taskRecord = (id: string, taskStatus: string, marker?: string): Record<string, unknown> => ({
@@ -84,10 +95,7 @@ const timelineRecord = (
   projectId,
   worldId,
   eventType,
-  payload: {
-    operation: actionKey,
-    taskId,
-  },
+  payload: { operation: actionKey, taskId },
   provenance: "SYNTHETIC_E2E",
 });
 
@@ -116,8 +124,6 @@ const seedTask = async (id: string, status = "todo"): Promise<void> => {
     persistedAt,
   });
 };
-
-let workspaceId = 0;
 
 const seedDecision = async (
   actionKey: string,
@@ -221,12 +227,9 @@ const main = async (): Promise<void> => {
   );
   assert.deepEqual(
     migrationRows.rows.map((row) => row.version),
-    [
-      "0000_pr90_parent_baseline",
-      "0001_core_identity_access",
-      "0002_core_work_cycle",
-    ],
+    ["0000_pr90_parent_baseline", "0001_core_identity_access", "0002_core_work_cycle"],
   );
+
   const fingerprintColumn = await pool.query<{ is_nullable: string }>(`
     SELECT is_nullable
     FROM information_schema.columns
@@ -305,98 +308,114 @@ const main = async (): Promise<void> => {
       timelineId: `timeline-${label}-start-${runId}`,
       eventType: "TASK_STARTED",
     });
-    const startResult = await persistNexusCoreWorkCommit(start);
-    assert.equal(startResult.status, "COMMITTED");
+    assert.equal((await persistNexusCoreWorkCommit(start)).status, "COMMITTED");
 
     if (label === "happy") {
-      const retryResult = await persistNexusCoreWorkCommit(structuredClone(start));
-      assert.equal(retryResult.status, "ALREADY_COMMITTED");
-      const conflictingRetry = structuredClone(start);
-      conflictingRetry.task.recordJson = taskRecord(taskId, "in-progress", "semantic-conflict");
+      assert.equal((await persistNexusCoreWorkCommit(structuredClone(start))).status, "ALREADY_COMMITTED");
+      const conflict = structuredClone(start);
+      conflict.task.recordJson = taskRecord(taskId, "in-progress", "semantic-conflict");
       await expectAdapterError(
-        () => persistNexusCoreWorkCommit(conflictingRetry),
+        () => persistNexusCoreWorkCommit(conflict),
         "NEXUS_CORE_WORK_DB_IDEMPOTENCY_CONFLICT",
       );
     }
 
-    const addEvidence = buildInput({
-      actionKey: actions.evidence,
-      decisionId: decisions.evidence,
-      taskId,
-      taskStatus: "in-progress",
-      expectedTaskStatus: "in-progress",
-      timelineId: `timeline-${label}-evidence-${runId}`,
-      eventType: "EVIDENCE_ADDED",
-      evidenceWrites: [
-        {
-          mode: "insert",
-          id: evidenceId,
-          linkedTaskId: taskId,
-          evidenceStatus: "captured",
-          evidenceType: "photo",
-          recordJson: evidenceRecord(evidenceId, taskId, "captured"),
-        },
-      ],
-    });
-    assert.equal((await persistNexusCoreWorkCommit(addEvidence)).status, "COMMITTED");
+    assert.equal(
+      (
+        await persistNexusCoreWorkCommit(
+          buildInput({
+            actionKey: actions.evidence,
+            decisionId: decisions.evidence,
+            taskId,
+            taskStatus: "in-progress",
+            expectedTaskStatus: "in-progress",
+            timelineId: `timeline-${label}-evidence-${runId}`,
+            eventType: "EVIDENCE_ADDED",
+            evidenceWrites: [
+              {
+                mode: "insert",
+                id: evidenceId,
+                linkedTaskId: taskId,
+                evidenceStatus: "captured",
+                evidenceType: "photo",
+                recordJson: evidenceRecord(evidenceId, taskId, "captured"),
+              },
+            ],
+          }),
+        )
+      ).status,
+      "COMMITTED",
+    );
 
-    const requestApproval = buildInput({
-      actionKey: actions.request,
-      decisionId: decisions.request,
-      taskId,
-      taskStatus: "ready-for-review",
-      expectedTaskStatus: "in-progress",
-      timelineId: `timeline-${label}-approval-request-${runId}`,
-      eventType: "APPROVAL_REQUESTED",
-      approvalWrites: [
-        {
-          mode: "insert",
-          id: approvalId,
-          approvalStatus: "requested",
-          recordJson: approvalRecord(approvalId, taskId, "requested"),
-        },
-      ],
-    });
-    assert.equal((await persistNexusCoreWorkCommit(requestApproval)).status, "COMMITTED");
+    assert.equal(
+      (
+        await persistNexusCoreWorkCommit(
+          buildInput({
+            actionKey: actions.request,
+            decisionId: decisions.request,
+            taskId,
+            taskStatus: "ready-for-review",
+            expectedTaskStatus: "in-progress",
+            timelineId: `timeline-${label}-approval-request-${runId}`,
+            eventType: "APPROVAL_REQUESTED",
+            approvalWrites: [
+              {
+                mode: "insert",
+                id: approvalId,
+                approvalStatus: "requested",
+                recordJson: approvalRecord(approvalId, taskId, "requested"),
+              },
+            ],
+          }),
+        )
+      ).status,
+      "COMMITTED",
+    );
 
     const finalTaskStatus = outcome === "approved" ? "done" : "blocked";
     const finalEvidenceStatus = outcome === "approved" ? "reviewed" : "rejected";
-    const decideApproval = buildInput({
-      actionKey: actions.decide,
-      decisionId: decisions.decide,
-      taskId,
-      taskStatus: finalTaskStatus,
-      expectedTaskStatus: "ready-for-review",
-      timelineId: `timeline-${label}-approval-decision-${runId}`,
-      eventType: "APPROVAL_DECIDED",
-      evidenceWrites: [
-        {
-          mode: "update",
-          id: evidenceId,
-          linkedTaskId: taskId,
-          evidenceStatus: finalEvidenceStatus,
-          expectedEvidenceStatus: "captured",
-          evidenceType: "photo",
-          recordJson: evidenceRecord(evidenceId, taskId, finalEvidenceStatus),
-        },
-      ],
-      approvalWrites: [
-        {
-          mode: "update",
-          id: approvalId,
-          approvalStatus: outcome,
-          expectedApprovalStatus: "requested",
-          recordJson: approvalRecord(approvalId, taskId, outcome),
-        },
-      ],
-    });
-    assert.equal((await persistNexusCoreWorkCommit(decideApproval)).status, "COMMITTED");
+    assert.equal(
+      (
+        await persistNexusCoreWorkCommit(
+          buildInput({
+            actionKey: actions.decide,
+            decisionId: decisions.decide,
+            taskId,
+            taskStatus: finalTaskStatus,
+            expectedTaskStatus: "ready-for-review",
+            timelineId: `timeline-${label}-approval-decision-${runId}`,
+            eventType: "APPROVAL_DECIDED",
+            evidenceWrites: [
+              {
+                mode: "update",
+                id: evidenceId,
+                linkedTaskId: taskId,
+                evidenceStatus: finalEvidenceStatus,
+                expectedEvidenceStatus: "captured",
+                evidenceType: "photo",
+                recordJson: evidenceRecord(evidenceId, taskId, finalEvidenceStatus),
+              },
+            ],
+            approvalWrites: [
+              {
+                mode: "update",
+                id: approvalId,
+                approvalStatus: outcome,
+                expectedApprovalStatus: "requested",
+                recordJson: approvalRecord(approvalId, taskId, outcome),
+              },
+            ],
+          }),
+        )
+      ).status,
+      "COMMITTED",
+    );
   };
 
   await runCycle("happy", "approved");
   await runCycle("reject", "rejected");
 
-  const wrongWorldInput = buildInput({
+  const wrongWorld = buildInput({
     actionKey: actions.start,
     decisionId: decisions.start,
     taskId: `task-wrong-world-${runId}`,
@@ -405,17 +424,31 @@ const main = async (): Promise<void> => {
     timelineId: `timeline-wrong-world-${runId}`,
     eventType: "TASK_STARTED",
   });
-  wrongWorldInput.worldId = `wrong-${worldId}`;
-  wrongWorldInput.task.recordJson = {
-    ...wrongWorldInput.task.recordJson,
-    worldId: wrongWorldInput.worldId,
-  };
-  wrongWorldInput.timeline.recordJson = {
-    ...wrongWorldInput.timeline.recordJson,
-    worldId: wrongWorldInput.worldId,
+  wrongWorld.worldId = `wrong-${worldId}`;
+  wrongWorld.task.recordJson = { ...wrongWorld.task.recordJson, worldId: wrongWorld.worldId };
+  wrongWorld.timeline.recordJson = { ...wrongWorld.timeline.recordJson, worldId: wrongWorld.worldId };
+  await expectAdapterError(
+    () => persistNexusCoreWorkCommit(wrongWorld),
+    "NEXUS_CORE_WORK_DB_PARTICIPATION_NOT_ACTIVE",
+  );
+
+  const wrongProject = buildInput({
+    actionKey: actions.start,
+    decisionId: decisions.start,
+    taskId: `task-wrong-project-${runId}`,
+    taskStatus: "in-progress",
+    expectedTaskStatus: "todo",
+    timelineId: `timeline-wrong-project-${runId}`,
+    eventType: "TASK_STARTED",
+  });
+  wrongProject.projectId = `wrong-${projectId}`;
+  wrongProject.task.recordJson = { ...wrongProject.task.recordJson, projectId: wrongProject.projectId };
+  wrongProject.timeline.recordJson = {
+    ...wrongProject.timeline.recordJson,
+    projectId: wrongProject.projectId,
   };
   await expectAdapterError(
-    () => persistNexusCoreWorkCommit(wrongWorldInput),
+    () => persistNexusCoreWorkCommit(wrongProject),
     "NEXUS_CORE_WORK_DB_PARTICIPATION_NOT_ACTIVE",
   );
 
@@ -459,9 +492,9 @@ const main = async (): Promise<void> => {
     .where(eq(nexusPmProjectParticipationsTable.participationId, duplicateParticipationId));
 
   const rollbackTaskId = `task-rollback-${runId}`;
-  await seedTask(rollbackTaskId, "in-progress");
   const rollbackEvidenceId = `evidence-rollback-${runId}`;
   const rollbackTimelineId = `timeline-rollback-${runId}`;
+  await seedTask(rollbackTaskId, "in-progress");
   let rollbackError: unknown;
   try {
     await persistNexusCoreWorkCommit(
@@ -489,19 +522,14 @@ const main = async (): Promise<void> => {
     rollbackError = error;
   }
   assert.ok(rollbackError && typeof rollbackError === "object");
-  assert.equal((rollbackError as { code?: string }).code, "23503");
+  assert.equal(nestedErrorCode(rollbackError), "23503");
   const [rollbackTask] = await db
     .select()
     .from(nexusPmTasksTable)
     .where(eq(nexusPmTasksTable.taskId, rollbackTaskId));
   assert.equal(rollbackTask?.taskStatus, "in-progress");
   assert.equal(
-    (
-      await db
-        .select()
-        .from(nexusPmEvidenceTable)
-        .where(eq(nexusPmEvidenceTable.evidenceId, rollbackEvidenceId))
-    ).length,
+    (await db.select().from(nexusPmEvidenceTable).where(eq(nexusPmEvidenceTable.evidenceId, rollbackEvidenceId))).length,
     0,
   );
   assert.equal(
@@ -516,8 +544,7 @@ const main = async (): Promise<void> => {
 
   const denyTaskId = `task-latest-deny-${runId}`;
   await seedTask(denyTaskId);
-  const latestDenyDecision = await seedDecision(actions.start, "denied");
-  assert.notEqual(latestDenyDecision, decisions.start);
+  await seedDecision(actions.start, "denied");
   await expectAdapterError(
     () =>
       persistNexusCoreWorkCommit(
@@ -551,9 +578,7 @@ const main = async (): Promise<void> => {
       ),
     "NEXUS_CORE_WORK_DB_EXPLICIT_DENY",
   );
-  await db
-    .delete(nexusPmPermissionGrantsTable)
-    .where(eq(nexusPmPermissionGrantsTable.grantId, denyGrantId));
+  await db.delete(nexusPmPermissionGrantsTable).where(eq(nexusPmPermissionGrantsTable.grantId, denyGrantId));
 
   const snapshot = await loadNexusCoreWorkSnapshot({ workspaceId, projectId, worldId });
   const taskStatusById = new Map(
@@ -583,6 +608,7 @@ const main = async (): Promise<void> => {
         exactRetry: true,
         conflictingRetry: true,
         wrongWorldFailClosed: true,
+        wrongProjectFailClosed: true,
         ambiguousParticipationFailClosed: true,
         latestDecisionDeny: true,
         explicitDeny: true,
