@@ -13,8 +13,8 @@ android {
         applicationId 'tech.nosmo.nexus.workmode'
         minSdk 26
         targetSdk 35
-        versionCode 16
-        versionName '0.6.0-e2e-handoff'
+        versionCode 17
+        versionName '0.7.0-worker-home'
         buildConfigField 'String', 'NEXUS_WEB_ORIGIN', "\"${escapedNexusWebOrigin}\""
     }
 
@@ -24,11 +24,10 @@ android {
 
     buildTypes {
         debug {
-            // Keep CI/device smoke builds installable beside any previously signed
-            // NEXUS Work Mode beta already present on the handset. Ephemeral CI
-            // debug signing keys must never block device validation.
-            applicationIdSuffix '.foldtest'
-            versionNameSuffix '-foldtest'
+            // Dedicated install-safe package for the Worker Home visual/device smoke.
+            // This avoids collisions with earlier ephemeral CI debug signatures.
+            applicationIdSuffix '.workerhome'
+            versionNameSuffix '-preview'
         }
         release {
             minifyEnabled false
