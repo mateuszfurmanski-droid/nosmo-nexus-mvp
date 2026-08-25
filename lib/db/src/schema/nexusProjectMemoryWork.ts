@@ -97,6 +97,7 @@ export const nexusPmTimelineEventsTable = pgTable(
     }),
     recordJson: jsonb("record_json").$type<Record<string, unknown>>().notNull(),
     persistedAt: timestamp("persisted_at", { withTimezone: true }).notNull(),
+    commitFingerprint: text("commit_fingerprint").notNull(),
   },
   (table) => [
     index("IDX_nexus_pm_timeline_scope").on(

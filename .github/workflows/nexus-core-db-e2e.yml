@@ -1,0 +1,122 @@
+name: NEXUS Core Database E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/esafe-core-experience
+    paths:
+      - lib/db/**
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/nexus-core-db-e2e.yml
+  pull_request:
+    branches:
+      - codex/nexus-mvp-modular-foundation
+    paths:
+      - lib/db/**
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/nexus-core-db-e2e.yml
+
+permissions:
+  contents: read
+
+jobs:
+  real-postgres-persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck repository
+        run: pnpm run typecheck
+
+      - name: Create disposable databases
+        env:
+          PGPASSWORD: postgres
+        run: |
+          createdb -h 127.0.0.1 -U postgres nexus_core_clean
+          createdb -h 127.0.0.1 -U postgres nexus_core_upgrade
+
+      - name: Clean migration from empty PostgreSQL
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_core_clean
+        run: |
+          pnpm run db:migrate | tee /tmp/clean-migrate.log
+          grep -q 'NEXUS_DB_MIGRATIONS_OK' /tmp/clean-migrate.log
+          pnpm run db:migrate | tee /tmp/clean-migrate-replay.log
+          grep -q '"appliedNow": \[\]' /tmp/clean-migrate-replay.log
+
+      - name: Real Drizzle PostgreSQL core persistence smoke
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_core_clean
+        run: |
+          pnpm run smoke:esafe-core-db | tee /tmp/core-db-smoke.log
+          grep -q 'NEXUS_CORE_DB_E2E_PASS' /tmp/core-db-smoke.log
+          grep -q '"conflictingRetry": true' /tmp/core-db-smoke.log
+          grep -q '"foreignKeyRollback": true' /tmp/core-db-smoke.log
+          grep -q '"latestDecisionDeny": true' /tmp/core-db-smoke.log
+
+      - name: Reproduce upgrade from PR 90 parent baseline
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_core_upgrade
+          PGPASSWORD: postgres
+        run: |
+          pnpm run db:migrate -- --to=0000_pr90_parent_baseline
+          psql "$DATABASE_URL" <<'SQL'
+          INSERT INTO users(id, email) VALUES ('legacy-parent-user', 'legacy-parent@example.invalid');
+          INSERT INTO workspaces(id, owner_id, name) VALUES (900001, 'legacy-parent-user', 'PR90 sentinel workspace');
+          INSERT INTO projects(id, workspace_id, name) VALUES (910001, 900001, 'PR90 sentinel project');
+          INSERT INTO tasks(id, workspace_id, project_id, title) VALUES (920001, 900001, 910001, 'PR90 sentinel task');
+          SQL
+          pnpm run db:migrate
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from tasks where id=920001 and title='PR90 sentinel task'")" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_schema_migrations")" = "3"
+          pnpm run smoke:esafe-core-db | tee /tmp/core-db-upgrade-smoke.log
+          grep -q 'NEXUS_CORE_DB_E2E_PASS' /tmp/core-db-upgrade-smoke.log
+
+      - name: Prove remote migration gate fails closed
+        shell: bash
+        run: |
+          set +e
+          DATABASE_URL='postgresql://example:example@db.example.invalid:5432/nexus' pnpm run db:migrate > /tmp/remote-gate.log 2>&1
+          exit_code=$?
+          set -e
+          test "$exit_code" -ne 0
+          grep -q 'NEXUS_DB_MIGRATION_REMOTE_APPROVAL_REQUIRED' /tmp/remote-gate.log
+
+      - name: Assert no push-force migration path remains
+        shell: bash
+        run: |
+          ! grep -R --line-number --fixed-strings 'drizzle-kit push --force' lib/db package.json .github/workflows/nexus-core-db-e2e.yml
