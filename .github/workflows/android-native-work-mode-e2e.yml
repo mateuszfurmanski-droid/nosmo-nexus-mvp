@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/android-work-mode-e2e-handoff
+      - codex/android-work-mode-home-nexus-tile
     paths:
       - native/nexus-work-mode-native/**
       - src/core/android/**
@@ -78,6 +79,63 @@ jobs:
       - name: Validate Android auth, evidence and Cloud source boundaries
         run: node scripts/src/validate-android-mobile-cloud-flow.mjs
 
+      - name: Validate Work Mode home launcher contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          home_path = Path('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/WorkModeHomeActivity.java')
+          manifest_path = Path('native/nexus-work-mode-native/app/src/main/AndroidManifest.xml')
+          home = home_path.read_text()
+          root = ET.parse(manifest_path).getroot()
+          ns = '{http://schemas.android.com/apk/res/android}'
+
+          activities = root.find('application').findall('activity')
+          launcher = []
+          for activity in activities:
+              name = activity.attrib.get(ns + 'name')
+              for intent_filter in activity.findall('intent-filter'):
+                  actions = {a.attrib.get(ns + 'name') for a in intent_filter.findall('action')}
+                  categories = {c.attrib.get(ns + 'name') for c in intent_filter.findall('category')}
+                  if 'android.intent.action.MAIN' in actions and 'android.intent.category.LAUNCHER' in categories:
+                      launcher.append(name)
+
+          assert launcher == ['.WorkModeHomeActivity'], launcher
+          assert home.count('addTile(grid,') == 6
+
+          required = [
+              'NEXUS\\nPROJECT WORLD',
+              'WORK INBOX\\nCURRENT WORK MODE',
+              'WORK CAMERA\\nEVIDENCE',
+              'TASKS\\nNEXUS',
+              'DOCUMENTS\\nPENDING PROJECTION',
+              'CHECKLISTS\\nPENDING PROJECTION',
+              'openNexusPath("/project-worlds/esafe")',
+              'openNexusPath("/tasks")',
+              'new Intent(this, MainActivity.class)',
+              'new Intent(this, CloudEvidenceShortcutActivity.class)',
+              'showPending("Documents")',
+              'showPending("Checklists")',
+              'BuildConfig.NEXUS_WEB_ORIGIN',
+              'origin.startsWith("https://")',
+              'Uri.parse(origin + safePath)',
+              'grid.setColumnCount(2)',
+              'new ScrollView(this)',
+              'params.height = dp(126)',
+          ]
+          for marker in required:
+              assert marker in home, marker
+
+          lowered = home.lower()
+          for forbidden in ('token=', 'access_token=', 'session=', 'credential='):
+              assert forbidden not in lowered, forbidden
+
+          print('ANDROID_WORK_MODE_HOME_CONTRACT_PASS')
+          PY
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
@@ -126,7 +184,7 @@ jobs:
           ! grep -q '"/api/nexus/cloud/files"' "$CLOUD_CLIENT"
 
       - name: Prepare downloadable Android build
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile'
         shell: bash
         run: |
           set -euo pipefail
@@ -140,7 +198,7 @@ jobs:
           cp /tmp/permissions.txt android-work-mode-e2e/APK_PERMISSIONS.txt
 
       - name: Upload Android Work Mode build
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile'
         uses: actions/upload-artifact@v4
         with:
           name: NEXUS-Work-Mode-v0.6.0-e2e-handoff
