@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import mobileAuthBootstrapRouter from "./mobile-auth-bootstrap";
 import authRouter from "./auth";
 import projectsRouter from "./projects";
 import tasksRouter from "./tasks";
@@ -20,6 +21,9 @@ const router: IRouter = Router();
 
 // Public routes — no authentication required.
 router.use(healthRouter);
+// Mobile bootstrap must run before the browser auth router so the shared /callback
+// can forward code+state to Android only when no browser PKCE cookie exists.
+router.use(mobileAuthBootstrapRouter);
 router.use(authRouter);
 // Unauthenticated MVP file storage (upload + auto-processing). Public by design.
 router.use(filesRouter);
