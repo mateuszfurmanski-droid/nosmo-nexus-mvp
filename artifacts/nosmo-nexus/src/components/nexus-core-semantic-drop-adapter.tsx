@@ -63,6 +63,11 @@ export function NexusCoreSemanticDropAdapter() {
         window.dispatchEvent(new CustomEvent("nexus:semantic-drop-authoritative-result", {
           detail: { ok: true, requestId, response: payload },
         }));
+        if (payload?.projection) {
+          window.dispatchEvent(new CustomEvent("nexus:core-authoritative-projection", {
+            detail: payload.projection,
+          }));
+        }
       } catch {
         setStatus({ state: "blocked", message: "Canonical core API is unavailable. Nothing was persisted." });
       }
