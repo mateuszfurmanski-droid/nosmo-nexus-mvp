@@ -1,0 +1,124 @@
+name: NEXUS Current Core Real Device Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/nexus-core-current-real-device-staging
+
+permissions:
+  contents: read
+
+jobs:
+  validate-current-core-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_current_core_staging
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_current_core_staging"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_current_core_staging
+      NEXUS_IDENTITY_BINDING_MODE: postgres
+      ISSUER_URL: https://synthetic-e2e.invalid/oidc
+      REPL_ID: synthetic-current-core-real-device-staging
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Verify exact tested SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo "NEXUS_CURRENT_CORE_STAGING_EXACT_HEAD=${GITHUB_SHA}"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck repository
+        run: pnpm run typecheck
+
+      - name: Apply canonical repository migrations
+        run: |
+          pnpm run db:migrate | tee /tmp/current-core-migrate.log
+          grep -q 'NEXUS_DB_MIGRATIONS_OK' /tmp/current-core-migrate.log
+          grep -q '0003_core_staging_identity_claim' /tmp/current-core-migrate.log
+
+      - name: Verify migrated current Core schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_schema_migrations")" = "4"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name='nexus_identity_claims'")" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from information_schema.tables where table_schema='public' and table_name in ('nexus_pm_tasks','nexus_pm_evidence','nexus_pm_approvals','nexus_pm_timeline_events')")" = "4"
+
+      - name: Validate hardened canonical persistence
+        run: |
+          pnpm run smoke:esafe-core-db | tee /tmp/current-core-db-smoke.log
+          grep -q 'NEXUS_CORE_DB_E2E_PASS' /tmp/current-core-db-smoke.log
+          grep -q '"conflictingRetry": true' /tmp/current-core-db-smoke.log
+          grep -q '"foreignKeyRollback": true' /tmp/current-core-db-smoke.log
+
+      - name: Execute manager to worker cycle over real HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          node artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs | tee /tmp/current-core-http-e2e.log
+          grep -q 'NEXUS_CORE_HTTP_E2E_PASS' /tmp/current-core-http-e2e.log
+          grep -q '"finalTaskStatus": "done"' /tmp/current-core-http-e2e.log
+          grep -q '"finalEvidenceStatus": "reviewed"' /tmp/current-core-http-e2e.log
+          grep -q '"finalApprovalStatus": "approved"' /tmp/current-core-http-e2e.log
+          grep -q '"explicitDenyHttpStatus": 403' /tmp/current-core-http-e2e.log
+
+      - name: Execute one-time canonical identity claim over real HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          node artifacts/api-server/scripts/run-nexus-core-identity-claim.mjs | tee /tmp/current-core-identity-claim.log
+          grep -q 'NEXUS_CORE_IDENTITY_CLAIM_PASS' /tmp/current-core-identity-claim.log
+          grep -q '"claimConsumed": true' /tmp/current-core-identity-claim.log
+          grep -q '"replayHttpStatus": 403' /tmp/current-core-identity-claim.log
+          grep -q '"rawProviderSubjectPersisted": false' /tmp/current-core-identity-claim.log
+
+      - name: Build narrow Vercel Core staging bundle
+        run: |
+          node artifacts/api-server/build-vercel-core-staging.mjs
+          test -s artifacts/api-server/dist/vercel-core-staging.mjs
+
+      - name: Assert canonical migration and staging boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R --line-number --fixed-strings 'drizzle-kit push --force' lib/db package.json .github/workflows/nexus-core-current-real-device-staging.yml
+          grep -Fq 'nexusCoreIdentityClaimRouter' artifacts/api-server/src/vercel-core-staging.ts
+          grep -Fq 'resolveNexusCoreWorkspace' artifacts/api-server/src/vercel-core-staging.ts
+          grep -Fq 'nexusCoreE2eRouter' artifacts/api-server/src/vercel-core-staging.ts
+          grep -Fq '/api/(.*)' vercel.json
+          echo NEXUS_CURRENT_CORE_REAL_DEVICE_STAGING_PASS
