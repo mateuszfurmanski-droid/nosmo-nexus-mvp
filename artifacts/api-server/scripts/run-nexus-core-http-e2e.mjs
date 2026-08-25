@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { rm, mkdir } from "node:fs/promises";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 
@@ -8,7 +9,11 @@ globalThis.require = createRequire(import.meta.url);
 
 const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const entry = path.join(scriptsDir, "validate-nexus-core-http-e2e.ts");
-const output = "/tmp/nexus-core-http-e2e.mjs";
+const outdir = "/tmp/nexus-core-http-e2e-bundle";
+const output = path.join(outdir, "validate-nexus-core-http-e2e.mjs");
+
+await rm(outdir, { recursive: true, force: true });
+await mkdir(outdir, { recursive: true });
 
 await esbuild({
   entryPoints: [entry],
@@ -16,8 +21,9 @@ await esbuild({
   target: "node22",
   bundle: true,
   format: "esm",
-  outfile: output,
-  sourcemap: "inline",
+  outdir,
+  outExtension: { ".js": ".mjs" },
+  sourcemap: "linked",
   logLevel: "info",
   external: ["*.node", "*.wasm", "mupdf", "pg-native"],
   plugins: [esbuildPluginPino({ transports: ["pino-pretty"] })],
