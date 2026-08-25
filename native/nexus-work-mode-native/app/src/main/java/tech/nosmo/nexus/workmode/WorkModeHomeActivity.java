@@ -62,6 +62,7 @@ public final class WorkModeHomeActivity extends Activity {
         root.addView(grid, fullWidthWrap());
 
         addTile(grid, "NEXUS\nPROJECT WORLD", true, this::openNexusProjectWorld);
+        addTile(grid, "IDENTITY\nSIGN IN / CLAIM", false, this::openIdentityClaim);
         addTile(grid, "WORK INBOX\nASSIGNED TO ME", false, this::openCanonicalWorkInbox);
         addTile(grid, "WORK CAMERA\nEVIDENCE", false, this::openEvidenceCapture);
         addTile(grid, "TASKS\nNEXUS", false, this::openCanonicalWorkInbox);
@@ -69,7 +70,7 @@ public final class WorkModeHomeActivity extends Activity {
         addTile(grid, "CHECKLISTS\nNEXUS", false, this::openCanonicalWorkInbox);
 
         TextView boundary = new TextView(this);
-        boundary.setText("Work Inbox, Tasks and Checklists are read-through canonical recipient projections. No client-side assignment is created on this device.");
+        boundary.setText("Identity claim binds only the authenticated provider session to a pre-authorised canonical Person. Work Inbox, Tasks and Checklists remain read-through recipient projections; no client-side assignment is created.");
         boundary.setTextColor(MUTED);
         boundary.setTextSize(11);
         boundary.setPadding(0, dp(16), 0, 0);
@@ -104,6 +105,10 @@ public final class WorkModeHomeActivity extends Activity {
 
     private void openNexusProjectWorld() {
         openNexusPath("/project-worlds/esafe");
+    }
+
+    private void openIdentityClaim() {
+        startActivity(new Intent(this, IdentityClaimActivity.class));
     }
 
     private void openNexusPath(String path) {
