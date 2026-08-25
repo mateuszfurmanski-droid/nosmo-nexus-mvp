@@ -164,7 +164,9 @@ jobs:
           for marker in inbox_required:
               assert marker in inbox, marker
 
-          assert "applicationIdSuffix '.workerhome'" in gradle
+          assert 'def previewPackageSegment = "p${previewSha}"' in gradle
+          assert 'applicationIdSuffix ".preview.${previewPackageSegment}"' in gradle
+          assert "System.getenv('GITHUB_SHA')" in gradle
           assert "versionName '0.7.0-worker-home'" in gradle
           print('ANDROID_NEXUS_WORKER_HOME_PASS')
           PY
@@ -191,14 +193,17 @@ jobs:
           APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
           CLOUD_CLIENT="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/NexusCloudUploadClient.java"
+          PREVIEW_SEGMENT="p$(printf '%s' "$GITHUB_SHA" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9' | cut -c1-8)"
+          EXPECTED_PACKAGE="tech.nosmo.nexus.workmode.preview.${PREVIEW_SEGMENT}"
+          EXPECTED_VERSION="0.7.0-worker-home-preview-${PREVIEW_SEGMENT}"
           test -f "$APK"
           unzip -l "$APK" | grep -q "classes.dex"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           test -n "$AAPT"
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
-          grep -q "package: name='tech.nosmo.nexus.workmode.workerhome'" /tmp/badging.txt
-          grep -q "versionName='0.7.0-worker-home-preview'" /tmp/badging.txt
+          grep -q "package: name='${EXPECTED_PACKAGE}'" /tmp/badging.txt
+          grep -q "versionName='${EXPECTED_VERSION}'" /tmp/badging.txt
           grep -q "android.permission.INTERNET" /tmp/permissions.txt
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
