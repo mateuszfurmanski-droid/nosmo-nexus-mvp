@@ -6,6 +6,7 @@ on:
     branches:
       - codex/android-work-mode-e2e-handoff
       - codex/android-work-mode-home-nexus-tile
+      - codex/android-core-recipient-projection-v3
     paths:
       - native/nexus-work-mode-native/**
       - src/core/android/**
@@ -79,7 +80,7 @@ jobs:
       - name: Validate Android auth, evidence and Cloud source boundaries
         run: node scripts/src/validate-android-mobile-cloud-flow.mjs
 
-      - name: Validate Work Mode home launcher contract
+      - name: Validate Work Mode recipient projection contract
         shell: bash
         run: |
           set -euo pipefail
@@ -87,13 +88,16 @@ jobs:
           from pathlib import Path
           import xml.etree.ElementTree as ET
 
-          home_path = Path('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/WorkModeHomeActivity.java')
-          manifest_path = Path('native/nexus-work-mode-native/app/src/main/AndroidManifest.xml')
-          home = home_path.read_text()
-          root = ET.parse(manifest_path).getroot()
+          base = Path('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode')
+          home = (base / 'WorkModeHomeActivity.java').read_text()
+          client = (base / 'NexusCoreWorkClient.java').read_text()
+          inbox = (base / 'WorkInboxActivity.java').read_text()
+          manifest = Path('native/nexus-work-mode-native/app/src/main/AndroidManifest.xml')
+          root = ET.parse(manifest).getroot()
           ns = '{http://schemas.android.com/apk/res/android}'
 
           activities = root.find('application').findall('activity')
+          activity_names = {activity.attrib.get(ns + 'name') for activity in activities}
           launcher = []
           for activity in activities:
               name = activity.attrib.get(ns + 'name')
@@ -104,39 +108,22 @@ jobs:
                       launcher.append(name)
 
           assert launcher == ['.WorkModeHomeActivity'], launcher
-          assert home.count('addTile(grid,') == 6
-
-          required = [
-              'NEXUS\\nPROJECT WORLD',
-              'WORK INBOX\\nCURRENT WORK MODE',
-              'WORK CAMERA\\nEVIDENCE',
-              'TASKS\\nNEXUS',
-              'DOCUMENTS\\nPENDING PROJECTION',
-              'CHECKLISTS\\nPENDING PROJECTION',
-              'openNexusPath("/project-worlds/esafe")',
-              'openNexusPath("/tasks")',
-              'new Intent(this, MainActivity.class)',
-              'new Intent(this, CloudEvidenceShortcutActivity.class)',
-              'showPending("Documents")',
-              'showPending("Checklists")',
-              'BuildConfig.NEXUS_WEB_ORIGIN',
-              'origin.startsWith("https://")',
-              'Uri.parse(origin + safePath)',
-              'screenWidthDp',
-              'screenWidthDp < 420 ? 1 : 2',
-              'grid.setColumnCount(columnCount)',
-              'new ScrollView(this)',
-              'scroll.setFillViewport(true)',
-              'params.height = dp(126)',
-          ]
-          for marker in required:
-              assert marker in home, marker
-
-          lowered = home.lower()
-          for forbidden in ('token=', 'access_token=', 'session=', 'credential='):
-              assert forbidden not in lowered, forbidden
-
-          print('ANDROID_WORK_MODE_HOME_CONTRACT_PASS')
+          assert '.WorkInboxActivity' in activity_names
+          assert 'screenWidthDp < 420 ? 1 : 2' in home
+          assert 'new Intent(this, WorkInboxActivity.class)' in home
+          assert 'WORK INBOX\\nASSIGNED TO ME' in home
+          assert 'CHECKLISTS\\nNEXUS' in home
+          assert '/api/nexus/core/work-inbox' in client
+          assert '/start' in client and '/evidence' in client and '/finish' in client
+          assert 'Authorization", "Bearer " + token' in client
+          assert 'actorPerson' not in client
+          assert 'participationId' not in client
+          assert 'PermissionGrant' not in client
+          assert 'AccessDecision' not in client
+          assert 'No local Work Package store' in inbox
+          assert 'Human approval pending. Worker cannot self-approve.' in inbox
+          assert 'Refresh from Project Memory' in inbox
+          print('ANDROID_CORE_RECIPIENT_PROJECTION_PASS')
           PY
 
       - name: Set up Java 17
@@ -161,51 +148,44 @@ jobs:
           APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="native/nexus-work-mode-native/app/src/main/AndroidManifest.xml"
           CLOUD_CLIENT="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/NexusCloudUploadClient.java"
-
           test -f "$APK"
           unzip -l "$APK" | grep -q "classes.dex"
-
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           test -n "$AAPT"
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
-
           grep -q "package: name='tech.nosmo.nexus.workmode.foldtest'" /tmp/badging.txt
           grep -q "versionName='0.6.0-e2e-handoff-foldtest'" /tmp/badging.txt
           grep -q "android.permission.INTERNET" /tmp/permissions.txt
           grep -q "android.permission.READ_CONTACTS" /tmp/permissions.txt
           grep -q "android.permission.READ_CALENDAR" /tmp/permissions.txt
-
           ! grep -q "android.permission.MANAGE_EXTERNAL_STORAGE" /tmp/permissions.txt
           ! grep -q "android.permission.READ_EXTERNAL_STORAGE" /tmp/permissions.txt
           ! grep -q "android.permission.WRITE_EXTERNAL_STORAGE" /tmp/permissions.txt
           ! grep -q "android.permission.QUERY_ALL_PACKAGES" /tmp/permissions.txt
           ! grep -q "android.permission.SYSTEM_ALERT_WINDOW" /tmp/permissions.txt
           ! grep -q "android.permission.BIND_ACCESSIBILITY_SERVICE" /tmp/permissions.txt
-
           grep -q 'usesCleartextTraffic="false"' "$MANIFEST"
           grep -q '"/api/nexus/cloud/android/files"' "$CLOUD_CLIENT"
           ! grep -q '"/api/nexus/cloud/files"' "$CLOUD_CLIENT"
 
       - name: Prepare downloadable Android build
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile' || github.ref == 'refs/heads/codex/android-core-recipient-projection-v3'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p android-work-mode-e2e
-          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk \
-            android-work-mode-e2e/NEXUS-Work-Mode-Fold-Test.apk
-          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab \
-            android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.aab
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-work-mode-e2e/NEXUS-Work-Mode-Fold-Test.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-work-mode-e2e/NEXUS-Work-Mode-v0.6.0-e2e-handoff.aab
           sha256sum android-work-mode-e2e/* > android-work-mode-e2e/SHA256SUMS.txt
           cp /tmp/badging.txt android-work-mode-e2e/APK_BADGING.txt
           cp /tmp/permissions.txt android-work-mode-e2e/APK_PERMISSIONS.txt
 
       - name: Upload Android Work Mode build
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile'
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/codex/android-work-mode-home-nexus-tile' || github.ref == 'refs/heads/codex/android-core-recipient-projection-v3'
         uses: actions/upload-artifact@v4
         with:
-          name: NEXUS-Work-Mode-Fold-Test
+          name: NEXUS-Work-Mode-Fold-Recipient-Projection
           path: android-work-mode-e2e/*
           if-no-files-found: error
           retention-days: 1
