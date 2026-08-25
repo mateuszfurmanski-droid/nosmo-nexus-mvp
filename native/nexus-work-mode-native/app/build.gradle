@@ -24,8 +24,11 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix '.nativebeta'
-            versionNameSuffix '-beta'
+            // Keep CI/device smoke builds installable beside any previously signed
+            // NEXUS Work Mode beta already present on the handset. Ephemeral CI
+            // debug signing keys must never block device validation.
+            applicationIdSuffix '.foldtest'
+            versionNameSuffix '-foldtest'
         }
         release {
             minifyEnabled false
