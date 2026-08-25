@@ -6,6 +6,7 @@ import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloud
 import { requireWorkspace } from "./middlewares/requireWorkspace";
 import nexusCloudRouter from "./routes/nexus-cloud";
 import { logger } from "./lib/logger";
+import { runNexusCloudRuntimePreflight } from "./lib/nexus-cloud-runtime-preflight";
 
 /**
  * Narrow serverless staging runtime for the real Nexus Cloud backend path.
@@ -54,6 +55,36 @@ app.get("/api/nexus/cloud/_staging/health", (_req, res) => {
       process.env.NEXUS_IDENTITY_BINDING_MODE === "postgres",
     providerWriteReleased: false,
   });
+});
+
+/**
+ * Sanitized staging-only runtime audit. The optional provider probe is enabled
+ * only by an explicit header and performs OAuth exchange plus GET-only Drive
+ * folder metadata/capability reads. The preflight contract never returns OAuth
+ * values, database credentials, or performs provider/database writes.
+ */
+app.get("/api/nexus/cloud/_staging/preflight", async (req, res) => {
+  try {
+    const providerProbeRequested =
+      req.get("x-nexus-provider-probe") === "read-only";
+    const result = await runNexusCloudRuntimePreflight({
+      ...process.env,
+      NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE: providerProbeRequested
+        ? "true"
+        : "false",
+    });
+    res.json(result);
+  } catch (error) {
+    req.log?.error?.({ err: error }, "Nexus Cloud staging preflight failed");
+    res.status(500).json({
+      schema: "nexus-cloud-runtime-preflight/v1",
+      status: "BLOCKED",
+      error: "NEXUS_CLOUD_STAGING_PREFLIGHT_FAILED",
+      secretValuesReturned: false,
+      providerWritePerformed: false,
+      databaseMutationPerformed: false,
+    });
+  }
 });
 
 // Multipart upload parsing is owned by nexusCloudRouter/multer. Generic parsers
