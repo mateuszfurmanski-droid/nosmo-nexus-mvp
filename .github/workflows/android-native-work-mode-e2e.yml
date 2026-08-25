@@ -122,8 +122,11 @@ jobs:
               'BuildConfig.NEXUS_WEB_ORIGIN',
               'origin.startsWith("https://")',
               'Uri.parse(origin + safePath)',
-              'grid.setColumnCount(2)',
+              'screenWidthDp',
+              'screenWidthDp < 420 ? 1 : 2',
+              'grid.setColumnCount(columnCount)',
               'new ScrollView(this)',
+              'scroll.setFillViewport(true)',
               'params.height = dp(126)',
           ]
           for marker in required:
