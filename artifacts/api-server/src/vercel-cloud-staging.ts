@@ -59,14 +59,16 @@ app.get("/api/nexus/cloud/_staging/health", (_req, res) => {
 
 /**
  * Sanitized staging-only runtime audit. The optional provider probe is enabled
- * only by an explicit header and performs OAuth exchange plus GET-only Drive
- * folder metadata/capability reads. The preflight contract never returns OAuth
- * values, database credentials, or performs provider/database writes.
+ * by an explicit non-secret switch and performs OAuth exchange plus GET-only
+ * Drive folder metadata/capability reads. The query/header contains no token or
+ * credential value. The preflight contract never returns OAuth values, database
+ * credentials, or performs provider/database writes.
  */
 app.get("/api/nexus/cloud/_staging/preflight", async (req, res) => {
   try {
     const providerProbeRequested =
-      req.get("x-nexus-provider-probe") === "read-only";
+      req.get("x-nexus-provider-probe") === "read-only" ||
+      req.query.probe === "read-only";
     const result = await runNexusCloudRuntimePreflight({
       ...process.env,
       NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE: providerProbeRequested
