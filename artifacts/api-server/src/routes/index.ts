@@ -13,6 +13,7 @@ import conversationsRouter from "./conversations";
 import filesRouter from "./files";
 import nexusCoreE2eRouter from "./nexus-core-e2e";
 import { requireWorkspace } from "../middlewares/requireWorkspace";
+import { resolveNexusCoreWorkspace } from "../middlewares/resolveNexusCoreWorkspace";
 
 const router: IRouter = Router();
 
@@ -22,10 +23,14 @@ router.use(authRouter);
 // Unauthenticated MVP file storage (upload + auto-processing). Public by design.
 router.use(filesRouter);
 
-// Everything below requires an authenticated user with a resolved workspace.
-// `requireWorkspace` returns 401 when unauthenticated and sets `req.workspaceId`.
-router.use(requireWorkspace);
+// Canonical Core resolves the shared project workspace from authenticated Person ->
+// exactly one active Project Participation. It must not use the legacy personal starter
+// workspace because manager and recipient are distinct authenticated users.
+router.use(resolveNexusCoreWorkspace);
 router.use(nexusCoreE2eRouter);
+
+// Legacy MVP routes below continue to use the existing one-workspace-per-user boundary.
+router.use(requireWorkspace);
 router.use(projectsRouter);
 router.use(tasksRouter);
 router.use(plansRouter);
