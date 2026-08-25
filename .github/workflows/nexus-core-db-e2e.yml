@@ -44,6 +44,16 @@ jobs:
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact tested SHA
+        shell: bash
+        run: |
+          expected='${{ github.event.pull_request.head.sha || github.sha }}'
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$expected"
+          echo "NEXUS_CORE_DB_EXACT_HEAD=$actual"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
