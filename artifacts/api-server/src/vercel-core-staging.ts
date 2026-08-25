@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
 import { resolveNexusCoreWorkspace } from "./middlewares/resolveNexusCoreWorkspace";
 import healthRouter from "./routes/health";
+import mobileAuthBootstrapRouter from "./routes/mobile-auth-bootstrap";
 import authRouter from "./routes/auth";
 import nexusCoreIdentityClaimRouter from "./routes/nexus-core-identity-claim";
 import nexusCoreE2eRouter from "./routes/nexus-core-e2e";
@@ -37,6 +38,7 @@ app.use(authMiddleware);
 // Deliberately narrow non-production runtime. No generic MVP, public file upload,
 // Work Wallet, Cloud/Drive or web UI routes are mounted here.
 app.use("/api", healthRouter);
+app.use("/api", mobileAuthBootstrapRouter);
 app.use("/api", authRouter);
 app.use("/api", nexusCoreIdentityClaimRouter);
 app.use("/api", resolveNexusCoreWorkspace);
