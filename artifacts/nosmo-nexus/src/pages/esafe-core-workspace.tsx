@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { UserRound } from "lucide-react";
 import PersistentWorkspace from "@/components/persistent-workspace";
+import { NexusCoreSemanticDropAdapter } from "@/components/nexus-core-semantic-drop-adapter";
 import { NexusCoreSourcePalette } from "@/components/nexus-core-source-palette";
 import type { WorkspaceNode } from "@/components/workspace-data";
 import { buildEsafeProjectGraph } from "@/project-worlds/esafe/graph";
@@ -10,14 +11,24 @@ import "@/project-worlds/esafe/invariants";
 const CORE_PROJECT_ID = "project-esafe-catania";
 const CORE_WORLD_ID = "world-esafe-catania";
 const SYNTHETIC_MANAGER_PERSON_ID = "person-esafe-demo-manager";
+const SYNTHETIC_WORKER_PERSON_ID = "person-esafe-demo-worker";
 
-const syntheticManagerNode: WorkspaceNode = {
-  id: SYNTHETIC_MANAGER_PERSON_ID,
-  label: "e-SAFE demo manager",
-  sublabel: "SYNTHETIC_DEMO · canonical #162 fixture actor",
-  type: "person",
-  Icon: UserRound,
-};
+const syntheticPeople: WorkspaceNode[] = [
+  {
+    id: SYNTHETIC_MANAGER_PERSON_ID,
+    label: "e-SAFE demo manager",
+    sublabel: "SYNTHETIC_DEMO · manager fixture only",
+    type: "person",
+    Icon: UserRound,
+  },
+  {
+    id: SYNTHETIC_WORKER_PERSON_ID,
+    label: "e-SAFE demo worker",
+    sublabel: "SYNTHETIC_DEMO · recipient fixture only",
+    type: "person",
+    Icon: UserRound,
+  },
+];
 
 export default function EsafeCoreWorkspace() {
   const [timeline, setTimeline] = useState<EsafeTimelineState>(() => buildEsafeTimelineState(0.72, "simulation"));
@@ -33,16 +44,15 @@ export default function EsafeCoreWorkspace() {
   }, []);
 
   const graph = useMemo(() => buildEsafeProjectGraph(timeline, null), [timeline]);
-  const nodes = useMemo(
-    () => graph.nodes.some((node) => node.id === SYNTHETIC_MANAGER_PERSON_ID)
-      ? graph.nodes
-      : [...graph.nodes, syntheticManagerNode],
-    [graph.nodes],
-  );
+  const nodes = useMemo(() => {
+    const existingIds = new Set(graph.nodes.map((node) => node.id));
+    return [...graph.nodes, ...syntheticPeople.filter((person) => !existingIds.has(person.id))];
+  }, [graph.nodes]);
   const adjacency = useMemo(
     () => ({
       ...graph.adjacency,
       [SYNTHETIC_MANAGER_PERSON_ID]: [graph.projectId],
+      [SYNTHETIC_WORKER_PERSON_ID]: [graph.projectId],
     }),
     [graph.adjacency, graph.projectId],
   );
@@ -88,6 +98,7 @@ export default function EsafeCoreWorkspace() {
         workflowEnabled={false}
       />
 
+      <NexusCoreSemanticDropAdapter />
       <NexusCoreSourcePalette
         nodes={nodes}
         projectId={CORE_PROJECT_ID}
