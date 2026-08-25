@@ -15,6 +15,7 @@ const session = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo
 const authCallback = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/MobileAuthResultActivity.java');
 const cloud = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/NexusCloudUploadClient.java');
 const cloudUi = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/CloudEvidenceActivity.java');
+const evidenceHome = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/EvidenceHomeActivity.java');
 const handoffCallback = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/HandoffResultActivity.java');
 const bindingStore = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/EvidenceBindingStore.java');
 const shortcutActivity = read('native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode/CloudEvidenceShortcutActivity.java');
@@ -40,6 +41,8 @@ requireText(openapi, '/mobile-auth/logout:', 'canonical OpenAPI must retain mobi
 
 requireText(manifest, 'android.permission.INTERNET', 'native Cloud upload requires explicit INTERNET permission');
 requireText(manifest, 'android:host="auth-result"', 'mobile auth callback activity is not registered');
+requireText(manifest, 'android:name=".EvidenceHomeActivity"', 'Nexus Evidence Home activity missing from manifest');
+requireText(manifest, 'android:name=".EvidenceHomeActivity"\n            android:exported="false"', 'Nexus Evidence Home must not be exported');
 requireText(manifest, 'android:name=".CloudEvidenceActivity"', 'Cloud evidence activity missing from manifest');
 requireText(manifest, 'android:name=".CloudEvidenceActivity"\n            android:exported="false"', 'Cloud evidence activity must not be exported');
 requireText(manifest, 'android:name=".CloudEvidenceShortcutActivity"', 'Cloud evidence shortcut trampoline missing');
@@ -132,8 +135,18 @@ requireText(cloudUi, 'If local state cannot be read, fail closed by leaving the 
 requireText(cloudUi, 'private boolean takePersistableReadPermission', 'grant acquisition must report whether durable access was retained');
 forbidText(cloudUi, 'EvidenceBindingStore.bindConfirmedMetadata(this, candidateId', 'reselection must not mint a new Project World binding');
 
-requireText(shortcutActivity, 'CloudEvidenceActivity.class', 'launcher shortcut trampoline must only route to local Cloud evidence UI');
+requireText(shortcutActivity, 'EvidenceHomeActivity.class', 'launcher shortcut trampoline must route only to the local Nexus Evidence Home');
 forbidText(shortcutActivity, 'getStringExtra', 'shortcut trampoline must not accept caller authority extras');
 forbidText(shortcutActivity, 'getData()', 'shortcut trampoline must not accept caller routing data');
+
+requireText(evidenceHome, 'CloudEvidenceActivity.class', 'Evidence Home must route into the existing canonical Cloud evidence UI');
+requireText(evidenceHome, 'NexusMobileSession.hasSession', 'Evidence Home may present only existing mobile-session state');
+requireText(evidenceHome, 'nexus_work_mode_v060', 'Evidence Home may read only the existing app-private Work Mode queue');
+requireText(evidenceHome, 'No new evidence store', 'Evidence Home source must state its no-second-store boundary');
+forbidText(evidenceHome, 'NexusCloudUploadClient', 'Evidence Home must not implement a second Cloud upload path');
+forbidText(evidenceHome, '/api/', 'Evidence Home must not call server APIs directly');
+forbidText(evidenceHome, 'getStringExtra', 'Evidence Home must not accept caller authority extras');
+forbidText(evidenceHome, 'getData()', 'Evidence Home must not accept caller routing data');
+forbidText(evidenceHome, 'EvidenceBindingStore.bindConfirmedMetadata', 'Evidence Home must not mint Project World evidence bindings');
 
 console.log('Android mobile auth + canonical Cloud evidence validator: PASS');
