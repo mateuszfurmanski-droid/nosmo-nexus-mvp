@@ -19,6 +19,10 @@
         </activity>
 
         <activity
+            android:name=".IdentityClaimActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".WorkInboxActivity"
             android:exported="false" />
 
