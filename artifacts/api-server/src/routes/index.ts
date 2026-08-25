@@ -11,6 +11,7 @@ import notesRouter from "./notes";
 import searchRouter from "./search";
 import conversationsRouter from "./conversations";
 import filesRouter from "./files";
+import nexusCoreE2eRouter from "./nexus-core-e2e";
 import { requireWorkspace } from "../middlewares/requireWorkspace";
 
 const router: IRouter = Router();
@@ -24,6 +25,7 @@ router.use(filesRouter);
 // Everything below requires an authenticated user with a resolved workspace.
 // `requireWorkspace` returns 401 when unauthenticated and sets `req.workspaceId`.
 router.use(requireWorkspace);
+router.use(nexusCoreE2eRouter);
 router.use(projectsRouter);
 router.use(tasksRouter);
 router.use(plansRouter);
