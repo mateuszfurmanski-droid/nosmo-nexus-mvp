@@ -21,8 +21,8 @@ import org.json.JSONObject;
  * Nexus-native Evidence landing surface.
  *
  * This activity only presents local status already owned by the existing Android Work Mode
- * and routes into the canonical #96 Cloud Evidence pipeline. It creates no new evidence store,
- * session authority, Project World binding or upload endpoint.
+ * and routes into the canonical #96 Cloud Evidence pipeline. No new evidence store, session
+ * authority, Project World binding or upload endpoint is created here.
  */
 public final class EvidenceHomeActivity extends Activity {
     private static final String PREFS = "nexus_work_mode_v060";
