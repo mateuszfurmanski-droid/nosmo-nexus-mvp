@@ -13,6 +13,7 @@ import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
 import FirstRun from "@/pages/first-run";
 import RelationshipTreeExport from "@/pages/relationship-tree-export";
+import EsafeCoreWorkspace from "@/pages/esafe-core-workspace";
 import PersonCardDemo from "@/pages/person-card-demo";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
+      <Route path="/project-worlds/esafe" component={EsafeCoreWorkspace} />
       <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />
