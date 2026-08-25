@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { UserRound } from "lucide-react";
+import { CheckSquare, UserRound } from "lucide-react";
 import PersistentWorkspace from "@/components/persistent-workspace";
+import { NexusCoreApprovalPanel } from "@/components/nexus-core-approval-panel";
 import { NexusCoreSemanticDropAdapter } from "@/components/nexus-core-semantic-drop-adapter";
 import { NexusCoreSourcePalette } from "@/components/nexus-core-source-palette";
 import type { WorkspaceNode } from "@/components/workspace-data";
@@ -12,6 +13,16 @@ const CORE_PROJECT_ID = "project-esafe-catania";
 const CORE_WORLD_ID = "world-esafe-catania";
 const SYNTHETIC_MANAGER_PERSON_ID = "person-esafe-demo-manager";
 const SYNTHETIC_WORKER_PERSON_ID = "person-esafe-demo-worker";
+
+type AuthoritativeProjection = {
+  version?: string;
+  snapshot?: {
+    tasks?: Record<string, unknown>[];
+    evidence?: Record<string, unknown>[];
+    approvals?: Record<string, unknown>[];
+    timeline?: Record<string, unknown>[];
+  };
+};
 
 const syntheticPeople: WorkspaceNode[] = [
   {
@@ -30,8 +41,20 @@ const syntheticPeople: WorkspaceNode[] = [
   },
 ];
 
+const stringValue = (record: Record<string, unknown>, key: string): string | undefined =>
+  typeof record[key] === "string" ? String(record[key]) : undefined;
+
+const stringArray = (record: Record<string, unknown>, key: string): string[] =>
+  Array.isArray(record[key]) ? (record[key] as unknown[]).filter((value): value is string => typeof value === "string") : [];
+
+const recordValue = (record: Record<string, unknown>, key: string): Record<string, unknown> | null => {
+  const value = record[key];
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+};
+
 export default function EsafeCoreWorkspace() {
   const [timeline, setTimeline] = useState<EsafeTimelineState>(() => buildEsafeTimelineState(0.72, "simulation"));
+  const [authoritativeProjection, setAuthoritativeProjection] = useState<AuthoritativeProjection | null>(null);
 
   useEffect(() => {
     const handleTimeline = (event: Event) => {
@@ -43,19 +66,80 @@ export default function EsafeCoreWorkspace() {
     return () => window.removeEventListener("nexus:project-world-time-change", handleTimeline as EventListener);
   }, []);
 
+  useEffect(() => {
+    const handleProjection = (event: Event) => {
+      const detail = (event as CustomEvent<AuthoritativeProjection>).detail;
+      if (!detail?.snapshot) return;
+      setAuthoritativeProjection(detail);
+    };
+    window.addEventListener("nexus:core-authoritative-projection", handleProjection as EventListener);
+    return () => window.removeEventListener("nexus:core-authoritative-projection", handleProjection as EventListener);
+  }, []);
+
   const graph = useMemo(() => buildEsafeProjectGraph(timeline, null), [timeline]);
+  const authoritativeTasks = authoritativeProjection?.snapshot?.tasks ?? [];
+
   const nodes = useMemo(() => {
-    const existingIds = new Set(graph.nodes.map((node) => node.id));
-    return [...graph.nodes, ...syntheticPeople.filter((person) => !existingIds.has(person.id))];
-  }, [graph.nodes]);
-  const adjacency = useMemo(
-    () => ({
-      ...graph.adjacency,
-      [SYNTHETIC_MANAGER_PERSON_ID]: [graph.projectId],
-      [SYNTHETIC_WORKER_PERSON_ID]: [graph.projectId],
-    }),
-    [graph.adjacency, graph.projectId],
-  );
+    const merged = [...graph.nodes];
+    const existingIds = new Set(merged.map((node) => node.id));
+    for (const person of syntheticPeople) {
+      if (!existingIds.has(person.id)) {
+        merged.push(person);
+        existingIds.add(person.id);
+      }
+    }
+    for (const task of authoritativeTasks) {
+      const taskId = stringValue(task, "id");
+      if (!taskId || existingIds.has(taskId)) continue;
+      merged.push({
+        id: taskId,
+        label: stringValue(task, "title") ?? taskId,
+        sublabel: `AUTHORITATIVE · ${stringValue(task, "taskStatus") ?? "unknown"}`,
+        type: "task",
+        Icon: CheckSquare,
+      });
+      existingIds.add(taskId);
+    }
+    return merged;
+  }, [authoritativeTasks, graph.nodes]);
+
+  const adjacency = useMemo(() => {
+    const relationSets = new Map<string, Set<string>>();
+    for (const [id, related] of Object.entries(graph.adjacency)) {
+      relationSets.set(id, new Set(related));
+    }
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    const connect = (left: string, right: string) => {
+      if (!left || !right || left === right || !nodeIds.has(left) || !nodeIds.has(right)) return;
+      if (!relationSets.has(left)) relationSets.set(left, new Set());
+      if (!relationSets.has(right)) relationSets.set(right, new Set());
+      relationSets.get(left)!.add(right);
+      relationSets.get(right)!.add(left);
+    };
+
+    connect(SYNTHETIC_MANAGER_PERSON_ID, graph.projectId);
+    connect(SYNTHETIC_WORKER_PERSON_ID, graph.projectId);
+
+    for (const task of authoritativeTasks) {
+      const taskId = stringValue(task, "id");
+      if (!taskId) continue;
+      connect(taskId, graph.projectId);
+      for (const personId of stringArray(task, "assignedPersonIds")) connect(taskId, personId);
+
+      const workPackage = recordValue(task, "workPackage");
+      const packageItems = workPackage?.packageItems;
+      if (Array.isArray(packageItems)) {
+        for (const item of packageItems) {
+          if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+          const itemRecord = item as Record<string, unknown>;
+          const itemId = stringValue(itemRecord, "id");
+          if (itemId) connect(taskId, itemId);
+        }
+      }
+    }
+
+    return Object.fromEntries([...relationSets].map(([id, related]) => [id, [...related]]));
+  }, [authoritativeTasks, graph.adjacency, graph.projectId, nodes]);
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[#eaf7fb]">
@@ -99,6 +183,7 @@ export default function EsafeCoreWorkspace() {
       />
 
       <NexusCoreSemanticDropAdapter />
+      <NexusCoreApprovalPanel />
       <NexusCoreSourcePalette
         nodes={nodes}
         projectId={CORE_PROJECT_ID}
