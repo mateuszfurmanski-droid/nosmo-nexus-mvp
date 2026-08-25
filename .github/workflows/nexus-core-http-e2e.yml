@@ -1,0 +1,105 @@
+name: NEXUS Core HTTP E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/nexus-core-http-e2e
+    paths:
+      - artifacts/api-server/src/routes/nexus-core-e2e.ts
+      - artifacts/api-server/src/routes/index.ts
+      - artifacts/api-server/src/middlewares/resolveNexusCoreWorkspace.ts
+      - artifacts/api-server/src/lib/nexus-person-binding.ts
+      - artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts
+      - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
+      - lib/db/src/nexusCoreWorkPersistence.ts
+      - lib/db/src/schema/**
+      - .github/workflows/nexus-core-http-e2e.yml
+  pull_request:
+    branches:
+      - codex/addon059-esafe-core-interaction-slice-a
+    paths:
+      - artifacts/api-server/src/routes/nexus-core-e2e.ts
+      - artifacts/api-server/src/routes/index.ts
+      - artifacts/api-server/src/middlewares/resolveNexusCoreWorkspace.ts
+      - artifacts/api-server/src/lib/nexus-person-binding.ts
+      - artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts
+      - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
+      - lib/db/src/nexusCoreWorkPersistence.ts
+      - lib/db/src/schema/**
+      - .github/workflows/nexus-core-http-e2e.yml
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-http-cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_core_http_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_core_http_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/nexus_core_http_e2e
+      NEXUS_IDENTITY_BINDING_MODE: postgres
+      ISSUER_URL: https://synthetic-e2e.invalid/oidc
+      REPL_ID: synthetic-core-http-e2e
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck canonical Core integration
+        run: pnpm run typecheck
+
+      - name: Create disposable canonical schema
+        run: pnpm --filter @workspace/db push-force
+
+      - name: Execute real HTTP manager to worker cycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          node artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs | tee /tmp/nexus-core-http-e2e.txt
+          grep -q 'NEXUS_CORE_HTTP_E2E_PASS' /tmp/nexus-core-http-e2e.txt
+          grep -q '"scope": "SYNTHETIC_E2E_ONLY"' /tmp/nexus-core-http-e2e.txt
+          grep -q '"finalTaskStatus": "done"' /tmp/nexus-core-http-e2e.txt
+          grep -q '"finalEvidenceStatus": "reviewed"' /tmp/nexus-core-http-e2e.txt
+          grep -q '"finalApprovalStatus": "approved"' /tmp/nexus-core-http-e2e.txt
+          grep -q '"explicitDenyHttpStatus": 403' /tmp/nexus-core-http-e2e.txt
+          grep -q '"clientActorSpoofIgnored": true' /tmp/nexus-core-http-e2e.txt
+
+      - name: Prove disposable database only
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -Atc "select count(*) from nexus_pm_timeline_events" | grep -qx '5'
+          psql "$DATABASE_URL" -Atc "select task_status from nexus_pm_tasks" | grep -qx 'done'
+          psql "$DATABASE_URL" -Atc "select evidence_status from nexus_pm_evidence" | grep -qx 'reviewed'
+          psql "$DATABASE_URL" -Atc "select approval_status from nexus_pm_approvals" | grep -qx 'approved'
