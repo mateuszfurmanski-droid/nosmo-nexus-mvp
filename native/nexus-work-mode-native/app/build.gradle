@@ -4,6 +4,10 @@ plugins {
 
 def nexusWebOrigin = (System.getenv('NEXUS_ANDROID_WEB_ORIGIN') ?: '').trim()
 def escapedNexusWebOrigin = nexusWebOrigin.replace('\\', '\\\\').replace('"', '\\"')
+def previewSha = (System.getenv('GITHUB_SHA') ?: 'localpreview').toLowerCase().replaceAll('[^a-z0-9]', '')
+if (previewSha.length() > 8) previewSha = previewSha.substring(0, 8)
+if (previewSha.isEmpty()) previewSha = 'local'
+def previewPackageSegment = "p${previewSha}"
 
 android {
     namespace 'tech.nosmo.nexus.workmode'
@@ -24,10 +28,11 @@ android {
 
     buildTypes {
         debug {
-            // Dedicated install-safe package for the Worker Home visual/device smoke.
-            // This avoids collisions with earlier ephemeral CI debug signatures.
-            applicationIdSuffix '.workerhome'
-            versionNameSuffix '-preview'
+            // CI debug keystores are ephemeral. Give every exact-head preview its own package
+            // so a new runner signature never collides with an already installed preview.
+            // Production/release applicationId is unchanged.
+            applicationIdSuffix ".preview.${previewPackageSegment}"
+            versionNameSuffix "-preview-${previewPackageSegment}"
         }
         release {
             minifyEnabled false
