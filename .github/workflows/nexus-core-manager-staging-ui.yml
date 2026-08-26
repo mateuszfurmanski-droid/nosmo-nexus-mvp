@@ -1,0 +1,92 @@
+name: NEXUS Core Manager Staging UI
+
+on:
+  push:
+    branches:
+      - codex/nexus-core-manager-staging-ui
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-manager-staging-ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck libraries, API and Nexus web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run typecheck:libs
+          pnpm --filter @workspace/api-server typecheck
+          pnpm --filter @workspace/nosmo-nexus typecheck
+
+      - name: Verify bounded manager authority UI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="artifacts/nosmo-nexus/src"
+          LOGIN="$ROOT/components/nexus-core-staging-manager-login.tsx"
+          SESSION="$ROOT/lib/nexus-core-staging-session.ts"
+          DROP="$ROOT/components/nexus-core-semantic-drop-adapter.tsx"
+          APPROVAL="$ROOT/components/nexus-core-approval-panel.tsx"
+          WORKSPACE="$ROOT/pages/esafe-core-workspace.tsx"
+          for f in "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"; do test -r "$f"; done
+
+          grep -Fq '/api/nexus/core/staging-device-login' "$LOGIN"
+          grep -Fq 'STAGING_DEVICE_CLAIM' "$LOGIN"
+          grep -Fq 'sessionStorage' "$SESSION"
+          grep -Fq 'authorization' "$SESSION"
+          grep -Fq 'nexusCoreStagingHeaders' "$DROP"
+          grep -Fq 'nexusCoreStagingHeaders' "$APPROVAL"
+          grep -Fq 'person-joanna-klosek' "$WORKSPACE"
+          grep -Fq 'person-mateusz-furmanski' "$WORKSPACE"
+          grep -Fq 'NexusCoreSourcePalette' "$WORKSPACE"
+          grep -Fq 'PersistentWorkspace' "$WORKSPACE"
+
+          ! grep -R -E 'claim(Code)?[[:space:]]*[:=][[:space:]]*["'"'][A-Za-z0-9_-]{32,}["'"']' "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"
+          ! grep -R -F 'localStorage' "$LOGIN" "$SESSION"
+          echo NEXUS_CORE_MANAGER_STAGING_AUTHORITY_UI_PASS
+
+      - name: Build existing Nexus Relationship Tree UI
+        run: |
+          pnpm --filter @workspace/nosmo-nexus build
+          test -s artifacts/nosmo-nexus/dist/public/index.html
+          grep -q '<div id="root"></div>' artifacts/nosmo-nexus/dist/public/index.html
+
+      - name: Build exact Core staging serverless bundle
+        run: |
+          node artifacts/api-server/build-vercel-core-staging.mjs
+          test -s artifacts/api-server/dist/vercel-core-staging.mjs
+
+      - name: Validate Vercel web plus API routing contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq '"outputDirectory": "artifacts/nosmo-nexus/dist/public"' vercel.json
+          grep -Fq '"source": "/api/(.*)"' vercel.json
+          grep -Fq '"source": "/project-worlds/esafe"' vercel.json
+          grep -Fq '"destination": "/index.html"' vercel.json
+          grep -Fq 'api/index.mjs' vercel.json
+          echo NEXUS_CORE_MANAGER_STAGING_VERCEL_CONTRACT_PASS
