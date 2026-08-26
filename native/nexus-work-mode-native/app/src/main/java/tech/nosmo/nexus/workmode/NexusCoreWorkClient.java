@@ -94,6 +94,7 @@ final class NexusCoreWorkClient {
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestProperty("Authorization", "Bearer " + token);
                 connection.setRequestProperty("Accept", "application/json");
+                NexusStagingVercelGate.apply(connection, origin);
                 if (body != null) {
                     byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
                     connection.setDoOutput(true);
