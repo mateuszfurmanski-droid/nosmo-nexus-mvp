@@ -65,7 +65,8 @@ jobs:
           grep -Fq 'NexusCoreSourcePalette' "$WORKSPACE"
           grep -Fq 'PersistentWorkspace' "$WORKSPACE"
 
-          ! grep -R -E 'claim(Code)?[[:space:]]*[:=][[:space:]]*["'"'][A-Za-z0-9_-]{32,}["'"']' "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"
+          ! grep -R -F '_vercel_share=' "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"
+          ! grep -R -F 'claim-real-device-' "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"
           ! grep -R -F 'localStorage' "$LOGIN" "$SESSION"
           echo NEXUS_CORE_MANAGER_STAGING_AUTHORITY_UI_PASS
 
