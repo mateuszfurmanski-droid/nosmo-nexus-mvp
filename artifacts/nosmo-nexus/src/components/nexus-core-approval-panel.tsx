@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { nexusCoreStagingHeaders } from "@/lib/nexus-core-staging-session";
 
 const PROJECT_ID = "project-esafe-catania";
 const WORLD_ID = "world-esafe-catania";
@@ -40,7 +41,7 @@ export function NexusCoreApprovalPanel() {
       const params = new URLSearchParams({ projectId: PROJECT_ID, worldId: WORLD_ID });
       const response = await fetch(`/api/nexus/core/projection?${params.toString()}`, {
         credentials: "include",
-        headers: { accept: "application/json" },
+        headers: nexusCoreStagingHeaders({ accept: "application/json" }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
@@ -69,8 +70,13 @@ export function NexusCoreApprovalPanel() {
         void refresh();
       }
     };
+    const onSession = () => void refresh();
     window.addEventListener("nexus:semantic-drop-authoritative-result", onMutation as EventListener);
-    return () => window.removeEventListener("nexus:semantic-drop-authoritative-result", onMutation as EventListener);
+    window.addEventListener("nexus:core-staging-session-change", onSession as EventListener);
+    return () => {
+      window.removeEventListener("nexus:semantic-drop-authoritative-result", onMutation as EventListener);
+      window.removeEventListener("nexus:core-staging-session-change", onSession as EventListener);
+    };
   }, [refresh]);
 
   const requestedApprovals = useMemo(() => {
@@ -90,7 +96,7 @@ export function NexusCoreApprovalPanel() {
       const response = await fetch(`/api/nexus/core/approvals/${encodeURIComponent(approvalId)}/decision`, {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json", accept: "application/json" },
+        headers: nexusCoreStagingHeaders({ "content-type": "application/json", accept: "application/json" }),
         body: JSON.stringify({
           requestId: crypto.randomUUID(),
           requestedAt: new Date().toISOString(),
