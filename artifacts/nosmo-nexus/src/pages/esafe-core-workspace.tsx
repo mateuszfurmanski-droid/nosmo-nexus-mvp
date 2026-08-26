@@ -4,6 +4,7 @@ import PersistentWorkspace from "@/components/persistent-workspace";
 import { NexusCoreApprovalPanel } from "@/components/nexus-core-approval-panel";
 import { NexusCoreSemanticDropAdapter } from "@/components/nexus-core-semantic-drop-adapter";
 import { NexusCoreSourcePalette } from "@/components/nexus-core-source-palette";
+import { NexusCoreStagingManagerLogin } from "@/components/nexus-core-staging-manager-login";
 import type { WorkspaceNode } from "@/components/workspace-data";
 import { buildEsafeProjectGraph } from "@/project-worlds/esafe/graph";
 import { buildEsafeTimelineState, type EsafeTimelineState } from "@/project-worlds/esafe/model";
@@ -11,8 +12,8 @@ import "@/project-worlds/esafe/invariants";
 
 const CORE_PROJECT_ID = "project-esafe-catania";
 const CORE_WORLD_ID = "world-esafe-catania";
-const SYNTHETIC_MANAGER_PERSON_ID = "person-esafe-demo-manager";
-const SYNTHETIC_WORKER_PERSON_ID = "person-esafe-demo-worker";
+const MANAGER_PERSON_ID = "person-joanna-klosek";
+const WORKER_PERSON_ID = "person-mateusz-furmanski";
 
 type AuthoritativeProjection = {
   version?: string;
@@ -24,18 +25,18 @@ type AuthoritativeProjection = {
   };
 };
 
-const syntheticPeople: WorkspaceNode[] = [
+const stagingPeople: WorkspaceNode[] = [
   {
-    id: SYNTHETIC_MANAGER_PERSON_ID,
-    label: "e-SAFE demo manager",
-    sublabel: "SYNTHETIC_DEMO · manager fixture only",
+    id: MANAGER_PERSON_ID,
+    label: "Joanna Klosek",
+    sublabel: "CANONICAL STAGING PERSON · manager",
     type: "person",
     Icon: UserRound,
   },
   {
-    id: SYNTHETIC_WORKER_PERSON_ID,
-    label: "e-SAFE demo worker",
-    sublabel: "SYNTHETIC_DEMO · recipient fixture only",
+    id: WORKER_PERSON_ID,
+    label: "Mateusz Furmanski",
+    sublabel: "CANONICAL STAGING PERSON · Android recipient",
     type: "person",
     Icon: UserRound,
   },
@@ -82,7 +83,7 @@ export default function EsafeCoreWorkspace() {
   const nodes = useMemo(() => {
     const merged = [...graph.nodes];
     const existingIds = new Set(merged.map((node) => node.id));
-    for (const person of syntheticPeople) {
+    for (const person of stagingPeople) {
       if (!existingIds.has(person.id)) {
         merged.push(person);
         existingIds.add(person.id);
@@ -117,8 +118,8 @@ export default function EsafeCoreWorkspace() {
       relationSets.get(right)!.add(left);
     };
 
-    connect(SYNTHETIC_MANAGER_PERSON_ID, graph.projectId);
-    connect(SYNTHETIC_WORKER_PERSON_ID, graph.projectId);
+    connect(MANAGER_PERSON_ID, graph.projectId);
+    connect(WORKER_PERSON_ID, graph.projectId);
 
     for (const task of authoritativeTasks) {
       const taskId = stringValue(task, "id");
@@ -182,6 +183,7 @@ export default function EsafeCoreWorkspace() {
         workflowEnabled={false}
       />
 
+      <NexusCoreStagingManagerLogin />
       <NexusCoreSemanticDropAdapter />
       <NexusCoreApprovalPanel />
       <NexusCoreSourcePalette
