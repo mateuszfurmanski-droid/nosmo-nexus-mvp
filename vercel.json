@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server typecheck && node artifacts/api-server/build-vercel-core-staging.mjs",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server typecheck && pnpm --filter @workspace/nosmo-nexus typecheck && pnpm --filter @workspace/nosmo-nexus build && node artifacts/api-server/build-vercel-core-staging.mjs",
+  "outputDirectory": "artifacts/nosmo-nexus/dist/public",
   "env": {
     "NEXUS_IDENTITY_BINDING_MODE": "postgres"
   },
@@ -10,8 +11,20 @@
       "destination": "/api"
     },
     {
+      "source": "/project-worlds/esafe",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/relationship-tree",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/workspace",
+      "destination": "/index.html"
+    },
+    {
       "source": "/",
-      "destination": "/api"
+      "destination": "/index.html"
     }
   ],
   "functions": {

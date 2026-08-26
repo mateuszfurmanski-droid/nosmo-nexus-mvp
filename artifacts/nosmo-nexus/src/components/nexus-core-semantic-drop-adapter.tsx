@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { nexusCoreStagingHeaders } from "@/lib/nexus-core-staging-session";
 
 type SemanticDropDetail = {
   schema?: string;
@@ -36,7 +37,7 @@ export function NexusCoreSemanticDropAdapter() {
         const response = await fetch("/api/nexus/core/semantic-drop", {
           method: "POST",
           credentials: "include",
-          headers: { "content-type": "application/json" },
+          headers: nexusCoreStagingHeaders({ "content-type": "application/json" }),
           body: JSON.stringify({
             ...detail,
             requestId,
