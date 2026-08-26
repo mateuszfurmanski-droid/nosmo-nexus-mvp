@@ -1,0 +1,80 @@
+name: NEXUS Core Real Device Staging
+
+on:
+  push:
+    branches:
+      - codex/nexus-core-real-device-staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-core-staging:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_core_real_device_staging
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_core_real_device_staging"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_core_real_device_staging
+      NEXUS_IDENTITY_BINDING_MODE: postgres
+      ISSUER_URL: https://synthetic-e2e.invalid/oidc
+      REPL_ID: synthetic-core-real-device-staging
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Core staging
+        run: pnpm run typecheck
+
+      - name: Create disposable canonical schema
+        run: pnpm --filter @workspace/db push-force
+
+      - name: Execute one-time identity claim over real HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          node artifacts/api-server/scripts/run-nexus-core-identity-claim.mjs | tee /tmp/nexus-core-identity-claim.txt
+          grep -q 'NEXUS_CORE_IDENTITY_CLAIM_PASS' /tmp/nexus-core-identity-claim.txt
+          grep -q '"claimConsumed": true' /tmp/nexus-core-identity-claim.txt
+          grep -q '"replayHttpStatus": 403' /tmp/nexus-core-identity-claim.txt
+          grep -q '"rawProviderSubjectPersisted": false' /tmp/nexus-core-identity-claim.txt
+
+      - name: Build Vercel Core staging bundle
+        run: |
+          node artifacts/api-server/build-vercel-core-staging.mjs
+          test -s artifacts/api-server/dist/vercel-core-staging.mjs
+
+      - name: Verify disposable claim persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -Atc "select status from nexus_identity_claims" | grep -qx 'CONSUMED'
+          psql "$DATABASE_URL" -Atc "select count(*) from nexus_identity_bindings where status='ACTIVE'" | grep -qx '1'
