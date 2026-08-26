@@ -7,6 +7,9 @@ import {
 } from "@workspace/db";
 import { ISSUER_URL } from "./auth";
 
+export const STAGING_DEVICE_IDENTITY_PROVIDER = "staging-device-claim/v1";
+export const STAGING_DEVICE_SUBJECT_PREFIX = "staging-device:";
+
 export type NexusPersonBindingResolution = {
   personId: string;
   displayName: string;
@@ -38,6 +41,12 @@ export function getCurrentIdentityProviderKey(): string {
   }
 }
 
+export function getIdentityProviderKeyForSubject(providerSubject: string): string {
+  return providerSubject.startsWith(STAGING_DEVICE_SUBJECT_PREFIX)
+    ? STAGING_DEVICE_IDENTITY_PROVIDER
+    : getCurrentIdentityProviderKey();
+}
+
 export function digestProviderSubject(providerSubject: string): string {
   return crypto
     .createHash("sha256")
@@ -49,6 +58,10 @@ export function digestProviderSubject(providerSubject: string): string {
  * Resolve the authenticated provider subject to one canonical Nexus Person.
  * Provider identity is server-side lookup input only and never becomes personId.
  * Email/name fuzzy matching and login-time Person creation are forbidden.
+ *
+ * The staging-device provider is released only for opaque subjects minted by the
+ * isolated non-production Core staging runtime. Production/browser/mobile OIDC
+ * subjects continue to resolve against the configured issuer provider key.
  */
 export async function resolveNexusPersonBinding(
   providerSubject: string,
@@ -58,7 +71,7 @@ export async function resolveNexusPersonBinding(
   const subject = providerSubject.trim();
   if (!subject) return null;
 
-  const provider = getCurrentIdentityProviderKey();
+  const provider = getIdentityProviderKeyForSubject(subject);
   const providerSubjectDigest = digestProviderSubject(subject);
 
   try {

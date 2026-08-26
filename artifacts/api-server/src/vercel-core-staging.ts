@@ -7,6 +7,7 @@ import healthRouter from "./routes/health";
 import mobileAuthBootstrapRouter from "./routes/mobile-auth-bootstrap";
 import authRouter from "./routes/auth";
 import nexusCoreIdentityClaimRouter from "./routes/nexus-core-identity-claim";
+import nexusCoreStagingDeviceLoginRouter from "./routes/nexus-core-staging-device-login";
 import nexusCoreE2eRouter from "./routes/nexus-core-e2e";
 import { logger } from "./lib/logger";
 
@@ -41,6 +42,9 @@ app.use("/api", healthRouter);
 app.use("/api", mobileAuthBootstrapRouter);
 app.use("/api", authRouter);
 app.use("/api", nexusCoreIdentityClaimRouter);
+// NON_PRODUCTION only: one-time physical-device session bootstrap. This route is
+// intentionally absent from the normal application route index.
+app.use("/api", nexusCoreStagingDeviceLoginRouter);
 app.use("/api", resolveNexusCoreWorkspace);
 app.use("/api", nexusCoreE2eRouter);
 

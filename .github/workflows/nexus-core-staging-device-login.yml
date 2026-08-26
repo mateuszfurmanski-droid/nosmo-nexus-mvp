@@ -1,0 +1,83 @@
+name: NEXUS Core Staging Device Login
+
+on:
+  push:
+    branches:
+      - codex/nexus-core-staging-device-login
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-staging-device-login:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_core_staging_device_login
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d nexus_core_staging_device_login"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_core_staging_device_login
+      NEXUS_IDENTITY_BINDING_MODE: postgres
+      ISSUER_URL: https://synthetic-e2e.invalid/oidc
+      REPL_ID: synthetic-staging-device-login
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck exact head
+        run: pnpm run typecheck
+
+      - name: Create disposable canonical schema
+        run: pnpm --filter @workspace/db push-force
+
+      - name: Execute staging device login through real HTTP boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node artifacts/api-server/scripts/run-nexus-core-staging-device-login.mjs | tee /tmp/nexus-core-staging-device-login.txt
+          grep -q 'NEXUS_CORE_STAGING_DEVICE_LOGIN_PASS' /tmp/nexus-core-staging-device-login.txt
+          grep -q '"authentication": "STAGING_DEVICE_CLAIM"' /tmp/nexus-core-staging-device-login.txt
+          grep -q '"claimConsumed": true' /tmp/nexus-core-staging-device-login.txt
+          grep -q '"replayHttpStatus": 403' /tmp/nexus-core-staging-device-login.txt
+          grep -q '"canonicalInboxHttpStatus": 200' /tmp/nexus-core-staging-device-login.txt
+          grep -q '"rawStagingSubjectPersistedInBinding": false' /tmp/nexus-core-staging-device-login.txt
+
+      - name: Build Vercel Core staging bundle
+        run: |
+          node artifacts/api-server/build-vercel-core-staging.mjs
+          test -s artifacts/api-server/dist/vercel-core-staging.mjs
+
+      - name: Verify provider and session persistence boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -Atc "select provider from nexus_identity_bindings where status='ACTIVE'" | grep -qx 'staging-device-claim/v1'
+          psql "$DATABASE_URL" -Atc "select status from nexus_identity_claims" | grep -qx 'CONSUMED'
+          psql "$DATABASE_URL" -Atc "select count(*) from sessions" | grep -qx '1'
