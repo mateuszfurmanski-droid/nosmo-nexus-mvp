@@ -43,7 +43,7 @@ jobs:
           grep -Fq 'NexusStagingVercelGate.getOrigin()' "$CORE"
           grep -Fq 'CookieManager.getInstance().getCookie' "$SCREEN"
           grep -Fq 'CookieManager.getInstance().removeAllCookies' "$SCREEN"
-          grep -Fq 'staging-device-claim' "$SCREEN"
+          grep -Fq 'STAGING_DEVICE_CLAIM' "$LOGIN"
 
           ! grep -R -E '_vercel_share=[A-Za-z0-9_-]{16,}' "$BASE" native/nexus-work-mode-native/app/build.gradle
           ! grep -R -E 'claim(Code)?[[:space:]]*=[[:space:]]*"[^" ]{32,}"' "$BASE" native/nexus-work-mode-native/app/build.gradle
