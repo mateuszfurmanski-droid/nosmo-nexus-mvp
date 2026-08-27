@@ -169,6 +169,7 @@ export function mountWorkModeScreen(root = document) {
 
   function openPrivacy({ forScan = false } = {}) {
     pendingScanAfterPrivacy = forScan;
+    if (acceptAndScan) acceptAndScan.textContent = forScan ? "I understand — Scan" : "I understand";
     updatePrivacySnapshot();
     privacyBackdrop.classList.add("open");
     privacyBackdrop.setAttribute("aria-hidden", "false");
