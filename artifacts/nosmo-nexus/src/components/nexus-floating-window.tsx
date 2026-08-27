@@ -38,6 +38,7 @@ export function NexusFloatingWindow({
   widthClass = "w-[min(420px,calc(100vw-16px))]",
   heightClass = "max-h-[72dvh]",
   onClose,
+  defaultMinimized = false,
 }: {
   id: string;
   title: string;
@@ -46,6 +47,7 @@ export function NexusFloatingWindow({
   widthClass?: string;
   heightClass?: string;
   onClose?: () => void;
+  defaultMinimized?: boolean;
 }) {
   const storageKey = `nosmo:nexus-window:${id}:position`;
   const [position, setPosition] = useState<Point>(() => {
@@ -57,7 +59,7 @@ export function NexusFloatingWindow({
       return defaultPosition;
     }
   });
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(defaultMinimized);
   const [zIndex, setZIndex] = useState(() => ++topWindowZ);
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
