@@ -33,7 +33,7 @@ Superseded UI: nosmo-nexus-mvp PR #180. Do not restore.
 
 - `index.html` — canonical Person Card Freeware;
 - `screen.html?screen=documents` — worker-owned Documents window;
-- `screen.html?screen=work` — worker-owned Work Card for current / previous work records, local-first and separate from recruitment;
+- `screen.html?screen=work` — worker-owned professional Work Card with role, availability, preferred location, employment type, recent projects, work history, references, skills, licences/tickets, employer/agency notes and optional explicit Share Work Card action; local-first and separate from recruitment;
 - `onboarding.html` — worker onboarding;
 - `agency-invite.html` — agency invite desk;
 - `section.html` — CV/certs/refs/availability/vault sections;
