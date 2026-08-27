@@ -1,0 +1,40 @@
+name: Validate ADDON_060 Job Gateway
+
+on:
+  push:
+    branches:
+      - codex/addon060-job-gateway-adzuna
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck libraries
+        run: pnpm run typecheck:libs
+      - name: Typecheck API server
+        run: pnpm --filter @workspace/api-server typecheck
+      - name: Audit read-only boundaries
+        shell: bash
+        run: |
+          grep -F 'schema: "nexus-job-object/v1"' artifacts/api-server/src/lib/nexus-job-object.ts
+          grep -F 'ADZUNA_APP_ID' artifacts/api-server/src/lib/nexus-job-adzuna.ts
+          grep -F 'ADZUNA_APP_KEY' artifacts/api-server/src/lib/nexus-job-adzuna.ts
+          grep -F 'providerWritePerformed: false' artifacts/api-server/src/routes/nexus-job-search.ts
+          grep -F 'applicationPerformed: false' artifacts/api-server/src/routes/nexus-job-search.ts
+          grep -F 'app.use("/api", nexusJobSearchRouter);' artifacts/api-server/src/vercel-cloud-staging.ts
+          ! grep -R 'app_key.*req\.' artifacts/api-server/src/lib/nexus-job-adzuna.ts artifacts/api-server/src/routes/nexus-job-search.ts
+          echo "JOB_GATEWAY_BOUNDARY_PASS"
