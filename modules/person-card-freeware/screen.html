@@ -216,6 +216,62 @@ const labels={
   other:"OTHER PROFESSIONAL DOCUMENTS"
 };
 
+function loadLocal(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(LOCAL_KEY)||"[]");
+    return Array.isArray(parsed)?parsed:[];
+  }catch(_){return []}
+}
+function statusFor(doc){
+  if(!doc.expiry)return {key:"no-expiry",label:"NO EXPIRY"};
+  const expiry=new Date(doc.expiry+"T23:59:59Z");
+  const days=Math.ceil((expiry-now)/86400000);
+  if(days<0)return {key:"expired",label:"EXPIRED"};
+  if(days<=60)return {key:"expiring",label:"EXPIRING"};
+  return {key:"valid",label:"VALID"};
+}
+function allDocuments(){return [...demoDocuments,...loadLocal()]}
+function formatExpiry(expiry){
+  if(!expiry)return "No expiry date";
+  return new Date(expiry+"T00:00:00Z").toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+}
+function render(){
+  const docs=allDocuments();
+  const counts={valid:0,expiring:0,expired:0,"no-expiry":0};
+  docs.forEach(d=>counts[statusFor(d).key]++);
+  document.getElementById("countValid").textContent=counts.valid;
+  document.getElementById("countExpiring").textContent=counts.expiring;
+  document.getElementById("countExpired").textContent=counts.expired;
+  document.getElementById("countNoExpiry").textContent=counts["no-expiry"];
+  const host=document.getElementById("documentGroups");
+  host.innerHTML=Object.entries(labels).map(([type,label])=>{
+    const group=docs.filter(d=>d.type===type);
+    return '<section class="group"><div class="groupTitle">'+label+'</div><div class="docList">'+
+      (group.length?group.map(doc=>{
+        const st=statusFor(doc);
+        return '<article class="doc"><div class="docTop"><div><div class="docName">'+esc(doc.name)+'</div><div class="docType">'+esc(label)+'</div>'+
+          (doc.placeholder?'<span class="placeholderTag">PLACEHOLDER · NO FILE ATTACHED</span>':'')+
+          '</div><button class="viewBtn" type="button" data-view="'+esc(doc.id)+'">View</button></div>'+
+          '<div class="docMeta"><span class="expiry">'+esc(formatExpiry(doc.expiry))+'</span><span class="status '+st.key+'">'+st.label+'</span></div></article>';
+      }).join(""):'<div class="empty">No documents in this section.</div>')+
+      '</div></section>';
+  }).join("");
+  host.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>openView(btn.dataset.view)));
+}
+function openView(id){
+  const doc=allDocuments().find(d=>d.id===id); if(!doc)return;
+  const st=statusFor(doc);
+  document.getElementById("viewTitle").textContent=doc.name;
+  document.getElementById("viewDetails").innerHTML=
+    '<div class="detailRow"><span>Type</span><strong>'+esc(labels[doc.type])+'</strong></div>'+
+    '<div class="detailRow"><span>Expiry</span><strong>'+esc(formatExpiry(doc.expiry))+'</strong></div>'+
+    '<div class="detailRow"><span>Status</span><strong>'+st.label+'</strong></div>'+
+    '<div class="detailRow"><span>Storage</span><strong>'+(doc.source==="local"?"Local metadata on this device":"Demo / placeholder data")+'</strong></div>'+
+    (doc.note?'<div class="detailRow"><span>Note</span><strong>'+esc(doc.note)+'</strong></div>':'')+
+    (doc.placeholder?'<div class="detailRow"><span>Attachment</span><strong>No file attached</strong></div>':'');
+  toggle("viewBackdrop",true);
+}
+
 const demoWorkCard={
   profile:{
     currentRole:"Trade role placeholder",
