@@ -22,6 +22,10 @@ import {
   NexusCloudDurableProviderWriteError,
 } from "../lib/nexus-cloud-durable-provider-write";
 import { createNexusCloudOperationIdentity } from "../lib/nexus-cloud-operation-identity";
+import {
+  resolveNexusCloudProjectWorkspace,
+  NexusCloudWorkspaceResolutionError,
+} from "../lib/nexus-cloud-project-workspace";
 
 const router: IRouter = Router();
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -151,11 +155,6 @@ const bestEffortMarkPersistenceFailed = async (
 };
 
 router.post("/files", parseSingleFile, async (req, res) => {
-  if (!req.workspaceId) {
-    res.status(500).json({ error: "NEXUS_CLOUD_WORKSPACE_CONTEXT_MISSING" });
-    return;
-  }
-
   let projectId: string;
   let worldId: string;
   let idempotencyKey: string;
@@ -179,8 +178,22 @@ router.post("/files", parseSingleFile, async (req, res) => {
     return;
   }
 
+  let workspaceId: number;
+  try {
+    workspaceId = await resolveNexusCloudProjectWorkspace({ req, projectId, worldId });
+  } catch (error) {
+    if (error instanceof NexusCloudWorkspaceResolutionError) {
+      res.status(error.status).json({ error: error.code });
+      return;
+    }
+    req.log?.error?.({ err: error, projectId, worldId }, "Nexus Cloud Project World workspace resolution failed");
+    res.status(503).json({ error: "NEXUS_CLOUD_WORKSPACE_RESOLUTION_UNAVAILABLE" });
+    return;
+  }
+
+  req.workspaceId = workspaceId;
   const operation = createNexusCloudOperationIdentity({
-    workspaceId: req.workspaceId,
+    workspaceId,
     projectId,
     worldId,
     idempotencyKey,
@@ -191,7 +204,7 @@ router.post("/files", parseSingleFile, async (req, res) => {
   try {
     accessDecision = await resolveNexusCloudRuntimeWriteAccess({
       req,
-      workspaceId: req.workspaceId,
+      workspaceId,
       decisionId: operation.accessDecisionId,
       projectId,
       worldId,
@@ -281,7 +294,7 @@ router.post("/files", parseSingleFile, async (req, res) => {
   let durableProvider;
   try {
     durableProvider = await executeNexusCloudDurableProviderWrite({
-      workspaceId: req.workspaceId,
+      workspaceId,
       operation,
       pendingAsset,
       plan: writePlan,
@@ -394,7 +407,7 @@ router.post("/files", parseSingleFile, async (req, res) => {
 
   let commit;
   try {
-    const dbInput = createNexusCloudDbCommitInput(req.workspaceId, persistenceProposal);
+    const dbInput = createNexusCloudDbCommitInput(workspaceId, persistenceProposal);
     commit = await persistNexusCloudCommit(dbInput);
   } catch (error) {
     await bestEffortMarkPersistenceFailed(
