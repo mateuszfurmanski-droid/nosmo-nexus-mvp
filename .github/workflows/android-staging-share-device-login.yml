@@ -1,0 +1,109 @@
+name: NEXUS Worker Home Protected Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/android-worker-home-protected-staging
+    paths:
+      - native/nexus-work-mode-native/**
+      - .github/workflows/android-staging-share-device-login.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-staging-share-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Verify staging transport and identity boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="native/nexus-work-mode-native/app/src/main/java/tech/nosmo/nexus/workmode"
+          SCREEN="$BASE/IdentityClaimActivity.java"
+          GATE="$BASE/NexusStagingVercelGate.java"
+          LOGIN="$BASE/NexusStagingDeviceLoginClient.java"
+          STORE="$BASE/NexusStagingSessionStore.java"
+          CORE="$BASE/NexusCoreWorkClient.java"
+          for f in "$SCREEN" "$GATE" "$LOGIN" "$STORE" "$CORE"; do test -r "$f"; done
+
+          grep -Fq '/api/nexus/core/staging-device-login' "$LOGIN"
+          grep -Fq 'STAGING_DEVICE_CLAIM' "$LOGIN"
+          grep -Fq 'NexusStagingSessionStore.save' "$LOGIN"
+          grep -Fq 'NexusStagingVercelGate.apply' "$LOGIN"
+          grep -Fq 'NexusStagingVercelGate.apply' "$CORE"
+          grep -Fq 'NexusStagingVercelGate.getOrigin()' "$CORE"
+          grep -Fq 'CookieManager.getInstance().getCookie' "$SCREEN"
+          grep -Fq 'CookieManager.getInstance().removeAllCookies' "$SCREEN"
+          grep -Fq 'WorkModeHomeActivity.class' "$SCREEN"
+          grep -Fq 'WorkerBootstrapActivity' native/nexus-work-mode-native/app/src/main/AndroidManifest.xml
+          grep -Fq 'STAGING_DEVICE_CLAIM' "$LOGIN"
+
+          ! grep -R -E '_vercel_share=[A-Za-z0-9_-]{16,}' "$BASE" native/nexus-work-mode-native/app/build.gradle
+          ! grep -R -E 'claim(Code)?[[:space:]]*=[[:space:]]*"[^" ]{32,}"' "$BASE" native/nexus-work-mode-native/app/build.gradle
+          ! grep -Fq 'import android.content.SharedPreferences' "$SCREEN"
+          ! grep -Fq 'import android.content.SharedPreferences' "$GATE"
+          ! grep -Fq 'import android.content.SharedPreferences' "$LOGIN"
+          ! grep -Fq 'getSharedPreferences(' "$SCREEN"
+          ! grep -Fq 'getSharedPreferences(' "$GATE"
+          ! grep -Fq 'getSharedPreferences(' "$LOGIN"
+          ! grep -Eqi 'person-mateusz|person-joanna|person-esafe-mateusz|person-esafe-joanna' "$SCREEN" "$GATE" "$LOGIN" "$CORE"
+          echo ANDROID_STAGING_SHARE_DEVICE_BOUNDARY_PASS
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build exact-head debug APK and release AAB
+        working-directory: native/nexus-work-mode-native
+        run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify APK security surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
+          "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
+          grep -q "package: name='tech.nosmo.nexus.workmode.foldtest'" /tmp/badging.txt
+          grep -q android.permission.INTERNET /tmp/permissions.txt
+          ! grep -q android.permission.MANAGE_EXTERNAL_STORAGE /tmp/permissions.txt
+          ! grep -q android.permission.SYSTEM_ALERT_WINDOW /tmp/permissions.txt
+          ! grep -q android.permission.BIND_ACCESSIBILITY_SERVICE /tmp/permissions.txt
+
+      - name: Prepare installable device artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android-staging-share-device
+          cp native/nexus-work-mode-native/app/build/outputs/apk/debug/app-debug.apk android-staging-share-device/NEXUS-Work-Mode-Staging-Share-Device.apk
+          cp native/nexus-work-mode-native/app/build/outputs/bundle/release/app-release.aab android-staging-share-device/NEXUS-Work-Mode-Staging-Share-Device.aab
+          sha256sum android-staging-share-device/* > android-staging-share-device/SHA256SUMS.txt
+          cp /tmp/badging.txt android-staging-share-device/APK_BADGING.txt
+          cp /tmp/permissions.txt android-staging-share-device/APK_PERMISSIONS.txt
+
+      - name: Upload exact-head Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Worker-Home-Protected-Staging
+          path: android-staging-share-device/*
+          if-no-files-found: error
+          retention-days: 2
