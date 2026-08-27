@@ -23,7 +23,12 @@
       "supportedConnectionLevels": [
         "OPEN"
       ],
-      "defaultConnectionLevel": "OPEN"
+      "defaultConnectionLevel": "OPEN",
+      "identifierVerification": {
+        "verifiedAt": "2026-08-27",
+        "sourceType": "google-play-listing",
+        "sourceUrl": "https://play.google.com/store/apps/details?id=com.whatsapp"
+      }
     },
     {
       "appDefinitionId": "microsoft-teams",
@@ -41,7 +46,12 @@
       "supportedConnectionLevels": [
         "OPEN"
       ],
-      "defaultConnectionLevel": "OPEN"
+      "defaultConnectionLevel": "OPEN",
+      "identifierVerification": {
+        "verifiedAt": "2026-08-27",
+        "sourceType": "google-play-listing",
+        "sourceUrl": "https://play.google.com/store/apps/details?id=com.microsoft.teams"
+      }
     },
     {
       "appDefinitionId": "google-drive",
@@ -59,7 +69,12 @@
       "supportedConnectionLevels": [
         "OPEN"
       ],
-      "defaultConnectionLevel": "OPEN"
+      "defaultConnectionLevel": "OPEN",
+      "identifierVerification": {
+        "verifiedAt": "2026-08-27",
+        "sourceType": "google-play-listing",
+        "sourceUrl": "https://play.google.com/store/apps/details?id=com.google.android.apps.docs"
+      }
     },
     {
       "appDefinitionId": "microsoft-onedrive",
@@ -77,7 +92,12 @@
       "supportedConnectionLevels": [
         "OPEN"
       ],
-      "defaultConnectionLevel": "OPEN"
+      "defaultConnectionLevel": "OPEN",
+      "identifierVerification": {
+        "verifiedAt": "2026-08-27",
+        "sourceType": "google-play-listing",
+        "sourceUrl": "https://play.google.com/store/apps/details?id=com.microsoft.skydrive"
+      }
     },
     {
       "appDefinitionId": "dropbox",
@@ -95,7 +115,12 @@
       "supportedConnectionLevels": [
         "OPEN"
       ],
-      "defaultConnectionLevel": "OPEN"
+      "defaultConnectionLevel": "OPEN",
+      "identifierVerification": {
+        "verifiedAt": "2026-08-27",
+        "sourceType": "google-play-listing",
+        "sourceUrl": "https://play.google.com/store/apps/details?id=com.dropbox.android"
+      }
     },
     {
       "appDefinitionId": "procore",
