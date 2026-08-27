@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           TEST="artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts"
           grep -Fq '"/api/nexus/core/semantic-drop"' "$TEST"
-          grep -Fq '"/api/nexus/core/work-inbox?projectId=' "$TEST"
+          grep -Fq '/api/nexus/core/work-inbox?projectId=' "$TEST"
           grep -Fq 'assigned task not projected to worker inbox' "$TEST"
           echo NEXUS_DROP_TO_RECIPIENT_INBOX_CONTRACT_PASS
 
