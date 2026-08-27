@@ -53,6 +53,10 @@ jobs:
           grep -F '/nexus/person/onboarding/drafts/load' artifacts/api-server/src/routes/nexus-person-onboarding.ts
           grep -F '/nexus/person/onboarding/drafts/save' artifacts/api-server/src/routes/nexus-person-onboarding.ts
           grep -F 'CREATE TABLE IF NOT EXISTS nexus_person_work_profiles' lib/db/migrations/0004_person_work_profile.sql
+          grep -F 'nexus_person_work_events' lib/db/src/schema/nexusPersonWorkProfile.ts
+          grep -F 'PERSON_ONBOARDING_CLAIMED' artifacts/api-server/src/lib/nexus-person-work-profile-persistence.ts
+          grep -F 'PERSON_WORK_PROFILE_FINALIZED' artifacts/api-server/src/lib/nexus-person-work-profile-persistence.ts
+          grep -F 'CREATE TABLE IF NOT EXISTS nexus_person_work_events' lib/db/migrations/0005_person_work_events.sql
           grep -F 'app.use("/api", nexusJobSearchRouter);' artifacts/api-server/src/vercel-cloud-staging.ts
           ! grep -R 'app_key.*req\.' artifacts/api-server/src/lib/nexus-job-adzuna.ts artifacts/api-server/src/routes/nexus-job-search.ts
           echo "JOB_GATEWAY_BOUNDARY_PASS"
