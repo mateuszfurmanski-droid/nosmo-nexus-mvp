@@ -19,6 +19,40 @@ import { resolveNexusServerRuntimeIdentity } from "../lib/nexus-runtime-identity
 const router: IRouter = Router();
 const DENY_GRANT_ID = "grant-staging-cloud-e2e-explicit-deny";
 
+async function removeDenyReference(participationId: string): Promise<void> {
+  const [participation] = await db
+    .select()
+    .from(nexusPmProjectParticipationsTable)
+    .where(eq(nexusPmProjectParticipationsTable.participationId, participationId))
+    .limit(1);
+  if (!participation) return;
+
+  const permissionGrantIds = participation.permissionGrantIds.filter(
+    (grantId) => grantId !== DENY_GRANT_ID,
+  );
+  await db
+    .update(nexusPmProjectParticipationsTable)
+    .set({ permissionGrantIds })
+    .where(eq(nexusPmProjectParticipationsTable.participationId, participationId));
+}
+
+async function addDenyReference(participationId: string): Promise<void> {
+  const [participation] = await db
+    .select()
+    .from(nexusPmProjectParticipationsTable)
+    .where(eq(nexusPmProjectParticipationsTable.participationId, participationId))
+    .limit(1);
+  if (!participation) throw new Error("NEXUS_CLOUD_CONTROL_PARTICIPATION_MISSING");
+
+  const permissionGrantIds = Array.from(
+    new Set([...participation.permissionGrantIds, DENY_GRANT_ID]),
+  );
+  await db
+    .update(nexusPmProjectParticipationsTable)
+    .set({ permissionGrantIds })
+    .where(eq(nexusPmProjectParticipationsTable.participationId, participationId));
+}
+
 function requireHarness(res: Response): boolean {
   if (
     process.env.NEXUS_CLOUD_CONTROL_HARNESS_ENABLED !== "true" ||
@@ -181,6 +215,7 @@ router.post("/nexus/cloud/_staging/control/deny", async (req, res) => {
   }
 
   await db.delete(nexusPmPermissionGrantsTable).where(eq(nexusPmPermissionGrantsTable.grantId, DENY_GRANT_ID));
+  await removeDenyReference(participation.participationId);
 
   if (action === "on") {
     const now = new Date();
@@ -202,6 +237,7 @@ router.post("/nexus/cloud/_staging/control/deny", async (req, res) => {
       },
       persistedAt: now,
     });
+    await addDenyReference(participation.participationId);
   }
 
   res.json({ ok: true, action, grantId: DENY_GRANT_ID });
@@ -215,6 +251,10 @@ router.post("/nexus/cloud/_staging/control/cleanup", async (req, res) => {
   }
 
   await db.delete(nexusPmPermissionGrantsTable).where(eq(nexusPmPermissionGrantsTable.grantId, DENY_GRANT_ID));
+
+  const participation = await requireControlIdentity(req, res);
+  if (!participation) return;
+  await removeDenyReference(participation.participationId);
 
   if (req.user?.id?.startsWith("staging-device:")) {
     const digest = digestProviderSubject(req.user.id);
