@@ -84,6 +84,7 @@ jobs:
           test -f modules/person-card-freeware/onboarding.html
           test -f modules/person-card-freeware/agency-invite.html
           test -f modules/person-card-freeware/data-fetcher/index.html
+          test -f modules/person-card-freeware/js/contact-action-engine.js
           grep -Fi 'Work Hub' modules/person-card-freeware/index.html
           grep -F '>Inbox</span>' modules/person-card-freeware/index.html
           grep -Fi 'Data Fetcher' modules/person-card-freeware/index.html
@@ -93,6 +94,10 @@ jobs:
           grep -F 'AI Check' modules/person-card-freeware/index.html
           grep -F 'Request Pack' modules/person-card-freeware/index.html
           grep -F 'Offer Work' modules/person-card-freeware/index.html
+          grep -F 'nexus-contact-action-engine/v1' modules/person-card-freeware/js/contact-action-engine.js
+          grep -F 'navigator.share' modules/person-card-freeware/js/contact-action-engine.js
+          grep -F 'wa.me/' modules/person-card-freeware/js/contact-action-engine.js
+          grep -F 'indexeddb-local' modules/person-card-freeware/data-fetcher/app.js
           runtime_args=(--include='*.html' --include='*.js' --include='*.json')
           ! grep -RFi "${runtime_args[@]}" 'Open in Tree' modules/person-card-freeware
           ! grep -RFi "${runtime_args[@]}" 'relationship-tree' modules/person-card-freeware
@@ -110,6 +115,7 @@ jobs:
           node --check modules/person-card-freeware/js/person-onboarding-v47.js
           node --check modules/person-card-freeware/js/person-agency-invite.js
           node --check modules/person-card-freeware/js/person-work-overlay-controller.js
+          node --check modules/person-card-freeware/js/contact-action-engine.js
           node --check modules/person-card-freeware/data-fetcher/app.js
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/data/person-work-profile-kamil.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/source-manifest.json','utf8'))"
@@ -141,6 +147,7 @@ jobs:
           curl --fail http://127.0.0.1:8128/section.html?section=cv >/dev/null
           curl --fail http://127.0.0.1:8128/data-fetcher/ >/dev/null
           curl --fail http://127.0.0.1:8128/directory.html >/dev/null
+          curl --fail http://127.0.0.1:8128/js/contact-action-engine.js >/dev/null
 
       - name: Backend contract boundary
         shell: bash
