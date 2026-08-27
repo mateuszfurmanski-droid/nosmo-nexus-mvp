@@ -1,0 +1,57 @@
+name: NEXUS Person Card Work Profile Validation
+
+on:
+  push:
+    branches:
+      - codex/person-card-work-profile-ai-recruitment
+
+permissions:
+  contents: read
+
+jobs:
+  validate-work-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify protected Person Card donor is unchanged
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD:artifacts/nosmo-nexus/src/pages/person-card-demo.tsx)"
+          expected="0a9da1a7c5994797fd56cee6c47b89d2c2f2a88d"
+          test "$actual" = "$expected"
+          echo "PERSON_CARD_PROTECTED_DONOR_PASS"
+
+      - name: Verify additive Work Profile route
+        shell: bash
+        run: |
+          test -f artifacts/nosmo-nexus/src/pages/person-card-work-profile.tsx
+          grep -F 'path="/person-card-work-profile"' artifacts/nosmo-nexus/src/App.tsx
+          grep -F 'FIND WORK' artifacts/nosmo-nexus/src/pages/person-card-work-profile.tsx
+          grep -F 'AI CHECK' artifacts/nosmo-nexus/src/pages/person-card-work-profile.tsx
+          echo "WORK_PROFILE_ROUTE_AUDIT_PASS"
+
+      - name: Typecheck workspace
+        run: pnpm run typecheck
+
+      - name: Build Nexus web application
+        env:
+          PORT: 4173
+          BASE_PATH: /
+        run: pnpm --filter @workspace/nosmo-nexus build
