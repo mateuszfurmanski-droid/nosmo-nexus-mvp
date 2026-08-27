@@ -39,7 +39,13 @@ export function getNexusRuntimeIdentityBindingMode(): "disabled" | "postgres" {
     : "disabled";
 }
 
-export function getCurrentNexusIdentityProviderKey(): string {
+export const STAGING_DEVICE_IDENTITY_PROVIDER = "staging-device-claim/v1";
+export const STAGING_DEVICE_SUBJECT_PREFIX = "staging-device:";
+
+export function getCurrentNexusIdentityProviderKey(providerSubject?: string): string {
+  if (providerSubject?.startsWith(STAGING_DEVICE_SUBJECT_PREFIX)) {
+    return STAGING_DEVICE_IDENTITY_PROVIDER;
+  }
   try {
     const issuer = new URL(ISSUER_URL);
     issuer.search = "";
@@ -85,7 +91,7 @@ export async function resolveNexusServerRuntimeIdentity(
 
   try {
     const binding = await resolveNexusRuntimeIdentityBinding({
-      providerKey: getCurrentNexusIdentityProviderKey(),
+      providerKey: getCurrentNexusIdentityProviderKey(req.user.id),
       providerSubject: req.user.id,
     });
 
