@@ -41,6 +41,7 @@ function Router() {
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
+      <Route path="/person-card-work-profile" component={PersonCardWorkProfile} />
       <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />
