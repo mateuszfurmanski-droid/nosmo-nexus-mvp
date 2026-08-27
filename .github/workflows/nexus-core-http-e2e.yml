@@ -15,6 +15,9 @@ on:
       - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
       - lib/db/src/nexusCoreWorkPersistence.ts
       - lib/db/src/schema/**
+      - artifacts/nosmo-nexus/src/components/nexus-core-source-palette.tsx
+      - artifacts/nosmo-nexus/src/components/nexus-core-semantic-drop-adapter.tsx
+      - artifacts/nosmo-nexus/src/pages/esafe-core-workspace.tsx
       - .github/workflows/nexus-core-http-e2e.yml
   pull_request:
     branches:
@@ -28,6 +31,9 @@ on:
       - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
       - lib/db/src/nexusCoreWorkPersistence.ts
       - lib/db/src/schema/**
+      - artifacts/nosmo-nexus/src/components/nexus-core-source-palette.tsx
+      - artifacts/nosmo-nexus/src/components/nexus-core-semantic-drop-adapter.tsx
+      - artifacts/nosmo-nexus/src/pages/esafe-core-workspace.tsx
       - .github/workflows/nexus-core-http-e2e.yml
 
 permissions:
