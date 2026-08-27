@@ -4,17 +4,10 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.CookieManager;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -22,7 +15,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** NON_PRODUCTION Nexus-native onboarding for the protected Vercel Core staging preview. */
+/** NON_PRODUCTION Nexus-native onboarding for protected Core staging. */
 public final class IdentityClaimActivity extends Activity {
     private static final int BG = Color.rgb(8, 15, 12);
     private static final int SURFACE = Color.rgb(17, 30, 24);
@@ -33,15 +26,12 @@ public final class IdentityClaimActivity extends Activity {
     private static final int ECO_DARK = Color.rgb(20, 48, 31);
     private static final int WARN = Color.rgb(255, 218, 120);
 
-    private EditText shareUrl;
+    private EditText accessKey;
     private EditText claimCode;
     private TextView sessionPill;
     private TextView status;
     private Button loginButton;
     private Button continueButton;
-    private WebView webView;
-    private String targetOrigin = "";
-    private String targetHost = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,15 +45,6 @@ public final class IdentityClaimActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (status != null) refreshState();
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (webView != null) {
-            webView.stopLoading();
-            webView.destroy();
-        }
-        super.onDestroy();
     }
 
     private void render() {
@@ -97,7 +78,7 @@ public final class IdentityClaimActivity extends Activity {
 
         root.addView(text("Connect this device", 30, TEXT, true), fullWidthWrap());
         TextView intro = text(
-                "Open the protected Core preview once, then connect the one-time Person claim. Nexus keeps Person, Participation, permissions and assignment authority on the server.",
+                "Enter the temporary staging access key and the one-time Person claim. No Vercel login is required.",
                 13,
                 MUTED,
                 false
@@ -112,86 +93,39 @@ public final class IdentityClaimActivity extends Activity {
         LinearLayout.LayoutParams pillParams = wrap();
         pillParams.setMargins(0, dp(8), 0, 0);
         sessionCard.addView(sessionPill, pillParams);
-        status = text("Checking staging transport and encrypted session…", 12, MUTED, false);
+        status = text("Checking staging transport and encrypted Nexus session…", 12, MUTED, false);
         status.setPadding(0, dp(10), 0, 0);
         sessionCard.addView(status, fullWidthWrap());
         root.addView(sessionCard, fullWidthWrap());
 
-        LinearLayout gateCard = panel(SURFACE, 18);
-        gateCard.setPadding(dp(16), dp(16), dp(16), dp(16));
-        LinearLayout.LayoutParams gateCardParams = fullWidthWrap();
-        gateCardParams.setMargins(0, dp(14), 0, 0);
-        root.addView(gateCard, gateCardParams);
-        gateCard.addView(text("PROTECTED STAGING GATE", 10, MUTED, true), fullWidthWrap());
+        LinearLayout accessCard = panel(SURFACE, 18);
+        accessCard.setPadding(dp(16), dp(16), dp(16), dp(16));
+        LinearLayout.LayoutParams accessParams = fullWidthWrap();
+        accessParams.setMargins(0, dp(14), 0, 0);
+        root.addView(accessCard, accessParams);
 
-        TextView gateHelp = text(
-                "Paste the temporary Vercel share URL for the validated #177 deployment. The URL and Vercel cookie stay only in process memory and are removed from WebView storage.",
+        accessCard.addView(text("STAGING ACCESS", 10, MUTED, true), fullWidthWrap());
+        TextView accessHelp = text(
+                "Temporary Vercel automation bypass key. It stays only in process memory and is never written to Android storage or Nexus.",
                 12,
                 MUTED,
                 false
         );
-        gateHelp.setPadding(0, dp(6), 0, dp(10));
-        gateCard.addView(gateHelp, fullWidthWrap());
+        accessHelp.setPadding(0, dp(6), 0, dp(10));
+        accessCard.addView(accessHelp, fullWidthWrap());
 
-        shareUrl = new EditText(this);
-        shareUrl.setHint("Temporary Vercel share URL");
-        shareUrl.setSingleLine(true);
-        shareUrl.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        shareUrl.setTextColor(TEXT);
-        shareUrl.setHintTextColor(MUTED);
-        shareUrl.setBackground(rounded(SURFACE_ALT, 12, Color.rgb(44, 62, 52)));
-        shareUrl.setPadding(dp(12), dp(12), dp(12), dp(12));
-        shareUrl.setMinHeight(dp(52));
-        gateCard.addView(shareUrl, fullWidthWrap());
-
-        Button openGate = actionButton("Open temporary Vercel staging gate", false);
-        openGate.setMinimumHeight(dp(52));
-        openGate.setOnClickListener(v -> openStagingGate());
-        LinearLayout.LayoutParams openGateParams = fullWidthWrap();
-        openGateParams.setMargins(0, dp(10), 0, 0);
-        gateCard.addView(openGate, openGateParams);
-
-        webView = new WebView(this);
-        webView.setVisibility(View.GONE);
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                Uri uri = request.getUrl();
-                String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
-                boolean allowed = "https".equalsIgnoreCase(uri.getScheme())
-                        && (host.equals(targetHost) || host.equals("vercel.com") || host.endsWith(".vercel.com"));
-                if (!allowed) {
-                    Toast.makeText(IdentityClaimActivity.this, "Blocked navigation outside Vercel staging gate", Toast.LENGTH_LONG).show();
-                }
-                return !allowed;
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                captureGateIfReady(url);
-            }
-        });
-        LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(320));
-        webParams.setMargins(0, dp(8), 0, dp(8));
-        gateCard.addView(webView, webParams);
+        accessKey = secureField("Temporary staging access key");
+        accessCard.addView(accessKey, fullWidthWrap());
 
         LinearLayout claimCard = panel(SURFACE, 18);
         claimCard.setPadding(dp(16), dp(16), dp(16), dp(16));
-        LinearLayout.LayoutParams claimCardParams = fullWidthWrap();
-        claimCardParams.setMargins(0, dp(14), 0, 0);
-        root.addView(claimCard, claimCardParams);
-        claimCard.addView(text("ONE-TIME PERSON CLAIM", 10, MUTED, true), fullWidthWrap());
+        LinearLayout.LayoutParams claimParams = fullWidthWrap();
+        claimParams.setMargins(0, dp(14), 0, 0);
+        root.addView(claimCard, claimParams);
 
+        claimCard.addView(text("ONE-TIME PERSON CLAIM", 10, MUTED, true), fullWidthWrap());
         TextView claimHelp = text(
-                "The claim is high-entropy, one-time and consumed server-side. Android never writes it to preferences, BuildConfig or logs.",
+                "The claim is consumed server-side after one successful login and is never persisted on the phone.",
                 12,
                 MUTED,
                 false
@@ -199,20 +133,11 @@ public final class IdentityClaimActivity extends Activity {
         claimHelp.setPadding(0, dp(6), 0, dp(10));
         claimCard.addView(claimHelp, fullWidthWrap());
 
-        claimCode = new EditText(this);
-        claimCode.setHint("One-time staging Person claim");
-        claimCode.setSingleLine(true);
-        claimCode.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        claimCode.setTextColor(TEXT);
-        claimCode.setHintTextColor(MUTED);
-        claimCode.setBackground(rounded(SURFACE_ALT, 12, Color.rgb(44, 62, 52)));
-        claimCode.setPadding(dp(12), dp(12), dp(12), dp(12));
-        claimCode.setMinHeight(dp(52));
+        claimCode = secureField("One-time Person claim");
         claimCard.addView(claimCode, fullWidthWrap());
 
-        loginButton = actionButton("Create 2-hour Nexus staging session", true);
+        loginButton = actionButton("Connect to Nexus Worker Home", true);
         loginButton.setMinimumHeight(dp(52));
-        loginButton.setEnabled(false);
         loginButton.setOnClickListener(v -> submitDeviceLogin());
         LinearLayout.LayoutParams loginParams = fullWidthWrap();
         loginParams.setMargins(0, dp(10), 0, 0);
@@ -225,7 +150,7 @@ public final class IdentityClaimActivity extends Activity {
         continueParams.setMargins(0, dp(10), 0, 0);
         root.addView(continueButton, continueParams);
 
-        Button clear = actionButton("Clear staging session + gate", false);
+        Button clear = actionButton("Clear local staging session", false);
         clear.setMinimumHeight(dp(48));
         clear.setOnClickListener(v -> clearLocal());
         LinearLayout.LayoutParams clearParams = fullWidthWrap();
@@ -233,7 +158,7 @@ public final class IdentityClaimActivity extends Activity {
         root.addView(clear, clearParams);
 
         TextView boundary = text(
-                "No local Person, Participation, PermissionGrant, AccessDecision or Work Package is created here. Android stores only the opaque Nexus session under the existing Android Keystore key.",
+                "Person, Participation, PermissionGrant, AccessDecision and Work Package authority remain on Nexus Core. Android stores only the opaque Nexus session under Android Keystore.",
                 10,
                 MUTED,
                 false
@@ -246,70 +171,45 @@ public final class IdentityClaimActivity extends Activity {
         refreshState();
     }
 
-    private void openStagingGate() {
-        String raw = shareUrl.getText() == null ? "" : shareUrl.getText().toString().trim();
-        Uri uri;
-        try {
-            uri = Uri.parse(raw);
-        } catch (Exception ignored) {
-            Toast.makeText(this, "Invalid Vercel share URL", Toast.LENGTH_LONG).show();
-            return;
-        }
-        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
-        String share = uri.getQueryParameter("_vercel_share");
-        String origin = "https://" + host;
-        if (!"https".equalsIgnoreCase(uri.getScheme())
-                || !NexusStagingVercelGate.isAllowedOrigin(origin)
-                || share == null
-                || share.length() < 16) {
-            Toast.makeText(this, "Use the temporary share URL for NOSMO Nexus Cloud staging", Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        NexusStagingVercelGate.clear();
-        CookieManager.getInstance().removeAllCookies(null);
-        CookieManager.getInstance().flush();
-        targetHost = host;
-        targetOrigin = origin;
-        shareUrl.setText("");
-        status.setText("Opening protected Vercel staging gate…");
-        status.setTextColor(WARN);
-        webView.setVisibility(View.VISIBLE);
-        webView.loadUrl(raw);
-    }
-
-    private void captureGateIfReady(String pageUrl) {
-        if (targetOrigin.isEmpty()) return;
-        Uri uri = Uri.parse(pageUrl);
-        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
-        if (!host.equals(targetHost)) return;
-
-        String cookie = CookieManager.getInstance().getCookie(targetOrigin);
-        if (cookie == null || cookie.trim().isEmpty()) return;
-
-        NexusStagingVercelGate.set(targetOrigin, cookie);
-        if (!NexusStagingVercelGate.isReady()) return;
-
-        CookieManager.getInstance().removeAllCookies(null);
-        CookieManager.getInstance().flush();
-        webView.setVisibility(View.GONE);
-        refreshState();
+    private EditText secureField(String hint) {
+        EditText field = new EditText(this);
+        field.setHint(hint);
+        field.setSingleLine(true);
+        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        field.setTextColor(TEXT);
+        field.setHintTextColor(MUTED);
+        field.setBackground(rounded(SURFACE_ALT, 12, Color.rgb(44, 62, 52)));
+        field.setPadding(dp(12), dp(12), dp(12), dp(12));
+        field.setMinHeight(dp(52));
+        return field;
     }
 
     private void submitDeviceLogin() {
-        if (!NexusStagingVercelGate.isReady()) {
-            Toast.makeText(this, "Open the Vercel staging gate first", Toast.LENGTH_LONG).show();
+        String key = accessKey.getText() == null ? "" : accessKey.getText().toString().trim();
+        String code = claimCode.getText() == null ? "" : claimCode.getText().toString().trim();
+        String origin = configuredNexusOrigin();
+
+        if (origin.isEmpty()) {
+            Toast.makeText(this, "Validated staging origin is not configured in this build", Toast.LENGTH_LONG).show();
             return;
         }
-        String code = claimCode.getText() == null ? "" : claimCode.getText().toString().trim();
+        if (key.length() < 16 || key.length() > 512) {
+            Toast.makeText(this, "Enter the temporary staging access key", Toast.LENGTH_LONG).show();
+            return;
+        }
         if (code.length() < 32 || code.length() > 200) {
-            Toast.makeText(this, "Enter the one-time staging claim", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Enter the one-time Person claim", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!NexusStagingVercelGate.set(origin, key)) {
+            Toast.makeText(this, "Staging access key/origin rejected locally", Toast.LENGTH_LONG).show();
             return;
         }
 
+        accessKey.setText("");
         claimCode.setText("");
         loginButton.setEnabled(false);
-        status.setText("Creating canonical staging device session…");
+        status.setText("Creating canonical Nexus staging session…");
         status.setTextColor(WARN);
 
         NexusStagingDeviceLoginClient.login(
@@ -318,6 +218,9 @@ public final class IdentityClaimActivity extends Activity {
                 (success, httpStatus, message) -> runOnUiThread(() -> {
                     status.setText(message);
                     Toast.makeText(this, message, success ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                    if (!success) {
+                        NexusStagingVercelGate.clear();
+                    }
                     refreshState();
                     if (success) openWorkerHome();
                 })
@@ -329,24 +232,21 @@ public final class IdentityClaimActivity extends Activity {
         boolean gate = NexusStagingVercelGate.isReady();
         boolean session = NexusMobileSession.hasSession(this);
 
-        sessionPill.setText(session ? "SESSION ACTIVE" : gate ? "GATE READY" : "GATE REQUIRED");
+        sessionPill.setText(session ? "SESSION ACTIVE" : gate ? "ACCESS READY" : "ACCESS REQUIRED");
         sessionPill.setTextColor(session || gate ? ECO : WARN);
         sessionPill.setBackground(rounded(session || gate ? ECO_DARK : SURFACE_ALT, 99, session || gate ? ECO_DARK : SURFACE_ALT));
 
-        loginButton.setEnabled(gate && !session);
+        loginButton.setEnabled(!session);
         continueButton.setEnabled(gate && session);
 
         if (session && gate) {
-            status.setText("Canonical Nexus session ACTIVE · protected staging transport READY");
+            status.setText("Canonical Nexus session ACTIVE · protected staging access READY");
             status.setTextColor(ECO);
         } else if (session) {
-            status.setText("Encrypted Nexus session exists · reopen the temporary Vercel gate after process restart");
+            status.setText("Encrypted Nexus session exists · re-enter temporary staging access after process restart");
             status.setTextColor(WARN);
-        } else if (gate) {
-            status.setText("Protected staging transport READY · enter the one-time Person claim");
-            status.setTextColor(ECO);
         } else {
-            status.setText("Open the temporary Vercel staging gate first");
+            status.setText("Enter staging access key + one-time Person claim");
             status.setTextColor(MUTED);
         }
     }
@@ -354,16 +254,12 @@ public final class IdentityClaimActivity extends Activity {
     private void clearLocal() {
         NexusMobileSession.clearSession(this);
         NexusStagingVercelGate.clear();
-        CookieManager.getInstance().removeAllCookies(null);
-        CookieManager.getInstance().flush();
-        targetOrigin = "";
-        targetHost = "";
         refreshState();
     }
 
     private void openWorkerHome() {
         if (!NexusMobileSession.hasSession(this) || !NexusStagingVercelGate.isReady()) {
-            Toast.makeText(this, "Nexus session and staging gate are both required", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Nexus session and staging access are both required", Toast.LENGTH_LONG).show();
             refreshState();
             return;
         }
@@ -371,6 +267,12 @@ public final class IdentityClaimActivity extends Activity {
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
         finish();
+    }
+
+    private String configuredNexusOrigin() {
+        String origin = BuildConfig.NEXUS_WEB_ORIGIN == null ? "" : BuildConfig.NEXUS_WEB_ORIGIN.trim();
+        while (origin.endsWith("/")) origin = origin.substring(0, origin.length() - 1);
+        return NexusStagingVercelGate.isAllowedOrigin(origin) ? origin : "";
     }
 
     private Button actionButton(String label, boolean primary) {
