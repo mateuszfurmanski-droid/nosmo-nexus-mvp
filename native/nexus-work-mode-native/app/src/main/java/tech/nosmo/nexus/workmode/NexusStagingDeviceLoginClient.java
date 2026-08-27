@@ -23,7 +23,7 @@ final class NexusStagingDeviceLoginClient {
     static void login(Context context, String claimCode, Callback callback) {
         String origin = NexusStagingVercelGate.getOrigin();
         if (origin.isEmpty()) {
-            callback.onComplete(false, 0, "Open the Vercel staging gate first");
+            callback.onComplete(false, 0, "Establish the temporary protected staging bootstrap first");
             return;
         }
         if (claimCode == null || claimCode.length() < 32 || claimCode.length() > 200) {
@@ -60,7 +60,7 @@ final class NexusStagingDeviceLoginClient {
                 );
 
                 if (status == 302 || status == 401 || status == 403 && response.isEmpty()) {
-                    callback.onComplete(false, status, "Vercel staging gate is not active");
+                    callback.onComplete(false, status, "Protected staging cookie was rejected");
                     return;
                 }
 

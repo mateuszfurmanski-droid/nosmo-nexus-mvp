@@ -4,7 +4,10 @@ import java.net.HttpURLConnection;
 
 /**
  * Process-memory-only transport gate for protected Vercel staging previews.
- * No share URL, Vercel cookie or bypass credential is persisted in Android storage.
+ *
+ * A fresh Vercel share URL is consumed by an invisible WebView. The resulting
+ * cookie is copied into process memory and attached to the native Core client.
+ * No share URL or cookie is persisted in Android storage, BuildConfig or Nexus.
  */
 final class NexusStagingVercelGate {
     private static volatile String origin = "";
@@ -12,13 +15,16 @@ final class NexusStagingVercelGate {
 
     private NexusStagingVercelGate() {}
 
-    static synchronized void set(String httpsOrigin, String cookieHeader) {
-        if (!isAllowedOrigin(httpsOrigin) || cookieHeader == null || cookieHeader.trim().isEmpty()) {
+    static synchronized boolean set(String httpsOrigin, String cookieHeader) {
+        String normalizedOrigin = trimSlash(httpsOrigin);
+        String value = cookieHeader == null ? "" : cookieHeader.trim();
+        if (!isAllowedOrigin(normalizedOrigin) || value.isEmpty() || value.length() > 8192) {
             clear();
-            return;
+            return false;
         }
-        origin = trimSlash(httpsOrigin);
-        cookie = cookieHeader.trim();
+        origin = normalizedOrigin;
+        cookie = value;
+        return true;
     }
 
     static synchronized void clear() {
