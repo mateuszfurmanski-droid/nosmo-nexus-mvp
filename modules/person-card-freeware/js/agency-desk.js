@@ -5,6 +5,7 @@
   let agency=null;
   let candidates=[];
   let activity=[];
+  let agencyProfile=null;
   let selectedCandidate=null;
   let actionMode="request";
   let preparedDraft="";
@@ -98,13 +99,81 @@
     activity=payload.activity||[];
     renderActivity();
   }
+  function renderAgencyProfile(){
+    const card=q("agencyIdentityCard");
+    if(!agencyProfile){card.hidden=true;return}
+    card.hidden=false;
+    const a=agencyProfile.agency||{},r=agencyProfile.recruiter||{};
+    q("agencyIdentityName").textContent=a.name||"Agency";
+    q("recruiterIdentityLine").textContent=(r.displayName||"Recruiter")+(r.jobTitle?" · "+r.jobTitle:"");
+    q("agencyVerificationBadge").textContent=(a.verificationStatus||"UNVERIFIED").toUpperCase();
+    q("agencyIdentityLocation").textContent=a.location||"Not set";
+    q("agencyIdentityWebsite").textContent=a.website||"Not set";
+    q("recruiterIdentityEmail").textContent=r.email||"Not set";
+    q("recruiterIdentityPhone").textContent=r.phone||"Not set";
+  }
+  async function loadAgencyProfile(){
+    if(!agency)return;
+    agencyProfile=await api("/profile");
+    renderAgencyProfile();
+  }
+  function openAgencyProfile(){
+    if(!agencyProfile)return;
+    const a=agencyProfile.agency||{},r=agencyProfile.recruiter||{};
+    q("profileAgencyName").value=a.name||"";
+    q("profileAgencyWebsite").value=a.website||"";
+    q("profileAgencyRegistration").value=a.registrationNumber||"";
+    q("profileAgencyLocation").value=a.location||"";
+    q("profileAgencyDescription").value=a.description||"";
+    q("profileRecruiterName").value=r.displayName||"";
+    q("profileRecruiterTitle").value=r.jobTitle||"";
+    q("profileRecruiterEmail").value=r.email||"";
+    q("profileRecruiterPhone").value=r.phone||"";
+    q("profileRecruiterPhoto").value=r.photoUrl||"";
+    q("profileRecruiterBio").value=r.bio||"";
+    q("agencyProfileStatus").textContent="Recruiter identity is tied to the authenticated NOSMO account.";
+    toggle("agencyProfileBackdrop",true);
+  }
+  async function saveAgencyProfile(event){
+    event.preventDefault();
+    q("agencyProfileStatus").textContent="Saving profiles…";
+    try{
+      const payload=await api("/profile",{
+        method:"PATCH",
+        body:JSON.stringify({
+          agency:{
+            name:q("profileAgencyName").value.trim(),
+            website:q("profileAgencyWebsite").value.trim(),
+            registrationNumber:q("profileAgencyRegistration").value.trim(),
+            location:q("profileAgencyLocation").value.trim(),
+            description:q("profileAgencyDescription").value.trim()
+          },
+          recruiter:{
+            displayName:q("profileRecruiterName").value.trim(),
+            jobTitle:q("profileRecruiterTitle").value.trim(),
+            email:q("profileRecruiterEmail").value.trim(),
+            phone:q("profileRecruiterPhone").value.trim(),
+            photoUrl:q("profileRecruiterPhoto").value.trim(),
+            bio:q("profileRecruiterBio").value.trim()
+          }
+        })
+      });
+      agencyProfile={agency:payload.agency,recruiter:payload.recruiter};
+      agency=payload.agency;
+      renderAgencyProfile();
+      q("agencyAccountState").textContent=agency.name+" · "+agency.role+" · authenticated";
+      q("agencyProfileStatus").textContent="Agency and recruiter profiles saved.";
+    }catch(error){
+      q("agencyProfileStatus").textContent="Profile save failed: "+error.message;
+    }
+  }
   async function loadAccount(){
     try{
       const payload=await api("/account");
       agency=payload.agency;
       q("agencyAccountState").textContent=agency.name+" · "+agency.role+" · authenticated";
       q("accountSetup").hidden=true;
-      await Promise.all([loadCandidates(),loadActivity()]);
+      await Promise.all([loadCandidates(),loadActivity(),loadAgencyProfile()]);
     }catch(error){
       agency=null;candidates=[];activity=[];renderCandidates();renderActivity();renderSummary();
       q("accountSetup").hidden=false;
@@ -135,7 +204,7 @@
       agency=payload.agency;
       q("agencyAccountState").textContent=agency.name+" · "+agency.role+" · authenticated";
       q("accountSetup").hidden=true;
-      await Promise.all([loadCandidates(),loadActivity()]);
+      await Promise.all([loadCandidates(),loadActivity(),loadAgencyProfile()]);
     }catch(error){q("accountSetupStatus").textContent="Could not create agency account: "+error.message}
   }
   function candidateById(personId){return candidates.find(c=>c.personId===personId)||null}
@@ -226,6 +295,10 @@
   }
 
   q("createAgencyAccount").addEventListener("click",createAgency);
+  q("editAgencyIdentity").addEventListener("click",openAgencyProfile);
+  q("agencyProfileForm").addEventListener("submit",saveAgencyProfile);
+  q("closeAgencyProfile").addEventListener("click",()=>toggle("agencyProfileBackdrop",false));
+  q("agencyProfileBackdrop").addEventListener("click",event=>{if(event.target.id==="agencyProfileBackdrop")toggle("agencyProfileBackdrop",false)});
   q("candidateSearchButton").addEventListener("click",()=>loadCandidates(q("candidateSearch").value.trim()).catch(error=>q("agencyAccountState").textContent="Search failed: "+error.message));
   q("candidateSearch").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();q("candidateSearchButton").click()}});
   q("closeCandidateDetail").addEventListener("click",()=>toggle("candidateDetailBackdrop",false));
