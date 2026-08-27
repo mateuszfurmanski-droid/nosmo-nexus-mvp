@@ -18,6 +18,7 @@ const REQUIRED_TABLES = [
   "workspaces",
   "nexus_pm_people",
   "nexus_identity_bindings",
+  "nexus_identity_claims",
   "nexus_pm_project_participations",
   "nexus_pm_permission_grants",
   "nexus_pm_files",
@@ -494,26 +495,43 @@ export async function runNexusCloudRuntimePreflight(
 ): Promise<NexusCloudRuntimePreflightResult> {
   const checks: NexusCloudPreflightCheck[] = [];
 
+  const stagingDeviceAuth = env.NEXUS_CLOUD_STAGING_DEVICE_AUTH === "true";
   const publicOrigin = env.NEXUS_PUBLIC_ORIGIN?.trim();
-  if (!publicOrigin) {
-    checks.push(blocked("runtime.public-origin", "NEXUS_PUBLIC_ORIGIN is not configured."));
-  } else {
-    try {
-      const origin = new URL(publicOrigin);
-      if (origin.protocol !== "https:" && env.NODE_ENV === "production") {
-        checks.push(blocked("runtime.public-origin", "Production NEXUS_PUBLIC_ORIGIN must use HTTPS."));
-      } else {
-        checks.push(pass("runtime.public-origin", "NEXUS_PUBLIC_ORIGIN is syntactically valid."));
-      }
-    } catch {
-      checks.push(blocked("runtime.public-origin", "NEXUS_PUBLIC_ORIGIN is not a valid URL."));
-    }
-  }
 
-  if (env.REPL_ID?.trim()) {
-    checks.push(pass("runtime.oidc-client", "REPL_ID is configured for the existing OIDC runtime."));
+  if (stagingDeviceAuth) {
+    checks.push(
+      pass(
+        "runtime.public-origin",
+        "Controlled Cloud staging uses explicit Bearer sessions; browser-cookie mutation origin is not the active auth path.",
+      ),
+    );
+    checks.push(
+      pass(
+        "runtime.oidc-client",
+        "Controlled Cloud staging uses the canonical staging-device claim/session path; REPL_ID is not required.",
+      ),
+    );
   } else {
-    checks.push(blocked("runtime.oidc-client", "REPL_ID is not configured."));
+    if (!publicOrigin) {
+      checks.push(blocked("runtime.public-origin", "NEXUS_PUBLIC_ORIGIN is not configured."));
+    } else {
+      try {
+        const origin = new URL(publicOrigin);
+        if (origin.protocol !== "https:" && env.NODE_ENV === "production") {
+          checks.push(blocked("runtime.public-origin", "Production NEXUS_PUBLIC_ORIGIN must use HTTPS."));
+        } else {
+          checks.push(pass("runtime.public-origin", "NEXUS_PUBLIC_ORIGIN is syntactically valid."));
+        }
+      } catch {
+        checks.push(blocked("runtime.public-origin", "NEXUS_PUBLIC_ORIGIN is not a valid URL."));
+      }
+    }
+
+    if (env.REPL_ID?.trim()) {
+      checks.push(pass("runtime.oidc-client", "REPL_ID is configured for the existing OIDC runtime."));
+    } else {
+      checks.push(blocked("runtime.oidc-client", "REPL_ID is not configured."));
+    }
   }
 
   if (env.NEXUS_IDENTITY_BINDING_MODE === "postgres") {
