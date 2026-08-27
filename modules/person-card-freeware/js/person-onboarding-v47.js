@@ -72,6 +72,7 @@
       dayShift:Boolean(field("dayShift")),
       nightShift:Boolean(field("nightShift")),
       workAway:Boolean(field("workAway")),
+      shareWithInvitingAgency:Boolean(field("shareWithInvitingAgency")),
       updatedAt:new Date().toISOString()
     };
   }
@@ -322,7 +323,8 @@
       ownTransport:d.ownTransport,
       dayShift:d.dayShift,
       nightShift:d.nightShift,
-      workAway:d.workAway
+      workAway:d.workAway,
+      shareWithInvitingAgency:d.shareWithInvitingAgency
     };
   }
 
@@ -472,6 +474,12 @@
       q("#inviteNotice").textContent=secureInvite
         ? agency+" sent a secure Person Card invite. Existing v47 modules remain in place."
         : agency+" · demo/local onboarding. Existing v47 modules remain in place.";
+
+      const consentBox=q("#agencyConsentBox");
+      if(consentBox)consentBox.classList.toggle("visible",secureInvite);
+      const consentAgency=q("#consentAgencyName");
+      if(consentAgency)consentAgency.textContent=agency||"this agency";
+      if(!secureInvite)setField("shareWithInvitingAgency",false);
 
       if(!localStorage.getItem(LOCAL_KEY)&&params.get("preview")!=="closed")openEditor();
       return;
