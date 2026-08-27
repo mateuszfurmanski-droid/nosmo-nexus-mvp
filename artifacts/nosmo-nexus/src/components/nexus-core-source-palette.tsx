@@ -204,8 +204,41 @@ export function NexusCoreSourcePalette({
     };
 
     window.dispatchEvent(new CustomEvent("nexus:semantic-drop-request", { detail }));
-    setMessage(`${resolution.intent} prepared for ${target.label}. Backend authority/API is not wired in this slice; nothing was persisted.`);
+    setMessage(`SAVING · ${payload.label} → ${target.label} · waiting for Nexus Core authority…`);
   };
+
+  useEffect(() => {
+    const onAuthoritativeResult = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        ok?: boolean;
+        response?: {
+          assignment?: {
+            taskId?: string;
+            assignedPersonId?: string;
+          };
+          message?: string;
+          error?: string;
+        };
+      }>).detail;
+
+      if (!detail) return;
+      if (!detail.ok) {
+        const failure = detail.response?.message || detail.response?.error || "Core rejected the assignment.";
+        setMessage(`BLOCKED · ${failure}`);
+        return;
+      }
+
+      const taskId = detail.response?.assignment?.taskId;
+      const assignedPersonId = detail.response?.assignment?.assignedPersonId;
+      const recipient = assignedPersonId ? byId.get(assignedPersonId)?.label ?? assignedPersonId : "recipient";
+      setMessage(taskId
+        ? `ASSIGNED · ${taskId} → ${recipient} · authoritative recipient projection updated.`
+        : "COMMITTED · Nexus Core confirmed the semantic drop.");
+    };
+
+    window.addEventListener("nexus:semantic-drop-authoritative-result", onAuthoritativeResult as EventListener);
+    return () => window.removeEventListener("nexus:semantic-drop-authoritative-result", onAuthoritativeResult as EventListener);
+  }, [byId]);
 
   useEffect(() => {
     if (!drag) return;
