@@ -45,6 +45,9 @@ jobs:
           grep -Fq 'CookieManager.getInstance().removeAllCookies' "$SCREEN"
           grep -Fq 'WorkModeHomeActivity.class' "$SCREEN"
           grep -Fq 'WorkerBootstrapActivity' native/nexus-work-mode-native/app/src/main/AndroidManifest.xml
+          grep -Fq 'NexusMobileSession.hasSession' "$BASE/WorkerBootstrapActivity.java"
+          grep -Fq 'NexusStagingVercelGate.isReady' "$BASE/WorkerBootstrapActivity.java"
+          grep -Fq 'sessionReady && transportReady' "$BASE/WorkerBootstrapActivity.java"
           grep -Fq 'STAGING_DEVICE_CLAIM' "$LOGIN"
 
           ! grep -R -E '_vercel_share=[A-Za-z0-9_-]{16,}' "$BASE" native/nexus-work-mode-native/app/build.gradle
