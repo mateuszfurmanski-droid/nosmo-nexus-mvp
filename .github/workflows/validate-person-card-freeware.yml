@@ -193,10 +193,17 @@ jobs:
           grep -F '/person-card/agency/account' "$agency_api"
           grep -F '/person-card/agency/candidates' "$agency_api"
           grep -F '/person-card/agency/activity' "$agency_api"
+          grep -F '/person-card/agency/profile' "$agency_api"
+          grep -F 'nexusPersonAgencyAccessGrantsTable' "$agency_api"
+          grep -F 'nexusPersonAgencyRecruiterProfilesTable' "$agency_api"
+          grep -F 'eq(nexusPersonAgencyAccessGrantsTable.status, "ACTIVE")' "$agency_api"
+          grep -F 'eq(nexusPersonAgencyAccessGrantsTable.scope, "RECRUITER_SAFE")' "$agency_api"
           grep -F 'privateFieldsIncluded: false' "$agency_api"
           grep -F 'privateDocumentsIncluded: false' "$agency_api"
           grep -F 'nexus_person_agencies' "$agency_schema"
           grep -F 'nexus_person_agency_members' "$agency_schema"
+          grep -F 'nexus_person_agency_recruiter_profiles' "$agency_schema"
+          grep -F 'nexus_person_agency_access_grants' "$agency_schema"
           grep -F 'nexus_person_agency_candidate_states' "$agency_schema"
           grep -F 'nexus_person_agency_actions' "$agency_schema"
           grep -F 'authMiddleware' "$standalone"
@@ -206,9 +213,43 @@ jobs:
           grep -F 'href="./agency-desk.html"' "$invite"
           grep -F 'href="./agency-desk.html"' "$directory"
           grep -F 'agencyAccountEndpoint="/api/person-card/agency/account"' "$invite_js"
+          grep -F '/api/person-card/agency/profile' "$invite_js"
           grep -F 'Authenticated Agency Account' "$invite"
           ! grep -F './data/person-work-profile-kamil.json' "$desk_js"
           test "$(find modules/person-card-freeware/data -maxdepth 1 -type f -name 'person-work-profile-*.json' | wc -l)" -eq 1
+
+      - name: Worker to agency explicit consent contract
+        shell: bash
+        run: |
+          onboarding=modules/person-card-freeware/onboarding.html
+          onboarding_js=modules/person-card-freeware/js/person-onboarding-v47.js
+          onboarding_api=artifacts/api-server/src/person-card-freeware/onboarding.ts
+          persistence=artifacts/api-server/src/person-card-freeware/person-work-profile-persistence.ts
+          invite_contract=artifacts/api-server/src/person-card-freeware/onboarding-invite.ts
+          invite_schema=lib/db/src/schema/nexusPersonWorkProfile.ts
+          agency_schema=lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'id="shareWithInvitingAgency" type="checkbox" disabled' "$onboarding"
+          ! grep -F 'id="shareWithInvitingAgency" type="checkbox" checked' "$onboarding"
+          grep -F 'Not shared by this permission: phone, email, CV text, private documents or Vault contents.' "$onboarding"
+          grep -F 'verifiedInviteIdentity=false' "$onboarding_js"
+          grep -F 'loadSecureInviteInfo' "$onboarding_js"
+          grep -F 'verifiedInviteIdentity && d.shareWithInvitingAgency' "$onboarding_js"
+          grep -F '/invite-info' "$onboarding_api"
+          grep -F 'verifiedSignedInvite: true' "$onboarding_api"
+          grep -F 'recruiterName: agencyAccount.recruiterName' "$onboarding_api"
+          grep -F 'agencyId: agencyAccount.agencyId' "$onboarding_api"
+          grep -F 'shareWithInvitingAgency = bool(req.body?.shareWithInvitingAgency)' "$onboarding_api"
+          grep -F 'consentSource: "WORKER_INVITE_ONBOARDING"' "$persistence"
+          grep -F 'status: "ACTIVE"' "$persistence"
+          grep -F 'status: "REVOKED"' "$persistence"
+          grep -F 'privateDocumentsIncluded: false' "$persistence"
+          grep -F 'contactDetailsIncluded: false' "$persistence"
+          grep -F 'cvTextIncluded: false' "$persistence"
+          grep -F 'agencyId?: string' "$invite_contract"
+          grep -F 'recruiterName?: string' "$invite_contract"
+          grep -F 'agencyId: text("agency_id")' "$invite_schema"
+          grep -F 'createdByUserId: varchar("created_by_user_id")' "$invite_schema"
+          grep -F 'nexus_person_agency_access_grants' "$agency_schema"
 
       - name: Work Mode V2 active local-only contract
         shell: bash
@@ -365,5 +406,8 @@ jobs:
           grep -F '/person-card/agency/candidates' artifacts/api-server/src/person-card-freeware/agency.ts
           grep -F 'nexus_person_agencies' lib/db/src/schema/nexusPersonAgency.ts
           grep -F 'nexus_person_agency_candidate_states' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'nexus_person_agency_recruiter_profiles' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'nexus_person_agency_access_grants' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F '/person-card/agency/profile' artifacts/api-server/src/person-card-freeware/agency.ts
           grep -F 'authenticatedAgency(req)' artifacts/api-server/src/person-card-freeware/onboarding.ts
           ! grep -RFi 'relationship-tree' artifacts/api-server/src/person-card-freeware
