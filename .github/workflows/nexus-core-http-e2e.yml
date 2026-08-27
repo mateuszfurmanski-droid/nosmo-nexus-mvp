@@ -10,6 +10,8 @@ on:
       - artifacts/api-server/src/routes/nexus-core-e2e.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/resolveNexusCoreWorkspace.ts
+      - artifacts/api-server/src/middlewares/nexusCoreBrowserCors.ts
+      - artifacts/api-server/src/vercel-core-staging.ts
       - artifacts/api-server/src/lib/nexus-person-binding.ts
       - artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts
       - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
@@ -26,6 +28,8 @@ on:
       - artifacts/api-server/src/routes/nexus-core-e2e.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/resolveNexusCoreWorkspace.ts
+      - artifacts/api-server/src/middlewares/nexusCoreBrowserCors.ts
+      - artifacts/api-server/src/vercel-core-staging.ts
       - artifacts/api-server/src/lib/nexus-person-binding.ts
       - artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts
       - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
@@ -104,6 +108,10 @@ jobs:
         run: |
           set -euo pipefail
           node artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs | tee /tmp/nexus-core-http-e2e.txt
+          grep -q 'NEXUS_CORE_BROWSER_TRANSPORT_PASS' /tmp/nexus-core-http-e2e.txt
+          grep -q '"blockedOriginStatus": 403' /tmp/nexus-core-http-e2e.txt
+          grep -q '"credentialsReleased": false' /tmp/nexus-core-http-e2e.txt
+          grep -q '"authentication": "BEARER_SESSION_ONLY"' /tmp/nexus-core-http-e2e.txt
           grep -q 'NEXUS_CORE_HTTP_E2E_PASS' /tmp/nexus-core-http-e2e.txt
           grep -q '"scope": "SYNTHETIC_E2E_ONLY"' /tmp/nexus-core-http-e2e.txt
           grep -q '"finalTaskStatus": "done"' /tmp/nexus-core-http-e2e.txt
