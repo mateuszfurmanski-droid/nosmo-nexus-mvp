@@ -36,7 +36,8 @@ Superseded UI: nosmo-nexus-mvp PR #180. Do not restore.
 - `screen.html?screen=work` — worker-owned professional Work Card with role, availability, preferred location, employment type, recent projects, work history, references, skills, licences/tickets, employer/agency notes and optional explicit Share Work Card action; local-first and separate from recruitment;
 - `screen.html?screen=work-mode` — Work Mode V2 fourth window with local supported-app discovery, explicit Add / Open / Remove actions, privacy information and work-app category cards;
 - `onboarding.html` — worker onboarding;
-- `agency-invite.html` — agency invite desk;
+- `agency-desk.html` — unified agency / recruiter workspace over the existing recruiter-safe Person Card, shortlist, Request Pack, Offer Work, Worker Registry and Agency Invite flows;
+- `agency-invite.html` — worker onboarding invite flow opened from Agency Desk;
 - `section.html` — CV/certs/refs/availability/vault sections;
 - `data-fetcher/` — standalone profile file intake;
 - `directory.html` — standalone worker registry starting point.
@@ -80,3 +81,30 @@ Installed-app discovery must remain device-local. Detection is not connection, c
 - Remove from Work Mode removes only the local tile;
 - browser preview never simulates installed apps when the Android bridge is unavailable;
 - BIM / drawings, snagging, site forms, timesheets, Work Wallet, cloud storage, communication and project management are UI categories, not new standalone product dependencies.
+
+
+## Worker and Agency operating views
+
+Person Card Freeware now has two operating views over the same Person / Work Profile data:
+
+### Worker View
+
+- Person;
+- Documents;
+- Work Card;
+- Work Mode V2;
+- Work Hub / Find Work / Matches / Agencies / AI Check / Share / Inbox.
+
+### Agency Desk
+
+- recruiter-safe candidate view;
+- Worker Registry;
+- local shortlist state using the existing recruiter shortlist key;
+- Request Pack draft entry into the existing recruiter panel;
+- Offer Work draft entry into the existing recruiter panel;
+- Agency Invite / onboarding link flow;
+- local agency activity summary for draft/open actions.
+
+Agency Desk does not create a second worker profile or a second Person Card. The current candidate card loads the existing `data/person-work-profile-kamil.json` demo Work Profile and opens the canonical `index.html?view=recruiter` surface for worker-specific actions.
+
+Private worker documents are not automatically exposed to Agency Desk. Request Pack remains an explicit request flow and does not grant document access.
