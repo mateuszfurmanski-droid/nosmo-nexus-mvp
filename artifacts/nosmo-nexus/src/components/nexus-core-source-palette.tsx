@@ -90,10 +90,12 @@ export function NexusCoreSourcePalette({
   nodes,
   projectId,
   worldId,
+  embedded = false,
 }: {
   nodes: WorkspaceNode[];
   projectId: string;
   worldId: string;
+  embedded?: boolean;
 }) {
   const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const [packageItems, setPackageItems] = useState<PackageItem[]>([]);
@@ -297,7 +299,7 @@ export function NexusCoreSourcePalette({
 
       <section
         data-control
-        className="pointer-events-auto fixed bottom-[92px] left-1/2 z-[110] w-[min(720px,calc(100vw-20px))] -translate-x-1/2 rounded-2xl border border-cyan-300/25 bg-slate-950/92 p-2.5 text-slate-100 shadow-2xl backdrop-blur-xl"
+        className={`${embedded ? "relative w-full" : "pointer-events-auto fixed bottom-[92px] left-1/2 z-[110] w-[min(720px,calc(100vw-20px))] -translate-x-1/2"} rounded-2xl border border-cyan-300/25 bg-slate-950/92 p-2.5 text-slate-100 shadow-2xl backdrop-blur-xl`}
       >
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div className="min-w-0">
@@ -346,7 +348,7 @@ export function NexusCoreSourcePalette({
       <nav
         data-control
         aria-label="Nexus bottom source palette"
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-[120] h-[84px] border-t border-cyan-300/20 bg-slate-950/96 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_32px_rgba(0,0,0,.36)] backdrop-blur-xl"
+        className={`${embedded ? "relative h-auto w-full" : "pointer-events-auto fixed inset-x-0 bottom-0 z-[120] h-[84px]"} border-t border-cyan-300/20 bg-slate-950/96 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_32px_rgba(0,0,0,.36)] backdrop-blur-xl`}
       >
         <div className="mx-auto flex h-full max-w-4xl items-start gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {SOURCES.map(({ kind, label, Icon }) => (
