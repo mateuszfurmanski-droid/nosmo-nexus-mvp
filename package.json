@@ -8,7 +8,9 @@
     "typecheck:libs": "tsc --build",
     "typecheck:esafe-core": "tsc -p tsconfig.esafe-core.json --noEmit",
     "typecheck": "pnpm run typecheck:libs && pnpm run typecheck:esafe-core && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "smoke:esafe-core": "pnpm --dir scripts exec tsx ../src/data/demo/esafeCataniaCoreWorkSmoke.ts"
+    "smoke:esafe-core": "pnpm --dir scripts exec tsx ../src/data/demo/esafeCataniaCoreWorkSmoke.ts",
+    "db:migrate": "pnpm --filter @workspace/db migrate",
+    "smoke:esafe-core-db": "pnpm --filter @workspace/db smoke:core-db"
   },
   "private": true,
   "devDependencies": {
