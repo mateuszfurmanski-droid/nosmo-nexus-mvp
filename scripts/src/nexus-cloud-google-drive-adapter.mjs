@@ -38,7 +38,13 @@ const toBuffer = (binary) => {
 };
 
 const safeProviderReason = (payload) => {
-  const candidate = payload?.error?.message ?? payload?.error_description ?? payload?.error ?? null;
+  const oauthErrorCode =
+    typeof payload?.error === "string" && /^[a-z0-9_]{2,80}$/.test(payload.error)
+      ? payload.error
+      : null;
+  if (oauthErrorCode) return oauthErrorCode;
+
+  const candidate = payload?.error?.message ?? payload?.error_description ?? null;
   return typeof candidate === "string" ? candidate.slice(0, 500) : null;
 };
 
