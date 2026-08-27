@@ -169,6 +169,7 @@
   }
   async function loadAccount(){
     try{
+      await api("/_health");
       const payload=await api("/account");
       agency=payload.agency;
       q("agencyAccountState").textContent=agency.name+" · "+agency.role+" · authenticated";
@@ -176,6 +177,14 @@
       await Promise.all([loadCandidates(),loadActivity(),loadAgencyProfile()]);
     }catch(error){
       agency=null;candidates=[];activity=[];renderCandidates();renderActivity();renderSummary();
+      if(error.payload&&error.payload.databaseReady===false){
+        q("accountSetup").hidden=true;
+        const missing=Array.isArray(error.payload.missingTables)?error.payload.missingTables:[];
+        q("agencyAccountState").textContent="DB activation pending"+(missing.length?" · missing "+missing.length+" Person Card tables":"")+".";
+        q("candidateList").innerHTML='<div class="empty">Agency ATS persistence is not activated on this database yet. No demo candidates are substituted.</div>';
+        q("agencyActivity").innerHTML='<div class="empty">Agency activity will become available after the Person Card DB migration.</div>';
+        return;
+      }
       q("accountSetup").hidden=false;
       if(error.status===401){
         q("agencyAccountState").textContent="Sign in required for Agency ATS.";
