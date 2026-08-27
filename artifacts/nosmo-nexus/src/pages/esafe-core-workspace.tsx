@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckSquare, UserRound } from "lucide-react";
-import PersistentWorkspace from "@/components/persistent-workspace";
+import InteractiveWorkspace from "@/components/interactive-workspace";
+import { EsafeProjectWorldTimeline } from "@/components/esafe-project-world-timeline";
 import { NexusCoreApprovalPanel } from "@/components/nexus-core-approval-panel";
 import { NexusCoreSemanticDropAdapter } from "@/components/nexus-core-semantic-drop-adapter";
 import { NexusCoreSourcePalette } from "@/components/nexus-core-source-palette";
 import { NexusCoreStagingManagerLogin } from "@/components/nexus-core-staging-manager-login";
+import { NexusFloatingWindow } from "@/components/nexus-floating-window";
 import type { WorkspaceNode } from "@/components/workspace-data";
 import { buildEsafeProjectGraph } from "@/project-worlds/esafe/graph";
 import { buildEsafeTimelineState, type EsafeTimelineState } from "@/project-worlds/esafe/model";
@@ -29,16 +31,18 @@ const stagingPeople: WorkspaceNode[] = [
   {
     id: MANAGER_PERSON_ID,
     label: "Joanna Klosek",
-    sublabel: "CANONICAL STAGING PERSON · manager",
+    sublabel: "Manager · canonical staging Person",
     type: "person",
     Icon: UserRound,
+    company: "NOSMO / e-SAFE",
   },
   {
     id: WORKER_PERSON_ID,
     label: "Mateusz Furmanski",
-    sublabel: "CANONICAL STAGING PERSON · Android recipient",
+    sublabel: "Worker · canonical staging Person",
     type: "person",
     Icon: UserRound,
+    company: "NOSMO / e-SAFE",
   },
 ];
 
@@ -83,12 +87,14 @@ export default function EsafeCoreWorkspace() {
   const nodes = useMemo(() => {
     const merged = [...graph.nodes];
     const existingIds = new Set(merged.map((node) => node.id));
+
     for (const person of stagingPeople) {
       if (!existingIds.has(person.id)) {
         merged.push(person);
         existingIds.add(person.id);
       }
     }
+
     for (const task of authoritativeTasks) {
       const taskId = stringValue(task, "id");
       if (!taskId || existingIds.has(taskId)) continue;
@@ -101,6 +107,7 @@ export default function EsafeCoreWorkspace() {
       });
       existingIds.add(taskId);
     }
+
     return merged;
   }, [authoritativeTasks, graph.nodes]);
 
@@ -109,6 +116,7 @@ export default function EsafeCoreWorkspace() {
     for (const [id, related] of Object.entries(graph.adjacency)) {
       relationSets.set(id, new Set(related));
     }
+
     const nodeIds = new Set(nodes.map((node) => node.id));
     const connect = (left: string, right: string) => {
       if (!left || !right || left === right || !nodeIds.has(left) || !nodeIds.has(right)) return;
@@ -142,55 +150,90 @@ export default function EsafeCoreWorkspace() {
     return Object.fromEntries([...relationSets].map(([id, related]) => [id, [...related]]));
   }, [authoritativeTasks, graph.adjacency, graph.projectId, nodes]);
 
+  const taskLinks = useMemo(() => {
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const links: Record<string, { people: string[]; docs: string[] }> = {};
+
+    for (const node of nodes) {
+      if (node.type !== "task") continue;
+      const related = adjacency[node.id] ?? [];
+      links[node.id] = {
+        people: related.filter((id) => byId.get(id)?.type === "person"),
+        docs: related.filter((id) => byId.get(id)?.type === "document"),
+      };
+    }
+
+    return links;
+  }, [adjacency, nodes]);
+
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-[#eaf7fb]">
-      <style>{`
-        html,
-        body,
-        #root {
-          width: 100% !important;
-          min-height: 100% !important;
-          height: 100% !important;
-          margin: 0 !important;
-          overflow: hidden !important;
-          overscroll-behavior: none !important;
-          background: #eaf7fb !important;
-        }
-
-        @supports (height: 100dvh) {
-          html,
-          body,
-          #root {
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-          }
-        }
-
-        [data-control][class*="absolute left-3 top-3 z-50"],
-        [data-control][class*="absolute left-1/2 top-3 z-40"],
-        [data-control][class*="bottom-3 left-3 right-3 z-50"],
-        [data-control][class*="bottom-3 left-3 z-40"],
-        [data-node-id] [data-control][role="button"] {
-          display: none !important;
-        }
-      `}</style>
-
-      <PersistentWorkspace
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
+      <InteractiveWorkspace
         nodes={nodes}
         projectId={graph.projectId}
+        managerId={MANAGER_PERSON_ID}
         adjacency={adjacency}
-        storageKey="nosmo-persistent-workspace:addon059:esafe"
-        workflowEnabled={false}
+        taskLinks={taskLinks}
+        headerTitle="e-SAFE Catania Real Pilot · Nexus Relationship Tree"
       />
 
-      <NexusCoreStagingManagerLogin />
-      <NexusCoreSemanticDropAdapter />
-      <NexusCoreApprovalPanel />
-      <NexusCoreSourcePalette
-        nodes={nodes}
-        projectId={CORE_PROJECT_ID}
-        worldId={CORE_WORLD_ID}
-      />
+      <NexusFloatingWindow
+        id="manager-login"
+        title="Manager identity"
+        defaultPosition={{ x: 12, y: 54 }}
+        widthClass="w-[min(380px,calc(100vw-16px))]"
+      >
+        <NexusCoreStagingManagerLogin embedded />
+      </NexusFloatingWindow>
+
+      <NexusFloatingWindow
+        id="core-authority"
+        title="Core authority"
+        defaultPosition={{ x: Math.max(12, Math.round(viewportWidth / 2 - 260)), y: 54 }}
+        widthClass="w-[min(520px,calc(100vw-16px))]"
+        defaultMinimized
+      >
+        <NexusCoreSemanticDropAdapter embedded />
+      </NexusFloatingWindow>
+
+      <NexusFloatingWindow
+        id="approval"
+        title="Human approval"
+        defaultPosition={{ x: Math.max(12, viewportWidth - 380), y: 54 }}
+        widthClass="w-[min(360px,calc(100vw-16px))]"
+        defaultMinimized
+      >
+        <NexusCoreApprovalPanel embedded />
+      </NexusFloatingWindow>
+
+      <NexusFloatingWindow
+        id="work-package"
+        title="Work Package"
+        defaultPosition={{ x: 12, y: Math.max(120, viewportHeight - 320) }}
+        widthClass="w-[min(720px,calc(100vw-16px))]"
+        heightClass="max-h-[58dvh]"
+      >
+        <NexusCoreSourcePalette
+          embedded
+          nodes={nodes}
+          projectId={CORE_PROJECT_ID}
+          worldId={CORE_WORLD_ID}
+        />
+      </NexusFloatingWindow>
+
+      <NexusFloatingWindow
+        id="timeline"
+        title="Project Timeline"
+        defaultPosition={{ x: Math.max(12, viewportWidth - 700), y: Math.max(100, viewportHeight - 460) }}
+        widthClass="w-[min(680px,calc(100vw-16px))]"
+        heightClass="h-[min(62dvh,560px)]"
+        defaultMinimized
+      >
+        <EsafeProjectWorldTimeline embedded onClose={() => undefined} />
+      </NexusFloatingWindow>
     </div>
   );
 }
