@@ -18,6 +18,7 @@
   let draftToken="";
   let personId="";
   let autosaveTimer=null;
+  let verifiedInviteIdentity=false;
 
   const q=(sel,root)=>(root||document).querySelector(sel);
   const qa=(sel,root)=>Array.from((root||document).querySelectorAll(sel));
@@ -304,6 +305,38 @@
     return payload;
   }
 
+  async function loadSecureInviteInfo(){
+    if(!secureInvite||!apiBase)return false;
+    try{
+      const payload=await post("/invite-info",{inviteToken});
+      const verified=payload&&payload.verifiedSignedInvite===true;
+      if(!verified)throw new Error("NEXUS_ONBOARDING_INVITE_NOT_VERIFIED");
+      verifiedInviteIdentity=true;
+      const agencyName=payload.agency&&payload.agency.name?String(payload.agency.name):agency;
+      const recruiterName=payload.recruiter&&payload.recruiter.displayName?String(payload.recruiter.displayName):"Recruiter";
+      const recruiterTitle=payload.recruiter&&payload.recruiter.jobTitle?String(payload.recruiter.jobTitle):"";
+      const consent=q("#shareWithInvitingAgency");
+      if(consent)consent.disabled=false;
+      const consentAgency=q("#consentAgencyName");
+      if(consentAgency)consentAgency.textContent=agencyName||"this agency";
+      const inviter=q("#consentInviterIdentity");
+      if(inviter)inviter.textContent="Verified inviter: "+recruiterName+(recruiterTitle?" · "+recruiterTitle:"")+" · "+agencyName;
+      const notice=q("#inviteNotice");
+      if(notice)notice.textContent=recruiterName+(recruiterTitle?" · "+recruiterTitle:"")+" from "+agencyName+" sent this verified secure Person Card invite.";
+      return true;
+    }catch(error){
+      verifiedInviteIdentity=false;
+      setField("shareWithInvitingAgency",false);
+      const consent=q("#shareWithInvitingAgency");
+      if(consent)consent.disabled=true;
+      const inviter=q("#consentInviterIdentity");
+      if(inviter)inviter.textContent="Inviter identity could not be verified. Agency sharing stays disabled.";
+      const notice=q("#inviteNotice");
+      if(notice)notice.textContent="Secure invite verification is unavailable. You can edit the Person Card, but agency sharing stays disabled.";
+      return false;
+    }
+  }
+
   function serverPayload(finalize){
     const d=collect();
     return {
@@ -324,7 +357,9 @@
       dayShift:d.dayShift,
       nightShift:d.nightShift,
       workAway:d.workAway,
-      shareWithInvitingAgency:d.shareWithInvitingAgency
+      shareWithInvitingAgency:Boolean(
+        verifiedInviteIdentity && d.shareWithInvitingAgency
+      )
     };
   }
 
@@ -479,7 +514,15 @@
       if(consentBox)consentBox.classList.toggle("visible",secureInvite);
       const consentAgency=q("#consentAgencyName");
       if(consentAgency)consentAgency.textContent=agency||"this agency";
-      if(!secureInvite)setField("shareWithInvitingAgency",false);
+      const consent=q("#shareWithInvitingAgency");
+      if(consent)consent.disabled=true;
+      if(!secureInvite){
+        setField("shareWithInvitingAgency",false);
+        const inviter=q("#consentInviterIdentity");
+        if(inviter)inviter.textContent="Agency sharing is available only from a verified secure invite.";
+      }else{
+        loadSecureInviteInfo();
+      }
 
       if(!localStorage.getItem(LOCAL_KEY)&&params.get("preview")!=="closed")openEditor();
       return;
