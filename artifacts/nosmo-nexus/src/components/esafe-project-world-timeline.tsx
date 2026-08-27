@@ -89,9 +89,11 @@ export function EsafeProjectWorldTimeline({ onClose, embedded = false }: { onClo
           <div className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-cyan-300">NOSMO NEXUS · PROJECT WORLD</div>
           <strong className="text-sm">e-SAFE Catania Real Pilot</strong>
         </div>
-        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Close e-SAFE Timeline">
-          <X className="h-4 w-4" />
-        </button>
+        {!embedded ? (
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Close e-SAFE Timeline">
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-4 p-3 sm:p-4">
