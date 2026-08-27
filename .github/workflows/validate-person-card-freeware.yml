@@ -116,6 +116,23 @@ jobs:
           ! grep -RFi "${runtime_args[@]}" 'Work Wallet' modules/person-card-freeware
           ! grep -RFi "${runtime_args[@]}" 'FabStation' modules/person-card-freeware
 
+      - name: Documents window local-only contract
+        shell: bash
+        run: |
+          screen=modules/person-card-freeware/screen.html
+          grep -F 'DOCUMENTS' "$screen"
+          grep -F 'CSCS / ECS / OTHER CARDS' "$screen"
+          grep -F 'CERTIFICATES' "$screen"
+          grep -F 'TRAINING' "$screen"
+          grep -F 'ID / RIGHT TO WORK' "$screen"
+          grep -F '+ Add document' "$screen"
+          grep -F 'VALID' "$screen"
+          grep -F 'EXPIRING' "$screen"
+          grep -F 'EXPIRED' "$screen"
+          grep -F 'NO EXPIRY' "$screen"
+          grep -F 'localStorage' "$screen"
+          ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$screen"
+
       - name: Static JavaScript and JSON validation
         shell: bash
         run: |
