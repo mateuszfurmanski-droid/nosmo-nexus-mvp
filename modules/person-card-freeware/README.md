@@ -97,15 +97,18 @@ Person Card Freeware now has two operating views over the same Person / Work Pro
 
 ### Agency Desk
 
-- recruiter-safe candidate view;
-- Worker Registry;
-- local shortlist state using the existing recruiter shortlist key;
-- Request Pack draft entry into the existing recruiter panel;
-- Offer Work draft entry into the existing recruiter panel;
+- authenticated Agency Account;
+- editable Agency Profile;
+- authenticated Recruiter Profile for each agency member;
+- consent-gated recruiter-safe candidate pipeline;
+- server-side agency-scoped shortlist / pipeline state;
+- Request Pack and Offer Work draft actions;
 - Agency Invite / onboarding link flow;
-- local agency activity summary for draft/open actions.
+- server-side Agency Activity.
 
-Agency Desk does not create a second worker profile or a second Person Card. The current candidate card loads the existing `data/person-work-profile-kamil.json` demo Work Profile and opens the canonical `index.html?view=recruiter` surface for worker-specific actions.
+Agency Desk does not create a second worker profile or a second Person Card. Candidate data is read from the canonical `nexus_pm_people` and `nexus_person_work_profiles` records.
+
+An active worker profile is not sufficient for Agency Desk visibility. The agency must also have an active `RECRUITER_SAFE` access grant from that worker.
 
 Private worker documents are not automatically exposed to Agency Desk. Request Pack remains an explicit request flow and does not grant document access.
 
@@ -146,3 +149,33 @@ The schema is defined in the canonical Drizzle schema export. Before using the l
 Run that only against the intended NOSMO database with the correct `DATABASE_URL`.
 
 Agency Desk does not substitute the old demo candidate when the authenticated ATS API/database is unavailable; it reports the missing account/API state instead.
+
+
+## Agency identity and worker visibility consent
+
+Agency-side identity has two layers:
+
+- **Agency Profile** — company name, website, registration number, office/base location, description and verification state;
+- **Recruiter Profile** — authenticated NOSMO user, display name, job title, email, phone, photo URL, bio and verification state.
+
+Recruiter Profile rows are keyed by the authenticated `authUserId` and belong to an Agency Account. Client-supplied recruiter IDs are not accepted as identity authority.
+
+Secure Agency Invites carry signed agency/recruiter identity. Worker onboarding verifies that signed identity through `POST /api/person-card/onboarding/invite-info` before enabling the agency-sharing checkbox.
+
+Worker consent is explicit and off by default:
+
+- the sharing checkbox starts unchecked and disabled;
+- it becomes enabled only after the signed inviter identity is verified by the server;
+- finishing a Person Card does not require granting agency access;
+- granting access creates/updates `nexus_person_agency_access_grants` with scope `RECRUITER_SAFE`;
+- removing consent on a later finalized save revokes the grant.
+
+The recruiter-safe grant includes role/trade, locations, availability, work preferences and readiness states. It explicitly excludes phone, email, CV text, private documents and Vault contents.
+
+The Agency ATS candidate query inner-joins the agency access grant and requires:
+
+- matching `agencyId`;
+- `status = ACTIVE`;
+- `scope = RECRUITER_SAFE`.
+
+Therefore an agency cannot enumerate all active NOSMO workers merely because they have active Person Cards.
