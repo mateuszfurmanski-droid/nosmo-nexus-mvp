@@ -12,6 +12,7 @@ on:
       - artifacts/api-server/package.json
       - lib/db/src/schema/nexusPerson.ts
       - lib/db/src/schema/nexusPersonWorkProfile.ts
+      - lib/db/src/schema/nexusPersonAgency.ts
       - lib/db/src/schema/index.ts
       - .github/workflows/validate-person-card-freeware.yml
       - .github/workflows/deploy-person-card-freeware-preview.yml
@@ -24,6 +25,7 @@ on:
       - artifacts/api-server/package.json
       - lib/db/src/schema/nexusPerson.ts
       - lib/db/src/schema/nexusPersonWorkProfile.ts
+      - lib/db/src/schema/nexusPersonAgency.ts
       - lib/db/src/schema/index.ts
 
 jobs:
@@ -49,6 +51,7 @@ jobs:
               artifacts/api-server/package.json) ;;
               lib/db/src/schema/nexusPerson.ts) ;;
               lib/db/src/schema/nexusPersonWorkProfile.ts) ;;
+              lib/db/src/schema/nexusPersonAgency.ts) ;;
               lib/db/src/schema/index.ts) ;;
               .github/workflows/validate-person-card-freeware.yml) ;;
               .github/workflows/deploy-person-card-freeware-preview.yml) ;;
@@ -158,34 +161,53 @@ jobs:
           grep -F 'Work Mode V2 runs only in the fourth window and does not scan from Work Card.' "$screen"
           ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$screen"
 
-      - name: Agency Desk shared-profile contract
+      - name: Agency Desk multi-worker ATS contract
         shell: bash
         run: |
           desk=modules/person-card-freeware/agency-desk.html
           desk_js=modules/person-card-freeware/js/agency-desk.js
           recruiter=modules/person-card-freeware/js/person-work-profile.js
           invite=modules/person-card-freeware/agency-invite.html
+          invite_js=modules/person-card-freeware/js/person-agency-invite.js
           directory=modules/person-card-freeware/directory.html
+          agency_api=artifacts/api-server/src/person-card-freeware/agency.ts
+          agency_schema=lib/db/src/schema/nexusPersonAgency.ts
+          standalone=artifacts/api-server/src/person-card-freeware.ts
           test -f "$desk"
           test -f "$desk_js"
+          test -f "$agency_api"
+          test -f "$agency_schema"
           grep -F 'AGENCY <span>DESK</span>' "$desk"
-          grep -F 'Recruiters see the recruiter-safe view' "$desk"
-          grep -F 'Invite worker' "$desk"
-          grep -F 'Worker registry' "$desk"
-          grep -F 'Open recruiter view' "$desk"
-          grep -F 'Shortlist' "$desk"
+          grep -F 'Multi-worker ATS view' "$desk"
+          grep -F 'recruiter-safe server projection' "$desk"
+          grep -F 'Create Agency Account' "$desk"
+          grep -F 'Candidate pipeline' "$desk"
           grep -F 'Request Pack' "$desk"
           grep -F 'Offer Work' "$desk"
-          grep -F './data/person-work-profile-kamil.json' "$desk_js"
-          grep -F 'nexus-recruiter-shortlist:' "$desk_js"
-          grep -F './index.html?view=recruiter&previewWork=request' "$desk"
-          grep -F './index.html?view=recruiter&previewWork=offer' "$desk"
-          grep -F './agency-invite.html' "$desk"
-          grep -F './directory.html' "$desk"
+          grep -F '"/api/person-card/agency"' "$desk_js"
+          grep -F 'credentials:"include"' "$desk_js"
+          grep -F '/candidates?limit=200' "$desk_js"
+          grep -F 'REQUEST_PACK_DRAFTED' "$desk_js"
+          grep -F 'OFFER_DRAFTED' "$desk_js"
+          grep -F 'SHORTLISTED' "$desk_js"
+          grep -F '/person-card/agency/account' "$agency_api"
+          grep -F '/person-card/agency/candidates' "$agency_api"
+          grep -F '/person-card/agency/activity' "$agency_api"
+          grep -F 'privateFieldsIncluded: false' "$agency_api"
+          grep -F 'privateDocumentsIncluded: false' "$agency_api"
+          grep -F 'nexus_person_agencies' "$agency_schema"
+          grep -F 'nexus_person_agency_members' "$agency_schema"
+          grep -F 'nexus_person_agency_candidate_states' "$agency_schema"
+          grep -F 'nexus_person_agency_actions' "$agency_schema"
+          grep -F 'authMiddleware' "$standalone"
+          grep -F 'authRouter' "$standalone"
+          grep -F 'agencyRouter' "$standalone"
           grep -F './agency-desk.html' "$recruiter"
           grep -F 'href="./agency-desk.html"' "$invite"
           grep -F 'href="./agency-desk.html"' "$directory"
-          grep -F './js/person-agency-invite.js?v=freeware1' "$invite"
+          grep -F 'agencyAccountEndpoint="/api/person-card/agency/account"' "$invite_js"
+          grep -F 'Authenticated Agency Account' "$invite"
+          ! grep -F './data/person-work-profile-kamil.json' "$desk_js"
           test "$(find modules/person-card-freeware/data -maxdepth 1 -type f -name 'person-work-profile-*.json' | wc -l)" -eq 1
 
       - name: Work Mode V2 active local-only contract
@@ -339,4 +361,9 @@ jobs:
           grep -F 'nexus_person_work_profiles' lib/db/src/schema/nexusPersonWorkProfile.ts
           grep -F 'nexus-person-work-profile/v1' artifacts/api-server/src/person-card-freeware/person-work-profile-persistence.ts
           grep -F 'nexus_pm_people' lib/db/src/schema/nexusPerson.ts
+          grep -F '/person-card/agency/account' artifacts/api-server/src/person-card-freeware/agency.ts
+          grep -F '/person-card/agency/candidates' artifacts/api-server/src/person-card-freeware/agency.ts
+          grep -F 'nexus_person_agencies' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'nexus_person_agency_candidate_states' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'authenticatedAgency(req)' artifacts/api-server/src/person-card-freeware/onboarding.ts
           ! grep -RFi 'relationship-tree' artifacts/api-server/src/person-card-freeware
