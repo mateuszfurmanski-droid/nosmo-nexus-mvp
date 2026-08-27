@@ -62,7 +62,17 @@
       if(agency){
         q("#agency").value=agency;
         q("#agency").readOnly=true;
-        q("#inviteState").textContent="Secure invites will be issued as "+agency+".";
+        let identity="Secure invites will be issued as "+agency+".";
+        try{
+          const profileRes=await fetch("/api/person-card/agency/profile",{credentials:"include",cache:"no-store"});
+          const profilePayload=await profileRes.json().catch(()=>({}));
+          if(profileRes.ok&&profilePayload.recruiter){
+            const recruiter=profilePayload.recruiter;
+            identity="Secure invites will be issued by "+(recruiter.displayName||"Recruiter")+
+              (recruiter.jobTitle?" · "+recruiter.jobTitle:"")+" for "+agency+".";
+          }
+        }catch(_){}
+        q("#inviteState").textContent=identity;
       }
     }catch(error){
       if(error.status===401){
