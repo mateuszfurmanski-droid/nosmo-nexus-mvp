@@ -178,6 +178,8 @@ router.post("/person-card/onboarding/invites", async (req, res) => {
       inviteId: payload.inviteId,
       tokenDigest: digestNexusOnboardingToken(token),
       agency: payload.agency,
+      agencyId: agencyAccount.agencyId,
+      createdByUserId: req.user.id,
       suggestedTrade: payload.trade,
       suggestedLocation: payload.location,
       message: payload.message,
@@ -405,6 +407,7 @@ router.post("/person-card/onboarding/drafts/save", async (req, res) => {
   const email = clean(req.body?.email, 160) ?? "";
   const cvText = rawText(req.body?.cvText, MAX_CV_TEXT);
   const finalize = req.body?.finalize === true;
+  const shareWithInvitingAgency = bool(req.body?.shareWithInvitingAgency);
 
   if (finalize && (!firstName || !lastName || !trade || !location)) {
     res.status(400).json({
@@ -503,6 +506,13 @@ router.post("/person-card/onboarding/drafts/save", async (req, res) => {
       vault: { state: "not-connected", source: "onboarding" },
     },
     cvText,
+    visibility: {
+      invitingAgencyRecruiterSafe:
+        finalize && shareWithInvitingAgency,
+      privateDocumentsShared: false,
+      contactDetailsShared: false,
+      cvTextShared: false,
+    },
   };
 
   try {
@@ -515,6 +525,7 @@ router.post("/person-card/onboarding/drafts/save", async (req, res) => {
       personRecord,
       workProfileStatus,
       workProfileRecord,
+      shareWithInvitingAgency,
     });
     res.json({
       schema: "nexus-person-onboarding-draft-save/v1",
@@ -523,6 +534,9 @@ router.post("/person-card/onboarding/drafts/save", async (req, res) => {
       persistedAt: now.toISOString(),
       serverPersonMutationPerformed: true,
       photoBinaryPersisted: false,
+      agencyRecruiterSafeAccess:
+        finalize && shareWithInvitingAgency ? "GRANTED" : "NOT_GRANTED",
+      privateDocumentsShared: false,
     });
   } catch (error) {
     if (persistenceError(req, res, error, "Onboarding draft save failed")) return;
