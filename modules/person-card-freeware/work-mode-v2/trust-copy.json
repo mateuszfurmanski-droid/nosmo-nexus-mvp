@@ -5,11 +5,11 @@
   ],
   "messages": {
     "en": {
-      "firstUseTitle": "Your Work Card belongs to you.",
-      "firstUseBody": "Nexus checks for supported work applications on this device only. Your installed-app list is not sent to or stored on Nexus servers. Nothing is connected, published or shared with an employer, agency or another person without your clear approval. You choose what to share, with whom and for how long. You can withdraw access at any time.",
+      "firstUseTitle": "Private, local app discovery",
+      "firstUseBody": "App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps. Nothing is added, connected or shared unless you choose it.",
       "persistentLabel": "Private by default. Shared only by you.",
       "addPromptTemplate": "{appName} was found on this device. Add it to your Work Card?",
-      "add": "Add to Work Card",
+      "add": "Add to Work Mode",
       "notNow": "Not now",
       "neverSuggest": "Don’t suggest again"
     }
