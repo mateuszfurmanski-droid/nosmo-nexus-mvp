@@ -45,7 +45,7 @@ export type ReplyItem = {
   internalDate: string | null;
 };
 
-const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+const API_BASE = "/api/job-control";\n\nconst request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, {
     ...init,
     credentials: "include",
@@ -74,16 +74,16 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 
 export const api = {
   authStatus: () =>
-    request<{ ok: true; configured: boolean; authenticated: boolean }>("/api/auth"),
+    request<{ ok: true; configured: boolean; authenticated: boolean }>("${API_BASE}/auth"),
 
   login: (code: string) =>
-    request<{ ok: true; authenticated: true }>("/api/auth", {
+    request<{ ok: true; authenticated: true }>("${API_BASE}/auth", {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
 
   logout: () =>
-    request<{ ok: true }>("/api/auth", { method: "DELETE" }),
+    request<{ ok: true }>("${API_BASE}/auth", { method: "DELETE" }),
 
   dashboard: () =>
     request<{
@@ -100,10 +100,10 @@ export const api = {
         priorityA: number;
       };
       syncedAt: string;
-    }>("/api/dashboard"),
+    }>("${API_BASE}/dashboard"),
 
   jobs: () =>
-    request<{ ok: true; source: string; jobs: ApiJob[]; syncedAt: string }>("/api/jobs"),
+    request<{ ok: true; source: string; jobs: ApiJob[]; syncedAt: string }>("${API_BASE}/jobs"),
 
   cvs: () =>
     request<{
@@ -118,7 +118,7 @@ export const api = {
         webViewLink: string | null;
         available: boolean;
       }>;
-    }>("/api/cvs"),
+    }>("${API_BASE}/cvs"),
 
   integrations: () =>
     request<{
@@ -136,10 +136,10 @@ export const api = {
         checkedAt: string;
       };
       googleError?: { code: string; httpStatus: number | null; providerReason: string | null };
-    }>("/api/integrations"),
+    }>("${API_BASE}/integrations"),
 
   replies: () =>
-    request<{ ok: true; source: string; replies: ReplyItem[]; syncedAt: string }>("/api/replies"),
+    request<{ ok: true; source: string; replies: ReplyItem[]; syncedAt: string }>("${API_BASE}/replies"),
 
   updateStatus: (input: {
     row: number;
@@ -147,7 +147,7 @@ export const api = {
     note: string;
     confirmed: boolean;
   }) =>
-    request<{ ok: true; row: number; status: string; confirmedAt: string }>("/api/update-status", {
+    request<{ ok: true; row: number; status: string; confirmedAt: string }>("${API_BASE}/update-status", {
       method: "POST",
       body: JSON.stringify(input),
     }),
@@ -167,7 +167,7 @@ export const api = {
       idempotentReplay: boolean;
       messageId: string;
       statusUpdated: boolean;
-    }>("/api/send-application", {
+    }>("${API_BASE}/send-application", {
       method: "POST",
       body: JSON.stringify(input),
     }),
