@@ -12,3 +12,4 @@ export * from "./nexusProjectMemoryCloud";
 export * from "./nexusProjectMemoryIdentity";
 export * from "./nexusProjectAccess";
 export * from "./nexusCloudWriteOperation";
+export * from "./nexusPersonWorkProfile";
