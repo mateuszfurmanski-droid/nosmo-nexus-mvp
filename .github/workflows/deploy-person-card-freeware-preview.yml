@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Playwright
+      - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null 2>&1
           npm install playwright@1.55.0 --no-save
@@ -47,7 +47,26 @@ jobs:
         shell: bash
         run: |
           mkdir -p modules/person-card-freeware/previews
-          npx playwright screenshot             --browser chromium             --device "iPhone 13"             --full-page             http://127.0.0.1:8128/index.html             modules/person-card-freeware/previews/person-card-window.png
+          cat > render-person-card.cjs <<'NODE'
+          const { chromium } = require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage({
+              viewport:{width:390,height:844},
+              deviceScaleFactor:2,
+              isMobile:true,
+              hasTouch:true
+            });
+            await page.goto('http://127.0.0.1:8128/index.html',{waitUntil:'networkidle'});
+            await page.screenshot({
+              path:'modules/person-card-freeware/previews/person-card-window.png',
+              fullPage:true
+            });
+            await browser.close();
+          })().catch(err=>{console.error(err);process.exit(1)});
+          NODE
+          node render-person-card.cjs
+          rm -f render-person-card.cjs
 
       - name: Commit preview if changed
         shell: bash
@@ -57,7 +76,7 @@ jobs:
             exit 0
           fi
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "4189826+github-actions[bot]@users.noreply.github.com"
           git add modules/person-card-freeware/previews/person-card-window.png
           git commit -m "preview: render Person Card window"
           git push origin HEAD:codex/person-card-freeware
