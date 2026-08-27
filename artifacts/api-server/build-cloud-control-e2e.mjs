@@ -7,7 +7,7 @@ import esbuildPluginPino from "esbuild-plugin-pino";
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
-const outFile = path.join(artifactDir, "dist/cloud-control-e2e.mjs");
+const distDir = path.join(artifactDir, "dist");
 
 await esbuild({
   entryPoints: [path.join(artifactDir, "src/cloud-control-e2e.ts")],
@@ -15,7 +15,9 @@ await esbuild({
   target: "node22",
   bundle: true,
   format: "esm",
-  outfile: outFile,
+  outdir: distDir,
+  entryNames: "cloud-control-e2e",
+  outExtension: { ".js": ".mjs" },
   sourcemap: false,
   logLevel: "info",
   external: ["*.node", "*.wasm", "mupdf"],
