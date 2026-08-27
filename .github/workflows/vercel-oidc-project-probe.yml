@@ -30,13 +30,16 @@ jobs:
         shell: bash
         env:
           GH_OIDC_TOKEN: ${{ steps.github_oidc.outputs.token }}
-          VERCEL_TEAM: team_xYGLaQSQvOQxxs3S5O6cfkQR
+          VERCEL_TEAM: mateuszfurmanski-3044s-projects
           VERCEL_PROJECT: prj_SlNzV4zgxagf5clGrH8UbFZyJwCK
         run: |
           set -euo pipefail
           code=$(curl -sS -o /tmp/vercel-exchange.json -w '%{http_code}' -X POST https://api.vercel.com/login/oauth/token             --data 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange'             --data 'client_id=cl_kyUx2zVvA4MGptBohkmtYHJly2XltXzD'             --data 'subject_token_type=urn:ietf:params:oauth:token-type:id_token'             --data 'requested_token_type=urn:ietf:params:oauth:token-type:access_token'             --data-urlencode "team_id_or_slug=$VERCEL_TEAM"             --data-urlencode "subject_token=$GH_OIDC_TOKEN")
           echo "OIDC_EXCHANGE_HTTP=$code"
-          test "$code" = "200"
+          if [ "$code" != "200" ]; then
+            jq '{error,error_description,message}' /tmp/vercel-exchange.json || true
+            exit 1
+          fi
           token=$(jq -r '.access_token // empty' /tmp/vercel-exchange.json)
           test -n "$token"
           echo "::add-mask::$token"
