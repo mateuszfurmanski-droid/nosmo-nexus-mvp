@@ -5,16 +5,19 @@ import android.content.Intent;
 import android.os.Bundle;
 
 /**
- * One-shot launcher gate for the real-device staging build.
+ * Launcher gate for the protected real-device staging build.
  *
- * It does not own identity or assignment state. It only routes into the existing
- * encrypted mobile session or the canonical one-time identity claim flow.
+ * The opaque Nexus session may survive a process restart, but the protected
+ * Vercel preview cookie deliberately does not. Worker Home therefore requires
+ * both the encrypted Nexus session and the in-process transport gate.
  */
 public final class WorkerBootstrapActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Class<?> destination = NexusMobileSession.hasSession(this)
+        boolean sessionReady = NexusMobileSession.hasSession(this);
+        boolean transportReady = NexusStagingVercelGate.isReady();
+        Class<?> destination = sessionReady && transportReady
                 ? WorkModeHomeActivity.class
                 : IdentityClaimActivity.class;
         Intent intent = new Intent(this, destination);
