@@ -432,3 +432,33 @@ input { min-height: 45px; padding: 0 12px; }
   .secondary-actions { grid-template-columns: 1fr; }
   .more-grid { grid-template-columns: 1fr; }
 }
+
+
+.cv-intro {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #151515;
+  border: 1px solid #2c2c2c;
+  color: #aaa9a2;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cv-card {
+  align-items: flex-start;
+}
+
+.cv-card-text h3 {
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+.cv-card-text small {
+  color: #8f8f88;
+}
+
+.mode-chip:disabled {
+  cursor: default;
+  opacity: 1;
+}
