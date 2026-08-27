@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/esafe-core-experience
+      - codex/nexus-core-reconcile-162-175
     paths:
       - lib/db/**
       - package.json

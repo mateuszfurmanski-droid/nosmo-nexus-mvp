@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/nexus-core-http-e2e
+      - codex/nexus-core-reconcile-162-175
     paths:
       - artifacts/api-server/src/routes/nexus-core-e2e.ts
       - artifacts/api-server/src/routes/index.ts

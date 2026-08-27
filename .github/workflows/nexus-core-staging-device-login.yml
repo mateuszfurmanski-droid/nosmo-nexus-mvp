@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/nexus-core-staging-device-login
+      - codex/nexus-core-reconcile-162-175
   workflow_dispatch:
 
 permissions:
