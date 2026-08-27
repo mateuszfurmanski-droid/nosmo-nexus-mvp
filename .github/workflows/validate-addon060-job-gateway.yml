@@ -45,6 +45,14 @@ jobs:
           grep -F 'NEXUS_ONBOARDING_AI_MODEL' artifacts/api-server/src/routes/nexus-person-onboarding.ts
           grep -F 'humanReviewRequired: true' artifacts/api-server/src/routes/nexus-person-onboarding.ts
           grep -F 'serverPersonMutationPerformed: false' artifacts/api-server/src/routes/nexus-person-onboarding.ts
+          grep -F 'nexus_person_onboarding_invites' lib/db/src/schema/nexusPersonWorkProfile.ts
+          grep -F 'nexus_person_work_profiles' lib/db/src/schema/nexusPersonWorkProfile.ts
+          grep -F 'NEXUS_ONBOARDING_DRAFT_SECRET' artifacts/api-server/src/lib/nexus-person-onboarding-invite.ts
+          grep -F 'NEXUS_ONBOARDING_INVITE_NOT_CLAIMABLE' artifacts/api-server/src/lib/nexus-person-work-profile-persistence.ts
+          grep -F '/nexus/person/onboarding/claim' artifacts/api-server/src/routes/nexus-person-onboarding.ts
+          grep -F '/nexus/person/onboarding/drafts/load' artifacts/api-server/src/routes/nexus-person-onboarding.ts
+          grep -F '/nexus/person/onboarding/drafts/save' artifacts/api-server/src/routes/nexus-person-onboarding.ts
+          grep -F 'CREATE TABLE IF NOT EXISTS nexus_person_work_profiles' lib/db/migrations/0004_person_work_profile.sql
           grep -F 'app.use("/api", nexusJobSearchRouter);' artifacts/api-server/src/vercel-cloud-staging.ts
           ! grep -R 'app_key.*req\.' artifacts/api-server/src/lib/nexus-job-adzuna.ts artifacts/api-server/src/routes/nexus-job-search.ts
           echo "JOB_GATEWAY_BOUNDARY_PASS"
