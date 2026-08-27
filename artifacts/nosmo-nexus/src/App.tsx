@@ -34,6 +34,7 @@ import TradeWorkspace from "@/pages/trade-workspace";
 import CommunicationHub from "@/pages/communication-hub";
 import BimOverlay from "@/pages/bim-overlay";
 import ExternalTools from "@/pages/external-tools";
+import JobControlPreview from "@/pages/job-control";
 
 function Router() {
   return (
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />
       <Route path="/person-card-work-profile" component={PersonCardWorkProfile} />
+      <Route path="/job-control" component={JobControlPreview} />
       <Route path="/plan-review" component={PlanReview} />
       <Route>
         <AppLayoutRoutes />

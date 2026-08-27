@@ -1,12 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "PORT=4173 BASE_PATH=/ pnpm --filter @workspace/nosmo-nexus build",
-  "outputDirectory": "artifacts/nosmo-nexus/dist/public",
-  "rewrites": [
-    {
-      "source": "/((?!assets/).*)",
-      "destination": "/index.html"
-    }
-  ]
+  "buildCommand": "pnpm --filter @workspace/job-control build",
+  "outputDirectory": "artifacts/job-control/dist"
 }
