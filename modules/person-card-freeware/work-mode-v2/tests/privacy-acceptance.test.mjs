@@ -19,7 +19,7 @@ let networkCalls=0;
 globalThis.fetch=async()=>{networkCalls++;throw new Error("NETWORK_FORBIDDEN");};
 globalThis.XMLHttpRequest=class { constructor(){networkCalls++;throw new Error("XHR_FORBIDDEN");} };
 globalThis.WebSocket=class { constructor(){networkCalls++;throw new Error("WEBSOCKET_FORBIDDEN");} };
-globalThis.navigator={sendBeacon(){networkCalls++;throw new Error("BEACON_FORBIDDEN");}};
+Object.defineProperty(globalThis,"navigator",{configurable:true,value:{sendBeacon(){networkCalls++;throw new Error("BEACON_FORBIDDEN");}}});
 
 const probed=[];
 const installed=new Set(["com.whatsapp","com.microsoft.teams"]);
