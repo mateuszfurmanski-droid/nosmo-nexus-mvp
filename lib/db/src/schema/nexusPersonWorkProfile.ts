@@ -48,6 +48,24 @@ export const nexusPersonWorkProfilesTable = pgTable(
   ],
 );
 
+export const nexusPersonWorkEventsTable = pgTable("nexus_person_work_events", {
+  eventId: text("event_id").primaryKey(),
+  personId: text("person_id")
+    .notNull()
+    .references(() => nexusPmPeopleTable.personId, { onDelete: "restrict" }),
+  inviteId: text("invite_id").references(
+    () => nexusPersonOnboardingInvitesTable.inviteId,
+    { onDelete: "restrict" },
+  ),
+  eventType: text("event_type").notNull(),
+  actorType: text("actor_type").notNull(),
+  recordJson: jsonb("record_json").$type<Record<string, unknown>>().notNull(),
+  persistedAt: timestamp("persisted_at", { withTimezone: true }).notNull(),
+});
+
+export type NexusPersonWorkEventRow =
+  typeof nexusPersonWorkEventsTable.$inferSelect;
+
 export type NexusPersonOnboardingInviteRow =
   typeof nexusPersonOnboardingInvitesTable.$inferSelect;
 export type NexusPersonWorkProfileRow =
