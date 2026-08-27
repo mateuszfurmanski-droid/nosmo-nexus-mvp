@@ -5,35 +5,35 @@ import java.net.HttpURLConnection;
 /**
  * Process-memory-only transport gate for protected Vercel staging previews.
  *
- * Uses Vercel's official automation bypass request headers. The bypass secret is
- * supplied by the tester at runtime and is never persisted in Android storage,
- * BuildConfig, logs, GitHub or Nexus data.
+ * A fresh Vercel share URL is consumed by an invisible WebView. The resulting
+ * cookie is copied into process memory and attached to the native Core client.
+ * No share URL or cookie is persisted in Android storage, BuildConfig or Nexus.
  */
 final class NexusStagingVercelGate {
     private static volatile String origin = "";
-    private static volatile String bypassSecret = "";
+    private static volatile String cookie = "";
 
     private NexusStagingVercelGate() {}
 
-    static synchronized boolean set(String httpsOrigin, String transientBypassSecret) {
+    static synchronized boolean set(String httpsOrigin, String cookieHeader) {
         String normalizedOrigin = trimSlash(httpsOrigin);
-        String secret = transientBypassSecret == null ? "" : transientBypassSecret.trim();
-        if (!isAllowedOrigin(normalizedOrigin) || secret.length() < 16 || secret.length() > 512) {
+        String value = cookieHeader == null ? "" : cookieHeader.trim();
+        if (!isAllowedOrigin(normalizedOrigin) || value.isEmpty() || value.length() > 8192) {
             clear();
             return false;
         }
         origin = normalizedOrigin;
-        bypassSecret = secret;
+        cookie = value;
         return true;
     }
 
     static synchronized void clear() {
         origin = "";
-        bypassSecret = "";
+        cookie = "";
     }
 
     static boolean isReady() {
-        return isAllowedOrigin(origin) && bypassSecret != null && !bypassSecret.isEmpty();
+        return isAllowedOrigin(origin) && cookie != null && !cookie.isEmpty();
     }
 
     static String getOrigin() {
@@ -43,8 +43,7 @@ final class NexusStagingVercelGate {
     static void apply(HttpURLConnection connection, String requestOrigin) {
         if (connection == null || !isReady()) return;
         if (!origin.equals(trimSlash(requestOrigin))) return;
-        connection.setRequestProperty("x-vercel-protection-bypass", bypassSecret);
-        connection.setRequestProperty("x-vercel-set-bypass-cookie", "true");
+        connection.setRequestProperty("Cookie", cookie);
     }
 
     static boolean isAllowedOrigin(String value) {
