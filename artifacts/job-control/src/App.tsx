@@ -3,6 +3,7 @@ import { api, type ApiJob, type ReplyItem } from "./api";
 
 type Screen = "home" | "jobs" | "apply" | "replies" | "cvs" | "settings";
 type BackendMode = "checking" | "demo" | "locked" | "live";
+type ApplyMode = "new" | "review";
 
 type JobStatus =
   | "ACTIVE"
@@ -233,6 +234,22 @@ const mapApiJob = (job: ApiJob): Job => ({
 const statusClass = (status: JobStatus) =>
   status.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-");
 
+const statusLabel = (status: JobStatus) => {
+  const labels: Record<JobStatus, string> = {
+    ACTIVE: "Ready",
+    APPLIED: "Applied",
+    INTERVIEW: "Interview",
+    REJECTED: "Rejected",
+    EXPIRED: "Expired",
+    CONTACTED: "Contacted",
+    "FORM REQUIRED": "Apply online",
+    "PHONE/WHATSAPP REQUIRED": "Call / WhatsApp",
+    WATCH: "Watch later",
+    BACKUP: "Backup",
+  };
+  return labels[status];
+};
+
 const inferCategory = (text: string): Category => {
   const t = text.toLowerCase();
   if (/hotel|housekeeping|room attendant|laundry|room\s+clean/.test(t)) return "HOTEL / HOUSEKEEPING";
@@ -301,8 +318,9 @@ function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [jobs, setJobs] = useState<Job[]>(seedJobs);
   const [metrics, setMetrics] = useState<Metrics>(seedMetrics);
-  const [filter, setFilter] = useState("All");
+  const [filter, setFilter] = useState("To do");
   const [selectedJob, setSelectedJob] = useState<Job>(seedJobs[0]);
+  const [applyMode, setApplyMode] = useState<ApplyMode>("review");
   const [importText, setImportText] = useState("");
   const [toast, setToast] = useState("");
   const [backendMode, setBackendMode] = useState<BackendMode>("checking");
@@ -338,6 +356,7 @@ function App() {
       .trim();
     if (shared) {
       setImportText(shared);
+      setApplyMode("new");
       setScreen("apply");
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -448,12 +467,30 @@ function App() {
     }
   };
 
+  const actionableJobs = useMemo(
+    () =>
+      jobs
+        .filter((job) =>
+          ["ACTIVE", "FORM REQUIRED", "PHONE/WHATSAPP REQUIRED"].includes(job.status),
+        )
+        .sort((a, b) => b.match - a.match),
+    [jobs],
+  );
+
+  const nextActionJob = actionableJobs[0] ?? jobs[0] ?? selectedJob;
+
   const filteredJobs = useMemo(() => {
     if (filter === "All") return jobs;
+    if (filter === "To do") {
+      return jobs.filter((job) =>
+        ["ACTIVE", "FORM REQUIRED", "PHONE/WHATSAPP REQUIRED"].includes(job.status),
+      );
+    }
     if (filter === "Morning") return jobs.filter((j) => /07:|08:|09:|morning/i.test(j.shift));
     if (filter === "Night") return jobs.filter((j) => /night|18:00|22:00/i.test(j.shift));
-    if (filter === "Priority A") return jobs.filter((j) => j.priority === "A");
-    return jobs.filter((j) => j.status === filter);
+    if (filter === "Applied") return jobs.filter((j) => j.status === "APPLIED");
+    if (filter === "Watch") return jobs.filter((j) => j.status === "WATCH" || j.status === "BACKUP");
+    return jobs;
   }, [filter, jobs]);
 
   const updateLocalJob = (id: string, status: JobStatus) => {
@@ -490,6 +527,7 @@ function App() {
 
   const openJob = (job: Job) => {
     setSelectedJob(job);
+    setApplyMode("review");
     setScreen("apply");
   };
 
@@ -527,6 +565,7 @@ function App() {
     setJobs((prev) => [job, ...prev]);
     setSelectedJob(job);
     setImportText("");
+    setApplyMode("review");
     setToast(`${cvMap[category].code} selected automatically.`);
   };
 
