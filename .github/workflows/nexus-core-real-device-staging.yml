@@ -56,7 +56,7 @@ jobs:
         run: pnpm run typecheck
 
       - name: Create disposable canonical schema
-        run: pnpm --filter @workspace/db push-force
+        run: pnpm run db:migrate
 
       - name: Execute one-time identity claim over real HTTP
         shell: bash

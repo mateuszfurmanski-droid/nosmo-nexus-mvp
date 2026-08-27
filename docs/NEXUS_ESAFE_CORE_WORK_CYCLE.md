@@ -72,7 +72,8 @@ The canonical repository migration set is ordered and committed under `lib/db/mi
 
 1. `0000_pr90_parent_baseline` — known PR #90 database baseline;
 2. `0001_core_identity_access` — shared canonical Person/identity/access persistence;
-3. `0002_core_work_cycle` — Task/Evidence/Approval/Timeline persistence plus durable commit fingerprint.
+3. `0002_core_work_cycle` — Task/Evidence/Approval/Timeline persistence plus durable commit fingerprint;
+4. `0003_core_identity_claims` — ordered migration for the already-existing non-production one-time identity-claim contract used by the real-device staging child line.
 
 `pnpm run db:migrate` applies migrations serially under a PostgreSQL advisory lock and records SHA-256 checksums in `nexus_schema_migrations`. A checksum mismatch fails closed. Re-running an already-applied migration set performs no schema mutation.
 
