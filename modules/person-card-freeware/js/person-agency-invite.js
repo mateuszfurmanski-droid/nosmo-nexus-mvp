@@ -2,6 +2,7 @@
   "use strict";
   const q=s=>document.querySelector(s);
   const apiBase=(document.querySelector('meta[name="nexus-onboarding-api-base"]')?.content||"").trim().replace(/\/$/,"");
+  const agencyAccountEndpoint="/api/person-card/agency/account";
   let currentUrl="";
 
   function value(id,max){return String(q("#"+id)?.value||"").replace(/\s+/g," ").trim().slice(0,max)}
@@ -30,7 +31,7 @@
   }
   async function secureInvite(){
     const agency=value("agency",120);
-    if(!agency){q("#inviteState").textContent="Agency/company is required.";return}
+    if(!agency){q("#inviteState").textContent="Authenticated Agency Account is required.";return}
     if(!apiBase){
       q("#inviteState").textContent="Secure Nexus invite endpoint is not configured on this preview. No fake secure token was generated.";
       return;
@@ -52,6 +53,28 @@
       q("#inviteState").textContent="Secure invite failed: "+(error&&error.message?error.message:"request failed");
     }
   }
+  async function loadAgencyAccount(){
+    try{
+      const res=await fetch(agencyAccountEndpoint,{credentials:"include",cache:"no-store"});
+      const payload=await res.json().catch(()=>({}));
+      if(!res.ok)throw Object.assign(new Error(payload.error||("HTTP "+res.status)),{status:res.status});
+      const agency=payload.agency?.name||"";
+      if(agency){
+        q("#agency").value=agency;
+        q("#agency").readOnly=true;
+        q("#inviteState").textContent="Secure invites will be issued as "+agency+".";
+      }
+    }catch(error){
+      if(error.status===401){
+        q("#inviteState").textContent="Sign in to NOSMO before creating a secure Agency Invite.";
+      }else if(error.status===404||error.status===403){
+        q("#inviteState").textContent="Create an Agency Account in Agency Desk before creating a secure invite.";
+      }else{
+        q("#inviteState").textContent="Agency Account could not be verified. Demo unsigned links remain local-only.";
+      }
+    }
+  }
+
   q("#secureInvite")?.addEventListener("click",secureInvite);
   q("#demoInvite")?.addEventListener("click",demoLink);
   q("#copyInvite")?.addEventListener("click",async()=>{
@@ -59,4 +82,5 @@
     try{await navigator.clipboard.writeText(currentUrl);q("#inviteState").textContent="Invite link copied."}catch(_){q("#inviteState").textContent="Copy unavailable on this browser."}
   });
   ["waInvite","emailInvite","openInvite"].forEach(id=>q("#"+id)?.addEventListener("click",e=>{if(!currentUrl)e.preventDefault()}));
+  loadAgencyAccount();
 })();
