@@ -52,7 +52,10 @@ export function requireNexusCloudMutationOrigin(
       res.status(503).json({ error: "NEXUS_CLOUD_PUBLIC_ORIGIN_INVALID" });
       return;
     }
-  } else if (process.env.NODE_ENV !== "production") {
+  } else if (
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXUS_CLOUD_STAGING_DEVICE_AUTH === "true"
+  ) {
     const host = req.get("host");
     if (host) expectedOrigin = normalizeOrigin(`${req.protocol}://${host}`);
   } else {
