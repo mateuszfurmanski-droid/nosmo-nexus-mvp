@@ -4,9 +4,11 @@ import { Router, type IRouter, type Request } from "express";
 import {
   db,
   nexusPersonAgenciesTable,
+  nexusPersonAgencyAccessGrantsTable,
   nexusPersonAgencyActionsTable,
   nexusPersonAgencyCandidateStatesTable,
   nexusPersonAgencyMembersTable,
+  nexusPersonAgencyRecruiterProfilesTable,
   nexusPersonWorkProfilesTable,
   nexusPmPeopleTable,
 } from "@workspace/db";
@@ -66,6 +68,11 @@ const requireAuthUserId = (req: Request): string | null =>
 type AgencyContext = {
   agencyId: string;
   agencyName: string;
+  website: string | null;
+  registrationNumber: string | null;
+  location: string | null;
+  description: string | null;
+  verificationStatus: string;
   authUserId: string;
   role: string;
 };
@@ -78,6 +85,11 @@ async function loadAgencyContext(
       agencyId: nexusPersonAgenciesTable.agencyId,
       agencyName: nexusPersonAgenciesTable.name,
       agencyStatus: nexusPersonAgenciesTable.status,
+      website: nexusPersonAgenciesTable.website,
+      registrationNumber: nexusPersonAgenciesTable.registrationNumber,
+      location: nexusPersonAgenciesTable.location,
+      description: nexusPersonAgenciesTable.description,
+      verificationStatus: nexusPersonAgenciesTable.verificationStatus,
       memberRole: nexusPersonAgencyMembersTable.role,
       memberStatus: nexusPersonAgencyMembersTable.status,
     })
@@ -103,6 +115,11 @@ async function loadAgencyContext(
   return {
     agencyId: rows[0]!.agencyId,
     agencyName: rows[0]!.agencyName,
+    website: rows[0]!.website,
+    registrationNumber: rows[0]!.registrationNumber,
+    location: rows[0]!.location,
+    description: rows[0]!.description,
+    verificationStatus: rows[0]!.verificationStatus,
     authUserId,
     role: rows[0]!.memberRole,
   };
@@ -204,6 +221,18 @@ async function activeCandidateRows(
       nexusPmPeopleTable,
       eq(nexusPmPeopleTable.personId, nexusPersonWorkProfilesTable.personId),
     )
+    .innerJoin(
+      nexusPersonAgencyAccessGrantsTable,
+      and(
+        eq(
+          nexusPersonAgencyAccessGrantsTable.personId,
+          nexusPmPeopleTable.personId,
+        ),
+        eq(nexusPersonAgencyAccessGrantsTable.agencyId, agencyId),
+        eq(nexusPersonAgencyAccessGrantsTable.status, "ACTIVE"),
+        eq(nexusPersonAgencyAccessGrantsTable.scope, "RECRUITER_SAFE"),
+      ),
+    )
     .leftJoin(
       nexusPersonAgencyCandidateStatesTable,
       and(
@@ -272,6 +301,8 @@ router.get("/person-card/agency/_health", (_req, res) => {
     recruiterSafeProjection: true,
     multiWorkerPersistence: true,
     agencyScopedPipeline: true,
+    explicitWorkerConsentGate: true,
+    recruiterProfiles: true,
   });
 });
 
@@ -296,6 +327,11 @@ router.get("/person-card/agency/account", async (req, res) => {
     agency: {
       agencyId: agency.agencyId,
       name: agency.agencyName,
+      website: agency.website,
+      registrationNumber: agency.registrationNumber,
+      location: agency.location,
+      description: agency.description,
+      verificationStatus: agency.verificationStatus,
       role: agency.role,
       status: "ACTIVE",
     },
@@ -354,6 +390,22 @@ router.post("/person-card/agency/account", async (req, res) => {
       status: "ACTIVE",
       joinedAt: now,
     });
+    const authDisplayName =
+      [req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
+      req.user.email ||
+      "Recruiter";
+    await tx.insert(nexusPersonAgencyRecruiterProfilesTable).values({
+      authUserId,
+      agencyId,
+      displayName: authDisplayName,
+      jobTitle: "Recruiter",
+      phone: null,
+      email: req.user.email ?? null,
+      bio: null,
+      photoUrl: req.user.profileImageUrl ?? null,
+      verificationStatus: "UNVERIFIED",
+      updatedAt: now,
+    });
   });
 
   res.status(201).json({
@@ -365,6 +417,170 @@ router.post("/person-card/agency/account", async (req, res) => {
       status: "ACTIVE",
     },
     created: true,
+  });
+});
+
+router.get("/person-card/agency/profile", async (req, res) => {
+  const authUserId = requireAuthUserId(req);
+  if (!authUserId) {
+    res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
+    return;
+  }
+  const agency = await loadAgencyContext(authUserId);
+  if (!agency) {
+    res.status(404).json({ error: "NEXUS_AGENCY_ACCOUNT_REQUIRED" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      displayName: nexusPersonAgencyRecruiterProfilesTable.displayName,
+      jobTitle: nexusPersonAgencyRecruiterProfilesTable.jobTitle,
+      phone: nexusPersonAgencyRecruiterProfilesTable.phone,
+      email: nexusPersonAgencyRecruiterProfilesTable.email,
+      bio: nexusPersonAgencyRecruiterProfilesTable.bio,
+      photoUrl: nexusPersonAgencyRecruiterProfilesTable.photoUrl,
+      verificationStatus:
+        nexusPersonAgencyRecruiterProfilesTable.verificationStatus,
+      updatedAt: nexusPersonAgencyRecruiterProfilesTable.updatedAt,
+    })
+    .from(nexusPersonAgencyRecruiterProfilesTable)
+    .where(
+      and(
+        eq(nexusPersonAgencyRecruiterProfilesTable.authUserId, authUserId),
+        eq(nexusPersonAgencyRecruiterProfilesTable.agencyId, agency.agencyId),
+      ),
+    )
+    .limit(2);
+
+  const recruiter = rows[0] ?? {
+    displayName:
+      [req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
+      req.user.email ||
+      "Recruiter",
+    jobTitle: null,
+    phone: null,
+    email: req.user.email ?? null,
+    bio: null,
+    photoUrl: req.user.profileImageUrl ?? null,
+    verificationStatus: "UNVERIFIED",
+    updatedAt: null,
+  };
+
+  res.json({
+    schema: "nexus-person-agency-profile/v1",
+    agency: {
+      agencyId: agency.agencyId,
+      name: agency.agencyName,
+      website: agency.website,
+      registrationNumber: agency.registrationNumber,
+      location: agency.location,
+      description: agency.description,
+      verificationStatus: agency.verificationStatus,
+      role: agency.role,
+    },
+    recruiter: {
+      ...recruiter,
+      profileComplete: Boolean(
+        clean(recruiter.displayName, 160) && clean(recruiter.jobTitle, 120),
+      ),
+    },
+  });
+});
+
+router.patch("/person-card/agency/profile", async (req, res) => {
+  const authUserId = requireAuthUserId(req);
+  if (!authUserId) {
+    res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
+    return;
+  }
+  const agency = await loadAgencyContext(authUserId);
+  if (!agency) {
+    res.status(404).json({ error: "NEXUS_AGENCY_ACCOUNT_REQUIRED" });
+    return;
+  }
+
+  const agencyInput = asRecord(req.body?.agency);
+  const recruiterInput = asRecord(req.body?.recruiter);
+  const now = new Date();
+
+  if (agency.role === "OWNER" || agency.role === "ADMIN") {
+    const agencyName = clean(agencyInput.name, 160);
+    await db
+      .update(nexusPersonAgenciesTable)
+      .set({
+        name: agencyName ?? agency.agencyName,
+        website: clean(agencyInput.website, 240) ?? null,
+        registrationNumber: clean(agencyInput.registrationNumber, 120) ?? null,
+        location: clean(agencyInput.location, 180) ?? null,
+        description: clean(agencyInput.description, 800) ?? null,
+        updatedAt: now,
+      })
+      .where(eq(nexusPersonAgenciesTable.agencyId, agency.agencyId));
+  }
+
+  const displayName =
+    clean(recruiterInput.displayName, 160) ??
+    [req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
+    req.user.email ||
+    "Recruiter";
+
+  await db
+    .insert(nexusPersonAgencyRecruiterProfilesTable)
+    .values({
+      authUserId,
+      agencyId: agency.agencyId,
+      displayName,
+      jobTitle: clean(recruiterInput.jobTitle, 120) ?? null,
+      phone: clean(recruiterInput.phone, 80) ?? null,
+      email: clean(recruiterInput.email, 160) ?? req.user.email ?? null,
+      bio: clean(recruiterInput.bio, 800) ?? null,
+      photoUrl:
+        clean(recruiterInput.photoUrl, 500) ?? req.user.profileImageUrl ?? null,
+      verificationStatus: "UNVERIFIED",
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: nexusPersonAgencyRecruiterProfilesTable.authUserId,
+      set: {
+        agencyId: agency.agencyId,
+        displayName,
+        jobTitle: clean(recruiterInput.jobTitle, 120) ?? null,
+        phone: clean(recruiterInput.phone, 80) ?? null,
+        email: clean(recruiterInput.email, 160) ?? req.user.email ?? null,
+        bio: clean(recruiterInput.bio, 800) ?? null,
+        photoUrl:
+          clean(recruiterInput.photoUrl, 500) ??
+          req.user.profileImageUrl ??
+          null,
+        updatedAt: now,
+      },
+    });
+
+  const refreshed = await loadAgencyContext(authUserId);
+  res.json({
+    schema: "nexus-person-agency-profile-updated/v1",
+    agency: {
+      agencyId: refreshed!.agencyId,
+      name: refreshed!.agencyName,
+      website: refreshed!.website,
+      registrationNumber: refreshed!.registrationNumber,
+      location: refreshed!.location,
+      description: refreshed!.description,
+      verificationStatus: refreshed!.verificationStatus,
+      role: refreshed!.role,
+    },
+    recruiter: {
+      displayName,
+      jobTitle: clean(recruiterInput.jobTitle, 120) ?? null,
+      phone: clean(recruiterInput.phone, 80) ?? null,
+      email: clean(recruiterInput.email, 160) ?? req.user.email ?? null,
+      bio: clean(recruiterInput.bio, 800) ?? null,
+      photoUrl:
+        clean(recruiterInput.photoUrl, 500) ?? req.user.profileImageUrl ?? null,
+      verificationStatus: "UNVERIFIED",
+      updatedAt: now.toISOString(),
+    },
   });
 });
 
