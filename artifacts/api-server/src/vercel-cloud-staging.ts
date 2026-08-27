@@ -8,6 +8,7 @@ import nexusCloudStagingDeviceLoginRouter from "./routes/nexus-cloud-staging-dev
 import nexusCloudStagingControlRouter from "./routes/nexus-cloud-staging-control";
 import nexusJobSearchRouter from "./routes/nexus-job-search";
 import nexusJobAiMatchRouter from "./routes/nexus-job-ai-match";
+import nexusPersonOnboardingRouter from "./routes/nexus-person-onboarding";
 import { logger } from "./lib/logger";
 import { runNexusCloudRuntimePreflight } from "./lib/nexus-cloud-runtime-preflight";
 
@@ -117,6 +118,9 @@ app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(authMiddleware);
+
+// Agency Invite issuance is auth-gated inside the router; AI prefill is invite-token gated.
+app.use("/api", nexusPersonOnboardingRouter);
 
 // Authenticated AI refinement. Only bounded work-profile fields and normalized Job Objects are accepted.
 app.use("/api", nexusJobAiMatchRouter);
