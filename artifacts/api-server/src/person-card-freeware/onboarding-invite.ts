@@ -4,6 +4,9 @@ export interface NexusOnboardingInvitePayload {
   schema: "nexus-person-onboarding-invite/v1";
   inviteId: string;
   agency: string;
+  agencyId?: string;
+  recruiterName?: string;
+  recruiterTitle?: string;
   trade?: string;
   location?: string;
   message?: string;
