@@ -27,6 +27,13 @@ export function assertRegistry(registry) {
       if (app.identifierStatus !== "verified-controlled" || packages.length === 0) {
         throw new Error("DISCOVERY_REQUIRES_VERIFIED_CONTROLLED_IDENTIFIER");
       }
+      if (
+        app.identifierVerification?.sourceType !== "google-play-listing" ||
+        !/^https:\/\/play\.google\.com\/store\/apps\/details\?id=/.test(app.identifierVerification?.sourceUrl || "") ||
+        !app.identifierVerification?.verifiedAt
+      ) {
+        throw new Error("DISCOVERY_REQUIRES_IDENTIFIER_VERIFICATION_EVIDENCE");
+      }
     }
     if (!Object.values(CONNECTION_LEVELS).includes(app.defaultConnectionLevel)) {
       throw new Error("INVALID_DEFAULT_CONNECTION_LEVEL");
