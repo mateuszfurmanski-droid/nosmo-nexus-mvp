@@ -79,6 +79,27 @@ button.act{font:inherit;color:inherit;cursor:pointer}
 @media(min-width:700px){.workOverlay{align-items:center}.workSheet{border-radius:24px}}
 
 
+
+/* Four-window Freeware shell — Prompt 1: Person Card only */
+.page{padding-bottom:118px}
+.personSnapshot{margin-top:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.snapshotCard{border:1px solid rgba(108,160,228,.22);border-radius:17px;background:linear-gradient(180deg,rgba(6,18,31,.78),rgba(2,8,17,.92));padding:13px;min-width:0}
+.snapshotTitle{color:var(--blue);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px}
+.snapshotList{display:grid;gap:7px}
+.snapshotItem{font-size:11px;line-height:1.22;color:#eef3ff;display:flex;align-items:flex-start;gap:7px}
+.snapshotItem i{width:7px;height:7px;border-radius:50%;background:var(--blue);margin-top:3px;flex:0 0 auto}
+.certPreview{display:grid;gap:7px}
+.certPreview a{display:block;color:#fff;text-decoration:none;border:1px solid rgba(75,125,194,.22);border-radius:10px;padding:8px;background:rgba(4,15,28,.66)}
+.certPreview strong{display:block;font-size:11px;line-height:1.2}
+.certPreview small{display:block;margin-top:3px;color:#9eb2cb;font-size:9px;line-height:1.22}
+.appWindowNav{position:fixed;z-index:65;left:50%;bottom:0;transform:translateX(-50%);width:min(430px,100vw);height:72px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:rgba(0,5,13,.97);border-top:1px solid rgba(67,132,221,.35);box-shadow:0 -12px 30px rgba(0,0,0,.48);backdrop-filter:blur(16px)}
+.appWindowNav a{min-width:0;border:1px solid rgba(75,125,194,.2);border-radius:13px;color:#aebbd0;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:9px;font-weight:850;letter-spacing:.02em}
+.appWindowNav a svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.appWindowNav a.active{color:#fff;border-color:rgba(47,134,255,.64);background:linear-gradient(180deg,rgba(23,81,151,.48),rgba(7,28,55,.72));box-shadow:inset 0 0 0 1px rgba(117,182,255,.08)}
+.appWindowNav a.active svg{color:#5ba2ff}
+.onboardingLaunch{bottom:78px}
+@media(max-width:360px){.personSnapshot{grid-template-columns:1fr}.appWindowNav a{font-size:8.4px}}
+
 </style>
 <meta name="nexus-onboarding-api-base" content="/api/person-card/onboarding">
 </head>
@@ -87,6 +108,25 @@ button.act{font:inherit;color:inherit;cursor:pointer}
 <header class="top"><a class="btn back" href="./index.html" aria-label="Back">‹</a><div class="brand" aria-label="NEXUS"><img class="nexusImg" src="assets/NEXUS_Logo.png?v=v47top1" alt="NEXUS"><span class="nexusFallback">NEXUS</span></div><button class="btn" id="menuBtn" aria-label="Menu" aria-expanded="false"><span class="hamb"><i></i></span><span class="dot"></span></button></header>
 <section class="card profile"><div class="hero"><div class="photoWrap"><div class="photo" role="img" aria-label="Kamil Karaszewski"></div><div class="comms" aria-label="Contact and profile actions"><a class="iconLink" href="https://wa.me/?text=Kamil%20Karaszewski%20NOSMO%20Person%20Card" target="_blank" rel="noopener" aria-label="WhatsApp"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#25D366"/><path d="M24 19c-3 2-5 6-5 10 0 9 7 16 16 16 4 0 8-2 11-5l-5-4c-1 1-3 2-5 2-5 0-10-4-10-10 0-2 1-4 2-5l-4-4z" fill="#fff"/></svg></a><a class="iconLink" href="mailto:?subject=Kamil%20Karaszewski%20Person%20Card&body=https://nosmotechnology.co.uk/person-card-kamil.html" aria-label="Email"><svg viewBox="0 0 64 64"><rect x="8" y="14" width="48" height="36" rx="7" fill="#fff"/><path d="M10 18l22 18 22-18" fill="none" stroke="#EA4335" stroke-width="6"/><path d="M10 48l17-17" stroke="#34A853" stroke-width="6"/><path d="M54 48L37 31" stroke="#4285F4" stroke-width="6"/></svg></a><a class="iconLink" href="tel:" aria-label="Phone"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#247dff"/><path d="M22 17c-4 3-4 11 1 19s13 13 19 11l5-7-9-5-4 4c-3-1-6-4-8-8l4-4-5-9-3-1z" fill="#fff"/></svg></a><a class="iconLink" href="sms:?body=Kamil%20Karaszewski%20Person%20Card%20https://nosmotechnology.co.uk/person-card-kamil.html" aria-label="SMS"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#102747"/><path d="M16 20h32v22H27l-9 7v-7h-2z" fill="none" stroke="#8ec0ff" stroke-width="4"/><circle cx="25" cy="31" r="2" fill="#8ec0ff"/><circle cx="32" cy="31" r="2" fill="#8ec0ff"/><circle cx="39" cy="31" r="2" fill="#8ec0ff"/></svg></a><a class="iconLink" href="https://www.linkedin.com/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#0A66C2"/><path d="M19 28h7v18h-7zm3-9a4 4 0 110 8 4 4 0 010-8zm10 9h7v3c1-2 3-4 7-4 5 0 8 4 8 10v9h-7v-8c0-3-1-5-4-5s-4 2-4 5v8h-7z" fill="#fff"/></svg></a><a class="iconLink" href="https://www.facebook.com/" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#1877F2"/><path d="M36 21h6v-8h-7c-8 0-12 5-12 12v5h-6v8h6v14h9V38h8l2-8H32v-5c0-2 1-4 4-4z" fill="#fff"/></svg></a><a class="iconLink" href="https://www.indeed.co.uk/" target="_blank" rel="noopener" aria-label="Indeed"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="#003A9B"/><path d="M29 28h6v21h-6zm3-14a4 4 0 110 8 4 4 0 010-8zm9 5c-5-4-12-4-17-1 4-6 13-6 17 1z" fill="#fff"/></svg></a><a class="iconLink" href="https://nosmotechnology.co.uk/person-card-kamil.html?v=v47top1" aria-label="Share"><svg viewBox="0 0 64 64"><circle cx="45" cy="17" r="7" fill="#2f86ff"/><circle cx="19" cy="32" r="7" fill="#2f86ff"/><circle cx="45" cy="47" r="7" fill="#2f86ff"/><path d="M25 29l14-8M25 35l14 8" stroke="#2f86ff" stroke-width="5" stroke-linecap="round"/></svg></a></div></div><div class="info"><h1 class="name"><span class="first">Kamil</span><span class="last">Karaszewski</span></h1><div class="role">Technical Advisor</div><div class="trade">Welding &amp; Fabrication</div><div class="meta"><div class="metaLine"><svg class="mIcon" viewBox="0 0 24 24"><path d="M12 21s7-5 7-12a7 7 0 1 0-14 0c0 7 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Eindhoven, Netherlands</span></div><div class="metaLine"><svg class="mIcon" viewBox="0 0 24 24"><path d="M9 6V4h6v2M4 8h16v11H4zM4 12h16" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>15+ yrs experience</span></div></div></div></div><div class="status"><div><i class="greenDot"></i>Available</div><div><i class="blueShield">✓</i>Verified</div><div><i class="purpleDoc"></i>Project</div></div><div class="bridge"><a href="#work-hub" data-work-action="hub"><svg viewBox="0 0 24 24"><path d="M9 6V4h6v2M4 8h16v11H4zM4 12h16"/></svg>Work Hub</a><a href="./data-fetcher/"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5"/></svg>Data Fetcher</a></div></section>
 <section class="section"><div class="sectionHead"><span>Work History</span><a class="view" href="./section.html?section=cv">View All ›</a></div><div class="history"><div class="job"><div><strong>Technical Advisor</strong><span>NOSMO Technology Limited</span></div><div class="date">2022 – Present</div></div><div class="job"><div><strong>Fabrication Engineer</strong><span>Custom Marine Projects</span></div><div class="date">2016 – 2022</div></div><div class="job"><div><strong>Welding Supervisor</strong><span>Industrial Structures Ltd</span></div><div class="date">2012 – 2016</div></div></div></section>
+<section class="personSnapshot" aria-label="Person Card professional snapshot">
+  <div class="snapshotCard">
+    <div class="snapshotTitle">Key qualifications</div>
+    <div class="snapshotList">
+      <div class="snapshotItem"><i></i><span>Welding &amp; Fabrication</span></div>
+      <div class="snapshotItem"><i></i><span>Technical Advisory</span></div>
+      <div class="snapshotItem"><i></i><span>Project Management</span></div>
+      <div class="snapshotItem"><i></i><span>Quality &amp; Compliance</span></div>
+    </div>
+  </div>
+  <div class="snapshotCard">
+    <div class="snapshotTitle">Certificates</div>
+    <div class="certPreview">
+      <a href="./section.html?section=certs"><strong>ISO 3834 Welding Coordinator</strong><small>Training progress: 75% complete</small></a>
+      <a href="./section.html?section=certs"><strong>Welding &amp; fabrication records</strong><small>Verification pending</small></a>
+    </div>
+  </div>
+</section>
+
 <div class="actions"><a class="act" href="./section.html?section=cv"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6M9 20h4"/></svg><span>My CV</span></a><a class="act" href="./section.html?section=certs"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M8.5 12l2 2 5-5"/></svg><span>Certs</span></a><a class="act" href="./section.html?section=refs"><svg viewBox="0 0 24 24"><path d="M7 16c0-2.2 2-4 5-4s5 1.8 5 4"/><circle cx="12" cy="8" r="3"/></svg><span>Refs</span></a><a class="act" href="./section.html?section=availability"><svg viewBox="0 0 24 24"><path d="M4 5h16v16H4zM8 3v4M16 3v4M4 10h16"/><path d="M8 14h2M12 14h2M16 14h2"/></svg><span>Avail.</span></a><a class="act" href="./section.html?section=vault"><svg viewBox="0 0 24 24"><path d="M7 10V8a5 5 0 0 1 10 0v2M5 10h14v11H5z"/></svg><span>Vault</span></a></div>
 <div class="actions"><a class="act" href="./directory.html"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Registry</span></a><button class="act" type="button" data-work-action="incoming-request"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM7 9h10M7 13h7M7 17h5"/></svg><span>Inbox</span></button><a class="act" href="./data-fetcher/"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8"/></svg><span>Data</span></a><a class="act" href="./about.html#brand"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 12h8"/></svg><span>Logo</span></a><a class="act" href="https://nosmo.tech/"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>Nexus</span></a></div>
 <div class="actions">
@@ -266,5 +306,25 @@ button.act{font:inherit;color:inherit;cursor:pointer}
 <script src="./js/person-work-overlay-controller.js?v=freeware1"></script>
 <script src="./js/person-work-profile.js?v=freeware1"></script>
 <!-- V47_FULL_PACKAGE -->
+
+<nav class="appWindowNav" aria-label="Person Card Freeware main windows">
+  <a class="active" href="./index.html" aria-current="page">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c0-4 3-7 7-7s7 3 7 7"/></svg>
+    <span>Person</span>
+  </a>
+  <a href="./screen.html?screen=documents">
+    <svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 12h6M9 16h6"/></svg>
+    <span>Documents</span>
+  </a>
+  <a href="./screen.html?screen=work">
+    <svg viewBox="0 0 24 24"><path d="M9 6V4h6v2M4 8h16v11H4zM4 12h16"/></svg>
+    <span>Work</span>
+  </a>
+  <a href="./screen.html?screen=work-mode">
+    <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+    <span>Work Mode</span>
+  </a>
+</nav>
+
 </body>
 </html>
