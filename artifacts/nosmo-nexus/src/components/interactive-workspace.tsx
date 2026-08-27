@@ -22,8 +22,8 @@ import {
 import {
   NODES as DEFAULT_NODES,
   TASK_LINKS as DEFAULT_TASK_LINKS,
-  projectId as DEFAULT_projectId,
-  managerId as DEFAULT_managerId,
+  PROJECT_ID as DEFAULT_PROJECT_ID,
+  MANAGER_ID as DEFAULT_MANAGER_ID,
   TYPE_STYLE,
   TYPE_ORDER,
   ISSUE_ICON,
@@ -374,8 +374,8 @@ export interface InteractiveWorkspaceProps {
 
 export default function InteractiveWorkspace({
   nodes = DEFAULT_NODES,
-  projectId = DEFAULT_projectId,
-  managerId = DEFAULT_managerId,
+  projectId = DEFAULT_PROJECT_ID,
+  managerId = DEFAULT_MANAGER_ID,
   adjacency: externalAdjacency,
   taskLinks = DEFAULT_TASK_LINKS,
   headerTitle = "Halifax / Lloyds Bank – 360 Interiors",
