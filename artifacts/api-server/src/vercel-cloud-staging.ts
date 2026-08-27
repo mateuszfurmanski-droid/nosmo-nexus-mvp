@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
@@ -57,18 +57,12 @@ app.get("/api/nexus/cloud/_staging/health", (_req, res) => {
   });
 });
 
-/**
- * Sanitized staging-only runtime audit. The optional provider probe is enabled
- * by an explicit non-secret switch and performs OAuth exchange plus GET-only
- * Drive folder metadata/capability reads. The query/header contains no token or
- * credential value. The preflight contract never returns OAuth values, database
- * credentials, or performs provider/database writes.
- */
-app.get("/api/nexus/cloud/_staging/preflight", async (req, res) => {
+const runSanitizedPreflight = async (
+  req: Request,
+  res: Response,
+  providerProbeRequested: boolean,
+): Promise<void> => {
   try {
-    const providerProbeRequested =
-      req.get("x-nexus-provider-probe") === "read-only" ||
-      req.query.probe === "read-only";
     const result = await runNexusCloudRuntimePreflight({
       ...process.env,
       NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE: providerProbeRequested
@@ -87,6 +81,27 @@ app.get("/api/nexus/cloud/_staging/preflight", async (req, res) => {
       databaseMutationPerformed: false,
     });
   }
+};
+
+/**
+ * Sanitized staging-only runtime audit. The optional provider probe performs
+ * OAuth exchange plus GET-only Drive folder metadata/capability reads. No token
+ * or credential value is accepted from the request or returned in the response.
+ */
+app.get("/api/nexus/cloud/_staging/preflight", async (req, res) => {
+  const providerProbeRequested =
+    req.get("x-nexus-provider-probe") === "read-only" ||
+    req.query.probe === "read-only";
+  await runSanitizedPreflight(req, res, providerProbeRequested);
+});
+
+/**
+ * Path-only form of the same explicit GET-only provider probe. This exists so
+ * protected Vercel previews can be exercised without a query-string transport
+ * edge. It does not release writes and accepts no credential material.
+ */
+app.get("/api/nexus/cloud/_staging/preflight/read-only", async (req, res) => {
+  await runSanitizedPreflight(req, res, true);
 });
 
 // Multipart upload parsing is owned by nexusCloudRouter/multer. Generic parsers
