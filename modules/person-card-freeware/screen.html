@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#020713">
+<title>NOSMO Person Card Freeware</title>
+<style>
+:root{--bg:#020713;--panel:#071421;--line:#1b3e65;--blue:#2f86ff;--text:#f5f8ff;--muted:#b8c2d1}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#020713,#02060d);color:var(--text);font-family:Inter,Arial,sans-serif}
+.page{width:100%;max-width:430px;margin:0 auto;padding:18px 14px 100px}.top{display:flex;align-items:center;gap:12px}.back{width:42px;height:42px;border:1px solid rgba(55,119,207,.48);border-radius:14px;background:#071421;color:#fff;text-decoration:none;display:grid;place-items:center;font-size:27px}.brand{font-weight:950;letter-spacing:.12em;color:#5ca8ff}.panel{margin-top:22px;border:1px solid rgba(108,160,228,.22);border-radius:22px;background:linear-gradient(180deg,rgba(7,19,33,.9),rgba(2,8,17,.97));padding:20px}.eyebrow{color:#79b5ff;font-size:11px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}.panel h1{margin:8px 0 8px;font-size:27px}.panel p{margin:0;color:var(--muted);line-height:1.45}.note{margin-top:16px;border:1px dashed rgba(75,125,194,.4);border-radius:13px;padding:12px;color:#aab8cb;font-size:12px;line-height:1.4}
+.appWindowNav{position:fixed;z-index:5;left:50%;bottom:0;transform:translateX(-50%);width:min(430px,100vw);height:72px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:rgba(0,5,13,.97);border-top:1px solid rgba(67,132,221,.35)}
+.appWindowNav a{border:1px solid rgba(75,125,194,.2);border-radius:13px;color:#aebbd0;text-decoration:none;display:flex;align-items:center;justify-content:center;text-align:center;font-size:9px;font-weight:850}.appWindowNav a.active{color:#fff;border-color:rgba(47,134,255,.64);background:rgba(23,81,151,.48)}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="top"><a class="back" href="./index.html">‹</a><div class="brand">NOSMO · PERSON CARD</div></header>
+  <section class="panel">
+    <div class="eyebrow">Four-window architecture</div>
+    <h1 id="title">Reserved window</h1>
+    <p id="copy">This route is reserved inside the same Person Card Freeware application.</p>
+    <div class="note">Prompt 1 implements only PERSON CARD. This window is intentionally not built yet.</div>
+  </section>
+</main>
+<nav class="appWindowNav" aria-label="Person Card Freeware main windows">
+  <a href="./index.html" data-screen="person">Person</a>
+  <a href="./screen.html?screen=documents" data-screen="documents">Documents</a>
+  <a href="./screen.html?screen=work" data-screen="work">Work</a>
+  <a href="./screen.html?screen=work-mode" data-screen="work-mode">Work Mode</a>
+</nav>
+<script>
+const screens={
+  documents:{title:"DOCUMENTS",copy:"Documents window reserved for Prompt 2."},
+  work:{title:"WORK CARD",copy:"Work Card window reserved for Prompt 3."},
+  "work-mode":{title:"WORK MODE",copy:"Work Mode window reserved for Prompt 4."}
+};
+const key=new URLSearchParams(location.search).get("screen");
+if(!screens[key]){location.replace("./index.html");}
+else{
+  document.title="NOSMO Person Card Freeware — "+screens[key].title;
+  document.getElementById("title").textContent=screens[key].title;
+  document.getElementById("copy").textContent=screens[key].copy;
+  document.querySelector('[data-screen="'+key+'"]')?.classList.add("active");
+}
+</script>
+</body>
+</html>
