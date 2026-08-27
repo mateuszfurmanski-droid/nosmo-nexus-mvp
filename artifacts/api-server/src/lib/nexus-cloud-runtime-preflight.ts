@@ -108,23 +108,59 @@ const safeDatabaseFingerprint = (databaseUrl: string): string => {
 const inspectOauthSecret = (
   env: NodeJS.ProcessEnv,
   secretReference: string | undefined,
-): { configured: boolean; schemaValid: boolean } => {
+): {
+  configured: boolean;
+  schemaValid: boolean;
+  schemaIssue:
+    | "NOT_CONFIGURED"
+    | "INVALID_JSON"
+    | "WRONG_TYPE"
+    | "MISSING_CLIENT_ID"
+    | "MISSING_CLIENT_SECRET"
+    | "MISSING_REFRESH_TOKEN"
+    | "NONE";
+} => {
   if (!secretReference?.startsWith("NEXUS_SECRET_")) {
-    return { configured: false, schemaValid: false };
+    return {
+      configured: false,
+      schemaValid: false,
+      schemaIssue: "NOT_CONFIGURED",
+    };
   }
   const raw = env[secretReference];
-  if (!raw) return { configured: false, schemaValid: false };
+  if (!raw) {
+    return {
+      configured: false,
+      schemaValid: false,
+      schemaIssue: "NOT_CONFIGURED",
+    };
+  }
 
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const schemaValid =
-      parsed.type === "google-oauth-refresh-token/v1" &&
-      typeof parsed.clientId === "string" && parsed.clientId.trim().length > 0 &&
-      typeof parsed.clientSecret === "string" && parsed.clientSecret.trim().length > 0 &&
-      typeof parsed.refreshToken === "string" && parsed.refreshToken.trim().length > 0;
-    return { configured: true, schemaValid };
+    if (parsed.type !== "google-oauth-refresh-token/v1") {
+      return { configured: true, schemaValid: false, schemaIssue: "WRONG_TYPE" };
+    }
+    if (typeof parsed.clientId !== "string" || !parsed.clientId.trim()) {
+      return { configured: true, schemaValid: false, schemaIssue: "MISSING_CLIENT_ID" };
+    }
+    if (typeof parsed.clientSecret !== "string" || !parsed.clientSecret.trim()) {
+      return {
+        configured: true,
+        schemaValid: false,
+        schemaIssue: "MISSING_CLIENT_SECRET",
+      };
+    }
+    if (typeof parsed.refreshToken !== "string" || !parsed.refreshToken.trim()) {
+      return {
+        configured: true,
+        schemaValid: false,
+        schemaIssue: "MISSING_REFRESH_TOKEN",
+      };
+    }
+    return { configured: true, schemaValid: true, schemaIssue: "NONE" };
   } catch {
-    return { configured: true, schemaValid: false };
+    return { configured: true, schemaValid: false, schemaIssue: "INVALID_JSON" };
   }
 };
 
@@ -563,7 +599,7 @@ export async function runNexusCloudRuntimePreflight(
     checks.push(
       blocked(
         "provider.oauth-secret",
-        "Referenced Google OAuth credential exists but does not match google-oauth-refresh-token/v1 shape.",
+        `Referenced Google OAuth credential exists but does not match google-oauth-refresh-token/v1 shape (safe schema issue: ${oauth.schemaIssue}).`,
       ),
     );
   } else {
@@ -605,11 +641,31 @@ export async function runNexusCloudRuntimePreflight(
           "Real OAuth token exchange and read-only capability checks passed for all five e-SAFE Drive targets; no file was created.",
         ),
       );
-    } catch {
+    } catch (error) {
+      const safeFailureCode =
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        typeof (error as { code?: unknown }).code === "string" &&
+        /^NEXUS_[A-Z0-9_]+$/.test((error as { code: string }).code)
+          ? (error as { code: string }).code
+          : error instanceof Error && /^NEXUS_[A-Z0-9_]+$/.test(error.message)
+            ? error.message
+            : "NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE_FAILED";
+      const safeProviderReason =
+        error &&
+        typeof error === "object" &&
+        "providerReason" in error &&
+        typeof (error as { providerReason?: unknown }).providerReason === "string" &&
+        /^[a-z0-9_]{2,80}$/.test(
+          (error as { providerReason: string }).providerReason,
+        )
+          ? (error as { providerReason: string }).providerReason
+          : undefined;
       checks.push(
         blocked(
           "provider.network-probe",
-          "Real read-only Google OAuth/Drive capability probe failed; provider details were not returned.",
+          `Real read-only Google OAuth/Drive capability probe failed (${safeFailureCode}${safeProviderReason ? `; provider=${safeProviderReason}` : ""}); provider details and secret values were not returned.`,
         ),
       );
     }

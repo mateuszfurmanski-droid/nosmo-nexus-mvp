@@ -12,8 +12,8 @@ interface NexusCloudProposalFileRecord {
 
 interface NexusCloudProposalCanonicalObject {
   id: string;
-  projectId: string;
-  worldId: string;
+  projectId?: string;
+  worldId?: string;
 }
 
 interface NexusCloudProposalExternalReference {
@@ -96,8 +96,9 @@ const required = (
   reason: NexusCloudPersistenceInputReason,
   label: string,
 ): string => {
-  if (!value?.trim()) fail(reason, `${label} is required`);
-  return value.trim();
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (!normalized) fail(reason, `${label} is required`);
+  return normalized;
 };
 
 const assertSingleScope = (proposal: NexusCloudPersistenceProposalDbSource): void => {

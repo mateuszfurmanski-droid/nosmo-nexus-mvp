@@ -81,12 +81,12 @@ assert(
   "provider execution order must be acquire lease -> Drive write -> durable receipt confirmation",
 );
 assert(
-  providerSeam.includes('status: "PROVIDER_CONFIRMED"') &&
+  providerSeam.includes('claim.status === "PROVIDER_CONFIRMED"') &&
     providerSeam.includes('providerStatus: "RECOVERED_FROM_LEDGER"'),
   "retry after provider confirmation must reuse the stored receipt without a second Drive write",
 );
 assert(
-  providerSeam.includes('status: "ALREADY_COMMITTED"'),
+  providerSeam.includes('claim.status === "ALREADY_COMMITTED"'),
   "fully committed retries must bypass provider and persistence work",
 );
 assert(

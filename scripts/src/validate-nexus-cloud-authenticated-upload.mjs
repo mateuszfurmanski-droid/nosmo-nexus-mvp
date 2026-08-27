@@ -17,6 +17,9 @@ const originGate = read(
 const driveBridge = read(
   "artifacts/api-server/src/lib/nexus-cloud-google-drive-runtime.ts",
 );
+const durableProviderWrite = read(
+  "artifacts/api-server/src/lib/nexus-cloud-durable-provider-write.ts",
+);
 const runtimePaths = read("artifacts/api-server/src/lib/nexus-runtime-paths.ts");
 const runtimeConfig = read(
   "artifacts/api-server/src/lib/nexus-cloud-runtime-config.ts",
@@ -55,8 +58,13 @@ assert(
   "Cloud endpoint must create stable server-owned retry identity",
 );
 assert(
-  cloudRoute.includes("operation.providerIdempotencyKey"),
-  "Cloud endpoint must pass canonical-scope-derived provider idempotency rather than the raw browser key",
+  durableProviderWrite.includes(
+    "providerWriteIdentity: input.operation.providerIdempotencyKey",
+  ) &&
+    durableProviderWrite.includes(
+      "idempotencyKey: input.operation.providerIdempotencyKey",
+    ),
+  "Durable provider seam must pass canonical-scope-derived provider idempotency rather than the raw browser key",
 );
 assert(
   cloudRoute.includes("resolveNexusCloudRuntimeWriteAccess"),
@@ -71,8 +79,8 @@ assert(
   "Cloud endpoint must use the Phase 17 provider-plan boundary",
 );
 assert(
-  cloudRoute.includes("writeNexusCloudGoogleDriveRuntime"),
-  "Cloud endpoint must delegate provider execution through the shared Drive bridge",
+  durableProviderWrite.includes("writeNexusCloudGoogleDriveRuntime"),
+  "Cloud endpoint must delegate provider execution through the durable shared Drive bridge",
 );
 assert(
   cloudRoute.includes("createNexusCloudPersistenceProposal") &&
