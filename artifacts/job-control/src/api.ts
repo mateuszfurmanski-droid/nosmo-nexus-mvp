@@ -45,7 +45,9 @@ export type ReplyItem = {
   internalDate: string | null;
 };
 
-const API_BASE = "/api/job-control";\n\nconst request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+const API_BASE = "/api/job-control";
+
+const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(path, {
     ...init,
     credentials: "include",
@@ -54,12 +56,14 @@ const API_BASE = "/api/job-control";\n\nconst request = async <T>(path: string, 
       ...(init?.headers ?? {}),
     },
   });
+
   let payload: any = {};
   try {
     payload = await response.json();
   } catch {
     payload = {};
   }
+
   if (!response.ok) {
     const error = new Error(payload?.code || `HTTP_${response.status}`) as Error & {
       status?: number;
@@ -69,21 +73,24 @@ const API_BASE = "/api/job-control";\n\nconst request = async <T>(path: string, 
     error.payload = payload;
     throw error;
   }
+
   return payload as T;
 };
 
 export const api = {
   authStatus: () =>
-    request<{ ok: true; configured: boolean; authenticated: boolean }>("${API_BASE}/auth"),
+    request<{ ok: true; configured: boolean; authenticated: boolean }>(
+      `${API_BASE}/auth`,
+    ),
 
   login: (code: string) =>
-    request<{ ok: true; authenticated: true }>("${API_BASE}/auth", {
+    request<{ ok: true; authenticated: true }>(`${API_BASE}/auth`, {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
 
   logout: () =>
-    request<{ ok: true }>("${API_BASE}/auth", { method: "DELETE" }),
+    request<{ ok: true }>(`${API_BASE}/auth`, { method: "DELETE" }),
 
   dashboard: () =>
     request<{
@@ -100,10 +107,12 @@ export const api = {
         priorityA: number;
       };
       syncedAt: string;
-    }>("${API_BASE}/dashboard"),
+    }>(`${API_BASE}/dashboard`),
 
   jobs: () =>
-    request<{ ok: true; source: string; jobs: ApiJob[]; syncedAt: string }>("${API_BASE}/jobs"),
+    request<{ ok: true; source: string; jobs: ApiJob[]; syncedAt: string }>(
+      `${API_BASE}/jobs`,
+    ),
 
   cvs: () =>
     request<{
@@ -118,7 +127,7 @@ export const api = {
         webViewLink: string | null;
         available: boolean;
       }>;
-    }>("${API_BASE}/cvs"),
+    }>(`${API_BASE}/cvs`),
 
   integrations: () =>
     request<{
@@ -135,11 +144,17 @@ export const api = {
         };
         checkedAt: string;
       };
-      googleError?: { code: string; httpStatus: number | null; providerReason: string | null };
-    }>("${API_BASE}/integrations"),
+      googleError?: {
+        code: string;
+        httpStatus: number | null;
+        providerReason: string | null;
+      };
+    }>(`${API_BASE}/integrations`),
 
   replies: () =>
-    request<{ ok: true; source: string; replies: ReplyItem[]; syncedAt: string }>("${API_BASE}/replies"),
+    request<{ ok: true; source: string; replies: ReplyItem[]; syncedAt: string }>(
+      `${API_BASE}/replies`,
+    ),
 
   updateStatus: (input: {
     row: number;
@@ -147,10 +162,13 @@ export const api = {
     note: string;
     confirmed: boolean;
   }) =>
-    request<{ ok: true; row: number; status: string; confirmedAt: string }>("${API_BASE}/update-status", {
-      method: "POST",
-      body: JSON.stringify(input),
-    }),
+    request<{ ok: true; row: number; status: string; confirmedAt: string }>(
+      `${API_BASE}/update-status`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    ),
 
   sendApplication: (input: {
     row: number;
@@ -167,7 +185,7 @@ export const api = {
       idempotentReplay: boolean;
       messageId: string;
       statusUpdated: boolean;
-    }>("${API_BASE}/send-application", {
+    }>(`${API_BASE}/send-application`, {
       method: "POST",
       body: JSON.stringify(input),
     }),
