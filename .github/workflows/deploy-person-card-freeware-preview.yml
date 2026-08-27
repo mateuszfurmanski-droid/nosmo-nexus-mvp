@@ -1,12 +1,6 @@
 name: Deploy Person Card Freeware Preview
 
 on:
-  push:
-    branches:
-      - codex/person-card-freeware
-    paths:
-      - "modules/person-card-freeware/**"
-      - ".github/workflows/deploy-person-card-freeware-preview.yml"
   workflow_dispatch:
 
 permissions:
@@ -58,8 +52,6 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
