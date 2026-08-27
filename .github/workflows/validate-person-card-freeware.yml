@@ -158,6 +158,36 @@ jobs:
           grep -F 'Work Mode V2 runs only in the fourth window and does not scan from Work Card.' "$screen"
           ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$screen"
 
+      - name: Agency Desk shared-profile contract
+        shell: bash
+        run: |
+          desk=modules/person-card-freeware/agency-desk.html
+          desk_js=modules/person-card-freeware/js/agency-desk.js
+          recruiter=modules/person-card-freeware/js/person-work-profile.js
+          invite=modules/person-card-freeware/agency-invite.html
+          directory=modules/person-card-freeware/directory.html
+          test -f "$desk"
+          test -f "$desk_js"
+          grep -F 'AGENCY <span>DESK</span>' "$desk"
+          grep -F 'Recruiters see the recruiter-safe view' "$desk"
+          grep -F 'Invite worker' "$desk"
+          grep -F 'Worker registry' "$desk"
+          grep -F 'Open recruiter view' "$desk"
+          grep -F 'Shortlist' "$desk"
+          grep -F 'Request Pack' "$desk"
+          grep -F 'Offer Work' "$desk"
+          grep -F './data/person-work-profile-kamil.json' "$desk_js"
+          grep -F 'nexus-recruiter-shortlist:' "$desk_js"
+          grep -F './index.html?view=recruiter&previewWork=request' "$desk"
+          grep -F './index.html?view=recruiter&previewWork=offer' "$desk"
+          grep -F './agency-invite.html' "$desk"
+          grep -F './directory.html' "$desk"
+          grep -F './agency-desk.html' "$recruiter"
+          grep -F 'href="./agency-desk.html"' "$invite"
+          grep -F 'href="./agency-desk.html"' "$directory"
+          grep -F './js/person-agency-invite.js?v=freeware1' "$invite"
+          test "$(find modules/person-card-freeware/data -maxdepth 1 -type f -name 'person-work-profile-*.json' | wc -l)" -eq 1
+
       - name: Work Mode V2 active local-only contract
         shell: bash
         run: |
@@ -209,6 +239,7 @@ jobs:
           node --check modules/person-card-freeware/js/person-agency-invite.js
           node --check modules/person-card-freeware/js/person-work-overlay-controller.js
           node --check modules/person-card-freeware/js/contact-action-engine.js
+          node --check modules/person-card-freeware/js/agency-desk.js
           node --check modules/person-card-freeware/data-fetcher/app.js
           node --check modules/person-card-freeware/work-mode-v2/contracts.mjs
           node --check modules/person-card-freeware/work-mode-v2/local-discovery.mjs
@@ -288,6 +319,8 @@ jobs:
           curl --fail http://127.0.0.1:8128/work-mode-v2/construction-app-registry.mjs >/dev/null
           curl --fail http://127.0.0.1:8128/onboarding.html >/dev/null
           curl --fail http://127.0.0.1:8128/agency-invite.html >/dev/null
+          curl --fail http://127.0.0.1:8128/agency-desk.html >/dev/null
+          curl --fail http://127.0.0.1:8128/js/agency-desk.js >/dev/null
           curl --fail http://127.0.0.1:8128/section.html?section=cv >/dev/null
           curl --fail http://127.0.0.1:8128/data-fetcher/ >/dev/null
           curl --fail http://127.0.0.1:8128/directory.html >/dev/null
