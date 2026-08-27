@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import {
   db,
   nexusPersonOnboardingInvitesTable,
+  nexusPersonWorkEventsTable,
   nexusPersonWorkProfilesTable,
   nexusPmPeopleTable,
 } from "@workspace/db";
@@ -113,6 +115,21 @@ export async function claimNexusOnboardingInvite(
         persistedAt: input.now,
       });
 
+      await tx.insert(nexusPersonWorkEventsTable).values({
+        eventId: `person-work-event-${randomUUID()}`,
+        personId: input.personId,
+        inviteId: input.inviteId,
+        eventType: "PERSON_ONBOARDING_CLAIMED",
+        actorType: "worker",
+        recordJson: {
+          schema: "nexus-person-work-event/v1",
+          inviteId: input.inviteId,
+          status: "draft",
+          secretsPersisted: false,
+        },
+        persistedAt: input.now,
+      });
+
       return {
         personId: input.personId,
         agency: claimed[0]!.agency,
@@ -212,6 +229,25 @@ export async function saveNexusPersonWorkProfile(
           404,
         );
       }
+
+      await tx.insert(nexusPersonWorkEventsTable).values({
+        eventId: `person-work-event-${randomUUID()}`,
+        personId: input.personId,
+        inviteId: input.inviteId,
+        eventType:
+          input.workProfileStatus === "active"
+            ? "PERSON_WORK_PROFILE_FINALIZED"
+            : "PERSON_WORK_PROFILE_DRAFT_SAVED",
+        actorType: "worker",
+        recordJson: {
+          schema: "nexus-person-work-event/v1",
+          inviteId: input.inviteId,
+          personStatus: input.personStatus,
+          workProfileStatus: input.workProfileStatus,
+          secretsPersisted: false,
+        },
+        persistedAt: input.now,
+      });
     });
   } catch (error) {
     if (error instanceof NexusPersonWorkProfilePersistenceError) throw error;
