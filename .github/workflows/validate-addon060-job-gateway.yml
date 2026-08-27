@@ -35,6 +35,9 @@ jobs:
           grep -F 'ADZUNA_APP_KEY' artifacts/api-server/src/lib/nexus-job-adzuna.ts
           grep -F 'providerWritePerformed: false' artifacts/api-server/src/routes/nexus-job-search.ts
           grep -F 'applicationPerformed: false' artifacts/api-server/src/routes/nexus-job-search.ts
+          grep -F 'NEXUS_JOB_AI_MODEL' artifacts/api-server/src/routes/nexus-job-ai-match.ts
+          grep -F 'OPENAI_API_KEY' artifacts/api-server/src/routes/nexus-job-ai-match.ts
+          grep -F 'humanReviewRequired: true' artifacts/api-server/src/routes/nexus-job-ai-match.ts
           grep -F 'app.use("/api", nexusJobSearchRouter);' artifacts/api-server/src/vercel-cloud-staging.ts
           ! grep -R 'app_key.*req\.' artifacts/api-server/src/lib/nexus-job-adzuna.ts artifacts/api-server/src/routes/nexus-job-search.ts
           echo "JOB_GATEWAY_BOUNDARY_PASS"
