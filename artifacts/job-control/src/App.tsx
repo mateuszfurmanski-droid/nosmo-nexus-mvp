@@ -855,70 +855,147 @@ function App() {
         {screen === "apply" && (
           <section className="section page">
             <div className="section-head">
-              <div><span className="eyebrow">SMART APPLY</span><h2>Review application</h2></div>
-              <span className="safe-chip">Review first</span>
-            </div>
-
-            <div className="import-card">
-              <label htmlFor="jobImport">Paste job URL or description</label>
-              <textarea
-                id="jobImport"
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder="Paste an Indeed link, job title or advert text…"
-              />
-              <button className="secondary" onClick={importJob}>Analyse & choose CV</button>
-            </div>
-
-            <div className="apply-card">
-              <div className="apply-top">
-                <div>
-                  <span className="priority">Priority {selectedJob.priority}</span>
-                  <h3>{selectedJob.role}</h3>
-                  <p>{selectedJob.company}</p>
-                </div>
-                <div className="score">{selectedJob.match}%<small>match</small></div>
+              <div>
+                <span className="eyebrow">SMART APPLY</span>
+                <h2>{applyMode === "new" ? "Add a job" : "Review job"}</h2>
               </div>
-
-              <div className="info-row"><span>Shift</span><b>{selectedJob.shift}</b></div>
-              <div className="info-row"><span>Transport</span><b>{selectedJob.transport}</b></div>
-              <div className="info-row"><span>Status</span><b className={`status ${statusClass(selectedJob.status)}`}>{selectedJob.status}</b></div>
-
-              <div className="cv-choice">
-                <div className="cv-badge">{selectedJob.cvCode || cvMap[selectedJob.category].code}</div>
-                <div>
-                  <b>{cvMap[selectedJob.category].label}</b>
-                  <p>{cvMap[selectedJob.category].reason}</p>
-                </div>
-              </div>
-
-              <div className="truth-box">
-                <b>Verified facts only</b>
-                <p>{profile.location} · starts {profile.start} · {profile.transport}</p>
-                <p>{profile.availability}</p>
-              </div>
-
-              <div className="cover-preview">
-                <span className="eyebrow">COVER MESSAGE PREVIEW</span>
-                <p>{coverMessage(selectedJob)}</p>
-              </div>
-
-              <div className="action-stack">
-                <button className="primary" onClick={() => void applyPrimaryAction(selectedJob)}>
-                  {primaryActionLabel}
+              {applyMode === "review" && (
+                <button className="text-button" onClick={() => setApplyMode("new")}>
+                  Add different job
                 </button>
-                <button className="secondary" onClick={() => askChatGPT(selectedJob)}>Ask ChatGPT about this job</button>
-                {selectedJob.status !== "APPLIED" && (
-                  <button className="ghost" onClick={() => void markStatus(selectedJob, "APPLIED")}>
-                    Mark applied manually
-                  </button>
-                )}
-              </div>
-              <p className="disclaimer">
-                APPLIED is written only after a confirmed send/submit or Joanna’s explicit manual confirmation.
-                Unknown send states are blocked from automatic retry.
-              </p>
+              )}
             </div>
+
+            <div className="stepper" aria-label="Application steps">
+              <div className={applyMode === "new" ? "step active" : "step done"}>
+                <span>1</span>
+                <b>Add</b>
+              </div>
+              <div className={applyMode === "review" ? "step active" : "step"}>
+                <span>2</span>
+                <b>Review</b>
+              </div>
+              <div className="step">
+                <span>3</span>
+                <b>Apply</b>
+              </div>
+            </div>
+
+            {applyMode === "new" ? (
+              <>
+                <div className="import-card focused-card">
+                  <div className="simple-icon">＋</div>
+                  <h3>Add a job advert</h3>
+                  <p className="helper-text">
+                    Paste a job link or the advert text. Job Control will choose the best CV automatically.
+                  </p>
+                  <label htmlFor="jobImport">Job link or description</label>
+                  <textarea
+                    id="jobImport"
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder="Paste an Indeed link or job advert here…"
+                  />
+                  <button className="primary full-width" onClick={importJob}>
+                    Analyse job
+                  </button>
+                </div>
+
+                <div className="mini-help">
+                  <b>What happens next?</b>
+                  <span>Job Control checks shift, transport and role type.</span>
+                  <span>It selects one of the 7 verified CV profiles.</span>
+                  <span>Nothing is sent until Joanna reviews it.</span>
+                </div>
+              </>
+            ) : (
+              <div className="apply-card">
+                <div className="apply-top">
+                  <div>
+                    <span className="priority">Priority {selectedJob.priority}</span>
+                    <h3>{selectedJob.role}</h3>
+                    <p>{selectedJob.company}</p>
+                  </div>
+                  <div className="score">{selectedJob.match}%<small>match</small></div>
+                </div>
+
+                <div className="fit-summary">
+                  <div>
+                    <span>Shift</span>
+                    <b>{selectedJob.shift}</b>
+                  </div>
+                  <div>
+                    <span>Transport</span>
+                    <b>{selectedJob.transport}</b>
+                  </div>
+                </div>
+
+                <div className="decision-row">
+                  <span>Current status</span>
+                  <b className={`status ${statusClass(selectedJob.status)}`}>
+                    {statusLabel(selectedJob.status)}
+                  </b>
+                </div>
+
+                <div className="cv-choice">
+                  <div className="cv-badge">{selectedJob.cvCode || cvMap[selectedJob.category].code}</div>
+                  <div>
+                    <span className="eyebrow">CV CHOSEN FOR THIS JOB</span>
+                    <b>{cvMap[selectedJob.category].label}</b>
+                    <p>{cvMap[selectedJob.category].reason}</p>
+                  </div>
+                </div>
+
+                <div className="truth-box compact-truth">
+                  <b>Using Joanna's verified profile</b>
+                  <p>{profile.location} · starts {profile.start} · {profile.transport}</p>
+                  <p>{profile.availability}</p>
+                </div>
+
+                <details className="preview-details">
+                  <summary>Preview application message</summary>
+                  <div className="cover-preview">
+                    <p>{coverMessage(selectedJob)}</p>
+                  </div>
+                </details>
+
+                <div className="final-action">
+                  <span className="eyebrow">STEP 3 · APPLY</span>
+                  <h3>
+                    {selectedJob.status === "FORM REQUIRED" || !selectedJob.email
+                      ? "Continue to employer"
+                      : "Ready to send"}
+                  </h3>
+                  <p>
+                    {selectedJob.status === "FORM REQUIRED" || !selectedJob.email
+                      ? "The employer uses an online application. Job Control will open the correct page."
+                      : `Email will use ${selectedJob.cvCode || cvMap[selectedJob.category].code} and the reviewed message.`}
+                  </p>
+                  <button className="primary full-width" onClick={() => void applyPrimaryAction(selectedJob)}>
+                    {primaryActionLabel}
+                  </button>
+                </div>
+
+                <div className="secondary-actions">
+                  <button className="secondary" onClick={() => askChatGPT(selectedJob)}>
+                    Ask ChatGPT
+                  </button>
+                  {selectedJob.status !== "APPLIED" && (
+                    <button className="ghost" onClick={() => void markStatus(selectedJob, "APPLIED")}>
+                      I already applied
+                    </button>
+                  )}
+                </div>
+
+                <details className="safety-details">
+                  <summary>Safety rules</summary>
+                  <p>
+                    Job Control never invents experience or qualifications and never marks a job applied
+                    after an unconfirmed send.
+                  </p>
+                </details>
+              </div>
+            )}
           </section>
         )}
 
