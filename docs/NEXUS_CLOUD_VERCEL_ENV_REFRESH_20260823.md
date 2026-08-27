@@ -2,7 +2,7 @@
 
 Status date: 2026-08-27
 
-Documentation-only refresh to trigger a new GitHub -> Vercel Preview deployment for `codex/nexus-cloud-vercel-staging-runtime` after a staging environment update.
+Documentation-only refresh to trigger a new GitHub -> Vercel Preview deployment for `codex/nexus-cloud-vercel-staging-runtime` after the corrected staging OAuth secret was saved.
 
 The e-SAFE Drive mapping remains server-side and `writeEnabled` remains false. This refresh exists only so PR #150 runtime inherits the latest Preview environment before a real OAuth + GET-only Google Drive capability probe.
 
