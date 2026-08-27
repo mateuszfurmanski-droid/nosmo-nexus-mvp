@@ -714,30 +714,66 @@ function App() {
       <main className="content">
         {screen === "home" && (
           <>
-            <section className="hero">
+            <section className="hero home-hero">
               <div>
                 <span className="hero-kicker">
                   {backendMode === "live" ? "LIVE JOB CONTROL" : "SAFE DEMO"}
                 </span>
-                <h2>Everything in one place.</h2>
-                <p>No Sheets. No searching for the right CV. Review, apply and track from the phone.</p>
+                <h2>What should I do now?</h2>
+                <p>
+                  One next action at a time. Job Control keeps the CV, status and history in the background.
+                </p>
               </div>
-              <button className="primary hero-action" onClick={() => setScreen("apply")}>+ New job</button>
+              <button
+                className="primary hero-action"
+                onClick={() => {
+                  setApplyMode("new");
+                  setScreen("apply");
+                }}
+              >
+                + Add a job
+              </button>
             </section>
 
-            <section className="stat-grid">
+            <section className="next-action-card">
+              <div className="next-action-copy">
+                <span className="eyebrow">NEXT BEST ACTION</span>
+                <div className="next-action-title">
+                  <div>
+                    <h3>{nextActionJob.role}</h3>
+                    <p>{nextActionJob.company}</p>
+                  </div>
+                  <div className="score compact">{nextActionJob.match}%<small>match</small></div>
+                </div>
+                <div className="next-action-meta">
+                  <span>{statusLabel(nextActionJob.status)}</span>
+                  <span>{nextActionJob.shift}</span>
+                </div>
+              </div>
+              <button className="primary" onClick={() => openJob(nextActionJob)}>
+                Review this job
+              </button>
+            </section>
+
+            <section className="stat-grid compact-stats">
               {[
-                ["Active", metrics.active],
+                ["To do", actionableJobs.length],
                 ["Applied", metrics.applied],
-                ["Employers", metrics.contacted],
-                ["Interviews", metrics.interviews],
-                ["Forms", metrics.forms],
                 ["Replies", metrics.replies],
+                ["Interviews", metrics.interviews],
               ].map(([label, value]) => (
                 <button
                   key={String(label)}
                   className="stat-card"
-                  onClick={() => setScreen(label === "Replies" ? "replies" : "jobs")}
+                  onClick={() => {
+                    if (label === "Replies") {
+                      setScreen("replies");
+                    } else {
+                      if (label === "To do") setFilter("To do");
+                      if (label === "Applied") setFilter("Applied");
+                      setScreen("jobs");
+                    }
+                  }}
                 >
                   <strong>{value}</strong>
                   <span>{label}</span>
@@ -745,34 +781,41 @@ function App() {
               ))}
             </section>
 
+            <div className="quiet-summary">
+              <span>{metrics.active} active</span>
+              <span>{metrics.contacted} employers contacted</span>
+              <span>{metrics.morning ?? 0} mornings</span>
+              <span>{metrics.night ?? 0} nights</span>
+            </div>
+
             <section className="section">
               <div className="section-head">
                 <div>
-                  <span className="eyebrow">NEXT ACTION</span>
-                  <h3>Best opportunities</h3>
+                  <span className="eyebrow">SHORTLIST</span>
+                  <h3>Other strong matches</h3>
                 </div>
-                <button className="text-button" onClick={() => setScreen("jobs")}>See all</button>
+                <button className="text-button" onClick={() => setScreen("jobs")}>All jobs</button>
               </div>
               <div className="job-list">
-                {[...jobs]
-                  .sort((a, b) => b.match - a.match)
-                  .slice(0, 3)
+                {actionableJobs
+                  .filter((job) => job.id !== nextActionJob.id)
+                  .slice(0, 2)
                   .map((job) => <JobCard key={job.id} job={job} onOpen={openJob} />)}
               </div>
             </section>
 
-            <section className="quick-grid">
-              <button className="quick" onClick={() => setScreen("apply")}>
-                <span>＋</span><div><b>Import job</b><small>Paste or share an advert</small></div>
-              </button>
-              <button className="quick" onClick={() => askChatGPT(selectedJob)}>
-                <span>AI</span><div><b>Ask ChatGPT</b><small>Prepared job context</small></div>
+            <section className="quick-grid simplified">
+              <button className="quick" onClick={() => {
+                setApplyMode("new");
+                setScreen("apply");
+              }}>
+                <span>＋</span><div><b>Add job</b><small>Paste or share an advert</small></div>
               </button>
               <button className="quick" onClick={() => setScreen("replies")}>
-                <span>↩</span><div><b>Replies</b><small>Job messages only</small></div>
+                <span>↩</span><div><b>Replies</b><small>Messages that need attention</small></div>
               </button>
               <button className="quick" onClick={() => setScreen("cvs")}>
-                <span>CV</span><div><b>My CVs</b><small>7 automatic profiles</small></div>
+                <span>CV</span><div><b>CVs</b><small>See the 7 job profiles</small></div>
               </button>
             </section>
           </>
