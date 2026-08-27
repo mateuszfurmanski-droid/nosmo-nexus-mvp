@@ -1,6 +1,6 @@
 # Work Mode V2 — App Discovery, Launcher and Privacy
 
-Status: DORMANT IMPLEMENTATION PACKAGE
+Status: ACTIVE FOURTH WINDOW — LOCAL-ONLY V2
 Parent application: NOSMO Person Card Freeware
 Canonical product PR: #184
 Privacy authority: ADDON_029
@@ -9,14 +9,15 @@ This directory extends the existing Freeware application. It is not a separate l
 
 ## Activation rule
 
-Nothing in this directory is loaded by V1 `index.html` yet.
+The canonical V1 `index.html` remains unchanged and does not import this package directly.
 
-V2 discovery remains disabled until:
+Work Mode V2 is activated only by:
 
-- native/platform local discovery adapter exists;
-- acceptance tests remain green;
-- Privacy & Connections is approved;
-- all enabled UI locales contain trust copy.
+`../screen.html?screen=work-mode`
+
+The fourth window imports `work-mode-screen.mjs`, which reuses the existing local discovery controller, local store, controlled registry and Android bridge.
+
+Discovery itself still does not run until the user presses **Scan for work apps**. Before the first scan the UI shows the local-only privacy notice and requires an explicit acknowledgement.
 
 ## Construction App Registry
 
@@ -38,7 +39,9 @@ Construction-specific apps whose package identifiers are not yet verified remain
 
 It never enumerates the device itself and contains no network transport.
 
-Android V2 should implement the callback using targeted package visibility/query mechanisms for the controlled registry. Do not request unrestricted package inventory solely for this feature.
+Android V2 uses the existing targeted package visibility/query adapter for the controlled registry. It does not request unrestricted package inventory solely for this feature.
+
+When the Android bridge is unavailable (for example in a normal browser preview), the UI does not simulate installed apps and reports that local native discovery is unavailable.
 
 ## User-facing levels
 
