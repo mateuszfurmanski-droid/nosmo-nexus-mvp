@@ -1,4 +1,5 @@
-import { jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { usersTable } from "./auth";
 import { nexusPmPeopleTable } from "./nexusPerson";
 
 export const nexusPersonOnboardingInvitesTable = pgTable(
@@ -7,6 +8,10 @@ export const nexusPersonOnboardingInvitesTable = pgTable(
     inviteId: text("invite_id").primaryKey(),
     tokenDigest: text("token_digest").notNull(),
     agency: text("agency").notNull(),
+    agencyId: text("agency_id"),
+    createdByUserId: varchar("created_by_user_id").references(() => usersTable.id, {
+      onDelete: "restrict",
+    }),
     suggestedTrade: text("suggested_trade"),
     suggestedLocation: text("suggested_location"),
     message: text("message"),
