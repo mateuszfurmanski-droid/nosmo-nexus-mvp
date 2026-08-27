@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import type { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import {
@@ -66,6 +67,14 @@ async function main(): Promise<void> {
   }
   if (process.env.VERCEL_ENV === "production") {
     throw new Error("NEXUS_CLOUD_CONTROL_E2E_PRODUCTION_FORBIDDEN");
+  }
+
+  if (!process.env.NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON) {
+    const vercelConfig = JSON.parse(
+      await readFile(new URL("../../../vercel.json", import.meta.url), "utf8"),
+    ) as { env?: Record<string, string> };
+    const configured = vercelConfig.env?.NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON;
+    if (configured) process.env.NEXUS_CLOUD_GOOGLE_DRIVE_CONFIG_JSON = configured;
   }
 
   const runtimeConfig = loadNexusCloudGoogleDriveRuntimeConfig();
