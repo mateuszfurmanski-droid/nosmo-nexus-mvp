@@ -45,5 +45,30 @@ export const nexusIdentityBindingsTable = pgTable(
   ],
 );
 
+/**
+ * One-time non-production identity claim. Only a digest of the high-entropy
+ * claim code is persisted; the staging provider subject is also stored only as
+ * its digest when the claim is consumed.
+ */
+export const nexusIdentityClaimsTable = pgTable(
+  "nexus_identity_claims",
+  {
+    claimId: text("claim_id").primaryKey(),
+    codeDigest: text("code_digest").notNull(),
+    personId: text("person_id")
+      .notNull()
+      .references(() => nexusPmPeopleTable.personId, { onDelete: "restrict" }),
+    projectId: text("project_id").notNull(),
+    worldId: text("world_id").notNull(),
+    status: text("status").notNull().default("ACTIVE"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    consumedProviderSubjectDigest: text("consumed_provider_subject_digest"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique("nexus_identity_claim_code_digest_uq").on(table.codeDigest)],
+);
+
 export type NexusPmPersonRow = typeof nexusPmPeopleTable.$inferSelect;
 export type NexusIdentityBindingRow = typeof nexusIdentityBindingsTable.$inferSelect;
+export type NexusIdentityClaimRow = typeof nexusIdentityClaimsTable.$inferSelect;
