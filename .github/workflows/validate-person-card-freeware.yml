@@ -14,6 +14,7 @@ on:
       - lib/db/src/schema/nexusPersonWorkProfile.ts
       - lib/db/src/schema/index.ts
       - .github/workflows/validate-person-card-freeware.yml
+      - .github/workflows/deploy-person-card-freeware-preview.yml
   pull_request:
     paths:
       - modules/person-card-freeware/**
@@ -50,6 +51,7 @@ jobs:
               lib/db/src/schema/nexusPersonWorkProfile.ts) ;;
               lib/db/src/schema/index.ts) ;;
               .github/workflows/validate-person-card-freeware.yml) ;;
+              .github/workflows/deploy-person-card-freeware-preview.yml) ;;
               "")
                 ;;
               *)
@@ -130,6 +132,40 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/trust-copy.json','utf8'))"
           node modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
           ! grep -RE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket' modules/person-card-freeware/work-mode-v2/contracts.mjs modules/person-card-freeware/work-mode-v2/local-discovery.mjs
+
+      - name: Android targeted discovery adapter
+        shell: bash
+        run: |
+          manifest=modules/person-card-freeware/work-mode-v2/android-adapter/src/main/AndroidManifest.xml
+          test -f "$manifest"
+          ! grep -F 'QUERY_ALL_PACKAGES' "$manifest"
+          grep -F '<queries>' "$manifest"
+          for pkg in com.whatsapp com.microsoft.teams com.google.android.apps.docs com.microsoft.skydrive com.dropbox.android; do
+            grep -F "android:name=\"$pkg\"" "$manifest"
+          done
+          ! grep -RE 'java\.net|okhttp|retrofit|HttpURLConnection|URLConnection|Socket' modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java
+          rm -rf /tmp/person-card-freeware-java
+          mkdir -p /tmp/person-card-freeware-java
+          javac -d /tmp/person-card-freeware-java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/SupportedAppPackages.java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/ControlledAndroidDiscovery.java             modules/person-card-freeware/work-mode-v2/android-adapter/src/test/java/tech/nosmo/personcard/workmodev2/ControlledAndroidDiscoveryTest.java
+          java -cp /tmp/person-card-freeware-java tech.nosmo.personcard.workmodev2.ControlledAndroidDiscoveryTest
+          ANDROID_JAR="$(find "$ANDROID_HOME/platforms" -name android.jar | sort -V | tail -1)"
+          test -n "$ANDROID_JAR"
+          javac -cp "$ANDROID_JAR:/tmp/person-card-freeware-java" -d /tmp/person-card-freeware-java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/AndroidPackageProbe.java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/AndroidWorkCardDiscoveryBridge.java
+          node - <<'NODE'
+          const fs=require("fs");
+          const registry=JSON.parse(fs.readFileSync("modules/person-card-freeware/work-mode-v2/construction-app-registry.json","utf8"));
+          const enabled=registry.apps
+            .filter(app=>app.discoveryEnabled)
+            .flatMap(app=>app.platforms?.android?.packageIds||[])
+            .sort();
+          const manifest=fs.readFileSync("modules/person-card-freeware/work-mode-v2/android-adapter/src/main/AndroidManifest.xml","utf8");
+          const declared=[...manifest.matchAll(/<package\s+android:name="([^"]+)"/g)].map(m=>m[1]).sort();
+          if(JSON.stringify(enabled)!==JSON.stringify(declared)){
+            throw new Error("ANDROID_MANIFEST_REGISTRY_MISMATCH "+JSON.stringify({enabled,declared}));
+          }
+          if(manifest.includes("QUERY_ALL_PACKAGES")) throw new Error("QUERY_ALL_PACKAGES_FORBIDDEN");
+          console.log("ANDROID_TARGETED_DISCOVERY_CONTRACT_PASS");
+          NODE
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/data/person-work-profile-kamil.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/source-manifest.json','utf8'))"
 
