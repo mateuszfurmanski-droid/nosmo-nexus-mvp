@@ -127,11 +127,14 @@ jobs:
           node --check modules/person-card-freeware/data-fetcher/app.js
           node --check modules/person-card-freeware/work-mode-v2/contracts.mjs
           node --check modules/person-card-freeware/work-mode-v2/local-discovery.mjs
+          node --check modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs
+          node --check modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs
           node --check modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/construction-app-registry.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/trust-copy.json','utf8'))"
           node modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
-          ! grep -RE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket' modules/person-card-freeware/work-mode-v2/contracts.mjs modules/person-card-freeware/work-mode-v2/local-discovery.mjs
+          node modules/person-card-freeware/work-mode-v2/tests/work-card-controller.test.mjs
+          ! grep -RE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket' modules/person-card-freeware/work-mode-v2/contracts.mjs modules/person-card-freeware/work-mode-v2/local-discovery.mjs modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs
 
       - name: Android targeted discovery adapter
         shell: bash
