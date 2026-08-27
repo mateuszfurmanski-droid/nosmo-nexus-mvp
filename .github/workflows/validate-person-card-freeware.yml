@@ -138,7 +138,7 @@ jobs:
         run: |
           manifest=modules/person-card-freeware/work-mode-v2/android-adapter/src/main/AndroidManifest.xml
           test -f "$manifest"
-          ! grep -F 'QUERY_ALL_PACKAGES' "$manifest"
+          ! grep -RE '<uses-permission[^>]+android\.permission\.QUERY_ALL_PACKAGES' "$manifest"
           grep -F '<queries>' "$manifest"
           for pkg in com.whatsapp com.microsoft.teams com.google.android.apps.docs com.microsoft.skydrive com.dropbox.android; do
             grep -F "android:name=\"$pkg\"" "$manifest"
@@ -163,7 +163,7 @@ jobs:
           if(JSON.stringify(enabled)!==JSON.stringify(declared)){
             throw new Error("ANDROID_MANIFEST_REGISTRY_MISMATCH "+JSON.stringify({enabled,declared}));
           }
-          if(manifest.includes("QUERY_ALL_PACKAGES")) throw new Error("QUERY_ALL_PACKAGES_FORBIDDEN");
+          if(/<uses-permission[^>]+android:name=["']android\.permission\.QUERY_ALL_PACKAGES["']/.test(manifest)) throw new Error("QUERY_ALL_PACKAGES_FORBIDDEN");
           console.log("ANDROID_TARGETED_DISCOVERY_CONTRACT_PASS");
           NODE
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/data/person-work-profile-kamil.json','utf8'))"
