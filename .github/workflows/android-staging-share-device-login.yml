@@ -81,7 +81,7 @@ jobs:
       - name: Build exact-head debug APK and release AAB
         working-directory: native/nexus-work-mode-native
         env:
-          NEXUS_ANDROID_WEB_ORIGIN: https://nosmo-nexus-cloud-staging-imzws19l6.vercel.app
+          NEXUS_ANDROID_WEB_ORIGIN: https://nosmo-nexus-cloud-staging-g8pmcgvg5.vercel.app
         run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
 
       - name: Verify APK security surface
