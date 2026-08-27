@@ -1082,11 +1082,40 @@ function App() {
         {screen === "settings" && (
           <section className="section page">
             <div className="section-head">
-              <div><span className="eyebrow">PROFILE & CONNECTIONS</span><h2>Settings</h2></div>
+              <div><span className="eyebrow">YOUR JOB CONTROL</span><h2>More</h2></div>
             </div>
 
-            <div className="settings-card">
-              <h3>Verified profile facts</h3>
+            <div className="more-grid">
+              <button className="more-card" onClick={() => setScreen("cvs")}>
+                <span className="more-icon">CV</span>
+                <div>
+                  <b>My CVs</b>
+                  <small>7 profiles · chosen automatically</small>
+                </div>
+              </button>
+              <button
+                className="more-card"
+                onClick={() => {
+                  const target = document.getElementById("profile-settings");
+                  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                <span className="more-icon">ME</span>
+                <div>
+                  <b>My details</b>
+                  <small>Availability, transport and start date</small>
+                </div>
+              </button>
+            </div>
+
+            <div className="settings-card" id="profile-settings">
+              <div className="settings-title">
+                <div>
+                  <span className="eyebrow">USED FOR EVERY APPLICATION</span>
+                  <h3>My details</h3>
+                </div>
+                <span className="safe-chip">Verified</span>
+              </div>
               {[
                 ["Location", "location"],
                 ["Available from", "start"],
@@ -1101,55 +1130,57 @@ function App() {
                   />
                 </label>
               ))}
-              <p className="disclaimer">AI is not allowed to silently modify these facts.</p>
+              <p className="disclaimer">
+                Job Control uses these facts when choosing jobs and preparing applications.
+              </p>
             </div>
 
-            <div className="settings-card">
-              <h3>Integrations</h3>
-              <ConnectionRow
-                name="Google Sheets"
-                detail="Job database"
-                connected={Boolean(integrations?.google.sheetsRead)}
-              />
-              <ConnectionRow
-                name="Google Drive"
-                detail="7 CV files"
-                connected={Boolean(integrations?.google.driveRead)}
-              />
-              <ConnectionRow
-                name="Gmail"
-                detail="hello@nosmo.tech sender"
-                connected={Boolean(integrations?.google.gmailSendEnabled)}
-              />
-              <ConnectionRow
-                name="ChatGPT"
-                detail="Free ChatGPT handoff"
-                connected
-              />
-              <div className="integration-note">
-                Reads use a server-side Google token. Sheet writes and Gmail sends have separate release switches.
-                No OAuth secret is stored in the browser.
-              </div>
-              {backendMode === "live" && (
-                <div className="action-stack">
-                  <button className="secondary" disabled={syncBusy} onClick={() => void refreshLive()}>
-                    {syncBusy ? "Syncing…" : "Sync now"}
-                  </button>
-                  <button className="ghost" onClick={() => void logout()}>Lock app</button>
+            <details className="advanced-card">
+              <summary>
+                <span>
+                  <b>Advanced</b>
+                  <small>Connections, sync and safety</small>
+                </span>
+                <span>›</span>
+              </summary>
+
+              <div className="advanced-content">
+                <ConnectionRow
+                  name="Job database"
+                  detail="Google Sheets"
+                  connected={Boolean(integrations?.google.sheetsRead)}
+                />
+                <ConnectionRow
+                  name="CV storage"
+                  detail="Google Drive"
+                  connected={Boolean(integrations?.google.driveRead)}
+                />
+                <ConnectionRow
+                  name="Application email"
+                  detail="hello@nosmo.tech"
+                  connected={Boolean(integrations?.google.gmailSendEnabled)}
+                />
+                <ConnectionRow
+                  name="ChatGPT"
+                  detail="Free ChatGPT handoff"
+                  connected
+                />
+
+                {backendMode === "live" && (
+                  <div className="action-stack">
+                    <button className="secondary" disabled={syncBusy} onClick={() => void refreshLive()}>
+                      {syncBusy ? "Syncing…" : "Sync now"}
+                    </button>
+                    <button className="ghost" onClick={() => void logout()}>Lock app</button>
+                  </div>
+                )}
+
+                <div className="integration-note">
+                  Google credentials stay on the server. Job Control never invents experience or qualifications,
+                  and it only marks APPLIED after confirmation.
                 </div>
-              )}
-            </div>
-
-            <div className="settings-card">
-              <h3>Data rules</h3>
-              <ul className="rules">
-                <li>Never invent experience, certificates or licences.</li>
-                <li>Never send before Joanna reviews the application.</li>
-                <li>Never mark APPLIED unless send/submit is confirmed.</li>
-                <li>Unknown email-send states are never automatically retried.</li>
-                <li>Google Sheets remains the source of truth in live mode.</li>
-              </ul>
-            </div>
+              </div>
+            </details>
           </section>
         )}
       </main>
@@ -1157,7 +1188,15 @@ function App() {
       <nav className="bottom-nav">
         <NavButton active={screen === "home"} label="Home" icon="⌂" onClick={() => setScreen("home")} />
         <NavButton active={screen === "jobs"} label="Jobs" icon="▤" onClick={() => setScreen("jobs")} />
-        <NavButton active={screen === "apply"} label="Apply" icon="＋" onClick={() => setScreen("apply")} />
+        <NavButton
+          active={screen === "apply"}
+          label="Add"
+          icon="＋"
+          onClick={() => {
+            setApplyMode("new");
+            setScreen("apply");
+          }}
+        />
         <NavButton active={screen === "replies"} label="Replies" icon="↩" onClick={() => setScreen("replies")} />
         <NavButton active={screen === "settings"} label="More" icon="•••" onClick={() => setScreen("settings")} />
       </nav>
