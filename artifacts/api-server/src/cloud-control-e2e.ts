@@ -6,6 +6,7 @@ import {
   db,
   nexusIdentityBindingsTable,
   nexusPmPermissionGrantsTable,
+  nexusPmProjectParticipationsTable,
   sessionsTable,
 } from "@workspace/db";
 import { createNexusCloudDbCommitInput } from "@workspace/db/nexus-cloud-persistence-input";
@@ -58,6 +59,33 @@ async function deleteTemporaryDeny(): Promise<void> {
   await db
     .delete(nexusPmPermissionGrantsTable)
     .where(eq(nexusPmPermissionGrantsTable.grantId, DENY_GRANT_ID));
+
+  const [participation] = await db
+    .select()
+    .from(nexusPmProjectParticipationsTable)
+    .where(
+      eq(
+        nexusPmProjectParticipationsTable.participationId,
+        "participation-staging-esafe-e6b22d317d35",
+      ),
+    )
+    .limit(1);
+
+  if (participation) {
+    await db
+      .update(nexusPmProjectParticipationsTable)
+      .set({
+        permissionGrantIds: participation.permissionGrantIds.filter(
+          (grantId) => grantId !== DENY_GRANT_ID,
+        ),
+      })
+      .where(
+        eq(
+          nexusPmProjectParticipationsTable.participationId,
+          participation.participationId,
+        ),
+      );
+  }
 }
 
 async function main(): Promise<void> {
@@ -105,6 +133,21 @@ async function main(): Promise<void> {
       },
       persistedAt: now,
     });
+
+    await db
+      .update(nexusPmProjectParticipationsTable)
+      .set({
+        permissionGrantIds: [
+          "grant-staging-cloud-write-158ecedee155",
+          DENY_GRANT_ID,
+        ],
+      })
+      .where(
+        eq(
+          nexusPmProjectParticipationsTable.participationId,
+          "participation-staging-esafe-e6b22d317d35",
+        ),
+      );
 
     const denied = await resolveNexusCloudRuntimeWriteAccess({
       req,
