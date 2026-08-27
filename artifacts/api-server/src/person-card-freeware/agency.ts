@@ -521,9 +521,9 @@ router.patch("/person-card/agency/profile", async (req, res) => {
 
   const displayName =
     clean(recruiterInput.displayName, 160) ??
-    [req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
-    req.user.email ||
-    "Recruiter";
+    ([req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
+      req.user.email ||
+      "Recruiter");
 
   await db
     .insert(nexusPersonAgencyRecruiterProfilesTable)
