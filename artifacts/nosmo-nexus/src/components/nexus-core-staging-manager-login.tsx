@@ -6,7 +6,7 @@ import {
   type NexusCoreStagingSession,
 } from "@/lib/nexus-core-staging-session";
 
-export function NexusCoreStagingManagerLogin() {
+export function NexusCoreStagingManagerLogin({ embedded = false }: { embedded?: boolean } = {}) {
   const [claimCode, setClaimCode] = useState("");
   const [session, setSession] = useState<NexusCoreStagingSession | null>(() => readNexusCoreStagingSession());
   const [busy, setBusy] = useState(false);
@@ -74,7 +74,7 @@ export function NexusCoreStagingManagerLogin() {
   return (
     <aside
       data-control
-      className="fixed left-3 top-3 z-[155] w-[min(370px,calc(100vw-24px))] rounded-xl border border-cyan-300/35 bg-slate-950/94 p-3 text-slate-100 shadow-xl backdrop-blur"
+      className={`${embedded ? "relative w-full" : "fixed left-3 top-3 z-[155] w-[min(370px,calc(100vw-24px))]"} rounded-xl border border-cyan-300/35 bg-slate-950/94 p-3 text-slate-100 shadow-xl backdrop-blur`}
       aria-label="Nexus Core non-production manager login"
     >
       <div className="text-[10px] font-black uppercase tracking-[.15em] text-cyan-200">NON-PRODUCTION MANAGER</div>

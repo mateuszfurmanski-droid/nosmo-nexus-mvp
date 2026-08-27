@@ -5,15 +5,21 @@ on:
   push:
     branches:
       - codex/nexus-core-http-e2e
+      - codex/nexus-core-reconcile-162-175
     paths:
       - artifacts/api-server/src/routes/nexus-core-e2e.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/resolveNexusCoreWorkspace.ts
+      - artifacts/api-server/src/middlewares/nexusCoreBrowserCors.ts
+      - artifacts/api-server/src/vercel-core-staging.ts
       - artifacts/api-server/src/lib/nexus-person-binding.ts
       - artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts
       - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
       - lib/db/src/nexusCoreWorkPersistence.ts
       - lib/db/src/schema/**
+      - artifacts/nosmo-nexus/src/components/nexus-core-source-palette.tsx
+      - artifacts/nosmo-nexus/src/components/nexus-core-semantic-drop-adapter.tsx
+      - artifacts/nosmo-nexus/src/pages/esafe-core-workspace.tsx
       - .github/workflows/nexus-core-http-e2e.yml
   pull_request:
     branches:
@@ -22,11 +28,16 @@ on:
       - artifacts/api-server/src/routes/nexus-core-e2e.ts
       - artifacts/api-server/src/routes/index.ts
       - artifacts/api-server/src/middlewares/resolveNexusCoreWorkspace.ts
+      - artifacts/api-server/src/middlewares/nexusCoreBrowserCors.ts
+      - artifacts/api-server/src/vercel-core-staging.ts
       - artifacts/api-server/src/lib/nexus-person-binding.ts
       - artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts
       - artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs
       - lib/db/src/nexusCoreWorkPersistence.ts
       - lib/db/src/schema/**
+      - artifacts/nosmo-nexus/src/components/nexus-core-source-palette.tsx
+      - artifacts/nosmo-nexus/src/components/nexus-core-semantic-drop-adapter.tsx
+      - artifacts/nosmo-nexus/src/pages/esafe-core-workspace.tsx
       - .github/workflows/nexus-core-http-e2e.yml
 
 permissions:
@@ -79,14 +90,28 @@ jobs:
       - name: Typecheck canonical Core integration
         run: pnpm run typecheck
 
-      - name: Create disposable canonical schema
-        run: pnpm --filter @workspace/db push-force
+      - name: Create disposable canonical schema via ordered migrations
+        run: pnpm run db:migrate
+
+      - name: Prove semantic drop to recipient inbox is covered
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST="artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts"
+          grep -Fq '"/api/nexus/core/semantic-drop"' "$TEST"
+          grep -Fq '/api/nexus/core/work-inbox?projectId=' "$TEST"
+          grep -Fq 'assigned task not projected to worker inbox' "$TEST"
+          echo NEXUS_DROP_TO_RECIPIENT_INBOX_CONTRACT_PASS
 
       - name: Execute real HTTP manager to worker cycle
         shell: bash
         run: |
           set -euo pipefail
           node artifacts/api-server/scripts/run-nexus-core-http-e2e.mjs | tee /tmp/nexus-core-http-e2e.txt
+          grep -q 'NEXUS_CORE_BROWSER_TRANSPORT_PASS' /tmp/nexus-core-http-e2e.txt
+          grep -q '"blockedOriginStatus": 403' /tmp/nexus-core-http-e2e.txt
+          grep -q '"credentialsReleased": false' /tmp/nexus-core-http-e2e.txt
+          grep -q '"authentication": "BEARER_SESSION_ONLY"' /tmp/nexus-core-http-e2e.txt
           grep -q 'NEXUS_CORE_HTTP_E2E_PASS' /tmp/nexus-core-http-e2e.txt
           grep -q '"scope": "SYNTHETIC_E2E_ONLY"' /tmp/nexus-core-http-e2e.txt
           grep -q '"finalTaskStatus": "done"' /tmp/nexus-core-http-e2e.txt

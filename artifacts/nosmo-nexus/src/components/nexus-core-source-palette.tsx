@@ -90,10 +90,12 @@ export function NexusCoreSourcePalette({
   nodes,
   projectId,
   worldId,
+  embedded = false,
 }: {
   nodes: WorkspaceNode[];
   projectId: string;
   worldId: string;
+  embedded?: boolean;
 }) {
   const byId = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const [packageItems, setPackageItems] = useState<PackageItem[]>([]);
@@ -204,8 +206,41 @@ export function NexusCoreSourcePalette({
     };
 
     window.dispatchEvent(new CustomEvent("nexus:semantic-drop-request", { detail }));
-    setMessage(`${resolution.intent} prepared for ${target.label}. Backend authority/API is not wired in this slice; nothing was persisted.`);
+    setMessage(`SAVING · ${payload.label} → ${target.label} · waiting for Nexus Core authority…`);
   };
+
+  useEffect(() => {
+    const onAuthoritativeResult = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        ok?: boolean;
+        response?: {
+          assignment?: {
+            taskId?: string;
+            assignedPersonId?: string;
+          };
+          message?: string;
+          error?: string;
+        };
+      }>).detail;
+
+      if (!detail) return;
+      if (!detail.ok) {
+        const failure = detail.response?.message || detail.response?.error || "Core rejected the assignment.";
+        setMessage(`BLOCKED · ${failure}`);
+        return;
+      }
+
+      const taskId = detail.response?.assignment?.taskId;
+      const assignedPersonId = detail.response?.assignment?.assignedPersonId;
+      const recipient = assignedPersonId ? byId.get(assignedPersonId)?.label ?? assignedPersonId : "recipient";
+      setMessage(taskId
+        ? `ASSIGNED · ${taskId} → ${recipient} · authoritative recipient projection updated.`
+        : "COMMITTED · Nexus Core confirmed the semantic drop.");
+    };
+
+    window.addEventListener("nexus:semantic-drop-authoritative-result", onAuthoritativeResult as EventListener);
+    return () => window.removeEventListener("nexus:semantic-drop-authoritative-result", onAuthoritativeResult as EventListener);
+  }, [byId]);
 
   useEffect(() => {
     if (!drag) return;
@@ -264,7 +299,7 @@ export function NexusCoreSourcePalette({
 
       <section
         data-control
-        className="pointer-events-auto fixed bottom-[92px] left-1/2 z-[110] w-[min(720px,calc(100vw-20px))] -translate-x-1/2 rounded-2xl border border-cyan-300/25 bg-slate-950/92 p-2.5 text-slate-100 shadow-2xl backdrop-blur-xl"
+        className={`${embedded ? "relative w-full" : "pointer-events-auto fixed bottom-[92px] left-1/2 z-[110] w-[min(720px,calc(100vw-20px))] -translate-x-1/2"} rounded-2xl border border-cyan-300/25 bg-slate-950/92 p-2.5 text-slate-100 shadow-2xl backdrop-blur-xl`}
       >
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div className="min-w-0">
@@ -313,7 +348,7 @@ export function NexusCoreSourcePalette({
       <nav
         data-control
         aria-label="Nexus bottom source palette"
-        className="pointer-events-auto fixed inset-x-0 bottom-0 z-[120] h-[84px] border-t border-cyan-300/20 bg-slate-950/96 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_32px_rgba(0,0,0,.36)] backdrop-blur-xl"
+        className={`${embedded ? "relative h-auto w-full" : "pointer-events-auto fixed inset-x-0 bottom-0 z-[120] h-[84px]"} border-t border-cyan-300/20 bg-slate-950/96 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_32px_rgba(0,0,0,.36)] backdrop-blur-xl`}
       >
         <div className="mx-auto flex h-full max-w-4xl items-start gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {SOURCES.map(({ kind, label, Icon }) => (

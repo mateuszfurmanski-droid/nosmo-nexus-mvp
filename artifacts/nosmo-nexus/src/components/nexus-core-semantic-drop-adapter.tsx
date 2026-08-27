@@ -21,7 +21,7 @@ const initialState: AdapterState = {
   message: "Authoritative semantic-drop adapter ready.",
 };
 
-export function NexusCoreSemanticDropAdapter() {
+export function NexusCoreSemanticDropAdapter({ embedded = false }: { embedded?: boolean } = {}) {
   const [status, setStatus] = useState<AdapterState>(initialState);
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export function NexusCoreSemanticDropAdapter() {
   return (
     <div
       data-control
-      className={`pointer-events-none fixed left-1/2 top-3 z-[140] w-[min(680px,calc(100vw-20px))] -translate-x-1/2 rounded-xl border px-3 py-2 text-[10px] font-semibold shadow-xl backdrop-blur ${tone}`}
+      className={`${embedded ? "relative w-full" : "pointer-events-none fixed left-1/2 top-3 z-[140] w-[min(680px,calc(100vw-20px))] -translate-x-1/2"} rounded-xl border px-3 py-2 text-[10px] font-semibold shadow-xl backdrop-blur ${tone}`}
       role="status"
       aria-live="polite"
     >

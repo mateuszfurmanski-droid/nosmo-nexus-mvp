@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import { authMiddleware } from "./middlewares/authMiddleware";
+import { nexusCoreBrowserCors } from "./middlewares/nexusCoreBrowserCors";
 import { resolveNexusCoreWorkspace } from "./middlewares/resolveNexusCoreWorkspace";
 import healthRouter from "./routes/health";
 import mobileAuthBootstrapRouter from "./routes/mobile-auth-bootstrap";
@@ -32,6 +33,10 @@ app.use(
   }),
 );
 app.use(cookieParser());
+// NON_PRODUCTION browser bridge for the canonical public Relationship Tree.
+// Exact-origin CORS is evaluated before auth so preflight can complete; bearer
+// session authority is still enforced by authMiddleware on actual Core calls.
+app.use(nexusCoreBrowserCors);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(authMiddleware);

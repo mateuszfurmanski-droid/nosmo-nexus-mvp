@@ -29,7 +29,7 @@ function publishProjection(projection: ProjectionPayload | undefined) {
   );
 }
 
-export function NexusCoreApprovalPanel() {
+export function NexusCoreApprovalPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [projection, setProjection] = useState<ProjectionPayload | null>(null);
   const [reason, setReason] = useState("Reviewed by manager against submitted Work Package evidence.");
   const [busyApprovalId, setBusyApprovalId] = useState<string | null>(null);
@@ -127,7 +127,7 @@ export function NexusCoreApprovalPanel() {
   return (
     <aside
       data-control
-      className="fixed right-3 top-3 z-[135] w-[min(360px,calc(100vw-24px))] rounded-xl border border-slate-500/40 bg-slate-950/92 p-3 text-slate-100 shadow-xl backdrop-blur"
+      className={`${embedded ? "relative w-full" : "fixed right-3 top-3 z-[135] w-[min(360px,calc(100vw-24px))]"} rounded-xl border border-slate-500/40 bg-slate-950/92 p-3 text-slate-100 shadow-xl backdrop-blur`}
       aria-label="Nexus Core human approval queue"
     >
       <div className="flex items-center justify-between gap-2">

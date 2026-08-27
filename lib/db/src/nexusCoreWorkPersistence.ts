@@ -1,4 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import crypto from "node:crypto";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "./index";
 import {
   nexusPmAccessDecisionsTable,
@@ -15,6 +16,8 @@ import {
 export const NEXUS_CORE_WORK_DB_SCHEMA = "nexus-core-work-db/v1" as const;
 const WORK_MODULE = "worksuite";
 
+type NexusCoreWorkTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 export type NexusCoreWorkDbWriteMode = "insert" | "update";
 
 export interface NexusCoreWorkDbTaskWrite {
@@ -30,6 +33,7 @@ export interface NexusCoreWorkDbEvidenceWrite {
   id: string;
   linkedTaskId?: string;
   evidenceStatus: string;
+  expectedEvidenceStatus?: string;
   evidenceType: string;
   recordJson: Record<string, unknown>;
 }
@@ -38,6 +42,7 @@ export interface NexusCoreWorkDbApprovalWrite {
   mode: NexusCoreWorkDbWriteMode;
   id: string;
   approvalStatus: string;
+  expectedApprovalStatus?: string;
   recordJson: Record<string, unknown>;
 }
 
@@ -57,6 +62,7 @@ export interface NexusCoreWorkDbCommitInput {
   participationId: string;
   accessDecisionId: string;
   actionKey: string;
+  objectScopeId?: string | null;
   persistedAtIso: string;
   task: NexusCoreWorkDbTaskWrite;
   evidenceWrites?: NexusCoreWorkDbEvidenceWrite[];
@@ -103,7 +109,9 @@ const asDate = (value: string, label: string): Date => {
 const stableJson = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right));
+    const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+      left.localeCompare(right),
+    );
     return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(",")}}`;
   }
   return JSON.stringify(value);
@@ -111,6 +119,11 @@ const stableJson = (value: unknown): string => {
 
 const readString = (record: Record<string, unknown>, key: string): string | undefined =>
   typeof record[key] === "string" ? (record[key] as string) : undefined;
+
+const normalizeObjectScope = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
 
 const assertCanonicalScope = (
   record: Record<string, unknown>,
@@ -139,6 +152,24 @@ const recordIsActiveAt = (record: Record<string, unknown>, at: Date): boolean =>
   return true;
 };
 
+const commitFingerprint = (input: NexusCoreWorkDbCommitInput): string => {
+  const canonicalCommit = {
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
+    worldId: input.worldId,
+    actorPersonId: input.actorPersonId,
+    participationId: input.participationId,
+    accessDecisionId: input.accessDecisionId,
+    actionKey: input.actionKey,
+    objectScopeId: normalizeObjectScope(input.objectScopeId),
+    task: input.task,
+    evidenceWrites: input.evidenceWrites ?? [],
+    approvalWrites: input.approvalWrites ?? [],
+    timeline: input.timeline,
+  };
+  return crypto.createHash("sha256").update(stableJson(canonicalCommit), "utf8").digest("hex");
+};
+
 const timelineReplayMatches = (
   row: NexusPmTimelineEventRow,
   input: NexusCoreWorkDbCommitInput,
@@ -149,6 +180,7 @@ const timelineReplayMatches = (
   row.eventType === input.timeline.eventType &&
   row.actorPersonId === input.timeline.actorPersonId &&
   row.eventAt.getTime() === asDate(input.timeline.eventAtIso, "timeline_event_at").getTime() &&
+  row.commitFingerprint === commitFingerprint(input) &&
   stableJson(row.recordJson) === stableJson(input.timeline.recordJson);
 
 const replayResult = (
@@ -164,7 +196,9 @@ const replayResult = (
   };
 };
 
-const findTimelineCommit = async (input: NexusCoreWorkDbCommitInput): Promise<NexusPmTimelineEventRow | undefined> => {
+const findTimelineCommit = async (
+  input: NexusCoreWorkDbCommitInput,
+): Promise<NexusPmTimelineEventRow | undefined> => {
   const [row] = await db
     .select()
     .from(nexusPmTimelineEventsTable)
@@ -174,7 +208,7 @@ const findTimelineCommit = async (input: NexusCoreWorkDbCommitInput): Promise<Ne
 };
 
 const assertAuthority = async (
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: NexusCoreWorkTransaction,
   input: NexusCoreWorkDbCommitInput,
   persistedAt: Date,
 ): Promise<void> => {
@@ -185,23 +219,32 @@ const assertAuthority = async (
     .limit(1);
   if (!person || person.status !== "active") throw new Error("NEXUS_CORE_WORK_DB_PERSON_NOT_ACTIVE");
 
-  const [participation] = await tx
+  const participations = await tx
     .select()
     .from(nexusPmProjectParticipationsTable)
     .where(
       and(
-        eq(nexusPmProjectParticipationsTable.participationId, input.participationId),
         eq(nexusPmProjectParticipationsTable.workspaceId, input.workspaceId),
         eq(nexusPmProjectParticipationsTable.personId, input.actorPersonId),
         eq(nexusPmProjectParticipationsTable.projectId, input.projectId),
         eq(nexusPmProjectParticipationsTable.worldId, input.worldId),
       ),
-    )
-    .limit(1);
-  if (!participation || participation.participationStatus !== "active" || !recordIsActiveAt(participation.recordJson, persistedAt)) {
-    throw new Error("NEXUS_CORE_WORK_DB_PARTICIPATION_NOT_ACTIVE");
+    );
+  const activeParticipations = participations.filter(
+    (participation) =>
+      participation.participationStatus === "active" && recordIsActiveAt(participation.recordJson, persistedAt),
+  );
+  if (activeParticipations.length === 0) throw new Error("NEXUS_CORE_WORK_DB_PARTICIPATION_NOT_ACTIVE");
+  if (activeParticipations.length !== 1) throw new Error("NEXUS_CORE_WORK_DB_PARTICIPATION_AMBIGUOUS");
+  const participation = activeParticipations[0]!;
+  if (participation.participationId !== input.participationId) {
+    throw new Error("NEXUS_CORE_WORK_DB_PARTICIPATION_MISMATCH");
   }
 
+  const objectScopeId = normalizeObjectScope(input.objectScopeId);
+  const decisionScope = objectScopeId
+    ? eq(nexusPmAccessDecisionsTable.objectScopeId, objectScopeId)
+    : isNull(nexusPmAccessDecisionsTable.objectScopeId);
   const decisions = await tx
     .select()
     .from(nexusPmAccessDecisionsTable)
@@ -213,11 +256,23 @@ const assertAuthority = async (
         eq(nexusPmAccessDecisionsTable.worldId, input.worldId),
         eq(nexusPmAccessDecisionsTable.moduleId, WORK_MODULE),
         eq(nexusPmAccessDecisionsTable.actionKey, input.actionKey),
+        decisionScope,
       ),
     )
-    .orderBy(desc(nexusPmAccessDecisionsTable.evaluatedAt));
+    .orderBy(
+      desc(nexusPmAccessDecisionsTable.evaluatedAt),
+      desc(nexusPmAccessDecisionsTable.persistedAt),
+      desc(nexusPmAccessDecisionsTable.decisionId),
+    );
 
   const latestDecision = decisions[0];
+  if (
+    latestDecision &&
+    decisions[1] &&
+    decisions[1]!.evaluatedAt.getTime() === latestDecision.evaluatedAt.getTime()
+  ) {
+    throw new Error("NEXUS_CORE_WORK_DB_ACCESS_DECISION_AMBIGUOUS");
+  }
   if (
     !latestDecision ||
     latestDecision.decisionId !== input.accessDecisionId ||
@@ -228,6 +283,9 @@ const assertAuthority = async (
     throw new Error("NEXUS_CORE_WORK_DB_ACCESS_NOT_ALLOWED");
   }
 
+  const grantScope = objectScopeId
+    ? eq(nexusPmPermissionGrantsTable.objectScopeId, objectScopeId)
+    : isNull(nexusPmPermissionGrantsTable.objectScopeId);
   const grants = await tx
     .select()
     .from(nexusPmPermissionGrantsTable)
@@ -237,6 +295,7 @@ const assertAuthority = async (
         eq(nexusPmPermissionGrantsTable.participationId, input.participationId),
         eq(nexusPmPermissionGrantsTable.moduleId, WORK_MODULE),
         eq(nexusPmPermissionGrantsTable.actionKey, input.actionKey),
+        grantScope,
       ),
     );
   const activeGrants = grants.filter((grant) => recordIsActiveAt(grant.recordJson, persistedAt));
@@ -249,7 +308,7 @@ const assertAuthority = async (
 };
 
 const assertTaskWrite = async (
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: NexusCoreWorkTransaction,
   input: NexusCoreWorkDbCommitInput,
 ): Promise<void> => {
   assertCanonicalScope(input.task.recordJson, {
@@ -283,7 +342,7 @@ const assertTaskWrite = async (
 };
 
 const assertEvidenceWrite = async (
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: NexusCoreWorkTransaction,
   input: NexusCoreWorkDbCommitInput,
   write: NexusCoreWorkDbEvidenceWrite,
 ): Promise<void> => {
@@ -297,7 +356,11 @@ const assertEvidenceWrite = async (
   if (write.linkedTaskId && readString(write.recordJson, "linkedTaskId") !== write.linkedTaskId) {
     throw new Error("NEXUS_CORE_WORK_DB_EVIDENCE_TASK_MISMATCH");
   }
-  const [existing] = await tx.select().from(nexusPmEvidenceTable).where(eq(nexusPmEvidenceTable.evidenceId, write.id)).limit(1);
+  const [existing] = await tx
+    .select()
+    .from(nexusPmEvidenceTable)
+    .where(eq(nexusPmEvidenceTable.evidenceId, write.id))
+    .limit(1);
   if (write.mode === "insert") {
     if (existing) throw new Error("NEXUS_CORE_WORK_DB_EVIDENCE_ALREADY_EXISTS");
     return;
@@ -311,10 +374,13 @@ const assertEvidenceWrite = async (
   ) {
     throw new Error("NEXUS_CORE_WORK_DB_EVIDENCE_SCOPE_CONFLICT");
   }
+  if (write.expectedEvidenceStatus && existing.evidenceStatus !== write.expectedEvidenceStatus) {
+    throw new Error("NEXUS_CORE_WORK_DB_EVIDENCE_STATE_CONFLICT");
+  }
 };
 
 const assertApprovalWrite = async (
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: NexusCoreWorkTransaction,
   input: NexusCoreWorkDbCommitInput,
   write: NexusCoreWorkDbApprovalWrite,
 ): Promise<void> => {
@@ -322,21 +388,34 @@ const assertApprovalWrite = async (
   if (readString(write.recordJson, "approvalStatus") !== write.approvalStatus) {
     throw new Error("NEXUS_CORE_WORK_DB_APPROVAL_STATUS_MISMATCH");
   }
-  const [existing] = await tx.select().from(nexusPmApprovalsTable).where(eq(nexusPmApprovalsTable.approvalId, write.id)).limit(1);
+  const [existing] = await tx
+    .select()
+    .from(nexusPmApprovalsTable)
+    .where(eq(nexusPmApprovalsTable.approvalId, write.id))
+    .limit(1);
   if (write.mode === "insert") {
     if (existing) throw new Error("NEXUS_CORE_WORK_DB_APPROVAL_ALREADY_EXISTS");
     return;
   }
   if (!existing) throw new Error("NEXUS_CORE_WORK_DB_APPROVAL_NOT_FOUND");
-  if (existing.workspaceId !== input.workspaceId || existing.projectId !== input.projectId || existing.worldId !== input.worldId) {
+  if (
+    existing.workspaceId !== input.workspaceId ||
+    existing.projectId !== input.projectId ||
+    existing.worldId !== input.worldId
+  ) {
     throw new Error("NEXUS_CORE_WORK_DB_APPROVAL_SCOPE_CONFLICT");
+  }
+  if (write.expectedApprovalStatus && existing.approvalStatus !== write.expectedApprovalStatus) {
+    throw new Error("NEXUS_CORE_WORK_DB_APPROVAL_STATE_CONFLICT");
   }
 };
 
 export const persistNexusCoreWorkCommit = async (
   input: NexusCoreWorkDbCommitInput,
 ): Promise<NexusCoreWorkDbCommitResult> => {
-  if (!Number.isInteger(input.workspaceId) || input.workspaceId <= 0) throw new Error("NEXUS_CORE_WORK_DB_INVALID_WORKSPACE_ID");
+  if (!Number.isInteger(input.workspaceId) || input.workspaceId <= 0) {
+    throw new Error("NEXUS_CORE_WORK_DB_INVALID_WORKSPACE_ID");
+  }
   assertNonEmpty(input.projectId, "project_id");
   assertNonEmpty(input.worldId, "world_id");
   assertNonEmpty(input.actorPersonId, "actor_person_id");
@@ -346,7 +425,9 @@ export const persistNexusCoreWorkCommit = async (
   if (!input.actionKey.startsWith("worksuite.")) throw new Error("NEXUS_CORE_WORK_DB_INVALID_ACTION_KEY");
   assertNonEmpty(input.task.id, "task_id");
   assertNonEmpty(input.timeline.id, "timeline_event_id");
-  if (input.timeline.actorPersonId !== input.actorPersonId) throw new Error("NEXUS_CORE_WORK_DB_TIMELINE_ACTOR_MISMATCH");
+  if (input.timeline.actorPersonId !== input.actorPersonId) {
+    throw new Error("NEXUS_CORE_WORK_DB_TIMELINE_ACTOR_MISMATCH");
+  }
 
   const persistedAt = asDate(input.persistedAtIso, "persisted_at");
   const eventAt = asDate(input.timeline.eventAtIso, "timeline_event_at");
@@ -359,9 +440,14 @@ export const persistNexusCoreWorkCommit = async (
     throw new Error("NEXUS_CORE_WORK_DB_TIMELINE_TYPE_MISMATCH");
   }
   const payload = input.timeline.recordJson.payload;
-  if (!payload || typeof payload !== "object" || readString(payload as Record<string, unknown>, "operation") !== input.actionKey) {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    readString(payload as Record<string, unknown>, "operation") !== input.actionKey
+  ) {
     throw new Error("NEXUS_CORE_WORK_DB_TIMELINE_OPERATION_MISMATCH");
   }
+  const fingerprint = commitFingerprint(input);
 
   try {
     return await db.transaction(async (tx) => {
@@ -388,10 +474,26 @@ export const persistNexusCoreWorkCommit = async (
           persistedAt,
         });
       } else {
-        await tx
+        const taskWhere = input.task.expectedTaskStatus
+          ? and(
+              eq(nexusPmTasksTable.taskId, input.task.id),
+              eq(nexusPmTasksTable.workspaceId, input.workspaceId),
+              eq(nexusPmTasksTable.projectId, input.projectId),
+              eq(nexusPmTasksTable.worldId, input.worldId),
+              eq(nexusPmTasksTable.taskStatus, input.task.expectedTaskStatus),
+            )
+          : and(
+              eq(nexusPmTasksTable.taskId, input.task.id),
+              eq(nexusPmTasksTable.workspaceId, input.workspaceId),
+              eq(nexusPmTasksTable.projectId, input.projectId),
+              eq(nexusPmTasksTable.worldId, input.worldId),
+            );
+        const updated = await tx
           .update(nexusPmTasksTable)
           .set({ taskStatus: input.task.taskStatus, recordJson: input.task.recordJson, persistedAt })
-          .where(eq(nexusPmTasksTable.taskId, input.task.id));
+          .where(taskWhere)
+          .returning({ taskId: nexusPmTasksTable.taskId });
+        if (updated.length !== 1) throw new Error("NEXUS_CORE_WORK_DB_TASK_STATE_CONFLICT");
       }
 
       for (const evidence of input.evidenceWrites ?? []) {
@@ -408,10 +510,31 @@ export const persistNexusCoreWorkCommit = async (
             persistedAt,
           });
         } else {
-          await tx
+          const evidenceWhere = evidence.expectedEvidenceStatus
+            ? and(
+                eq(nexusPmEvidenceTable.evidenceId, evidence.id),
+                eq(nexusPmEvidenceTable.workspaceId, input.workspaceId),
+                eq(nexusPmEvidenceTable.projectId, input.projectId),
+                eq(nexusPmEvidenceTable.worldId, input.worldId),
+                eq(nexusPmEvidenceTable.evidenceStatus, evidence.expectedEvidenceStatus),
+              )
+            : and(
+                eq(nexusPmEvidenceTable.evidenceId, evidence.id),
+                eq(nexusPmEvidenceTable.workspaceId, input.workspaceId),
+                eq(nexusPmEvidenceTable.projectId, input.projectId),
+                eq(nexusPmEvidenceTable.worldId, input.worldId),
+              );
+          const updated = await tx
             .update(nexusPmEvidenceTable)
-            .set({ evidenceStatus: evidence.evidenceStatus, evidenceType: evidence.evidenceType, recordJson: evidence.recordJson, persistedAt })
-            .where(eq(nexusPmEvidenceTable.evidenceId, evidence.id));
+            .set({
+              evidenceStatus: evidence.evidenceStatus,
+              evidenceType: evidence.evidenceType,
+              recordJson: evidence.recordJson,
+              persistedAt,
+            })
+            .where(evidenceWhere)
+            .returning({ evidenceId: nexusPmEvidenceTable.evidenceId });
+          if (updated.length !== 1) throw new Error("NEXUS_CORE_WORK_DB_EVIDENCE_STATE_CONFLICT");
         }
       }
 
@@ -427,10 +550,26 @@ export const persistNexusCoreWorkCommit = async (
             persistedAt,
           });
         } else {
-          await tx
+          const approvalWhere = approval.expectedApprovalStatus
+            ? and(
+                eq(nexusPmApprovalsTable.approvalId, approval.id),
+                eq(nexusPmApprovalsTable.workspaceId, input.workspaceId),
+                eq(nexusPmApprovalsTable.projectId, input.projectId),
+                eq(nexusPmApprovalsTable.worldId, input.worldId),
+                eq(nexusPmApprovalsTable.approvalStatus, approval.expectedApprovalStatus),
+              )
+            : and(
+                eq(nexusPmApprovalsTable.approvalId, approval.id),
+                eq(nexusPmApprovalsTable.workspaceId, input.workspaceId),
+                eq(nexusPmApprovalsTable.projectId, input.projectId),
+                eq(nexusPmApprovalsTable.worldId, input.worldId),
+              );
+          const updated = await tx
             .update(nexusPmApprovalsTable)
             .set({ approvalStatus: approval.approvalStatus, recordJson: approval.recordJson, persistedAt })
-            .where(eq(nexusPmApprovalsTable.approvalId, approval.id));
+            .where(approvalWhere)
+            .returning({ approvalId: nexusPmApprovalsTable.approvalId });
+          if (updated.length !== 1) throw new Error("NEXUS_CORE_WORK_DB_APPROVAL_STATE_CONFLICT");
         }
       }
 
@@ -444,6 +583,7 @@ export const persistNexusCoreWorkCommit = async (
         actorPersonId: input.timeline.actorPersonId,
         recordJson: input.timeline.recordJson,
         persistedAt,
+        commitFingerprint: fingerprint,
       });
 
       return {
@@ -465,31 +605,53 @@ export const loadNexusCoreWorkSnapshot = async (input: {
   projectId: string;
   worldId: string;
 }): Promise<NexusCoreWorkDbSnapshot> => {
-  if (!Number.isInteger(input.workspaceId) || input.workspaceId <= 0) throw new Error("NEXUS_CORE_WORK_DB_INVALID_WORKSPACE_ID");
+  if (!Number.isInteger(input.workspaceId) || input.workspaceId <= 0) {
+    throw new Error("NEXUS_CORE_WORK_DB_INVALID_WORKSPACE_ID");
+  }
   assertNonEmpty(input.projectId, "project_id");
   assertNonEmpty(input.worldId, "world_id");
-  const scope = and(
-    eq(nexusPmTasksTable.workspaceId, input.workspaceId),
-    eq(nexusPmTasksTable.projectId, input.projectId),
-    eq(nexusPmTasksTable.worldId, input.worldId),
-  );
   const [tasks, evidence, approvals, timeline] = await Promise.all([
-    db.select().from(nexusPmTasksTable).where(scope),
-    db.select().from(nexusPmEvidenceTable).where(and(
-      eq(nexusPmEvidenceTable.workspaceId, input.workspaceId),
-      eq(nexusPmEvidenceTable.projectId, input.projectId),
-      eq(nexusPmEvidenceTable.worldId, input.worldId),
-    )),
-    db.select().from(nexusPmApprovalsTable).where(and(
-      eq(nexusPmApprovalsTable.workspaceId, input.workspaceId),
-      eq(nexusPmApprovalsTable.projectId, input.projectId),
-      eq(nexusPmApprovalsTable.worldId, input.worldId),
-    )),
-    db.select().from(nexusPmTimelineEventsTable).where(and(
-      eq(nexusPmTimelineEventsTable.workspaceId, input.workspaceId),
-      eq(nexusPmTimelineEventsTable.projectId, input.projectId),
-      eq(nexusPmTimelineEventsTable.worldId, input.worldId),
-    )).orderBy(nexusPmTimelineEventsTable.eventAt),
+    db
+      .select()
+      .from(nexusPmTasksTable)
+      .where(
+        and(
+          eq(nexusPmTasksTable.workspaceId, input.workspaceId),
+          eq(nexusPmTasksTable.projectId, input.projectId),
+          eq(nexusPmTasksTable.worldId, input.worldId),
+        ),
+      ),
+    db
+      .select()
+      .from(nexusPmEvidenceTable)
+      .where(
+        and(
+          eq(nexusPmEvidenceTable.workspaceId, input.workspaceId),
+          eq(nexusPmEvidenceTable.projectId, input.projectId),
+          eq(nexusPmEvidenceTable.worldId, input.worldId),
+        ),
+      ),
+    db
+      .select()
+      .from(nexusPmApprovalsTable)
+      .where(
+        and(
+          eq(nexusPmApprovalsTable.workspaceId, input.workspaceId),
+          eq(nexusPmApprovalsTable.projectId, input.projectId),
+          eq(nexusPmApprovalsTable.worldId, input.worldId),
+        ),
+      ),
+    db
+      .select()
+      .from(nexusPmTimelineEventsTable)
+      .where(
+        and(
+          eq(nexusPmTimelineEventsTable.workspaceId, input.workspaceId),
+          eq(nexusPmTimelineEventsTable.projectId, input.projectId),
+          eq(nexusPmTimelineEventsTable.worldId, input.worldId),
+        ),
+      )
+      .orderBy(nexusPmTimelineEventsTable.eventAt),
   ]);
 
   return {

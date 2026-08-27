@@ -58,7 +58,7 @@ function CategoryCard({ category, state }: { category: EsafeCategory; state: Ret
   );
 }
 
-export function EsafeProjectWorldTimeline({ onClose }: { onClose: () => void }) {
+export function EsafeProjectWorldTimeline({ onClose, embedded = false }: { onClose: () => void; embedded?: boolean }) {
   const [mode, setMode] = useState<EsafeTimelineMode>("simulation");
   const [progress, setProgress] = useState(0.72);
   const [playing, setPlaying] = useState(false);
@@ -82,16 +82,18 @@ export function EsafeProjectWorldTimeline({ onClose }: { onClose: () => void }) 
     <aside
       data-control
       aria-label="e-SAFE Project World Timeline"
-      className="fixed inset-x-2 bottom-2 top-[84px] z-[2060] overflow-auto rounded-2xl border border-cyan-300/20 bg-[#07131f]/98 text-slate-100 shadow-2xl backdrop-blur-xl sm:inset-x-3 sm:bottom-3 sm:top-[90px]"
+      className={`${embedded ? "relative h-full w-full" : "fixed inset-x-2 bottom-2 top-[84px] z-[2060] sm:inset-x-3 sm:bottom-3 sm:top-[90px]"} overflow-auto rounded-2xl border border-cyan-300/20 bg-[#07131f]/98 text-slate-100 shadow-2xl backdrop-blur-xl`}
     >
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-700/70 bg-[#07131f]/95 px-4 py-3 backdrop-blur-xl">
         <div>
           <div className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-cyan-300">NOSMO NEXUS · PROJECT WORLD</div>
           <strong className="text-sm">e-SAFE Catania Real Pilot</strong>
         </div>
-        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Close e-SAFE Timeline">
-          <X className="h-4 w-4" />
-        </button>
+        {!embedded ? (
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800" aria-label="Close e-SAFE Timeline">
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-4 p-3 sm:p-4">

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/nexus-core-manager-staging-ui
+      - codex/nexus-core-reconcile-162-175
   workflow_dispatch:
 
 permissions:
@@ -63,7 +64,24 @@ jobs:
           grep -Fq 'person-joanna-klosek' "$WORKSPACE"
           grep -Fq 'person-mateusz-furmanski' "$WORKSPACE"
           grep -Fq 'NexusCoreSourcePalette' "$WORKSPACE"
-          grep -Fq 'PersistentWorkspace' "$WORKSPACE"
+          SOURCE="$ROOT/components/nexus-core-source-palette.tsx"
+          grep -Fq 'nexus:semantic-drop-authoritative-result' "$SOURCE"
+          grep -Fq 'ASSIGNED ·' "$SOURCE"
+          grep -Fq 'SAVING ·' "$SOURCE"
+          ! grep -Fq 'Backend authority/API is not wired in this slice; nothing was persisted.' "$SOURCE"
+          FLOATING="$ROOT/components/nexus-floating-window.tsx"
+          TREE="$ROOT/components/interactive-workspace.tsx"
+          TIMELINE="$ROOT/components/esafe-project-world-timeline.tsx"
+          RELATIONSHIP_EXPORT="$ROOT/pages/relationship-tree-export.tsx"
+          for f in "$FLOATING" "$TREE" "$TIMELINE" "$RELATIONSHIP_EXPORT"; do test -r "$f"; done
+          grep -Fq 'InteractiveWorkspace' "$WORKSPACE"
+          grep -Fq 'InteractiveWorkspace' "$RELATIONSHIP_EXPORT"
+          grep -Fq 'NexusFloatingWindow' "$WORKSPACE"
+          grep -Fq 'EsafeProjectWorldTimeline' "$WORKSPACE"
+          grep -Fq 'data-nexus-window-handle' "$FLOATING"
+          grep -Fq 'data-node-id={node.id}' "$TREE"
+          grep -Fq 'embedded' "$TIMELINE"
+          ! grep -Fq 'PersistentWorkspace' "$WORKSPACE"
 
           ! grep -R -F '_vercel_share=' "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"
           ! grep -R -F 'claim-real-device-' "$LOGIN" "$SESSION" "$DROP" "$APPROVAL" "$WORKSPACE"

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { eq } from "drizzle-orm";
 import app from "../src/app";
+import stagingApp from "../src/vercel-core-staging";
 import {
   db,
   pool,
@@ -336,7 +337,78 @@ async function runHttpCycle(origin: string): Promise<void> {
   }, null, 2));
 }
 
+async function runBrowserTransportContract(): Promise<void> {
+  const server = stagingApp.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert(address && typeof address === "object", "staging browser transport server did not expose a TCP address");
+  const origin = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const allowed = await fetch(`${origin}/api/nexus/core/semantic-drop`, {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://nosmotechnology.co.uk",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "authorization,content-type",
+      },
+      redirect: "manual",
+    });
+    assert(allowed.status === 204, `released browser origin preflight expected 204, got ${allowed.status}`);
+    assert(
+      allowed.headers.get("access-control-allow-origin") === "https://nosmotechnology.co.uk",
+      "released browser origin was not echoed exactly",
+    );
+    assert(
+      allowed.headers.get("access-control-allow-headers")?.includes("authorization"),
+      "authorization header is not released for browser transport",
+    );
+    assert(
+      allowed.headers.get("access-control-allow-credentials") === null,
+      "browser transport must not authorize cross-origin cookies",
+    );
+
+    const www = await fetch(`${origin}/api/nexus/core/semantic-drop`, {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://www.nosmotechnology.co.uk",
+        "access-control-request-method": "POST",
+      },
+      redirect: "manual",
+    });
+    assert(www.status === 204, `released www browser origin preflight expected 204, got ${www.status}`);
+
+    const blocked = await fetch(`${origin}/api/nexus/core/semantic-drop`, {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://attacker.invalid",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "authorization,content-type",
+      },
+      redirect: "manual",
+    });
+    assert(blocked.status === 403, `unreleased browser origin preflight expected 403, got ${blocked.status}`);
+    assert(
+      blocked.headers.get("access-control-allow-origin") === null,
+      "unreleased browser origin received CORS authority",
+    );
+
+    console.log(JSON.stringify({
+      marker: "NEXUS_CORE_BROWSER_TRANSPORT_PASS",
+      releasedOrigin: "https://nosmotechnology.co.uk",
+      releasedWwwOrigin: "https://www.nosmotechnology.co.uk",
+      preflightStatus: allowed.status,
+      blockedOriginStatus: blocked.status,
+      credentialsReleased: false,
+      authentication: "BEARER_SESSION_ONLY",
+    }, null, 2));
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+}
+
 async function main(): Promise<void> {
+  await runBrowserTransportContract();
   await seedFixture();
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
