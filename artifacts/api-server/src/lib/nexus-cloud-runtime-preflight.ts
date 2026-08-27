@@ -605,11 +605,21 @@ export async function runNexusCloudRuntimePreflight(
           "Real OAuth token exchange and read-only capability checks passed for all five e-SAFE Drive targets; no file was created.",
         ),
       );
-    } catch {
+    } catch (error) {
+      const safeFailureCode =
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        typeof (error as { code?: unknown }).code === "string" &&
+        /^NEXUS_[A-Z0-9_]+$/.test((error as { code: string }).code)
+          ? (error as { code: string }).code
+          : error instanceof Error && /^NEXUS_[A-Z0-9_]+$/.test(error.message)
+            ? error.message
+            : "NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE_FAILED";
       checks.push(
         blocked(
           "provider.network-probe",
-          "Real read-only Google OAuth/Drive capability probe failed; provider details were not returned.",
+          `Real read-only Google OAuth/Drive capability probe failed (${safeFailureCode}); provider details and secret values were not returned.`,
         ),
       );
     }
