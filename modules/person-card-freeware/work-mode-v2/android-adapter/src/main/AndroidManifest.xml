@@ -3,7 +3,7 @@
     <!--
       Package visibility is deliberately narrow. This is the exact controlled
       set currently enabled for Android discovery in Construction App Registry.
-      QUERY_ALL_PACKAGES is forbidden for Work Card discovery.
+      Broad installed-package inventory permission is forbidden for Work Card discovery.
     -->
     <queries>
         <package android:name="com.whatsapp" />
