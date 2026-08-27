@@ -16,7 +16,7 @@ await esbuild({
   bundle: true,
   format: "esm",
   outdir: distDir,
-  entryNames: "cloud-control-e2e",
+  entryNames: "[name]",
   outExtension: { ".js": ".mjs" },
   sourcemap: false,
   logLevel: "info",
