@@ -6,6 +6,7 @@ import {
   db,
   nexusPersonAgenciesTable,
   nexusPersonAgencyMembersTable,
+  nexusPersonAgencyRecruiterProfilesTable,
 } from "@workspace/db";
 import {
   createNexusOnboardingDraftToken,
@@ -83,7 +84,12 @@ const finiteInt = (
 const isAuthed = (req: Request): boolean =>
   typeof req.isAuthenticated === "function" && req.isAuthenticated();
 
-async function authenticatedAgency(req: Request): Promise<{ agencyId: string; name: string } | null> {
+async function authenticatedAgency(req: Request): Promise<{
+  agencyId: string;
+  name: string;
+  recruiterName: string;
+  recruiterTitle: string | null;
+} | null> {
   if (!req.isAuthenticated()) return null;
   const rows = await db
     .select({
@@ -107,7 +113,28 @@ async function authenticatedAgency(req: Request): Promise<{ agencyId: string; na
   ) {
     return null;
   }
-  return { agencyId: rows[0]!.agencyId, name: rows[0]!.name };
+
+  const recruiterRows = await db
+    .select({
+      displayName: nexusPersonAgencyRecruiterProfilesTable.displayName,
+      jobTitle: nexusPersonAgencyRecruiterProfilesTable.jobTitle,
+    })
+    .from(nexusPersonAgencyRecruiterProfilesTable)
+    .where(eq(nexusPersonAgencyRecruiterProfilesTable.authUserId, req.user.id))
+    .limit(1);
+
+  const recruiterName =
+    recruiterRows[0]?.displayName ??
+    ([req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
+      req.user.email ||
+      "Recruiter");
+
+  return {
+    agencyId: rows[0]!.agencyId,
+    name: rows[0]!.name,
+    recruiterName,
+    recruiterTitle: recruiterRows[0]?.jobTitle ?? null,
+  };
 }
 
 const persistenceError = (
@@ -143,6 +170,41 @@ router.get("/person-card/onboarding/_health", (_req, res) => {
   });
 });
 
+router.post("/person-card/onboarding/invite-info", async (req, res) => {
+  const inviteToken = clean(req.body?.inviteToken, 8_000);
+  if (!inviteToken) {
+    res.status(401).json({ error: "NEXUS_ONBOARDING_INVITE_REQUIRED" });
+    return;
+  }
+
+  try {
+    const invite = verifyNexusOnboardingInviteToken(inviteToken);
+    res.json({
+      schema: "nexus-person-onboarding-invite-info/v1",
+      inviteId: invite.inviteId,
+      agency: {
+        agencyId: invite.agencyId ?? null,
+        name: invite.agency,
+      },
+      recruiter: {
+        displayName: invite.recruiterName ?? "Recruiter",
+        jobTitle: invite.recruiterTitle ?? null,
+      },
+      suggestedTrade: invite.trade ?? null,
+      suggestedLocation: invite.location ?? null,
+      expiresAt: new Date(invite.expiresAt).toISOString(),
+      verifiedSignedInvite: true,
+      serverPersonMutationPerformed: false,
+    });
+  } catch (error) {
+    if (error instanceof NexusOnboardingInviteError) {
+      res.status(error.status).json({ error: error.code });
+      return;
+    }
+    res.status(401).json({ error: "NEXUS_ONBOARDING_INVITE_INVALID" });
+  }
+});
+
 router.post("/person-card/onboarding/invites", async (req, res) => {
   if (!isAuthed(req)) {
     res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
@@ -165,6 +227,9 @@ router.post("/person-card/onboarding/invites", async (req, res) => {
     schema: "nexus-person-onboarding-invite/v1",
     inviteId: randomUUID(),
     agency,
+    agencyId: agencyAccount.agencyId,
+    recruiterName: agencyAccount.recruiterName,
+    recruiterTitle: agencyAccount.recruiterTitle ?? undefined,
     trade: clean(req.body?.trade, 120),
     location: clean(req.body?.location, 120),
     message: clean(req.body?.message, 240),
