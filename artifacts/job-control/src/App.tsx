@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { api, type ApiJob, type ReplyItem } from "./api";
 
 type Screen = "home" | "jobs" | "apply" | "replies" | "cvs" | "settings";
+type BackendMode = "checking" | "demo" | "locked" | "live";
+
 type JobStatus =
   | "ACTIVE"
   | "APPLIED"
@@ -24,6 +27,7 @@ type Category =
 
 type Job = {
   id: string;
+  row?: number;
   company: string;
   role: string;
   category: Category;
@@ -34,6 +38,34 @@ type Job = {
   status: JobStatus;
   match: number;
   note: string;
+  email?: string;
+  applicationLink?: string;
+  cvCode?: string;
+  sourceUrl?: string;
+};
+
+type Metrics = {
+  active: number;
+  applied: number;
+  contacted: number;
+  interviews: number;
+  forms: number;
+  replies: number;
+  morning?: number;
+  night?: number;
+  priorityA?: number;
+};
+
+type IntegrationState = {
+  google: {
+    configured: boolean;
+    tokenExchange: boolean;
+    sheetsRead: boolean;
+    driveRead: boolean;
+    sheetsWriteEnabled: boolean;
+    gmailSendEnabled: boolean;
+  };
+  checkedAt: string;
 };
 
 const cvMap: Record<Category, { code: string; label: string; reason: string }> = {
@@ -74,6 +106,21 @@ const cvMap: Record<Category, { code: string; label: string; reason: string }> =
   },
 };
 
+const statusValues: JobStatus[] = [
+  "ACTIVE",
+  "APPLIED",
+  "INTERVIEW",
+  "REJECTED",
+  "EXPIRED",
+  "CONTACTED",
+  "FORM REQUIRED",
+  "PHONE/WHATSAPP REQUIRED",
+  "WATCH",
+  "BACKUP",
+];
+
+const categoryValues = Object.keys(cvMap) as Category[];
+
 const seedJobs: Job[] = [
   {
     id: "workplace",
@@ -87,6 +134,7 @@ const seedJobs: Job[] = [
     status: "FORM REQUIRED",
     match: 96,
     note: "Best short-morning match. Online form still required.",
+    applicationLink: "https://uk.indeed.com/viewjob?jk=04dfa590c990c0d4",
   },
   {
     id: "asda",
@@ -142,27 +190,58 @@ const seedJobs: Job[] = [
   },
 ];
 
-const summary = {
+const seedMetrics: Metrics = {
   active: 47,
   applied: 18,
   contacted: 61,
   interviews: 0,
   forms: 6,
   replies: 0,
+  morning: 12,
+  night: 16,
+  priorityA: 16,
 };
+
+const asCategory = (value: string): Category =>
+  categoryValues.includes(value as Category) ? (value as Category) : "WAREHOUSE";
+
+const asStatus = (value: string): JobStatus =>
+  statusValues.includes(value as JobStatus) ? (value as JobStatus) : "ACTIVE";
+
+const asPriority = (value: string): "A" | "B" | "C" =>
+  value === "A" || value === "B" ? value : "C";
+
+const mapApiJob = (job: ApiJob): Job => ({
+  id: `sheet-${job.row}`,
+  row: job.row,
+  company: job.company,
+  role: job.role,
+  category: asCategory(job.category),
+  priority: asPriority(job.priority),
+  shift: [job.shift, job.days].filter(Boolean).join(" · ") || "Hours to confirm",
+  pay: job.pay || "Pay to confirm",
+  transport: [job.transport, job.travelTime].filter(Boolean).join(" · ") || "Transport to check",
+  status: asStatus(job.status),
+  match: job.match,
+  note: job.notes || job.applicationMethod || "",
+  email: job.email && !/^not stated/i.test(job.email) ? job.email : undefined,
+  applicationLink: job.applicationLink || undefined,
+  cvCode: job.cvCode || undefined,
+  sourceUrl: job.sourceUrl || undefined,
+});
 
 const statusClass = (status: JobStatus) =>
   status.toLowerCase().replaceAll(" ", "-").replaceAll("/", "-");
 
 const inferCategory = (text: string): Category => {
   const t = text.toLowerCase();
-  if (/clean|housekeep|room attendant|janitor/.test(t)) return "CLEANING";
+  if (/hotel|housekeeping|room attendant|laundry|room\s+clean/.test(t)) return "HOTEL / HOUSEKEEPING";
+  if (/clean|janitor/.test(t)) return "CLEANING";
   if (/warehouse|despatch|dispatch|picker|packer|stock|replenish/.test(t)) return "WAREHOUSE";
   if (/factory|production|manufactur|line operative|machine/.test(t)) return "FACTORY / PRODUCTION";
   if (/bar staff|bartender|pub|barmaid/.test(t)) return "BAR STAFF";
   if (/barista|cafe|coffee|breakfast|sandwich/.test(t)) return "CAFE / BREAKFAST";
   if (/kitchen|catering|food service|kitchen porter/.test(t)) return "KITCHEN / CATERING";
-  if (/hotel|housekeeping|laundry|room/.test(t)) return "HOTEL / HOUSEKEEPING";
   return "WAREHOUSE";
 };
 
@@ -186,16 +265,53 @@ const safePrompt = (job: Job) =>
     `Use ${cvMap[job.category].code} — ${cvMap[job.category].label} as the starting CV profile.`,
     "Do not invent experience, qualifications, licences or certificates. Only re-order, shorten, emphasise or rephrase verified facts.",
     "",
-    "Tell me: fit score, risks, which CV points to emphasise, and a short tailored cover message.",
+    "Tell me: fit score, risks, which verified CV points to emphasise, and a short tailored cover message.",
   ].join("\n");
+
+const coverMessage = (job: Job) =>
+  [
+    "Dear Hiring Team,",
+    "",
+    `I am interested in the ${job.role} role at ${job.company}.`,
+    "",
+    "I am based in Bradford BD2 and I am available to start from 1 September 2026. Short morning shifts or night shifts are particularly suitable for me, and I travel mainly by public transport.",
+    "",
+    `Please find my relevant ${cvMap[job.category].label.toLowerCase()} CV attached. I would be pleased to discuss the role and my availability further.`,
+    "",
+    "Kind regards,",
+    "Joanna Bach",
+    "Personal email: Joanna94bach@gmail.com",
+  ].join("\n");
+
+const sendKeyFor = (job: Job) => {
+  if (!job.row) return "";
+  const storageKey = `job-control-send-key-${job.row}`;
+  const existing = localStorage.getItem(storageKey);
+  if (existing) return existing;
+  const uuid =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const key = `job-${job.row}-${uuid}`;
+  localStorage.setItem(storageKey, key);
+  return key;
+};
 
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [jobs, setJobs] = useState<Job[]>(seedJobs);
+  const [metrics, setMetrics] = useState<Metrics>(seedMetrics);
   const [filter, setFilter] = useState("All");
   const [selectedJob, setSelectedJob] = useState<Job>(seedJobs[0]);
   const [importText, setImportText] = useState("");
   const [toast, setToast] = useState("");
+  const [backendMode, setBackendMode] = useState<BackendMode>("checking");
+  const [accessCode, setAccessCode] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [replies, setReplies] = useState<ReplyItem[]>([]);
+  const [integrations, setIntegrations] = useState<IntegrationState | null>(null);
+  const [liveCvNames, setLiveCvNames] = useState<Record<string, string>>({});
   const [profile, setProfile] = useState({
     location: "Bradford BD2",
     start: "01/09/2026",
@@ -205,25 +321,132 @@ function App() {
 
   useEffect(() => {
     const raw = localStorage.getItem("job-control-demo");
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as { jobs?: Job[]; profile?: typeof profile };
-      if (parsed.jobs) setJobs(parsed.jobs);
-      if (parsed.profile) setProfile(parsed.profile);
-    } catch {
-      // Ignore malformed local demo state.
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { jobs?: Job[]; profile?: typeof profile };
+        if (parsed.jobs) setJobs(parsed.jobs);
+        if (parsed.profile) setProfile(parsed.profile);
+      } catch {
+        // Ignore malformed local demo state.
+      }
     }
+
+    const params = new URLSearchParams(window.location.search);
+    const shared = [params.get("title"), params.get("text"), params.get("url")]
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    if (shared) {
+      setImportText(shared);
+      setScreen("apply");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    void bootstrap();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("job-control-demo", JSON.stringify({ jobs, profile }));
-  }, [jobs, profile]);
+    if (backendMode !== "live") {
+      localStorage.setItem("job-control-demo", JSON.stringify({ jobs, profile }));
+    }
+  }, [jobs, profile, backendMode]);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(""), 2400);
+    const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  const bootstrap = async () => {
+    try {
+      const auth = await api.authStatus();
+      if (!auth.configured) {
+        setBackendMode("demo");
+        return;
+      }
+      if (!auth.authenticated) {
+        setBackendMode("locked");
+        return;
+      }
+      await refreshLive();
+    } catch {
+      setBackendMode("demo");
+    }
+  };
+
+  const refreshLive = async () => {
+    setSyncBusy(true);
+    try {
+      const [dashboard, liveJobs] = await Promise.all([api.dashboard(), api.jobs()]);
+      const mapped = liveJobs.jobs.map(mapApiJob);
+      setJobs(mapped);
+      setSelectedJob((current) => mapped.find((job) => job.id === current.id) ?? mapped[0] ?? current);
+      setMetrics({
+        ...dashboard.metrics,
+        forms: mapped.filter((job) => job.status === "FORM REQUIRED").length,
+        replies: 0,
+      });
+
+      try {
+        const status = await api.integrations();
+        setIntegrations(status.integrations);
+      } catch {
+        setIntegrations(null);
+      }
+
+      try {
+        const inbox = await api.replies();
+        setReplies(inbox.replies);
+        setMetrics((current) => ({
+          ...current,
+          replies: inbox.replies.filter((reply) => reply.unread).length,
+        }));
+      } catch {
+        setReplies([]);
+      }
+
+      try {
+        const cvPayload = await api.cvs();
+        setLiveCvNames(
+          Object.fromEntries(cvPayload.cvs.map((cv) => [cv.code, cv.name])),
+        );
+      } catch {
+        setLiveCvNames({});
+      }
+
+      setBackendMode("live");
+      setToast("Live Google data synced.");
+    } catch {
+      setBackendMode("demo");
+      setToast("Live Google unavailable — showing safe demo data.");
+    } finally {
+      setSyncBusy(false);
+    }
+  };
+
+  const login = async () => {
+    if (!accessCode.trim()) return;
+    setLoginBusy(true);
+    try {
+      await api.login(accessCode.trim());
+      setAccessCode("");
+      await refreshLive();
+    } catch {
+      setToast("Wrong access code or backend not ready.");
+    } finally {
+      setLoginBusy(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await api.logout();
+    } finally {
+      setBackendMode("locked");
+      setIntegrations(null);
+      setReplies([]);
+    }
+  };
 
   const filteredJobs = useMemo(() => {
     if (filter === "All") return jobs;
@@ -233,10 +456,36 @@ function App() {
     return jobs.filter((j) => j.status === filter);
   }, [filter, jobs]);
 
-  const markStatus = (id: string, status: JobStatus) => {
+  const updateLocalJob = (id: string, status: JobStatus) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, status } : j)));
     setSelectedJob((prev) => (prev.id === id ? { ...prev, status } : prev));
-    setToast(`Status changed to ${status}`);
+  };
+
+  const markStatus = async (job: Job, status: JobStatus) => {
+    const confirmation =
+      status !== "APPLIED" ||
+      window.confirm("Confirm that this application was actually submitted/sent?");
+    if (!confirmation) return;
+
+    if (backendMode === "live" && job.row) {
+      try {
+        await api.updateStatus({
+          row: job.row,
+          status,
+          note: `Changed in Job Control on ${new Date().toISOString()}.`,
+          confirmed: status !== "APPLIED" || confirmation,
+        });
+        updateLocalJob(job.id, status);
+        setToast(`Status changed to ${status}`);
+        return;
+      } catch {
+        setToast("Status was not changed in Google Sheets.");
+        return;
+      }
+    }
+
+    updateLocalJob(job.id, status);
+    setToast(`Demo status changed to ${status}`);
   };
 
   const openJob = (job: Job) => {
@@ -273,12 +522,136 @@ function App() {
       status: "ACTIVE",
       match: category === "CLEANING" || category === "WAREHOUSE" ? 82 : 72,
       note: "Imported locally. Review facts before any application.",
+      cvCode: cvMap[category].code,
     };
     setJobs((prev) => [job, ...prev]);
     setSelectedJob(job);
     setImportText("");
-    setToast(`${cvMap[category].code} selected`);
+    setToast(`${cvMap[category].code} selected automatically.`);
   };
+
+  const applyPrimaryAction = async (job: Job) => {
+    const hasEmail = Boolean(job.email);
+    const isForm = job.status === "FORM REQUIRED" || !hasEmail;
+
+    if (isForm) {
+      const target = job.applicationLink || job.sourceUrl;
+      if (target) {
+        window.open(target, "_blank", "noopener,noreferrer");
+        setToast("Form opened. Mark APPLIED only after submission.");
+      } else {
+        setToast("No direct email or application link is available.");
+      }
+      return;
+    }
+
+    if (backendMode !== "live" || !job.row) {
+      setToast("Live Google/Gmail connection is required before sending.");
+      return;
+    }
+
+    if (!integrations?.google.gmailSendEnabled || !integrations.google.sheetsWriteEnabled) {
+      setToast("Live send is still locked in server settings.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Send now from hello@nosmo.tech to ${job.email} using ${job.cvCode || cvMap[job.category].code}?\n\nThis will mark the job APPLIED only after Gmail confirms the send.`,
+    );
+    if (!confirmed) return;
+
+    const idempotencyKey = sendKeyFor(job);
+    const subject = `Application – ${job.role} – Joanna Bach`;
+    const body = coverMessage(job);
+
+    try {
+      const result = await api.sendApplication({
+        row: job.row,
+        to: job.email!,
+        subject,
+        body,
+        cvCode: job.cvCode || cvMap[job.category].code,
+        idempotencyKey,
+        confirmed: true,
+      });
+      localStorage.removeItem(`job-control-send-key-${job.row}`);
+      updateLocalJob(job.id, "APPLIED");
+      setMetrics((current) => ({
+        ...current,
+        applied: current.applied + (job.status === "APPLIED" ? 0 : 1),
+      }));
+      setToast(
+        result.statusUpdated
+          ? "Sent and marked APPLIED."
+          : "Email sent. Sheet status needs sync.",
+      );
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "SEND_FAILED";
+      setToast(
+        code === "SEND_STATE_REQUIRES_REVIEW"
+          ? "Check Sent before retrying — duplicate protection is active."
+          : "Not sent. Check connection/settings.",
+      );
+    }
+  };
+
+  const primaryActionLabel =
+    selectedJob.status === "FORM REQUIRED" || !selectedJob.email
+      ? "Open application form"
+      : backendMode === "live"
+        ? "Confirm & send"
+        : "Preview only";
+
+  if (backendMode === "checking") {
+    return (
+      <div className="app">
+        <main className="content">
+          <section className="hero">
+            <div>
+              <span className="hero-kicker">JOB CONTROL</span>
+              <h2>Loading secure workspace…</h2>
+              <p>Checking private app session and Google connection.</p>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (backendMode === "locked") {
+    return (
+      <div className="app">
+        <main className="content">
+          <section className="hero">
+            <div>
+              <span className="hero-kicker">PRIVATE JOB CONTROL</span>
+              <h2>Joanna’s workspace</h2>
+              <p>Enter the private access code for this phone. Google credentials are never stored in the browser.</p>
+            </div>
+          </section>
+          <section className="settings-card section">
+            <label className="field">
+              <span>Access code</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={accessCode}
+                onChange={(event) => setAccessCode(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void login();
+                }}
+                placeholder="Private code"
+              />
+            </label>
+            <button className="primary" disabled={loginBusy} onClick={() => void login()}>
+              {loginBusy ? "Checking…" : "Open Job Control"}
+            </button>
+          </section>
+          {toast && <div className="toast">{toast}</div>}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -287,7 +660,16 @@ function App() {
           <div className="eyebrow">JOANNA BACH · JOB SEARCH</div>
           <h1>Job Control</h1>
         </div>
-        <div className="mode-chip"><span className="dot" /> Demo mode</div>
+        <button
+          className="mode-chip"
+          onClick={() => {
+            if (backendMode === "live") void refreshLive();
+          }}
+          disabled={syncBusy}
+        >
+          <span className="dot" />
+          {backendMode === "live" ? (syncBusy ? "Syncing…" : "Live Google") : "Demo mode"}
+        </button>
       </header>
 
       <main className="content">
@@ -295,7 +677,9 @@ function App() {
           <>
             <section className="hero">
               <div>
-                <span className="hero-kicker">Ready to work</span>
+                <span className="hero-kicker">
+                  {backendMode === "live" ? "LIVE JOB CONTROL" : "SAFE DEMO"}
+                </span>
                 <h2>Everything in one place.</h2>
                 <p>No Sheets. No searching for the right CV. Review, apply and track from the phone.</p>
               </div>
@@ -304,14 +688,18 @@ function App() {
 
             <section className="stat-grid">
               {[
-                ["Active", summary.active],
-                ["Applied", summary.applied],
-                ["Employers", summary.contacted],
-                ["Interviews", summary.interviews],
-                ["Forms", summary.forms],
-                ["Replies", summary.replies],
+                ["Active", metrics.active],
+                ["Applied", metrics.applied],
+                ["Employers", metrics.contacted],
+                ["Interviews", metrics.interviews],
+                ["Forms", metrics.forms],
+                ["Replies", metrics.replies],
               ].map(([label, value]) => (
-                <button key={String(label)} className="stat-card" onClick={() => setScreen(label === "Forms" ? "jobs" : "jobs")}>
+                <button
+                  key={String(label)}
+                  className="stat-card"
+                  onClick={() => setScreen(label === "Replies" ? "replies" : "jobs")}
+                >
                   <strong>{value}</strong>
                   <span>{label}</span>
                 </button>
@@ -327,7 +715,10 @@ function App() {
                 <button className="text-button" onClick={() => setScreen("jobs")}>See all</button>
               </div>
               <div className="job-list">
-                {jobs.slice(0, 3).map((job) => <JobCard key={job.id} job={job} onOpen={openJob} />)}
+                {[...jobs]
+                  .sort((a, b) => b.match - a.match)
+                  .slice(0, 3)
+                  .map((job) => <JobCard key={job.id} job={job} onOpen={openJob} />)}
               </div>
             </section>
 
@@ -398,7 +789,7 @@ function App() {
               <div className="info-row"><span>Status</span><b className={`status ${statusClass(selectedJob.status)}`}>{selectedJob.status}</b></div>
 
               <div className="cv-choice">
-                <div className="cv-badge">{cvMap[selectedJob.category].code}</div>
+                <div className="cv-badge">{selectedJob.cvCode || cvMap[selectedJob.category].code}</div>
                 <div>
                   <b>{cvMap[selectedJob.category].label}</b>
                   <p>{cvMap[selectedJob.category].reason}</p>
@@ -413,23 +804,24 @@ function App() {
 
               <div className="cover-preview">
                 <span className="eyebrow">COVER MESSAGE PREVIEW</span>
-                <p>
-                  Dear Hiring Team, I am interested in the {selectedJob.role} role at {selectedJob.company}. I am based in Bradford BD2,
-                  available from 1 September 2026 and particularly interested in shifts that match my morning/night availability.
-                  Please find my relevant CV attached.
-                </p>
+                <p>{coverMessage(selectedJob)}</p>
               </div>
 
               <div className="action-stack">
-                <button className="primary" onClick={() => setToast("Google connection required before sending.")}>Review & send</button>
+                <button className="primary" onClick={() => void applyPrimaryAction(selectedJob)}>
+                  {primaryActionLabel}
+                </button>
                 <button className="secondary" onClick={() => askChatGPT(selectedJob)}>Ask ChatGPT about this job</button>
                 {selectedJob.status !== "APPLIED" && (
-                  <button className="ghost" onClick={() => markStatus(selectedJob.id, "APPLIED")}>
+                  <button className="ghost" onClick={() => void markStatus(selectedJob, "APPLIED")}>
                     Mark applied manually
                   </button>
                 )}
               </div>
-              <p className="disclaimer">The app never marks a job applied after a failed or unconfirmed send. Manual status changes are logged locally in demo mode.</p>
+              <p className="disclaimer">
+                APPLIED is written only after a confirmed send/submit or Joanna’s explicit manual confirmation.
+                Unknown send states are blocked from automatic retry.
+              </p>
             </div>
           </section>
         )}
@@ -437,15 +829,55 @@ function App() {
         {screen === "replies" && (
           <section className="section page">
             <div className="section-head">
-              <div><span className="eyebrow">INBOX FILTER</span><h2>Replies</h2></div>
-              <span className="mode-chip"><span className="dot muted" /> Gmail not connected</span>
+              <div><span className="eyebrow">JOB-ONLY INBOX</span><h2>Replies</h2></div>
+              <span className="mode-chip">
+                <span className={`dot ${backendMode === "live" && replies.length >= 0 ? "" : "muted"}`} />
+                {backendMode === "live" ? "Filtered Gmail" : "Demo"}
+              </span>
             </div>
-            <div className="empty-state">
-              <div className="empty-icon">↩</div>
-              <h3>No job replies loaded</h3>
-              <p>When Gmail is connected, only recruitment-related replies will appear here — not Joanna’s full inbox.</p>
-              <button className="secondary" onClick={() => setScreen("settings")}>Connection settings</button>
-            </div>
+            {replies.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">↩</div>
+                <h3>No job replies loaded</h3>
+                <p>
+                  Only recruitment-related messages are requested from Gmail. The general inbox is not shown here.
+                </p>
+                <button className="secondary" onClick={() => setScreen("settings")}>Connection settings</button>
+              </div>
+            ) : (
+              <div className="job-list">
+                {replies.map((reply) => (
+                  <article className="job-card" key={reply.id}>
+                    <div className="job-card-top">
+                      <span className="priority">{reply.unread ? "NEW" : "REPLY"}</span>
+                      <span className="status contacted">GMAIL</span>
+                    </div>
+                    <h3>{reply.subject || "Recruitment reply"}</h3>
+                    <p className="company">{reply.from}</p>
+                    <p className="transport">{reply.snippet}</p>
+                    <div className="action-stack">
+                      <button
+                        className="secondary"
+                        onClick={async () => {
+                          const prompt = [
+                            "Help Joanna Bach respond to this job-related email.",
+                            `From: ${reply.from}`,
+                            `Subject: ${reply.subject}`,
+                            `Message preview: ${reply.snippet}`,
+                            "",
+                            "Use only verified facts. Do not invent availability, qualifications or experience.",
+                          ].join("\n");
+                          try { await navigator.clipboard.writeText(prompt); } catch { /* no-op */ }
+                          window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        Reply with ChatGPT
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -462,7 +894,11 @@ function App() {
                   <div className="cv-card-text">
                     <h3>{cv.label}</h3>
                     <p>{cv.reason}</p>
-                    <small>Stored in Google Drive · live link after connection</small>
+                    <small>
+                      {backendMode === "live"
+                        ? liveCvNames[cv.code] || "Checking Google Drive…"
+                        : "Stored in Google Drive · live metadata after connection"}
+                    </small>
                   </div>
                 </div>
               ))}
@@ -497,13 +933,38 @@ function App() {
 
             <div className="settings-card">
               <h3>Integrations</h3>
-              <ConnectionRow name="Google Sheets" detail="Job database" />
-              <ConnectionRow name="Google Drive" detail="7 CV files" />
-              <ConnectionRow name="Gmail" detail="hello@nosmo.tech sender" />
-              <ConnectionRow name="AI" detail="Optional in-app assistant" />
+              <ConnectionRow
+                name="Google Sheets"
+                detail="Job database"
+                connected={Boolean(integrations?.google.sheetsRead)}
+              />
+              <ConnectionRow
+                name="Google Drive"
+                detail="7 CV files"
+                connected={Boolean(integrations?.google.driveRead)}
+              />
+              <ConnectionRow
+                name="Gmail"
+                detail="hello@nosmo.tech sender"
+                connected={Boolean(integrations?.google.gmailSendEnabled)}
+              />
+              <ConnectionRow
+                name="ChatGPT"
+                detail="Free ChatGPT handoff"
+                connected
+              />
               <div className="integration-note">
-                Live mode will use a server-side adapter. No Google or AI secret is stored in the browser.
+                Reads use a server-side Google token. Sheet writes and Gmail sends have separate release switches.
+                No OAuth secret is stored in the browser.
               </div>
+              {backendMode === "live" && (
+                <div className="action-stack">
+                  <button className="secondary" disabled={syncBusy} onClick={() => void refreshLive()}>
+                    {syncBusy ? "Syncing…" : "Sync now"}
+                  </button>
+                  <button className="ghost" onClick={() => void logout()}>Lock app</button>
+                </div>
+              )}
             </div>
 
             <div className="settings-card">
@@ -512,7 +973,8 @@ function App() {
                 <li>Never invent experience, certificates or licences.</li>
                 <li>Never send before Joanna reviews the application.</li>
                 <li>Never mark APPLIED unless send/submit is confirmed.</li>
-                <li>Keep the job database as the source of truth after live sync.</li>
+                <li>Unknown email-send states are never automatically retried.</li>
+                <li>Google Sheets remains the source of truth in live mode.</li>
               </ul>
             </div>
           </section>
@@ -553,7 +1015,17 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: (job: Job) => void }) {
   );
 }
 
-function NavButton({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {
+function NavButton({
+  active,
+  label,
+  icon,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  icon: string;
+  onClick: () => void;
+}) {
   return (
     <button className={active ? "nav-button active" : "nav-button"} onClick={onClick}>
       <span>{icon}</span><small>{label}</small>
@@ -561,11 +1033,21 @@ function NavButton({ active, label, icon, onClick }: { active: boolean; label: s
   );
 }
 
-function ConnectionRow({ name, detail }: { name: string; detail: string }) {
+function ConnectionRow({
+  name,
+  detail,
+  connected,
+}: {
+  name: string;
+  detail: string;
+  connected: boolean;
+}) {
   return (
     <div className="connection-row">
       <div><b>{name}</b><small>{detail}</small></div>
-      <span className="disconnected">Not connected</span>
+      <span className={connected ? "safe-chip" : "disconnected"}>
+        {connected ? "Connected" : "Not connected"}
+      </span>
     </div>
   );
 }
