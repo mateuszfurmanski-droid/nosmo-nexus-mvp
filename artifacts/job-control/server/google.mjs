@@ -220,7 +220,7 @@ export const findActivityByKey = async (key, token = null) => {
   const accessToken = token ?? await getAccessToken();
   try {
     const rows = await readSheetRange("JOB_CONTROL_ACTIVITY!A2:J2000", accessToken);
-    const hit = rows.find((row) => row?.[1] === key);
+    const hit = [...rows].reverse().find((row) => row?.[1] === key);
     if (!hit) return null;
     return {
       timestamp: hit[0] ?? "",
@@ -343,3 +343,44 @@ export const safeGoogleError = (error) => ({
       ? error.providerReason
       : null,
 });
+
+
+const gmailHeader = (headers, name) => {
+  const hit = Array.isArray(headers)
+    ? headers.find((header) => String(header?.name ?? "").toLowerCase() === name.toLowerCase())
+    : null;
+  return typeof hit?.value === "string" ? hit.value.slice(0, 500) : "";
+};
+
+export const listJobReplies = async (token = null) => {
+  const accessToken = token ?? await getAccessToken();
+  const q = encodeURIComponent(
+    'in:inbox newer_than:30d (application OR interview OR vacancy OR recruitment OR recruiter OR "Joanna Bach" OR onboarding OR availability)',
+  );
+  const list = await googleJson(
+    `${GMAIL_API}/users/me/messages?q=${q}&maxResults=30`,
+    accessToken,
+  );
+  const ids = Array.isArray(list.messages) ? list.messages.slice(0, 30) : [];
+  const messages = await Promise.all(
+    ids.map(async ({ id }) => {
+      const fields = encodeURIComponent("id,threadId,labelIds,snippet,internalDate,payload(headers)");
+      const message = await googleJson(
+        `${GMAIL_API}/users/me/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&fields=${fields}`,
+        accessToken,
+      );
+      const headers = message?.payload?.headers ?? [];
+      return {
+        id: message.id,
+        threadId: message.threadId ?? null,
+        from: gmailHeader(headers, "From"),
+        subject: gmailHeader(headers, "Subject"),
+        date: gmailHeader(headers, "Date"),
+        snippet: typeof message.snippet === "string" ? message.snippet.slice(0, 500) : "",
+        unread: Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD"),
+        internalDate: message.internalDate ?? null,
+      };
+    }),
+  );
+  return messages.sort((a, b) => Number(b.internalDate ?? 0) - Number(a.internalDate ?? 0));
+};
