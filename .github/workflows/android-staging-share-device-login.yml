@@ -43,11 +43,15 @@ jobs:
           grep -Fq 'NexusStagingVercelGate.apply' "$LOGIN"
           grep -Fq 'NexusStagingVercelGate.apply' "$CORE"
           grep -Fq 'NexusStagingVercelGate.getOrigin()' "$CORE"
-          grep -Fq 'x-vercel-protection-bypass' "$GATE"
-          grep -Fq 'x-vercel-set-bypass-cookie' "$GATE"
+          grep -Fq 'connection.setRequestProperty("Cookie", cookie)' "$GATE"
           grep -Fq 'BuildConfig.NEXUS_WEB_ORIGIN' "$SCREEN"
-          ! grep -Fq 'WebView' "$SCREEN"
-          ! grep -Fq 'CookieManager' "$SCREEN"
+          grep -Fq 'NEXUS-STAGING-v1' "$SCREEN"
+          grep -Fq '_vercel_share' "$SCREEN"
+          grep -Fq 'CookieManager' "$SCREEN"
+          grep -Fq 'WebView' "$SCREEN"
+          grep -Fq 'Paste & Connect' "$SCREEN"
+          ! grep -Fq 'x-vercel-protection-bypass' "$GATE"
+          ! grep -Fq 'x-vercel-set-bypass-cookie' "$GATE"
           grep -Fq 'WorkModeHomeActivity.class' "$SCREEN"
           grep -Fq 'WorkerBootstrapActivity' native/nexus-work-mode-native/app/src/main/AndroidManifest.xml
           grep -Fq 'NexusMobileSession.hasSession' "$BASE/WorkerBootstrapActivity.java"
@@ -57,6 +61,7 @@ jobs:
 
           ! grep -R -E '_vercel_share=[A-Za-z0-9_-]{16,}' "$BASE" native/nexus-work-mode-native/app/build.gradle
           ! grep -R -E 'x-vercel-protection-bypass[[:space:]]*[,=:][[:space:]]*"[A-Za-z0-9_-]{16,}"' "$BASE" native/nexus-work-mode-native/app/build.gradle
+          ! grep -R -F 'Temporary Vercel automation bypass key' "$BASE"
           ! grep -R -E 'claim(Code)?[[:space:]]*=[[:space:]]*"[^" ]{32,}"' "$BASE" native/nexus-work-mode-native/app/build.gradle
           ! grep -Fq 'import android.content.SharedPreferences' "$SCREEN"
           ! grep -Fq 'import android.content.SharedPreferences' "$GATE"
