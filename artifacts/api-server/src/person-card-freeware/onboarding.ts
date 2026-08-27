@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import OpenAI from "openai";
+import { eq } from "drizzle-orm";
 import { Router, type IRouter, type Request } from "express";
+import {
+  db,
+  nexusPersonAgenciesTable,
+  nexusPersonAgencyMembersTable,
+} from "@workspace/db";
 import {
   createNexusOnboardingDraftToken,
   createNexusOnboardingInviteToken,
@@ -77,6 +83,33 @@ const finiteInt = (
 const isAuthed = (req: Request): boolean =>
   typeof req.isAuthenticated === "function" && req.isAuthenticated();
 
+async function authenticatedAgency(req: Request): Promise<{ agencyId: string; name: string } | null> {
+  if (!req.isAuthenticated()) return null;
+  const rows = await db
+    .select({
+      agencyId: nexusPersonAgenciesTable.agencyId,
+      name: nexusPersonAgenciesTable.name,
+      agencyStatus: nexusPersonAgenciesTable.status,
+      memberStatus: nexusPersonAgencyMembersTable.status,
+    })
+    .from(nexusPersonAgencyMembersTable)
+    .innerJoin(
+      nexusPersonAgenciesTable,
+      eq(nexusPersonAgenciesTable.agencyId, nexusPersonAgencyMembersTable.agencyId),
+    )
+    .where(eq(nexusPersonAgencyMembersTable.authUserId, req.user.id))
+    .limit(2);
+
+  if (
+    rows.length !== 1 ||
+    rows[0]!.agencyStatus !== "ACTIVE" ||
+    rows[0]!.memberStatus !== "ACTIVE"
+  ) {
+    return null;
+  }
+  return { agencyId: rows[0]!.agencyId, name: rows[0]!.name };
+}
+
 const persistenceError = (
   req: Request,
   res: Parameters<IRouter["post"]>[1] extends never ? never : any,
@@ -116,11 +149,12 @@ router.post("/person-card/onboarding/invites", async (req, res) => {
     return;
   }
 
-  const agency = clean(req.body?.agency, 120);
-  if (!agency) {
-    res.status(400).json({ error: "NEXUS_ONBOARDING_AGENCY_REQUIRED" });
+  const agencyAccount = await authenticatedAgency(req);
+  if (!agencyAccount) {
+    res.status(403).json({ error: "NEXUS_AGENCY_ACCOUNT_REQUIRED" });
     return;
   }
+  const agency = agencyAccount.name;
 
   const daysRaw = Number(req.body?.expiresInDays ?? 7);
   const expiresInDays = Number.isFinite(daysRaw)
