@@ -34,6 +34,7 @@ Superseded UI: nosmo-nexus-mvp PR #180. Do not restore.
 - `index.html` — canonical Person Card Freeware;
 - `screen.html?screen=documents` — worker-owned Documents window;
 - `screen.html?screen=work` — worker-owned professional Work Card with role, availability, preferred location, employment type, recent projects, work history, references, skills, licences/tickets, employer/agency notes and optional explicit Share Work Card action; local-first and separate from recruitment;
+- `screen.html?screen=work-mode` — Work Mode V2 fourth window with local supported-app discovery, explicit Add / Open / Remove actions, privacy information and work-app category cards;
 - `onboarding.html` — worker onboarding;
 - `agency-invite.html` — agency invite desk;
 - `section.html` — CV/certs/refs/availability/vault sections;
@@ -52,9 +53,9 @@ The same Freeware application evolves without replacing the canonical Person or 
 - V2.1 — supported deep links;
 - V3 — explicitly authorised official connectors and cross-app workflow.
 
-The dormant V2 implementation package lives in `work-mode-v2/`.
+The V2 implementation package lives in `work-mode-v2/` and is now activated only by the fourth `screen.html?screen=work-mode` window.
 
-It is intentionally **not imported by V1** until platform discovery and privacy acceptance gates pass.
+The canonical `index.html` Person Card still does not import the package directly. Documents, Work Card and Work Mode share the same `screen.html` host, and navigation between those three windows is switched client-side with History API state rather than loading another product.
 
 Work Mode V2 is not a second app and not a separate launcher product.
 
@@ -67,3 +68,15 @@ Privacy authority: `nosmo-nexus#26` / ADDON_029.
 > Private by default. Shared only by you.
 
 Installed-app discovery must remain device-local. Detection is not connection, connection is not content access, and content access is not sharing.
+
+
+## Work Mode V2 active boundary
+
+- first scan shows: `App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps.`;
+- Android discovery uses only verified controlled package identifiers from the Construction App Registry;
+- no broad installed-app inventory permission;
+- detection creates no tile until the user chooses Add to Work Mode;
+- OPEN launches only and grants no content access;
+- Remove from Work Mode removes only the local tile;
+- browser preview never simulates installed apps when the Android bridge is unavailable;
+- BIM / drawings, snagging, site forms, timesheets, Work Wallet, cloud storage, communication and project management are UI categories, not new standalone product dependencies.
