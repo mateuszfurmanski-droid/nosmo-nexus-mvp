@@ -227,7 +227,12 @@ const main = async (): Promise<void> => {
   );
   assert.deepEqual(
     migrationRows.rows.map((row) => row.version),
-    ["0000_pr90_parent_baseline", "0001_core_identity_access", "0002_core_work_cycle"],
+    [
+      "0000_pr90_parent_baseline",
+      "0001_core_identity_access",
+      "0002_core_work_cycle",
+      "0003_core_identity_claims",
+    ],
   );
 
   const fingerprintColumn = await pool.query<{ is_nullable: string }>(`

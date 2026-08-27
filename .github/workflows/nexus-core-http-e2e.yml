@@ -80,7 +80,7 @@ jobs:
       - name: Typecheck canonical Core integration
         run: pnpm run typecheck
 
-      - name: Create disposable canonical schema
+      - name: Create disposable canonical schema via ordered migrations
         run: pnpm run db:migrate
 
       - name: Execute real HTTP manager to worker cycle
