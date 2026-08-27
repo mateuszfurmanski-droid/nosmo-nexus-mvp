@@ -13,7 +13,7 @@ import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
 import FirstRun from "@/pages/first-run";
 import RelationshipTreeExport from "@/pages/relationship-tree-export";
-import PersonCardDemo from "@/pages/person-card-demo";
+import PersonCardDemo from "@/pages/person-card-demo";\nimport PersonCardWorkProfile from "@/pages/person-card-work-profile";
 import People from "@/pages/people";
 import PersonDetail from "@/pages/person-detail";
 import Projects from "@/pages/projects";
