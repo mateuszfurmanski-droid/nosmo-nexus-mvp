@@ -825,11 +825,25 @@ function App() {
           <section className="section page">
             <div className="section-head">
               <div><span className="eyebrow">PIPELINE</span><h2>Jobs</h2></div>
-              <button className="primary small" onClick={() => setScreen("apply")}>+ Add</button>
+              <button
+                className="primary small"
+                onClick={() => {
+                  setApplyMode("new");
+                  setScreen("apply");
+                }}
+              >
+                + Add job
+              </button>
             </div>
             <div className="filters">
-              {["All", "Morning", "Night", "Priority A", "APPLIED", "FORM REQUIRED", "WATCH"].map((f) => (
-                <button key={f} className={filter === f ? "filter active" : "filter"} onClick={() => setFilter(f)}>{f}</button>
+              {["To do", "Applied", "Morning", "Night", "Watch", "All"].map((f) => (
+                <button
+                  key={f}
+                  className={filter === f ? "filter active" : "filter"}
+                  onClick={() => setFilter(f)}
+                >
+                  {f}
+                </button>
               ))}
             </div>
             <div className="job-list">
@@ -1081,7 +1095,7 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: (job: Job) => void }) {
     <button className="job-card" onClick={() => onOpen(job)}>
       <div className="job-card-top">
         <span className="priority">P{job.priority}</span>
-        <span className={`status ${statusClass(job.status)}`}>{job.status}</span>
+        <span className={`status ${statusClass(job.status)}`}>{statusLabel(job.status)}</span>
       </div>
       <h3>{job.role}</h3>
       <p className="company">{job.company}</p>
