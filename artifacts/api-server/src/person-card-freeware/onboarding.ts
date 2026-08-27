@@ -60,7 +60,7 @@ router.use((req, res, next) => {
 
 const clean = (value: unknown, max: number): string | undefined => {
   if (typeof value !== "string") return undefined;
-  const normalized = value.replace(/s+/g, " ").trim();
+  const normalized = value.replace(/\s+/g, " ").trim();
   return normalized ? normalized.slice(0, max) : undefined;
 };
 
