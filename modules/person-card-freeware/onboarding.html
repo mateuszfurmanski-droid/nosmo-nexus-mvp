@@ -83,11 +83,11 @@
   </div>
   <div class="consentBox" id="agencyConsentBox">
     <label>
-      <input id="shareWithInvitingAgency" type="checkbox">
+      <input id="shareWithInvitingAgency" type="checkbox" disabled>
       <span><strong>Share recruiter-safe Work Profile with <span id="consentAgencyName">this agency</span></strong><br>
       The agency may see your role, preferred locations, availability, work preferences and CV/certificate/reference readiness status.</span>
     </label>
-    <span class="consentMeta">Not shared by this permission: phone, email, CV text, private documents or Vault contents. You can finish your Person Card without granting this access.</span>
+    <span class="consentMeta" id="consentInviterIdentity">Verifying signed agency and recruiter identity…</span><span class="consentMeta">Not shared by this permission: phone, email, CV text, private documents or Vault contents. You can finish your Person Card without granting this access.</span>
   </div>
   <div class="onboardActions">
     <button type="button" class="secondary" id="smartPrefill">SMART PREFILL</button>
