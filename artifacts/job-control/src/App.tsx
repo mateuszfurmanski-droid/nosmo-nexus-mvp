@@ -707,7 +707,7 @@ function App() {
           disabled={syncBusy}
         >
           <span className="dot" />
-          {backendMode === "live" ? (syncBusy ? "Syncing…" : "Live Google") : "Demo mode"}
+          {backendMode === "live" ? (syncBusy ? "Syncing…" : "Up to date") : "Preview"}
         </button>
       </header>
 
@@ -717,7 +717,7 @@ function App() {
             <section className="hero home-hero">
               <div>
                 <span className="hero-kicker">
-                  {backendMode === "live" ? "LIVE JOB CONTROL" : "SAFE DEMO"}
+                  {backendMode === "live" ? "JOB CONTROL" : "PREVIEW"}
                 </span>
                 <h2>What should I do now?</h2>
                 <p>
@@ -1002,20 +1002,17 @@ function App() {
         {screen === "replies" && (
           <section className="section page">
             <div className="section-head">
-              <div><span className="eyebrow">JOB-ONLY INBOX</span><h2>Replies</h2></div>
-              <span className="mode-chip">
-                <span className={`dot ${backendMode === "live" && replies.length >= 0 ? "" : "muted"}`} />
-                {backendMode === "live" ? "Filtered Gmail" : "Demo"}
-              </span>
+              <div><span className="eyebrow">NEEDS YOUR ATTENTION</span><h2>Replies</h2></div>
+              <span className="safe-chip">{replies.filter((reply) => reply.unread).length} new</span>
             </div>
             {replies.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">↩</div>
-                <h3>No job replies loaded</h3>
+                <h3>Nothing to do right now</h3>
                 <p>
-                  Only recruitment-related messages are requested from Gmail. The general inbox is not shown here.
+                  New replies from employers will appear here when they need your attention.
                 </p>
-                <button className="secondary" onClick={() => setScreen("settings")}>Connection settings</button>
+                <button className="secondary" onClick={() => setScreen("jobs")}>Back to jobs</button>
               </div>
             ) : (
               <div className="job-list">
@@ -1023,7 +1020,7 @@ function App() {
                   <article className="job-card" key={reply.id}>
                     <div className="job-card-top">
                       <span className="priority">{reply.unread ? "NEW" : "REPLY"}</span>
-                      <span className="status contacted">GMAIL</span>
+                      <span className="status contacted">Employer reply</span>
                     </div>
                     <h3>{reply.subject || "Recruitment reply"}</h3>
                     <p className="company">{reply.from}</p>
@@ -1044,7 +1041,7 @@ function App() {
                           window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
                         }}
                       >
-                        Reply with ChatGPT
+                        Help me reply
                       </button>
                     </div>
                   </article>
@@ -1057,20 +1054,23 @@ function App() {
         {screen === "cvs" && (
           <section className="section page">
             <div className="section-head">
-              <div><span className="eyebrow">AUTO MATCH</span><h2>CV profiles</h2></div>
+              <div><span className="eyebrow">CHOSEN AUTOMATICALLY</span><h2>My CVs</h2></div>
               <span className="safe-chip">7 ready</span>
+            </div>
+            <div className="cv-intro">
+              Job Control chooses the right CV for each job. You do not need to pick one manually.
             </div>
             <div className="cv-grid">
               {(Object.entries(cvMap) as [Category, (typeof cvMap)[Category]][]).map(([category, cv]) => (
                 <div className="cv-card" key={category}>
-                  <div className="cv-badge large">{cv.code}</div>
+                  <div className="cv-badge large">{cv.code.replace("CV ", "")}</div>
                   <div className="cv-card-text">
                     <h3>{cv.label}</h3>
                     <p>{cv.reason}</p>
                     <small>
                       {backendMode === "live"
-                        ? liveCvNames[cv.code] || "Checking Google Drive…"
-                        : "Stored in Google Drive · live metadata after connection"}
+                        ? liveCvNames[cv.code] || "Ready"
+                        : "Ready for matching"}
                     </small>
                   </div>
                 </div>
