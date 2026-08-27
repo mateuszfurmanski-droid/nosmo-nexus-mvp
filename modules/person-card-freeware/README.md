@@ -179,3 +179,50 @@ The Agency ATS candidate query inner-joins the agency access grant and requires:
 - `scope = RECRUITER_SAFE`.
 
 Therefore an agency cannot enumerate all active NOSMO workers merely because they have active Person Cards.
+
+
+## Dev DB activation and E2E sequence
+
+Current intended database target:
+
+- Neon project: `nosmo-nexus-mvp-dev`;
+- project ID: `morning-glitter-88911562`;
+- default branch: `main`;
+- branch ID: `br-snowy-base-afc4itrb`;
+- database: `neondb`.
+
+The current dev database already contains `users` and `nexus_pm_people`, but at the time of this checkpoint it does not yet contain the Person Card onboarding / Work Profile / Agency ATS tables.
+
+Canonical SQL artifacts are committed in the same Freeware branch:
+
+- `artifacts/api-server/src/person-card-freeware/sql/001-person-card-agency-persistence.sql` — creates the complete Person Card + Agency persistence package;
+- `artifacts/api-server/src/person-card-freeware/sql/verify-person-card-agency-e2e.sql` — rollback-only database E2E smoke test.
+
+The migration creates nine Person Card persistence tables:
+
+1. `nexus_person_agencies`;
+2. `nexus_person_onboarding_invites`;
+3. `nexus_person_work_profiles`;
+4. `nexus_person_work_events`;
+5. `nexus_person_agency_members`;
+6. `nexus_person_agency_recruiter_profiles`;
+7. `nexus_person_agency_access_grants`;
+8. `nexus_person_agency_candidate_states`;
+9. `nexus_person_agency_actions`.
+
+The E2E SQL runs inside a transaction and ends in `ROLLBACK`. It verifies:
+
+- an active worker without an Agency Access Grant is not visible;
+- a worker with explicit `ACTIVE / RECRUITER_SAFE` consent becomes visible;
+- a second consented worker becomes visible;
+- revoking the first worker removes that worker from the agency-visible set;
+- recruiter profile, shortlist/pipeline state and agency action logging can be persisted;
+- access-grant privacy flags keep private documents, contact details and CV text excluded.
+
+After DB activation, the application-level E2E sequence is:
+
+`Agency Account -> Recruiter Profile -> Secure Invite -> Worker onboarding -> signed inviter verification -> optional explicit worker consent -> active Work Profile -> Agency Desk visibility -> Shortlist -> Request Pack -> Offer Work`.
+
+The connected Neon write tools currently expose a parameter-mapping defect: the local wrapper accepts camelCase arguments while the Neon backend rejects them and requires snake_case. Read-only Neon discovery works, but write/migration calls cannot currently be sent safely through this connector. No migration was applied to another Neon project as a workaround.
+
+Do not use `nosmo-nexus-cloud-staging` as a substitute target for this Person Card Freeware migration.
