@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import {
   db,
+  nexusPersonAgencyAccessGrantsTable,
   nexusPersonOnboardingInvitesTable,
   nexusPersonWorkEventsTable,
   nexusPersonWorkProfilesTable,
@@ -23,6 +24,8 @@ export type PersistOnboardingInviteInput = {
   inviteId: string;
   tokenDigest: string;
   agency: string;
+  agencyId?: string;
+  createdByUserId?: string;
   suggestedTrade?: string;
   suggestedLocation?: string;
   message?: string;
@@ -38,6 +41,8 @@ export async function persistNexusOnboardingInvite(
       inviteId: input.inviteId,
       tokenDigest: input.tokenDigest,
       agency: input.agency,
+      agencyId: input.agencyId,
+      createdByUserId: input.createdByUserId,
       suggestedTrade: input.suggestedTrade,
       suggestedLocation: input.suggestedLocation,
       message: input.message,
@@ -65,7 +70,13 @@ export type ClaimOnboardingInviteInput = {
 
 export async function claimNexusOnboardingInvite(
   input: ClaimOnboardingInviteInput,
-): Promise<{ personId: string; agency: string; expiresAt: Date }> {
+): Promise<{
+  personId: string;
+  agency: string;
+  agencyId: string | null;
+  createdByUserId: string | null;
+  expiresAt: Date;
+}> {
   try {
     return await db.transaction(async (tx) => {
       await tx.insert(nexusPmPeopleTable).values({
@@ -96,6 +107,8 @@ export async function claimNexusOnboardingInvite(
         .returning({
           inviteId: nexusPersonOnboardingInvitesTable.inviteId,
           agency: nexusPersonOnboardingInvitesTable.agency,
+          agencyId: nexusPersonOnboardingInvitesTable.agencyId,
+          createdByUserId: nexusPersonOnboardingInvitesTable.createdByUserId,
           expiresAt: nexusPersonOnboardingInvitesTable.expiresAt,
         });
 
@@ -133,6 +146,8 @@ export async function claimNexusOnboardingInvite(
       return {
         personId: input.personId,
         agency: claimed[0]!.agency,
+        agencyId: claimed[0]!.agencyId,
+        createdByUserId: claimed[0]!.createdByUserId,
         expiresAt: claimed[0]!.expiresAt,
       };
     });
@@ -155,6 +170,7 @@ export type SavePersonWorkProfileInput = {
   personRecord: Record<string, unknown>;
   workProfileStatus: "draft" | "active";
   workProfileRecord: Record<string, unknown>;
+  shareWithInvitingAgency: boolean;
 };
 
 export async function saveNexusPersonWorkProfile(
@@ -167,6 +183,8 @@ export async function saveNexusPersonWorkProfile(
           inviteId: nexusPersonOnboardingInvitesTable.inviteId,
           status: nexusPersonOnboardingInvitesTable.status,
           claimedPersonId: nexusPersonOnboardingInvitesTable.claimedPersonId,
+          agencyId: nexusPersonOnboardingInvitesTable.agencyId,
+          createdByUserId: nexusPersonOnboardingInvitesTable.createdByUserId,
         })
         .from(nexusPersonOnboardingInvitesTable)
         .where(
@@ -230,6 +248,74 @@ export async function saveNexusPersonWorkProfile(
         );
       }
 
+      const agencyId = invite[0]!.agencyId;
+      if (input.workProfileStatus === "active" && agencyId) {
+        if (input.shareWithInvitingAgency) {
+          await tx
+            .insert(nexusPersonAgencyAccessGrantsTable)
+            .values({
+              agencyId,
+              personId: input.personId,
+              sourceInviteId: input.inviteId,
+              scope: "RECRUITER_SAFE",
+              status: "ACTIVE",
+              consentSource: "WORKER_INVITE_ONBOARDING",
+              recordJson: {
+                schema: "nexus-person-agency-access-grant/v1",
+                consent: "explicit",
+                scope: "RECRUITER_SAFE",
+                sourceInviteId: input.inviteId,
+                invitedByUserId: invite[0]!.createdByUserId ?? null,
+                privateDocumentsIncluded: false,
+                contactDetailsIncluded: false,
+                cvTextIncluded: false,
+              },
+              grantedAt: input.now,
+              revokedAt: null,
+              updatedAt: input.now,
+            })
+            .onConflictDoUpdate({
+              target: [
+                nexusPersonAgencyAccessGrantsTable.agencyId,
+                nexusPersonAgencyAccessGrantsTable.personId,
+              ],
+              set: {
+                sourceInviteId: input.inviteId,
+                scope: "RECRUITER_SAFE",
+                status: "ACTIVE",
+                consentSource: "WORKER_INVITE_ONBOARDING",
+                recordJson: {
+                  schema: "nexus-person-agency-access-grant/v1",
+                  consent: "explicit",
+                  scope: "RECRUITER_SAFE",
+                  sourceInviteId: input.inviteId,
+                  invitedByUserId: invite[0]!.createdByUserId ?? null,
+                  privateDocumentsIncluded: false,
+                  contactDetailsIncluded: false,
+                  cvTextIncluded: false,
+                },
+                grantedAt: input.now,
+                revokedAt: null,
+                updatedAt: input.now,
+              },
+            });
+        } else {
+          await tx
+            .update(nexusPersonAgencyAccessGrantsTable)
+            .set({
+              status: "REVOKED",
+              revokedAt: input.now,
+              updatedAt: input.now,
+            })
+            .where(
+              and(
+                eq(nexusPersonAgencyAccessGrantsTable.agencyId, agencyId),
+                eq(nexusPersonAgencyAccessGrantsTable.personId, input.personId),
+              ),
+            );
+        }
+      }
+
       await tx.insert(nexusPersonWorkEventsTable).values({
         eventId: `person-work-event-${randomUUID()}`,
         personId: input.personId,
@@ -244,6 +330,16 @@ export async function saveNexusPersonWorkProfile(
           inviteId: input.inviteId,
           personStatus: input.personStatus,
           workProfileStatus: input.workProfileStatus,
+          shareWithInvitingAgency:
+            input.workProfileStatus === "active"
+              ? input.shareWithInvitingAgency
+              : null,
+          agencyAccessScope:
+            input.workProfileStatus === "active" &&
+            input.shareWithInvitingAgency &&
+            agencyId
+              ? "RECRUITER_SAFE"
+              : "NONE",
           secretsPersisted: false,
         },
         persistedAt: input.now,
