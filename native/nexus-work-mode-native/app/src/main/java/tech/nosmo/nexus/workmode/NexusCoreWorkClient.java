@@ -79,7 +79,10 @@ final class NexusCoreWorkClient {
             callback.onComplete(false, 401, "No Nexus mobile session. Sign in first.", null);
             return;
         }
-        if (!isHttpsOrigin(origin)) {
+        final String effectiveOrigin = NexusStagingVercelGate.isReady()
+                ? NexusStagingVercelGate.getOrigin()
+                : origin;
+        if (!isHttpsOrigin(effectiveOrigin)) {
             callback.onComplete(false, 0, "Nexus HTTPS origin is not configured.", null);
             return;
         }
@@ -87,13 +90,14 @@ final class NexusCoreWorkClient {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
-                connection = (HttpURLConnection) new URL(origin + path).openConnection();
+                connection = (HttpURLConnection) new URL(effectiveOrigin + path).openConnection();
                 connection.setRequestMethod(method);
                 connection.setConnectTimeout(15_000);
                 connection.setReadTimeout(25_000);
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestProperty("Authorization", "Bearer " + token);
                 connection.setRequestProperty("Accept", "application/json");
+                NexusStagingVercelGate.apply(connection, effectiveOrigin);
                 if (body != null) {
                     byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
                     connection.setDoOutput(true);
