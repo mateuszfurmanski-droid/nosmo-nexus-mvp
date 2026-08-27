@@ -7,7 +7,8 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm check:server",
+    "check:server": "node -e \"Promise.all(['./api/auth.mjs','./api/dashboard.mjs','./api/jobs.mjs','./api/cvs.mjs','./api/integrations.mjs','./api/replies.mjs','./api/update-status.mjs','./api/send-application.mjs'].map((p)=>import(p)))\""
   },
   "devDependencies": {
     "@types/react": "catalog:",
