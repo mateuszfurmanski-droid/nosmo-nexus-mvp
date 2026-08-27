@@ -81,9 +81,6 @@ const finiteInt = (
   return Math.max(min, Math.min(max, Math.round(num)));
 };
 
-const isAuthed = (req: Request): boolean =>
-  typeof req.isAuthenticated === "function" && req.isAuthenticated();
-
 async function authenticatedAgency(req: Request): Promise<{
   agencyId: string;
   name: string;
@@ -206,7 +203,7 @@ router.post("/person-card/onboarding/invite-info", async (req, res) => {
 });
 
 router.post("/person-card/onboarding/invites", async (req, res) => {
-  if (!isAuthed(req)) {
+  if (!req.isAuthenticated()) {
     res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
     return;
   }
