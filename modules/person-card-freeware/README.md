@@ -108,3 +108,41 @@ Person Card Freeware now has two operating views over the same Person / Work Pro
 Agency Desk does not create a second worker profile or a second Person Card. The current candidate card loads the existing `data/person-work-profile-kamil.json` demo Work Profile and opens the canonical `index.html?view=recruiter` surface for worker-specific actions.
 
 Private worker documents are not automatically exposed to Agency Desk. Request Pack remains an explicit request flow and does not grant document access.
+
+
+## Multi-worker Agency ATS backend
+
+Agency Desk is no longer bound to the static demo Work Profile.
+
+Authenticated Agency ATS routes:
+
+- `GET /api/person-card/agency/account` — resolve the logged-in user's Agency Account;
+- `POST /api/person-card/agency/account` — create/update the Agency Account;
+- `GET /api/person-card/agency/candidates` — paginated recruiter-safe list of active worker profiles;
+- `GET /api/person-card/agency/candidates/:personId` — recruiter-safe candidate detail;
+- `PATCH /api/person-card/agency/candidates/:personId` — agency-scoped pipeline stage / note;
+- `POST /api/person-card/agency/candidates/:personId/actions` — shortlist, request, offer, contact, share and view action log;
+- `GET /api/person-card/agency/activity` — agency-scoped ATS activity feed.
+
+Persistence is added through:
+
+- `nexus_person_agencies`;
+- `nexus_person_agency_members`;
+- `nexus_person_agency_candidate_states`;
+- `nexus_person_agency_actions`.
+
+The candidate API reads canonical `nexus_pm_people` + `nexus_person_work_profiles`. It does not create a duplicate candidate/person table.
+
+Recruiter-safe projection deliberately excludes contact details, CV text and private document payloads. Request Pack and Offer Work create agency actions/drafts only; they do not automatically transmit private worker data or confirm a placement.
+
+The standalone Person Card Freeware server now mounts the existing OIDC auth middleware and auth routes, so Agency Account identity is session-backed. Secure Agency Invite creation is also scoped server-side to the authenticated Agency Account instead of trusting a typed agency name.
+
+### Database activation
+
+The schema is defined in the canonical Drizzle schema export. Before using the live ATS against a target Postgres environment, apply the schema using the existing DB workflow:
+
+`pnpm --filter @workspace/db push`
+
+Run that only against the intended NOSMO database with the correct `DATABASE_URL`.
+
+Agency Desk does not substitute the old demo candidate when the authenticated ATS API/database is unavailable; it reports the missing account/API state instead.
