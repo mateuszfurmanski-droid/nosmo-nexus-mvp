@@ -38,3 +38,7 @@ No additional real-user Cloud grant is required for the controlled test.
 6. require real Drive receipt + Project Memory COMMITTED;
 7. retry same idempotency key and prove no duplicate provider object;
 8. return write release to false.
+
+## Live control execution note
+
+The dedicated synthetic staging Participation and its exact cloud.file.write allow grant were refreshed on 2026-08-27 for the bounded control window after the original 2026-08-23 validity interval had expired.
