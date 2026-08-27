@@ -1,13 +1,24 @@
 package tech.nosmo.nexus.workmode;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.CookieManager;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -15,7 +26,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** NON_PRODUCTION Nexus-native onboarding for protected Core staging. */
+/** NON_PRODUCTION one-paste bootstrap for protected Core staging. */
 public final class IdentityClaimActivity extends Activity {
     private static final int BG = Color.rgb(8, 15, 12);
     private static final int SURFACE = Color.rgb(17, 30, 24);
@@ -25,13 +36,22 @@ public final class IdentityClaimActivity extends Activity {
     private static final int ECO = Color.rgb(111, 196, 137);
     private static final int ECO_DARK = Color.rgb(20, 48, 31);
     private static final int WARN = Color.rgb(255, 218, 120);
+    private static final String BOOTSTRAP_PREFIX = "NEXUS-STAGING-v1";
+    private static final long GATE_TIMEOUT_MS = 20_000L;
 
-    private EditText accessKey;
-    private EditText claimCode;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private EditText bootstrapField;
     private TextView sessionPill;
     private TextView status;
-    private Button loginButton;
+    private Button bootstrapButton;
     private Button continueButton;
+    private WebView gateWebView;
+
+    private String targetOrigin = "";
+    private String targetHost = "";
+    private String pendingClaim = "";
+    private Runnable gateTimeout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +65,17 @@ public final class IdentityClaimActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (status != null) refreshState();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (gateTimeout != null) handler.removeCallbacks(gateTimeout);
+        pendingClaim = "";
+        if (gateWebView != null) {
+            gateWebView.stopLoading();
+            gateWebView.destroy();
+        }
+        super.onDestroy();
     }
 
     private void render() {
@@ -78,7 +109,7 @@ public final class IdentityClaimActivity extends Activity {
 
         root.addView(text("Connect this device", 30, TEXT, true), fullWidthWrap());
         TextView intro = text(
-                "Enter the temporary staging access key and the one-time Person claim. No Vercel login is required.",
+                "Copy one temporary bootstrap block from ChatGPT and tap Paste & Connect. The app establishes the protected Vercel cookie invisibly, consumes the one-time Person claim and opens Worker Home.",
                 13,
                 MUTED,
                 false
@@ -98,56 +129,75 @@ public final class IdentityClaimActivity extends Activity {
         sessionCard.addView(status, fullWidthWrap());
         root.addView(sessionCard, fullWidthWrap());
 
-        LinearLayout accessCard = panel(SURFACE, 18);
-        accessCard.setPadding(dp(16), dp(16), dp(16), dp(16));
-        LinearLayout.LayoutParams accessParams = fullWidthWrap();
-        accessParams.setMargins(0, dp(14), 0, 0);
-        root.addView(accessCard, accessParams);
+        LinearLayout bootstrapCard = panel(SURFACE, 18);
+        bootstrapCard.setPadding(dp(16), dp(16), dp(16), dp(16));
+        LinearLayout.LayoutParams bootstrapParams = fullWidthWrap();
+        bootstrapParams.setMargins(0, dp(14), 0, 0);
+        root.addView(bootstrapCard, bootstrapParams);
 
-        accessCard.addView(text("STAGING ACCESS", 10, MUTED, true), fullWidthWrap());
-        TextView accessHelp = text(
-                "Temporary Vercel automation bypass key. It stays only in process memory and is never written to Android storage or Nexus.",
+        bootstrapCard.addView(text("ONE-TIME STAGING BOOTSTRAP", 10, MUTED, true), fullWidthWrap());
+        TextView bootstrapHelp = text(
+                "Expected format: NEXUS-STAGING-v1 + fresh Vercel share link + one-time Person claim. None of those values are written to Android storage.",
                 12,
                 MUTED,
                 false
         );
-        accessHelp.setPadding(0, dp(6), 0, dp(10));
-        accessCard.addView(accessHelp, fullWidthWrap());
+        bootstrapHelp.setPadding(0, dp(6), 0, dp(10));
+        bootstrapCard.addView(bootstrapHelp, fullWidthWrap());
 
-        accessKey = secureField("Temporary staging access key");
-        accessCard.addView(accessKey, fullWidthWrap());
+        bootstrapField = new EditText(this);
+        bootstrapField.setHint("Paste bootstrap block here, or leave empty and tap Paste & Connect");
+        bootstrapField.setSingleLine(false);
+        bootstrapField.setMinLines(3);
+        bootstrapField.setMaxLines(4);
+        bootstrapField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        bootstrapField.setTextColor(TEXT);
+        bootstrapField.setHintTextColor(MUTED);
+        bootstrapField.setBackground(rounded(SURFACE_ALT, 12, Color.rgb(44, 62, 52)));
+        bootstrapField.setPadding(dp(12), dp(12), dp(12), dp(12));
+        bootstrapCard.addView(bootstrapField, fullWidthWrap());
 
-        LinearLayout claimCard = panel(SURFACE, 18);
-        claimCard.setPadding(dp(16), dp(16), dp(16), dp(16));
-        LinearLayout.LayoutParams claimParams = fullWidthWrap();
-        claimParams.setMargins(0, dp(14), 0, 0);
-        root.addView(claimCard, claimParams);
+        bootstrapButton = actionButton("Paste & Connect", true);
+        bootstrapButton.setMinimumHeight(dp(52));
+        bootstrapButton.setOnClickListener(v -> pasteAndConnect());
+        LinearLayout.LayoutParams connectParams = fullWidthWrap();
+        connectParams.setMargins(0, dp(10), 0, 0);
+        bootstrapCard.addView(bootstrapButton, connectParams);
 
-        claimCard.addView(text("ONE-TIME PERSON CLAIM", 10, MUTED, true), fullWidthWrap());
-        TextView claimHelp = text(
-                "The claim is consumed server-side after one successful login and is never persisted on the phone.",
-                12,
-                MUTED,
-                false
-        );
-        claimHelp.setPadding(0, dp(6), 0, dp(10));
-        claimCard.addView(claimHelp, fullWidthWrap());
+        gateWebView = new WebView(this);
+        gateWebView.setVisibility(View.INVISIBLE);
+        WebSettings settings = gateWebView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(gateWebView, true);
+        gateWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
+                boolean allowed = "https".equalsIgnoreCase(uri.getScheme())
+                        && (host.equals(targetHost) || host.equals("vercel.com") || host.endsWith(".vercel.com"));
+                if (!allowed) failGate("Protected staging redirected outside the expected Vercel flow");
+                return !allowed;
+            }
 
-        claimCode = secureField("One-time Person claim");
-        claimCard.addView(claimCode, fullWidthWrap());
-
-        loginButton = actionButton("Connect to Nexus Worker Home", true);
-        loginButton.setMinimumHeight(dp(52));
-        loginButton.setOnClickListener(v -> submitDeviceLogin());
-        LinearLayout.LayoutParams loginParams = fullWidthWrap();
-        loginParams.setMargins(0, dp(10), 0, 0);
-        claimCard.addView(loginButton, loginParams);
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                captureGateIfReady(url);
+            }
+        });
+        LinearLayout.LayoutParams hiddenWeb = new LinearLayout.LayoutParams(dp(1), dp(1));
+        bootstrapCard.addView(gateWebView, hiddenWeb);
 
         continueButton = actionButton("Open Worker Home", false);
         continueButton.setMinimumHeight(dp(52));
         continueButton.setOnClickListener(v -> openWorkerHome());
         LinearLayout.LayoutParams continueParams = fullWidthWrap();
-        continueParams.setMargins(0, dp(10), 0, 0);
+        continueParams.setMargins(0, dp(12), 0, 0);
         root.addView(continueButton, continueParams);
 
         Button clear = actionButton("Clear local staging session", false);
@@ -158,7 +208,7 @@ public final class IdentityClaimActivity extends Activity {
         root.addView(clear, clearParams);
 
         TextView boundary = text(
-                "Person, Participation, PermissionGrant, AccessDecision and Work Package authority remain on Nexus Core. Android stores only the opaque Nexus session under Android Keystore.",
+                "The Vercel share link, Vercel cookie and one-time claim stay in process memory only. Android persists only the opaque Nexus session under Android Keystore. Person, Participation, PermissionGrant, AccessDecision and Work Package authority remain on Nexus Core.",
                 10,
                 MUTED,
                 false
@@ -171,44 +221,133 @@ public final class IdentityClaimActivity extends Activity {
         refreshState();
     }
 
-    private EditText secureField(String hint) {
-        EditText field = new EditText(this);
-        field.setHint(hint);
-        field.setSingleLine(true);
-        field.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        field.setTextColor(TEXT);
-        field.setHintTextColor(MUTED);
-        field.setBackground(rounded(SURFACE_ALT, 12, Color.rgb(44, 62, 52)));
-        field.setPadding(dp(12), dp(12), dp(12), dp(12));
-        field.setMinHeight(dp(52));
-        return field;
+    private void pasteAndConnect() {
+        String raw = bootstrapField.getText() == null ? "" : bootstrapField.getText().toString().trim();
+        if (raw.isEmpty()) raw = clipboardText();
+        bootstrapField.setText("");
+
+        Bootstrap bootstrap = parseBootstrap(raw);
+        if (bootstrap == null) {
+            Toast.makeText(this, "Copy the complete temporary NEXUS staging bootstrap block", Toast.LENGTH_LONG).show();
+            return;
+        }
+        startGateBootstrap(bootstrap);
     }
 
-    private void submitDeviceLogin() {
-        String key = accessKey.getText() == null ? "" : accessKey.getText().toString().trim();
-        String code = claimCode.getText() == null ? "" : claimCode.getText().toString().trim();
-        String origin = configuredNexusOrigin();
+    private String clipboardText() {
+        try {
+            ClipboardManager manager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (manager == null || !manager.hasPrimaryClip()) return "";
+            ClipData clip = manager.getPrimaryClip();
+            if (clip == null || clip.getItemCount() == 0) return "";
+            CharSequence value = clip.getItemAt(0).coerceToText(this);
+            return value == null ? "" : value.toString().trim();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
 
-        if (origin.isEmpty()) {
-            Toast.makeText(this, "Validated staging origin is not configured in this build", Toast.LENGTH_LONG).show();
+    private Bootstrap parseBootstrap(String raw) {
+        if (raw == null || raw.isEmpty()) return null;
+        String normalized = raw.replace("\r\n", "\n").replace("\r", "\n").trim();
+        String[] lines = normalized.split("\n");
+        if (lines.length < 2 || !BOOTSTRAP_PREFIX.equals(lines[0].trim())) return null;
+
+        String share = lines[1].trim();
+        String claim = lines.length >= 3 ? lines[2].trim() : "";
+
+        Uri uri;
+        try {
+            uri = Uri.parse(share);
+        } catch (Exception ignored) {
+            return null;
+        }
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
+        String origin = "https://" + host;
+        String shareToken = uri.getQueryParameter("_vercel_share");
+        String configured = configuredNexusOrigin();
+
+        if (!"https".equalsIgnoreCase(uri.getScheme())
+                || configured.isEmpty()
+                || !configured.equals(origin)
+                || !NexusStagingVercelGate.isAllowedOrigin(origin)
+                || shareToken == null
+                || shareToken.length() < 16) {
+            return null;
+        }
+
+        boolean existingSession = NexusMobileSession.hasSession(this);
+        if (!existingSession && (claim.length() < 32 || claim.length() > 200)) return null;
+        if (existingSession && !claim.isEmpty() && !"-".equals(claim) && (claim.length() < 32 || claim.length() > 200)) return null;
+        return new Bootstrap(share, origin, host, existingSession ? "" : claim);
+    }
+
+    private void startGateBootstrap(Bootstrap bootstrap) {
+        if (gateTimeout != null) handler.removeCallbacks(gateTimeout);
+        NexusStagingVercelGate.clear();
+        CookieManager.getInstance().removeAllCookies(null);
+        CookieManager.getInstance().flush();
+
+        targetOrigin = bootstrap.origin;
+        targetHost = bootstrap.host;
+        pendingClaim = bootstrap.claim;
+
+        bootstrapButton.setEnabled(false);
+        continueButton.setEnabled(false);
+        status.setText("Establishing protected staging access…");
+        status.setTextColor(WARN);
+
+        gateTimeout = () -> {
+            if (!NexusStagingVercelGate.isReady()) {
+                failGate("Temporary staging share link was not accepted or has expired");
+            }
+        };
+        handler.postDelayed(gateTimeout, GATE_TIMEOUT_MS);
+        gateWebView.loadUrl(bootstrap.shareUrl);
+    }
+
+    private void captureGateIfReady(String pageUrl) {
+        if (targetOrigin.isEmpty()) return;
+        Uri uri;
+        try {
+            uri = Uri.parse(pageUrl);
+        } catch (Exception ignored) {
             return;
         }
-        if (key.length() < 16 || key.length() > 512) {
-            Toast.makeText(this, "Enter the temporary staging access key", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (code.length() < 32 || code.length() > 200) {
-            Toast.makeText(this, "Enter the one-time Person claim", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!NexusStagingVercelGate.set(origin, key)) {
-            Toast.makeText(this, "Staging access key/origin rejected locally", Toast.LENGTH_LONG).show();
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase();
+        if (!host.equals(targetHost)) return;
+
+        String cookie = CookieManager.getInstance().getCookie(targetOrigin);
+        if (cookie == null || cookie.trim().isEmpty()) return;
+        if (!NexusStagingVercelGate.set(targetOrigin, cookie)) return;
+
+        if (gateTimeout != null) handler.removeCallbacks(gateTimeout);
+        gateWebView.stopLoading();
+        gateWebView.loadUrl("about:blank");
+        CookieManager.getInstance().removeAllCookies(null);
+        CookieManager.getInstance().flush();
+
+        status.setText("Protected staging access READY");
+        status.setTextColor(ECO);
+
+        if (NexusMobileSession.hasSession(this)) {
+            pendingClaim = "";
+            refreshState();
+            openWorkerHome();
             return;
         }
 
-        accessKey.setText("");
-        claimCode.setText("");
-        loginButton.setEnabled(false);
+        String claim = pendingClaim;
+        pendingClaim = "";
+        if (claim.length() < 32 || claim.length() > 200) {
+            failGate("One-time Person claim is missing from the bootstrap");
+            return;
+        }
+        submitDeviceLogin(claim);
+    }
+
+    private void submitDeviceLogin(String code) {
+        bootstrapButton.setEnabled(false);
         status.setText("Creating canonical Nexus staging session…");
         status.setTextColor(WARN);
 
@@ -218,17 +357,33 @@ public final class IdentityClaimActivity extends Activity {
                 (success, httpStatus, message) -> runOnUiThread(() -> {
                     status.setText(message);
                     Toast.makeText(this, message, success ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
-                    if (!success) {
-                        NexusStagingVercelGate.clear();
-                    }
+                    if (!success) NexusStagingVercelGate.clear();
                     refreshState();
                     if (success) openWorkerHome();
                 })
         );
     }
 
+    private void failGate(String message) {
+        if (gateTimeout != null) handler.removeCallbacks(gateTimeout);
+        pendingClaim = "";
+        targetOrigin = "";
+        targetHost = "";
+        NexusStagingVercelGate.clear();
+        CookieManager.getInstance().removeAllCookies(null);
+        CookieManager.getInstance().flush();
+        if (gateWebView != null) {
+            gateWebView.stopLoading();
+            gateWebView.loadUrl("about:blank");
+        }
+        status.setText(message);
+        status.setTextColor(WARN);
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        refreshState();
+    }
+
     private void refreshState() {
-        if (status == null || loginButton == null || continueButton == null || sessionPill == null) return;
+        if (status == null || bootstrapButton == null || continueButton == null || sessionPill == null) return;
         boolean gate = NexusStagingVercelGate.isReady();
         boolean session = NexusMobileSession.hasSession(this);
 
@@ -236,30 +391,36 @@ public final class IdentityClaimActivity extends Activity {
         sessionPill.setTextColor(session || gate ? ECO : WARN);
         sessionPill.setBackground(rounded(session || gate ? ECO_DARK : SURFACE_ALT, 99, session || gate ? ECO_DARK : SURFACE_ALT));
 
-        loginButton.setEnabled(!session);
+        bootstrapButton.setEnabled(!gate || !session);
         continueButton.setEnabled(gate && session);
 
         if (session && gate) {
             status.setText("Canonical Nexus session ACTIVE · protected staging access READY");
             status.setTextColor(ECO);
         } else if (session) {
-            status.setText("Encrypted Nexus session exists · re-enter temporary staging access after process restart");
+            status.setText("Encrypted Nexus session exists · paste a fresh bootstrap to restore protected staging access");
             status.setTextColor(WARN);
-        } else {
-            status.setText("Enter staging access key + one-time Person claim");
+        } else if (!gate) {
+            status.setText("Copy one temporary bootstrap block, then tap Paste & Connect");
             status.setTextColor(MUTED);
         }
     }
 
     private void clearLocal() {
+        if (gateTimeout != null) handler.removeCallbacks(gateTimeout);
+        pendingClaim = "";
+        targetOrigin = "";
+        targetHost = "";
         NexusMobileSession.clearSession(this);
         NexusStagingVercelGate.clear();
+        CookieManager.getInstance().removeAllCookies(null);
+        CookieManager.getInstance().flush();
         refreshState();
     }
 
     private void openWorkerHome() {
         if (!NexusMobileSession.hasSession(this) || !NexusStagingVercelGate.isReady()) {
-            Toast.makeText(this, "Nexus session and staging access are both required", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Nexus session and protected staging access are both required", Toast.LENGTH_LONG).show();
             refreshState();
             return;
         }
@@ -330,5 +491,19 @@ public final class IdentityClaimActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private static final class Bootstrap {
+        final String shareUrl;
+        final String origin;
+        final String host;
+        final String claim;
+
+        Bootstrap(String shareUrl, String origin, String host, String claim) {
+            this.shareUrl = shareUrl;
+            this.origin = origin;
+            this.host = host;
+            this.claim = claim;
+        }
     }
 }
