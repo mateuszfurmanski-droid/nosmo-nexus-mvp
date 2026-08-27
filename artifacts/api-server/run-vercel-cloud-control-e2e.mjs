@@ -8,7 +8,7 @@ const steps = [
   {
     command: "node",
     args: ["artifacts/api-server/dist/cloud-control-e2e.mjs"],
-    env: { ...process.env, NEXUS_CLOUD_CONTROL_E2E_EXECUTE: "true" },
+    env: { ...process.env, NEXUS_CLOUD_CONTROL_E2E_EXECUTE: "true", NEXUS_CLOUD_CONTROL_HARNESS_ENABLED: "true", NEXUS_CLOUD_STAGING_DEVICE_AUTH: "true" },
   },
 ];
 
