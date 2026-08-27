@@ -616,10 +616,20 @@ export async function runNexusCloudRuntimePreflight(
           : error instanceof Error && /^NEXUS_[A-Z0-9_]+$/.test(error.message)
             ? error.message
             : "NEXUS_CLOUD_PREFLIGHT_PROVIDER_PROBE_FAILED";
+      const safeProviderReason =
+        error &&
+        typeof error === "object" &&
+        "providerReason" in error &&
+        typeof (error as { providerReason?: unknown }).providerReason === "string" &&
+        /^[a-z0-9_]{2,80}$/.test(
+          (error as { providerReason: string }).providerReason,
+        )
+          ? (error as { providerReason: string }).providerReason
+          : undefined;
       checks.push(
         blocked(
           "provider.network-probe",
-          `Real read-only Google OAuth/Drive capability probe failed (${safeFailureCode}); provider details and secret values were not returned.`,
+          `Real read-only Google OAuth/Drive capability probe failed (${safeFailureCode}${safeProviderReason ? `; provider=${safeProviderReason}` : ""}); provider details and secret values were not returned.`,
         ),
       );
     }
