@@ -6,6 +6,7 @@ import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloud
 import nexusCloudRouter from "./routes/nexus-cloud";
 import nexusCloudStagingDeviceLoginRouter from "./routes/nexus-cloud-staging-device-login";
 import nexusCloudStagingControlRouter from "./routes/nexus-cloud-staging-control";
+import nexusJobSearchRouter from "./routes/nexus-job-search";
 import { logger } from "./lib/logger";
 import { runNexusCloudRuntimePreflight } from "./lib/nexus-cloud-runtime-preflight";
 
@@ -108,6 +109,9 @@ app.get("/api/nexus/cloud/_staging/preflight/read-only", async (req, res) => {
 // Multipart upload parsing is owned by nexusCloudRouter/multer. Generic parsers
 // do not consume multipart bodies and remain available for future narrow API
 // additions.
+// Public read-only job discovery gateway. It accepts no secret material and performs no external write/application action.
+app.use("/api", nexusJobSearchRouter);
+
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
