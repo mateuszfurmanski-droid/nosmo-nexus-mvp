@@ -226,3 +226,34 @@ After DB activation, the application-level E2E sequence is:
 The connected Neon write tools currently expose a parameter-mapping defect: the local wrapper accepts camelCase arguments while the Neon backend rejects them and requires snake_case. Read-only Neon discovery works, but write/migration calls cannot currently be sent safely through this connector. No migration was applied to another Neon project as a workaround.
 
 Do not use `nosmo-nexus-cloud-staging` as a substitute target for this Person Card Freeware migration.
+
+
+## Agency ATS runtime readiness
+
+`GET /api/person-card/agency/_health` now checks the actual database using PostgreSQL registry lookups.
+
+It returns:
+
+- `status: ok` only when all nine Person Card / Agency tables exist;
+- `status: database-migration-required` with the missing table list when the schema is not activated;
+- `status: database-unavailable` if the database itself cannot be reached.
+
+Agency Desk calls this health endpoint before account/pipeline loading. When persistence is not activated it shows `DB activation pending` and never substitutes demo candidates.
+
+## UI / visual pass sequencing
+
+Do not redesign the worker or agency UI while the persistence/E2E line is still being activated.
+
+After the live functional flow is proven, run a separate visual/readability pass across the complete Person Card Freeware application. Priority should be readability and hierarchy before decoration:
+
+- fewer competing borders and nested cards;
+- larger primary type and tap targets;
+- clearer information hierarchy;
+- higher contrast for secondary text;
+- consistent spacing and section rhythm;
+- simpler worker navigation;
+- simpler Agency Desk pipeline;
+- clearer consent/privacy surfaces;
+- consistent NOSMO visual language across Worker View and Agency Desk.
+
+Functional/privacy contracts must remain unchanged during that visual pass.
