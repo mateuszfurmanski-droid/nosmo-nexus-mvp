@@ -113,7 +113,8 @@ jobs:
           ! grep -RFi "${runtime_args[@]}" 'NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA' modules/person-card-freeware
           ! grep -RFi "${runtime_args[@]}" 'SKANSKA' modules/person-card-freeware
           ! grep -RFi "${runtime_args[@]}" 'DoorFlow' modules/person-card-freeware
-          ! grep -RFi "${runtime_args[@]}" 'Work Wallet' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" '/work-wallet' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'work-wallet/' modules/person-card-freeware
           ! grep -RFi "${runtime_args[@]}" 'FabStation' modules/person-card-freeware
 
       - name: Documents window local-only contract
@@ -154,9 +155,51 @@ jobs:
           grep -F 'verified' "$screen"
           grep -F 'unverified' "$screen"
           grep -F 'nosmo-person-card-freeware:work-card/v2' "$screen"
-          grep -F 'Work Mode V2 remains dormant.' "$screen"
-          ! grep -F 'work-mode-v2/' "$screen"
+          grep -F 'Work Mode V2 runs only in the fourth window and does not scan from Work Card.' "$screen"
           ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$screen"
+
+      - name: Work Mode V2 active local-only contract
+        shell: bash
+        run: |
+          screen=modules/person-card-freeware/screen.html
+          runtime=modules/person-card-freeware/work-mode-v2/work-mode-screen.mjs
+          trust=modules/person-card-freeware/work-mode-v2/trust-copy.json
+          registry=modules/person-card-freeware/work-mode-v2/construction-app-registry.json
+          registry_js=modules/person-card-freeware/work-mode-v2/construction-app-registry.mjs
+          grep -F 'WORK MODE' "$screen"
+          grep -F 'Connected / Available Work Apps' "$screen"
+          grep -F 'BIM / drawings' "$runtime"
+          grep -F 'Snagging' "$runtime"
+          grep -F 'Site forms' "$runtime"
+          grep -F 'Timesheets' "$runtime"
+          grep -F 'Work Wallet' "$runtime"
+          grep -F 'Cloud storage' "$runtime"
+          grep -F 'Communication' "$runtime"
+          grep -F 'Project management' "$runtime"
+          grep -F 'Scan for work apps' "$screen"
+          grep -F 'Add to Work Mode' "$runtime"
+          grep -F 'Open' "$runtime"
+          grep -F 'Remove from Work Mode' "$runtime"
+          grep -F 'Privacy info' "$screen"
+          grep -F 'App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps.' "$screen"
+          grep -F 'App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps.' "$trust"
+          grep -F 'createWorkCardV2Controller' "$runtime"
+          grep -F 'createAndroidWorkCardAdapter' "$runtime"
+          grep -F 'controller.discover()' "$runtime"
+          grep -F 'controller.decide(button.dataset.modeAdd, "ADD")' "$runtime"
+          grep -F 'controller.removeTile' "$runtime"
+          grep -F 'nativeAdapter.open' "$runtime"
+          grep -F 'history.pushState' "$screen"
+          grep -F './work-mode-v2/work-mode-screen.mjs' "$screen"
+          ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$runtime"
+          node --input-type=module - <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import { CONSTRUCTION_APP_REGISTRY } from "./modules/person-card-freeware/work-mode-v2/construction-app-registry.mjs";
+          const json=JSON.parse(await readFile("./modules/person-card-freeware/work-mode-v2/construction-app-registry.json","utf8"));
+          assert.deepEqual(CONSTRUCTION_APP_REGISTRY,json);
+          console.log("WORK_MODE_REGISTRY_UI_PARITY_PASS");
+          NODE
 
       - name: Static JavaScript and JSON validation
         shell: bash
@@ -171,12 +214,14 @@ jobs:
           node --check modules/person-card-freeware/work-mode-v2/local-discovery.mjs
           node --check modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs
           node --check modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs
+          node --check modules/person-card-freeware/work-mode-v2/construction-app-registry.mjs
+          node --check modules/person-card-freeware/work-mode-v2/work-mode-screen.mjs
           node --check modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/construction-app-registry.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/trust-copy.json','utf8'))"
           node modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
           node modules/person-card-freeware/work-mode-v2/tests/work-card-controller.test.mjs
-          ! grep -RE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket' modules/person-card-freeware/work-mode-v2/contracts.mjs modules/person-card-freeware/work-mode-v2/local-discovery.mjs modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs
+          ! grep -RE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket' modules/person-card-freeware/work-mode-v2/contracts.mjs modules/person-card-freeware/work-mode-v2/local-discovery.mjs modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs modules/person-card-freeware/work-mode-v2/work-mode-screen.mjs
 
       - name: Android targeted discovery adapter
         shell: bash
@@ -238,6 +283,9 @@ jobs:
           curl --fail http://127.0.0.1:8128/index.html >/dev/null
           curl --fail 'http://127.0.0.1:8128/screen.html?screen=documents' >/dev/null
           curl --fail 'http://127.0.0.1:8128/screen.html?screen=work' >/dev/null
+          curl --fail 'http://127.0.0.1:8128/screen.html?screen=work-mode' >/dev/null
+          curl --fail http://127.0.0.1:8128/work-mode-v2/work-mode-screen.mjs >/dev/null
+          curl --fail http://127.0.0.1:8128/work-mode-v2/construction-app-registry.mjs >/dev/null
           curl --fail http://127.0.0.1:8128/onboarding.html >/dev/null
           curl --fail http://127.0.0.1:8128/agency-invite.html >/dev/null
           curl --fail http://127.0.0.1:8128/section.html?section=cv >/dev/null
