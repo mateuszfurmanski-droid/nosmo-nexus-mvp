@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/android-worker-home-protected-staging
+      - codex/android-worker-home-recents-fix
     paths:
       - native/nexus-work-mode-native/**
       - .github/workflows/android-staging-share-device-login.yml

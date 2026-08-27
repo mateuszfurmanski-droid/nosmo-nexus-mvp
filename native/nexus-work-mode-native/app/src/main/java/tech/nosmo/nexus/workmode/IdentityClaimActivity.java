@@ -368,7 +368,7 @@ public final class IdentityClaimActivity extends Activity {
             return;
         }
         android.content.Intent intent = new android.content.Intent(this, WorkModeHomeActivity.class);
-        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
         finish();
     }
