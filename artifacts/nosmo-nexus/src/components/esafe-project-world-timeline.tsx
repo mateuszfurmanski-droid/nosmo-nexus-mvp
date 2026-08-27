@@ -58,7 +58,7 @@ function CategoryCard({ category, state }: { category: EsafeCategory; state: Ret
   );
 }
 
-export function EsafeProjectWorldTimeline({ onClose }: { onClose: () => void }) {
+export function EsafeProjectWorldTimeline({ onClose, embedded = false }: { onClose: () => void; embedded?: boolean }) {
   const [mode, setMode] = useState<EsafeTimelineMode>("simulation");
   const [progress, setProgress] = useState(0.72);
   const [playing, setPlaying] = useState(false);
@@ -82,7 +82,7 @@ export function EsafeProjectWorldTimeline({ onClose }: { onClose: () => void }) 
     <aside
       data-control
       aria-label="e-SAFE Project World Timeline"
-      className="fixed inset-x-2 bottom-2 top-[84px] z-[2060] overflow-auto rounded-2xl border border-cyan-300/20 bg-[#07131f]/98 text-slate-100 shadow-2xl backdrop-blur-xl sm:inset-x-3 sm:bottom-3 sm:top-[90px]"
+      className={`${embedded ? "relative h-full w-full" : "fixed inset-x-2 bottom-2 top-[84px] z-[2060] sm:inset-x-3 sm:bottom-3 sm:top-[90px]"} overflow-auto rounded-2xl border border-cyan-300/20 bg-[#07131f]/98 text-slate-100 shadow-2xl backdrop-blur-xl`}
     >
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-700/70 bg-[#07131f]/95 px-4 py-3 backdrop-blur-xl">
         <div>
