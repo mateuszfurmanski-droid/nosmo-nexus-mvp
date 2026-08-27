@@ -32,6 +32,8 @@ Superseded UI: nosmo-nexus-mvp PR #180. Do not restore.
 ## Current static routes
 
 - `index.html` — canonical Person Card Freeware;
+- `screen.html?screen=documents` — worker-owned Documents window;
+- `screen.html?screen=work` — worker-owned Work Card for current / previous work records, local-first and separate from recruitment;
 - `onboarding.html` — worker onboarding;
 - `agency-invite.html` — agency invite desk;
 - `section.html` — CV/certs/refs/availability/vault sections;
