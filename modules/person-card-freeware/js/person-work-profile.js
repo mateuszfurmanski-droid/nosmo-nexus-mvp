@@ -536,6 +536,14 @@
     }
 
     var menu=q("#menu");
+    if(menu&&!q('[data-agency-desk-link]',menu)){
+      var deskLink=document.createElement("a");
+      deskLink.className="mi";
+      deskLink.href="./agency-desk.html";
+      deskLink.setAttribute("data-agency-desk-link","true");
+      deskLink.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM8 7V5h8v2M4 11h16"/></svg><span><strong>Agency Desk</strong><span>Recruiter pipeline, invites, requests and offers</span></span>';
+      menu.prepend(deskLink);
+    }
     if(menu&&!q('[data-agency-invite-link]',menu)){
       var inviteLink=document.createElement("a");
       inviteLink.className="mi";
