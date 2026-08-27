@@ -251,6 +251,33 @@ jobs:
           grep -F 'createdByUserId: varchar("created_by_user_id")' "$invite_schema"
           grep -F 'nexus_person_agency_access_grants' "$agency_schema"
 
+      - name: Person Card dev DB migration and rollback E2E contract
+        shell: bash
+        run: |
+          migration=artifacts/api-server/src/person-card-freeware/sql/001-person-card-agency-persistence.sql
+          verify=artifacts/api-server/src/person-card-freeware/sql/verify-person-card-agency-e2e.sql
+          test -f "$migration"
+          test -f "$verify"
+          test "$(grep -c '^CREATE TABLE IF NOT EXISTS nexus_person_' "$migration")" -eq 9
+          grep -F 'nexus_person_onboarding_invites' "$migration"
+          grep -F 'nexus_person_work_profiles' "$migration"
+          grep -F 'nexus_person_work_events' "$migration"
+          grep -F 'nexus_person_agencies' "$migration"
+          grep -F 'nexus_person_agency_members' "$migration"
+          grep -F 'nexus_person_agency_recruiter_profiles' "$migration"
+          grep -F 'nexus_person_agency_access_grants' "$migration"
+          grep -F 'nexus_person_agency_candidate_states' "$migration"
+          grep -F 'nexus_person_agency_actions' "$migration"
+          grep -F 'CONSENT_GATE_EXPECTED_1_VISIBLE' "$verify"
+          grep -F 'DENIED_WORKER_MUST_NOT_HAVE_ACTIVE_GRANT' "$verify"
+          grep -F 'SECOND_CONSENT_EXPECTED_2_VISIBLE' "$verify"
+          grep -F 'REVOKE_EXPECTED_1_VISIBLE' "$verify"
+          grep -F 'PRIVACY_FLAGS_NOT_FALSE' "$verify"
+          grep -F "status='REVOKED'" "$verify"
+          grep -F "scope = 'RECRUITER_SAFE'" "$verify"
+          grep -F 'ROLLBACK;' "$verify"
+          ! grep -F 'COMMIT;' "$verify"
+
       - name: Work Mode V2 active local-only contract
         shell: bash
         run: |
