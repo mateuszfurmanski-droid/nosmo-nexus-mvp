@@ -83,6 +83,16 @@ jobs:
       - name: Create disposable canonical schema via ordered migrations
         run: pnpm run db:migrate
 
+      - name: Prove semantic drop to recipient inbox is covered
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST="artifacts/api-server/scripts/validate-nexus-core-http-e2e.ts"
+          grep -Fq '"/api/nexus/core/semantic-drop"' "$TEST"
+          grep -Fq '"/api/nexus/core/work-inbox?projectId=' "$TEST"
+          grep -Fq 'assigned task not projected to worker inbox' "$TEST"
+          echo NEXUS_DROP_TO_RECIPIENT_INBOX_CONTRACT_PASS
+
       - name: Execute real HTTP manager to worker cycle
         shell: bash
         run: |
