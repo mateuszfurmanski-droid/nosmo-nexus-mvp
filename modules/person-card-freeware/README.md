@@ -39,3 +39,29 @@ Superseded UI: nosmo-nexus-mvp PR #180. Do not restore.
 - `directory.html` — standalone worker registry starting point.
 
 Server-backed Job Gateway, invite signing, AI prefill and persistence are added in the backend consolidation commits on this same branch.
+
+
+## Work Card / Work Mode roadmap
+
+The same Freeware application evolves without replacing the canonical Person or Work Profile:
+
+- V1 — Person Card Freeware / Work Profile / agency + recruitment;
+- V2 — Work Card local supported-app discovery, explicit app tiles and Privacy & Connections;
+- V2.1 — supported deep links;
+- V3 — explicitly authorised official connectors and cross-app workflow.
+
+The dormant V2 implementation package lives in `work-mode-v2/`.
+
+It is intentionally **not imported by V1** until platform discovery and privacy acceptance gates pass.
+
+Work Mode V2 is not a second app and not a separate launcher product.
+
+Privacy authority: `nosmo-nexus#26` / ADDON_029.
+
+### V2 trust rule
+
+> Your Work Card belongs to you.
+
+> Private by default. Shared only by you.
+
+Installed-app discovery must remain device-local. Detection is not connection, connection is not content access, and content access is not sharing.
