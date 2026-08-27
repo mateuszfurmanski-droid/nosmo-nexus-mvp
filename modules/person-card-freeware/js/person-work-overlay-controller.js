@@ -94,4 +94,12 @@
   if(previewPanel && Object.prototype.hasOwnProperty.call(titles,previewPanel)){
     window.setTimeout(()=>openWork(previewPanel),120);
   }
+
+  if(!document.querySelector('script[data-nexus-contact-action-engine]')){
+    const script=document.createElement("script");
+    script.src="./js/contact-action-engine.js?v=freeware1";
+    script.async=false;
+    script.dataset.nexusContactActionEngine="true";
+    document.head.appendChild(script);
+  }
 })();
