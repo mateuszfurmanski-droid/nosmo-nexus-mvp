@@ -30,6 +30,8 @@
 .formField textarea{min-height:88px;resize:vertical}
 .formChecks{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
 .checkRow{border:1px solid rgba(78,141,223,.2);border-radius:12px;background:rgba(3,13,27,.64);padding:9px;color:#cbd8e8;font-size:10px}
+.consentBox{display:none;margin-top:9px;border:1px solid rgba(34,220,125,.28);border-radius:14px;background:rgba(34,220,125,.06);padding:10px;color:#cce9d8;font-size:9px;line-height:1.45}
+.consentBox.visible{display:block}.consentBox label{display:flex;gap:8px;align-items:flex-start}.consentBox input{margin-top:2px;flex:0 0 auto}.consentBox strong{color:#7ef0ad}.consentMeta{display:block;margin-top:6px;color:#8ca69a;font-size:8px}
 .onboardActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
 .onboardActions button{border:1px solid rgba(64,139,240,.5);border-radius:13px;background:linear-gradient(180deg,#287ff1,#135fc7);color:#fff;padding:10px;font-weight:900;font-size:10px}
 .onboardActions button.secondary{background:rgba(18,52,93,.55);border-color:rgba(83,146,231,.28)}
@@ -78,6 +80,14 @@
     <label class="checkRow"><input id="dayShift" type="checkbox" checked> Day shift</label>
     <label class="checkRow"><input id="nightShift" type="checkbox"> Night shift</label>
     <label class="checkRow"><input id="workAway" type="checkbox"> Work away / digs</label>
+  </div>
+  <div class="consentBox" id="agencyConsentBox">
+    <label>
+      <input id="shareWithInvitingAgency" type="checkbox">
+      <span><strong>Share recruiter-safe Work Profile with <span id="consentAgencyName">this agency</span></strong><br>
+      The agency may see your role, preferred locations, availability, work preferences and CV/certificate/reference readiness status.</span>
+    </label>
+    <span class="consentMeta">Not shared by this permission: phone, email, CV text, private documents or Vault contents. You can finish your Person Card without granting this access.</span>
   </div>
   <div class="onboardActions">
     <button type="button" class="secondary" id="smartPrefill">SMART PREFILL</button>
