@@ -15,6 +15,12 @@ import { discoverSupportedApps } from "../local-discovery.mjs";
 const registry=JSON.parse(await readFile(new URL("../construction-app-registry.json", import.meta.url),"utf8"));
 assert.equal(assertRegistry(registry),true);
 
+const trustCopy=JSON.parse(await readFile(new URL("../trust-copy.json", import.meta.url),"utf8"));
+assert.ok(
+  trustCopy.messages.en.firstUseBody.includes("App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps."),
+  "First-scan privacy copy must explicitly state local-only discovery"
+);
+
 let networkCalls=0;
 globalThis.fetch=async()=>{networkCalls++;throw new Error("NETWORK_FORBIDDEN");};
 globalThis.XMLHttpRequest=class { constructor(){networkCalls++;throw new Error("XHR_FORBIDDEN");} };
