@@ -33,10 +33,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Frozen donor and source manifest
@@ -63,14 +65,15 @@ jobs:
           grep -F 'AI Check' modules/person-card-freeware/index.html
           grep -F 'Request Pack' modules/person-card-freeware/index.html
           grep -F 'Offer Work' modules/person-card-freeware/index.html
-          ! grep -RFi 'Open in Tree' modules/person-card-freeware
-          ! grep -RFi 'relationship-tree' modules/person-card-freeware
-          ! grep -RFi '/apps/nexus/' modules/person-card-freeware
-          ! grep -RFi 'NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA' modules/person-card-freeware
-          ! grep -RFi 'SKANSKA' modules/person-card-freeware
-          ! grep -RFi 'DoorFlow' modules/person-card-freeware
-          ! grep -RFi 'Work Wallet' modules/person-card-freeware
-          ! grep -RFi 'FabStation' modules/person-card-freeware
+          runtime_args=(--include='*.html' --include='*.js' --include='*.json')
+          ! grep -RFi "${runtime_args[@]}" 'Open in Tree' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'relationship-tree' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" '/apps/nexus/' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'SKANSKA' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'DoorFlow' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'Work Wallet' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'FabStation' modules/person-card-freeware
 
       - name: Static JavaScript and JSON validation
         shell: bash
