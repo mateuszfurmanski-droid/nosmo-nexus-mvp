@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request } from "express";
 import {
   db,
@@ -294,16 +294,70 @@ async function setCandidateStage(input: {
   return now;
 }
 
-router.get("/person-card/agency/_health", (_req, res) => {
-  res.json({
-    schema: "nexus-person-agency-ats-health/v1",
-    status: "ok",
-    recruiterSafeProjection: true,
-    multiWorkerPersistence: true,
-    agencyScopedPipeline: true,
-    explicitWorkerConsentGate: true,
-    recruiterProfiles: true,
-  });
+router.get("/person-card/agency/_health", async (req, res) => {
+  const requiredTables = [
+    "nexus_person_agencies",
+    "nexus_person_onboarding_invites",
+    "nexus_person_work_profiles",
+    "nexus_person_work_events",
+    "nexus_person_agency_members",
+    "nexus_person_agency_recruiter_profiles",
+    "nexus_person_agency_access_grants",
+    "nexus_person_agency_candidate_states",
+    "nexus_person_agency_actions",
+  ];
+
+  try {
+    const result = await db.execute(sql`
+      select
+        to_regclass('public.nexus_person_agencies')::text as agencies,
+        to_regclass('public.nexus_person_onboarding_invites')::text as invites,
+        to_regclass('public.nexus_person_work_profiles')::text as work_profiles,
+        to_regclass('public.nexus_person_work_events')::text as work_events,
+        to_regclass('public.nexus_person_agency_members')::text as members,
+        to_regclass('public.nexus_person_agency_recruiter_profiles')::text as recruiter_profiles,
+        to_regclass('public.nexus_person_agency_access_grants')::text as access_grants,
+        to_regclass('public.nexus_person_agency_candidate_states')::text as candidate_states,
+        to_regclass('public.nexus_person_agency_actions')::text as actions
+    `);
+
+    const row = result.rows?.[0] as Record<string, unknown> | undefined;
+    const keys = [
+      "agencies",
+      "invites",
+      "work_profiles",
+      "work_events",
+      "members",
+      "recruiter_profiles",
+      "access_grants",
+      "candidate_states",
+      "actions",
+    ];
+    const missingTables = requiredTables.filter(
+      (_table, index) => !row?.[keys[index]!],
+    );
+    const databaseReady = missingTables.length === 0;
+
+    res.status(databaseReady ? 200 : 503).json({
+      schema: "nexus-person-agency-ats-health/v1",
+      status: databaseReady ? "ok" : "database-migration-required",
+      databaseReady,
+      missingTables,
+      recruiterSafeProjection: true,
+      multiWorkerPersistence: true,
+      agencyScopedPipeline: true,
+      explicitWorkerConsentGate: true,
+      recruiterProfiles: true,
+    });
+  } catch (error) {
+    req.log?.error?.({ err: error }, "Agency ATS DB health check failed");
+    res.status(503).json({
+      schema: "nexus-person-agency-ats-health/v1",
+      status: "database-unavailable",
+      databaseReady: false,
+      missingTables: requiredTables,
+    });
+  }
 });
 
 router.get("/person-card/agency/account", async (req, res) => {
