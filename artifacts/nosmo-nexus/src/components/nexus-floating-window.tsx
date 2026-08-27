@@ -61,6 +61,8 @@ export function NexusFloatingWindow({
   });
   const [minimized, setMinimized] = useState(defaultMinimized);
   const [zIndex, setZIndex] = useState(() => ++topWindowZ);
+  const positionRef = useRef(position);
+  positionRef.current = position;
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
 
@@ -81,8 +83,8 @@ export function NexusFloatingWindow({
       pointerId: event.pointerId,
       clientX: event.clientX,
       clientY: event.clientY,
-      originX: position.x,
-      originY: position.y,
+      originX: positionRef.current.x,
+      originY: positionRef.current.y,
     };
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* optional */ }
     event.preventDefault();
@@ -100,6 +102,7 @@ export function NexusFloatingWindow({
       rect?.width ?? 360,
       rect?.height ?? 100,
     );
+    positionRef.current = next;
     setPosition(next);
     event.preventDefault();
   };
@@ -108,7 +111,7 @@ export function NexusFloatingWindow({
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
-    persist(position);
+    persist(positionRef.current);
     try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* optional */ }
   };
 
