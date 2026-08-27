@@ -31,6 +31,34 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Freeware branch scope guard
+        shell: bash
+        run: |
+          git fetch origin main --depth=1
+          bad=0
+          while IFS= read -r file; do
+            case "$file" in
+              modules/person-card-freeware/*) ;;
+              artifacts/api-server/src/person-card-freeware/*) ;;
+              artifacts/api-server/src/person-card-freeware.ts) ;;
+              artifacts/api-server/build.mjs) ;;
+              artifacts/api-server/package.json) ;;
+              lib/db/src/schema/nexusPerson.ts) ;;
+              lib/db/src/schema/nexusPersonWorkProfile.ts) ;;
+              lib/db/src/schema/index.ts) ;;
+              .github/workflows/validate-person-card-freeware.yml) ;;
+              "")
+                ;;
+              *)
+                echo "OUT_OF_SCOPE_FREEWARE_CHANGE: $file"
+                bad=1
+                ;;
+            esac
+          done < <(git diff --name-only origin/main...HEAD)
+          test "$bad" -eq 0
 
       - uses: pnpm/action-setup@v4
         with:
