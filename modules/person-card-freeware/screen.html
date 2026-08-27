@@ -24,7 +24,7 @@
 .sheetBackdrop{position:fixed;z-index:80;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center}.sheetBackdrop.open{display:flex}.sheet{width:min(430px,100vw);max-height:86vh;overflow:auto;border:1px solid rgba(73,137,224,.45);border-radius:22px 22px 0 0;background:#041122;padding:16px 14px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -18px 60px rgba(0,0,0,.65)}.sheetHead{display:flex;align-items:center;justify-content:space-between;gap:12px}.sheet h3{margin:0;color:#8ec0ff;font-size:20px}.closeBtn{width:34px;height:34px;border:1px solid rgba(73,137,224,.35);border-radius:10px;background:#08182d;color:white;font-size:20px}.detail{margin-top:12px;display:grid;gap:8px}.detailRow{border:1px solid rgba(75,125,194,.2);border-radius:11px;padding:9px}.detailRow span{display:block;color:#8fa5c0;font-size:8px;text-transform:uppercase}.detailRow strong{display:block;margin-top:3px;font-size:12px}.formGrid{display:grid;gap:9px;margin-top:12px}.formGrid label span{display:block;color:#9fb1c7;font-size:9px;margin-bottom:4px}.formGrid input,.formGrid select{width:100%;border:1px solid rgba(75,125,194,.3);border-radius:10px;background:#06111e;color:white;padding:10px}.saveBtn{width:100%;margin-top:12px;border:1px solid rgba(47,134,255,.6);border-radius:12px;background:#1761c7;color:white;padding:11px;font-weight:900}.localOnly{margin-top:10px;color:#8fa5c0;font-size:9px;line-height:1.4}
 .appWindowNav{position:fixed;z-index:65;left:50%;bottom:0;transform:translateX(-50%);width:min(430px,100vw);height:72px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:rgba(0,5,13,.97);border-top:1px solid rgba(67,132,221,.35);box-shadow:0 -12px 30px rgba(0,0,0,.48)}
 .appWindowNav a{min-width:0;border:1px solid rgba(75,125,194,.2);border-radius:13px;color:#aebbd0;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:9px;font-weight:850}.appWindowNav a svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.appWindowNav a.active{color:#fff;border-color:rgba(47,134,255,.64);background:linear-gradient(180deg,rgba(23,81,151,.48),rgba(7,28,55,.72))}.appWindowNav a.active svg{color:#5ba2ff}
-.reserved{margin-top:22px;border:1px dashed rgba(75,125,194,.38);border-radius:18px;padding:20px;color:#aab8cb;text-align:center}.reserved h1{color:#fff}.reserved p{line-height:1.45}
+.workList{display:grid;gap:9px;margin-top:10px}.workRecord{border:1px solid rgba(108,160,228,.18);border-radius:16px;background:rgba(4,15,28,.76);padding:12px}.workRecordTop{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start}.workRole{font-size:14px;font-weight:900;line-height:1.2}.workEmployer{margin-top:3px;color:#8fa5c0;font-size:10px}.workProject{margin-top:9px;color:#dce8f8;font-size:11px;font-weight:800}.workLocation{margin-top:3px;color:#9fb0c5;font-size:9px}.workMetaGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.workMeta{border:1px solid rgba(75,125,194,.18);border-radius:10px;background:rgba(5,18,34,.7);padding:8px}.workMeta span{display:block;color:#859bb7;font-size:8px;text-transform:uppercase;letter-spacing:.05em}.workMeta strong{display:block;margin-top:3px;font-size:10px;line-height:1.25}.workStatus{display:inline-flex;align-items:center;border-radius:999px;padding:5px 7px;font-size:8px;font-weight:950;letter-spacing:.05em}.workStatus.active{color:#83f0b0;background:rgba(34,220,125,.12);border:1px solid rgba(34,220,125,.28)}.workStatus.upcoming{color:#a9caff;background:rgba(47,134,255,.12);border:1px solid rgba(47,134,255,.28)}.workStatus.completed{color:#c9d1dc;background:rgba(160,175,194,.1);border:1px solid rgba(160,175,194,.22)}.workBoundary{margin-top:10px;border:1px solid rgba(47,134,255,.22);border-radius:12px;background:rgba(9,29,53,.42);padding:10px;color:#aebfd4;font-size:9px;line-height:1.45}.workBoundary strong{color:#dceaff}.reserved{margin-top:22px;border:1px dashed rgba(75,125,194,.38);border-radius:18px;padding:20px;color:#aab8cb;text-align:center}.reserved h1{color:#fff}.reserved p{line-height:1.45}
 </style>
 </head>
 <body>
@@ -52,11 +52,33 @@
     <div id="documentGroups"></div>
   </section>
 
+  <section id="workScreen" hidden>
+    <section class="hero">
+      <div class="eyebrow">Window 3 · Worker-owned work record</div>
+      <h1>WORK CARD</h1>
+      <p>Your current and previous work assignments in one place: employer, project / site, role, location, dates and work contact.</p>
+      <div class="privacyNote">Local/demo mode. Work Card records added here stay on this device. Nothing is uploaded, shared with an employer or agency, or connected to another app without your explicit approval.</div>
+      <div class="summary" aria-label="Work record status summary">
+        <div><strong id="countWorkActive">0</strong><span>Active</span></div>
+        <div><strong id="countWorkUpcoming">0</strong><span>Upcoming</span></div>
+        <div><strong id="countWorkCompleted">0</strong><span>Completed</span></div>
+        <div><strong id="countWorkTotal">0</strong><span>Total</span></div>
+      </div>
+      <div class="workBoundary"><strong>Separate from recruitment:</strong> Find Work, Matches, Agencies, AI Check, Share, Inbox, Application Draft, Request Pack and Offer Work remain in the existing Person Card / Work Hub. Work Mode V2 is not activated by this screen.</div>
+    </section>
+
+    <div class="toolbar">
+      <h2>My work</h2>
+      <button class="addBtn" id="addWorkRecord" type="button">+ Add work record</button>
+    </div>
+    <div id="workRecords" class="workList"></div>
+  </section>
+
   <section id="reservedScreen" class="reserved" hidden>
     <div class="eyebrow">Four-window architecture</div>
     <h1 id="reservedTitle">Reserved window</h1>
     <p id="reservedCopy">This route is reserved inside the same Person Card Freeware application.</p>
-    <p>Prompt 2 implements only DOCUMENTS. This window is intentionally not built yet.</p>
+    <p>WORK MODE remains intentionally reserved here. Its V2 package stays dormant and is not loaded by this screen.</p>
   </section>
 </main>
 
@@ -89,6 +111,38 @@
   </section>
 </div>
 
+<div class="sheetBackdrop" id="workViewBackdrop" aria-hidden="true">
+  <section class="sheet" role="dialog" aria-modal="true" aria-label="Work record details">
+    <div class="sheetHead"><h3 id="workViewTitle">Work record</h3><button class="closeBtn" id="closeWorkView" type="button">×</button></div>
+    <div class="detail" id="workViewDetails"></div>
+  </section>
+</div>
+
+<div class="sheetBackdrop" id="workAddBackdrop" aria-hidden="true">
+  <section class="sheet" role="dialog" aria-modal="true" aria-label="Add work record">
+    <div class="sheetHead"><h3>Add work record</h3><button class="closeBtn" id="closeWorkAdd" type="button">×</button></div>
+    <form id="workRecordForm">
+      <div class="formGrid">
+        <label><span>Employer / contractor</span><input id="workEmployer" required maxlength="100" placeholder="e.g. Main contractor"></label>
+        <label><span>Project / site</span><input id="workProject" required maxlength="120" placeholder="e.g. City Centre Refurbishment"></label>
+        <label><span>Role / trade</span><input id="workRole" required maxlength="100" placeholder="e.g. Joiner"></label>
+        <label><span>Location</span><input id="workLocation" maxlength="100" placeholder="e.g. Leeds"></label>
+        <label><span>Start date</span><input id="workStart" type="date"></label>
+        <label><span>End date (optional)</span><input id="workEnd" type="date"></label>
+        <label><span>Status</span><select id="workStatus" required>
+          <option value="active">ACTIVE</option>
+          <option value="upcoming">UPCOMING</option>
+          <option value="completed">COMPLETED</option>
+        </select></label>
+        <label><span>Work contact (optional)</span><input id="workContact" maxlength="120" placeholder="Name / phone / email"></label>
+        <label><span>Notes (optional)</span><input id="workNotes" maxlength="180" placeholder="Short worker-owned note"></label>
+      </div>
+      <button class="saveBtn" type="submit">Save locally</button>
+      <div class="localOnly">This demo stores Work Card metadata in localStorage only. It does not create a placement, notify an employer, connect an app or send this information to a server.</div>
+    </form>
+  </section>
+</div>
+
 <nav class="appWindowNav" aria-label="Person Card Freeware main windows">
   <a href="./index.html" data-screen="person">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c0-4 3-7 7-7s7 3 7 7"/></svg><span>Person</span>
@@ -106,6 +160,7 @@
 
 <script>
 const LOCAL_KEY="nosmo-person-card-freeware:documents/v1";
+const WORK_LOCAL_KEY="nosmo-person-card-freeware:work-card/v1";
 const now=new Date("2026-08-27T00:00:00Z");
 const demoDocuments=[
   {id:"demo-cscs",name:"CSCS / trade card placeholder",type:"cards",expiry:"2027-06-15",source:"demo"},
@@ -126,6 +181,12 @@ const labels={
   other:"OTHER PROFESSIONAL DOCUMENTS"
 };
 
+const demoWorkRecords=[
+  {id:"demo-work-active",employer:"Demo contractor",project:"Current site assignment",role:"Trade role placeholder",location:"Demo location",start:"2026-08-18",end:"",status:"active",contact:"Site contact placeholder",notes:"Demo record — replace with your own work details.",source:"demo"},
+  {id:"demo-work-complete",employer:"Previous contractor placeholder",project:"Completed project example",role:"Trade role placeholder",location:"Demo location",start:"2026-05-04",end:"2026-07-31",status:"completed",contact:"",notes:"Demo history record.",source:"demo"}
+];
+const workStatusLabels={active:"ACTIVE",upcoming:"UPCOMING",completed:"COMPLETED"};
+
 function loadLocal(){
   try{
     const parsed=JSON.parse(localStorage.getItem(LOCAL_KEY)||"[]");
@@ -141,7 +202,15 @@ function statusFor(doc){
   return {key:"valid",label:"VALID"};
 }
 function allDocuments(){return [...demoDocuments,...loadLocal()]}
+function loadWorkLocal(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(WORK_LOCAL_KEY)||"[]");
+    return Array.isArray(parsed)?parsed:[];
+  }catch(_){return []}
+}
+function allWorkRecords(){return [...demoWorkRecords,...loadWorkLocal()]}
 function formatExpiry(expiry){if(!expiry)return "No expiry date";return new Date(expiry+"T00:00:00Z").toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
+function formatWorkDate(value){if(!value)return "Not set";return new Date(value+"T00:00:00Z").toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
 function esc(v){return String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[ch]))}
 function render(){
   const docs=allDocuments();
@@ -181,6 +250,40 @@ function openView(id){
     (doc.placeholder?'<div class="detailRow"><span>Attachment</span><strong>No file attached</strong></div>':'');
   toggle("viewBackdrop",true);
 }
+function renderWork(){
+  const records=allWorkRecords();
+  const counts={active:0,upcoming:0,completed:0};
+  records.forEach(r=>{if(counts[r.status]!==undefined)counts[r.status]++});
+  document.getElementById("countWorkActive").textContent=counts.active;
+  document.getElementById("countWorkUpcoming").textContent=counts.upcoming;
+  document.getElementById("countWorkCompleted").textContent=counts.completed;
+  document.getElementById("countWorkTotal").textContent=records.length;
+  const order={active:0,upcoming:1,completed:2};
+  const sorted=[...records].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||String(b.start||"").localeCompare(String(a.start||"")));
+  const host=document.getElementById("workRecords");
+  host.innerHTML=sorted.length?sorted.map(r=>
+    '<article class="workRecord"><div class="workRecordTop"><div><div class="workRole">'+esc(r.role)+'</div><div class="workEmployer">'+esc(r.employer)+'</div></div><span class="workStatus '+esc(r.status)+'">'+esc(workStatusLabels[r.status]||String(r.status).toUpperCase())+'</span></div>'+
+    '<div class="workProject">'+esc(r.project)+'</div><div class="workLocation">'+esc(r.location||"Location not set")+'</div>'+
+    '<div class="workMetaGrid"><div class="workMeta"><span>Start</span><strong>'+esc(formatWorkDate(r.start))+'</strong></div><div class="workMeta"><span>End</span><strong>'+esc(r.end?formatWorkDate(r.end):"Open")+'</strong></div></div>'+
+    '<div class="docMeta"><span class="expiry">'+(r.source==="local"?"Local record":"Demo / placeholder")+'</span><button class="viewBtn" type="button" data-work-view="'+esc(r.id)+'">View</button></div></article>'
+  ).join(""):'<div class="empty">No work records yet.</div>';
+  host.querySelectorAll("[data-work-view]").forEach(btn=>btn.addEventListener("click",()=>openWorkView(btn.dataset.workView)));
+}
+function openWorkView(id){
+  const r=allWorkRecords().find(item=>item.id===id); if(!r)return;
+  document.getElementById("workViewTitle").textContent=r.project;
+  document.getElementById("workViewDetails").innerHTML=
+    '<div class="detailRow"><span>Employer / contractor</span><strong>'+esc(r.employer)+'</strong></div>'+
+    '<div class="detailRow"><span>Project / site</span><strong>'+esc(r.project)+'</strong></div>'+
+    '<div class="detailRow"><span>Role / trade</span><strong>'+esc(r.role)+'</strong></div>'+
+    '<div class="detailRow"><span>Location</span><strong>'+esc(r.location||"Not set")+'</strong></div>'+
+    '<div class="detailRow"><span>Status</span><strong>'+esc(workStatusLabels[r.status]||String(r.status).toUpperCase())+'</strong></div>'+
+    '<div class="detailRow"><span>Dates</span><strong>'+esc(formatWorkDate(r.start))+' — '+esc(r.end?formatWorkDate(r.end):"Open")+'</strong></div>'+
+    '<div class="detailRow"><span>Work contact</span><strong>'+esc(r.contact||"Not set")+'</strong></div>'+
+    '<div class="detailRow"><span>Storage</span><strong>'+(r.source==="local"?"Local metadata on this device":"Demo / placeholder data")+'</strong></div>'+
+    (r.notes?'<div class="detailRow"><span>Notes</span><strong>'+esc(r.notes)+'</strong></div>':'');
+  toggle("workViewBackdrop",true);
+}
 function toggle(id,open){
   const el=document.getElementById(id);el.classList.toggle("open",open);el.setAttribute("aria-hidden",String(!open));
 }
@@ -207,9 +310,40 @@ document.getElementById("documentForm").addEventListener("submit",e=>{
 });
 ["viewBackdrop","addBackdrop"].forEach(id=>document.getElementById(id).addEventListener("click",e=>{if(e.target.id===id)toggle(id,false)}));
 
+document.getElementById("closeWorkView").addEventListener("click",()=>toggle("workViewBackdrop",false));
+document.getElementById("closeWorkAdd").addEventListener("click",()=>toggle("workAddBackdrop",false));
+document.getElementById("addWorkRecord").addEventListener("click",()=>toggle("workAddBackdrop",true));
+document.getElementById("workRecordForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const employer=document.getElementById("workEmployer").value.trim();
+  const project=document.getElementById("workProject").value.trim();
+  const role=document.getElementById("workRole").value.trim();
+  if(!employer||!project||!role)return;
+  const local=loadWorkLocal();
+  local.push({
+    id:"local-work-"+Date.now(),
+    employer,
+    project,
+    role,
+    location:document.getElementById("workLocation").value.trim(),
+    start:document.getElementById("workStart").value||"",
+    end:document.getElementById("workEnd").value||"",
+    status:document.getElementById("workStatus").value,
+    contact:document.getElementById("workContact").value.trim(),
+    notes:document.getElementById("workNotes").value.trim(),
+    source:"local",
+    addedAt:new Date().toISOString()
+  });
+  localStorage.setItem(WORK_LOCAL_KEY,JSON.stringify(local));
+  e.target.reset();
+  toggle("workAddBackdrop",false);
+  renderWork();
+});
+["workViewBackdrop","workAddBackdrop"].forEach(id=>document.getElementById(id).addEventListener("click",e=>{if(e.target.id===id)toggle(id,false)}));
+
 const screens={
   documents:{title:"DOCUMENTS"},
-  work:{title:"WORK CARD",copy:"Work Card window reserved for Prompt 3."},
+  work:{title:"WORK CARD"},
   "work-mode":{title:"WORK MODE",copy:"Work Mode window reserved for Prompt 4."}
 };
 const key=new URLSearchParams(location.search).get("screen");
@@ -218,6 +352,7 @@ else{
   document.title="NOSMO Person Card Freeware — "+screens[key].title;
   document.querySelector('[data-screen="'+key+'"]')?.classList.add("active");
   if(key==="documents"){document.getElementById("documentsScreen").hidden=false;render()}
+  else if(key==="work"){document.getElementById("workScreen").hidden=false;renderWork()}
   else{
     document.getElementById("reservedScreen").hidden=false;
     document.getElementById("reservedTitle").textContent=screens[key].title;
