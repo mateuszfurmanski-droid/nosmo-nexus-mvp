@@ -5,6 +5,7 @@ import { authMiddleware } from "./middlewares/authMiddleware";
 import { requireNexusCloudMutationOrigin } from "./middlewares/requireNexusCloudMutationOrigin";
 import nexusCloudRouter from "./routes/nexus-cloud";
 import nexusCloudStagingDeviceLoginRouter from "./routes/nexus-cloud-staging-device-login";
+import nexusCloudStagingControlRouter from "./routes/nexus-cloud-staging-control";
 import { logger } from "./lib/logger";
 import { runNexusCloudRuntimePreflight } from "./lib/nexus-cloud-runtime-preflight";
 
@@ -116,6 +117,7 @@ app.use(authMiddleware);
 // code is high-entropy, expiring and consumed atomically; no raw provider
 // subject is accepted or persisted.
 app.use("/api", nexusCloudStagingDeviceLoginRouter);
+app.use("/api", nexusCloudStagingControlRouter);
 
 app.use(
   "/api/nexus/cloud",
