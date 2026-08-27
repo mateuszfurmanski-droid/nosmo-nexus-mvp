@@ -83,7 +83,8 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           "$AAPT" dump badging "$APK" | tee /tmp/badging.txt
           "$AAPT" dump permissions "$APK" | tee /tmp/permissions.txt
-          grep -q "package: name='tech.nosmo.nexus.workmode.foldtest'" /tmp/badging.txt
+          grep -Eq "package: name='tech\\.nosmo\\.nexus\\.workmode\\.preview\\.p[0-9a-f]{8}'" /tmp/badging.txt
+          grep -q "launchable-activity: name='tech.nosmo.nexus.workmode.WorkerBootstrapActivity'" /tmp/badging.txt
           grep -q android.permission.INTERNET /tmp/permissions.txt
           ! grep -q android.permission.MANAGE_EXTERNAL_STORAGE /tmp/permissions.txt
           ! grep -q android.permission.SYSTEM_ALERT_WINDOW /tmp/permissions.txt
