@@ -333,6 +333,8 @@ jobs:
           node --check modules/person-card-freeware/js/person-agency-invite.js
           node --check modules/person-card-freeware/js/person-work-overlay-controller.js
           node --check modules/person-card-freeware/js/contact-action-engine.js
+          node --check modules/person-card-freeware/js/canonical-work-profile-bridge.js
+          node --check modules/person-card-freeware/js/work-hub.js
           node --check modules/person-card-freeware/js/agency-desk.js
           node --check modules/person-card-freeware/data-fetcher/app.js
           node --check modules/person-card-freeware/work-mode-v2/contracts.mjs
