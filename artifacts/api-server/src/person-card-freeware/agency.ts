@@ -394,7 +394,8 @@ router.get("/person-card/agency/account", async (req, res) => {
 
 router.post("/person-card/agency/account", async (req, res) => {
   const authUserId = requireAuthUserId(req);
-  if (!authUserId) {
+  const authUser = req.user;
+  if (!authUserId || !authUser) {
     res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
     return;
   }
@@ -445,8 +446,8 @@ router.post("/person-card/agency/account", async (req, res) => {
       joinedAt: now,
     });
     const authDisplayName =
-      [req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
-      req.user.email ||
+      [authUser.firstName, authUser.lastName].filter(Boolean).join(" ").trim() ||
+      authUser.email ||
       "Recruiter";
     await tx.insert(nexusPersonAgencyRecruiterProfilesTable).values({
       authUserId,
@@ -454,9 +455,9 @@ router.post("/person-card/agency/account", async (req, res) => {
       displayName: authDisplayName,
       jobTitle: "Recruiter",
       phone: null,
-      email: req.user.email ?? null,
+      email: authUser.email ?? null,
       bio: null,
-      photoUrl: req.user.profileImageUrl ?? null,
+      photoUrl: authUser.profileImageUrl ?? null,
       verificationStatus: "UNVERIFIED",
       updatedAt: now,
     });
@@ -476,7 +477,8 @@ router.post("/person-card/agency/account", async (req, res) => {
 
 router.get("/person-card/agency/profile", async (req, res) => {
   const authUserId = requireAuthUserId(req);
-  if (!authUserId) {
+  const authUser = req.user;
+  if (!authUserId || !authUser) {
     res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
     return;
   }
@@ -509,14 +511,14 @@ router.get("/person-card/agency/profile", async (req, res) => {
 
   const recruiter = rows[0] ?? {
     displayName:
-      [req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
-      req.user.email ||
+      [authUser.firstName, authUser.lastName].filter(Boolean).join(" ").trim() ||
+      authUser.email ||
       "Recruiter",
     jobTitle: null,
     phone: null,
-    email: req.user.email ?? null,
+    email: authUser.email ?? null,
     bio: null,
-    photoUrl: req.user.profileImageUrl ?? null,
+    photoUrl: authUser.profileImageUrl ?? null,
     verificationStatus: "UNVERIFIED",
     updatedAt: null,
   };
@@ -544,7 +546,8 @@ router.get("/person-card/agency/profile", async (req, res) => {
 
 router.patch("/person-card/agency/profile", async (req, res) => {
   const authUserId = requireAuthUserId(req);
-  if (!authUserId) {
+  const authUser = req.user;
+  if (!authUserId || !authUser) {
     res.status(401).json({ error: "NEXUS_AUTH_REQUIRED" });
     return;
   }
@@ -575,8 +578,8 @@ router.patch("/person-card/agency/profile", async (req, res) => {
 
   const displayName =
     clean(recruiterInput.displayName, 160) ??
-    ([req.user.firstName, req.user.lastName].filter(Boolean).join(" ").trim() ||
-      req.user.email ||
+    ([authUser.firstName, authUser.lastName].filter(Boolean).join(" ").trim() ||
+      authUser.email ||
       "Recruiter");
 
   await db
@@ -587,10 +590,10 @@ router.patch("/person-card/agency/profile", async (req, res) => {
       displayName,
       jobTitle: clean(recruiterInput.jobTitle, 120) ?? null,
       phone: clean(recruiterInput.phone, 80) ?? null,
-      email: clean(recruiterInput.email, 160) ?? req.user.email ?? null,
+      email: clean(recruiterInput.email, 160) ?? authUser.email ?? null,
       bio: clean(recruiterInput.bio, 800) ?? null,
       photoUrl:
-        clean(recruiterInput.photoUrl, 500) ?? req.user.profileImageUrl ?? null,
+        clean(recruiterInput.photoUrl, 500) ?? authUser.profileImageUrl ?? null,
       verificationStatus: "UNVERIFIED",
       updatedAt: now,
     })
@@ -601,11 +604,11 @@ router.patch("/person-card/agency/profile", async (req, res) => {
         displayName,
         jobTitle: clean(recruiterInput.jobTitle, 120) ?? null,
         phone: clean(recruiterInput.phone, 80) ?? null,
-        email: clean(recruiterInput.email, 160) ?? req.user.email ?? null,
+        email: clean(recruiterInput.email, 160) ?? authUser.email ?? null,
         bio: clean(recruiterInput.bio, 800) ?? null,
         photoUrl:
           clean(recruiterInput.photoUrl, 500) ??
-          req.user.profileImageUrl ??
+          authUser.profileImageUrl ??
           null,
         updatedAt: now,
       },
@@ -628,10 +631,10 @@ router.patch("/person-card/agency/profile", async (req, res) => {
       displayName,
       jobTitle: clean(recruiterInput.jobTitle, 120) ?? null,
       phone: clean(recruiterInput.phone, 80) ?? null,
-      email: clean(recruiterInput.email, 160) ?? req.user.email ?? null,
+      email: clean(recruiterInput.email, 160) ?? authUser.email ?? null,
       bio: clean(recruiterInput.bio, 800) ?? null,
       photoUrl:
-        clean(recruiterInput.photoUrl, 500) ?? req.user.profileImageUrl ?? null,
+        clean(recruiterInput.photoUrl, 500) ?? authUser.profileImageUrl ?? null,
       verificationStatus: "UNVERIFIED",
       updatedAt: now.toISOString(),
     },
