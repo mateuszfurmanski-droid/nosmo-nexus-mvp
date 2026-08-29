@@ -33,7 +33,7 @@ Superseded UI: nosmo-nexus-mvp PR #180. Do not restore.
 
 - `index.html` — canonical Person Card Freeware;
 - `screen.html?screen=documents` — worker-owned Documents window;
-- `screen.html?screen=work` — worker-owned professional Work Card with role, availability, preferred location, employment type, recent projects, work history, references, skills, licences/tickets, employer/agency notes and optional explicit Share Work Card action; local-first and separate from recruitment;
+- `screen.html?screen=work` — NOSMO Work centre with `Work Card | Jobs | Applications | Employers`; it retains the canonical worker-owned Work Card and adds local/demo job discovery, truthful application tracking, employer contacts and NOSMO Work Agent matching without creating another Person, Work Profile, CV store or Job Gateway;
 - `screen.html?screen=work-mode` — Work Mode V2 fourth window with local supported-app discovery, explicit Add / Open / Remove actions, privacy information and work-app category cards;
 - `onboarding.html` — worker onboarding;
 - `agency-desk.html` — unified agency / recruiter workspace over the existing recruiter-safe Person Card, shortlist, Request Pack, Offer Work, Worker Registry and Agency Invite flows;
