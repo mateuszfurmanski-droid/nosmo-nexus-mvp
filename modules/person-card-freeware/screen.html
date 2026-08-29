@@ -106,10 +106,11 @@
     </div>
 
     <div class="hubPanel" data-hub-panel="jobs" hidden>
-      <section class="agentBox"><h2>NOSMO WORK AGENT</h2><p>Matches jobs against your existing Work Card, canonical availability, skills, certificates, location and employment preferences. It never invents experience or marks an application sent.</p><div id="workAgentContext" class="cvRef"></div></section>
+      <section class="agentBox"><h2>NOSMO CONSTRUCTION JOBS</h2><p>Construction roles only. Matches vacancies against your Work Card, trade, skills, tickets, location and availability. It never invents experience or marks an application sent.</p><div id="workAgentContext" class="cvRef"></div></section>
       <div class="hubToolbar"><input id="jobSearchInput" type="search" placeholder="Search jobs / employers" aria-label="Search jobs or employers"><button class="hubPrimary" id="addJobButton" type="button">+ Add job</button></div>
-      <div class="hubToolbar"><select id="jobStatusFilter" aria-label="Filter jobs by status"><option value="">All statuses</option></select><button class="hubSecondary" id="runWorkAgent" type="button">Search matched</button></div>
-      <div id="jobSourceNotice" class="modeStatus">LOCAL / DEMO matches. Live Job Gateway is used only when an existing configured endpoint is available.</div>
+      <div class="hubToolbar"><select id="constructionTradeFilter" aria-label="Filter by construction trade"><option value="">All construction trades</option></select><select id="jobStatusFilter" aria-label="Filter jobs by status"><option value="">All statuses</option></select></div>
+      <button class="hubSecondary" id="runWorkAgent" type="button">Search construction jobs</button>
+      <div id="jobSourceNotice" class="modeStatus">CONSTRUCTION ONLY · Local/demo matches. Non-construction vacancies are excluded from manual, imported and gateway results.</div>
       <div id="jobHubList" class="jobHubList"></div>
     </div>
 
