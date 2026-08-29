@@ -252,6 +252,15 @@
     addLog("contact","prepared",{cvRecordId:q("#caeCv")?.value||null});
   }
 
+  function confirmSent(job,extra){
+    if(job)setJob(job);
+    if(!state.currentJob)return null;
+    return addLog(extra?.channel||"manual","sent-confirmed",Object.assign({
+      userConfirmed:true,
+      serverTransmissionPerformed:false
+    },extra||{}));
+  }
+
   async function shareCv(){
     const id=q("#caeCv")?.value||"";
     if(!id){
@@ -385,6 +394,7 @@
       version:"freeware1",
       mode:"local-user-handoff",
       setJob:setJob,
+      confirmSent:confirmSent,
       log:applicationLog,
       normalizePhone:normalizePhone
     };
