@@ -253,11 +253,20 @@
   }
 
   function confirmSent(job,extra){
-    if(job)setJob(job);
+    if(job&&(!state.currentJob||state.currentJob.id!==job.id))setJob(job);
     if(!state.currentJob)return null;
     return addLog(extra?.channel||"manual","sent-confirmed",Object.assign({
       userConfirmed:true,
       serverTransmissionPerformed:false
+    },extra||{}));
+  }
+
+  function recordOpened(job,channel,extra){
+    if(job&&(!state.currentJob||state.currentJob.id!==job.id))setJob(job);
+    if(!state.currentJob)return null;
+    return addLog(channel||"contact","opened",Object.assign({
+      serverTransmissionPerformed:false,
+      applicationSent:false
     },extra||{}));
   }
 
@@ -395,6 +404,7 @@
       mode:"local-user-handoff",
       setJob:setJob,
       confirmSent:confirmSent,
+      recordOpened:recordOpened,
       log:applicationLog,
       normalizePhone:normalizePhone
     };
