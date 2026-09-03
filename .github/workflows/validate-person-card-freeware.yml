@@ -399,6 +399,16 @@ jobs:
           pnpm --filter @workspace/api-server run build
           test -f artifacts/api-server/dist/person-card-freeware.mjs
 
+      - name: Upload standalone server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: person-card-freeware-server
+          path: |
+            artifacts/api-server/dist/person-card-freeware.mjs
+            artifacts/api-server/dist/person-card-freeware.mjs.map
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Standalone server startup smoke
         shell: bash
         run: |
