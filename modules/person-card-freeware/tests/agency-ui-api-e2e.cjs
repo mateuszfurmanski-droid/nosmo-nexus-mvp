@@ -121,8 +121,12 @@ async function main() {
 
     await aliceCard.locator("[data-shortlist]").click();
     const shortlistResponse = await shortlistResponsePromise;
-    assert.equal(shortlistResponse.status(), 201, "Shortlist action must persist");
     const shortlistPayload = await shortlistResponse.json();
+    assert.equal(
+      shortlistResponse.status(),
+      201,
+      "Shortlist action must persist: " + JSON.stringify(shortlistPayload),
+    );
     assert.equal(shortlistPayload.actionType, "SHORTLISTED");
     assert.equal(shortlistPayload.nextStage, "SHORTLISTED");
     assert.equal(shortlistPayload.privateDocumentsIncluded, false);
