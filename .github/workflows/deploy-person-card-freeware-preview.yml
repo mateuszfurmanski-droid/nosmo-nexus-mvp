@@ -1,0 +1,81 @@
+name: Deploy Person Card Freeware Preview
+
+on:
+  push:
+    branches:
+      - codex/person-card-freeware
+    paths:
+      - "modules/person-card-freeware/**"
+      - ".github/workflows/deploy-person-card-freeware-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Freeware branch
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Nexus Pages shell
+        env:
+          BASE_PATH: /nosmo-nexus-mvp/
+        run: pnpm --filter @workspace/nosmo-nexus build
+
+      - name: Add Person Card Freeware preview
+        shell: bash
+        run: |
+          target=artifacts/nosmo-nexus/dist/public/person-card-freeware
+          rm -rf "$target"
+          mkdir -p "$target"
+          cp -R modules/person-card-freeware/. "$target/"
+          cp artifacts/nosmo-nexus/dist/public/index.html artifacts/nosmo-nexus/dist/public/404.html
+          touch artifacts/nosmo-nexus/dist/public/.nojekyll
+          test -f "$target/index.html"
+          test -f "$target/screen.html"
+          test -f "$target/agency-desk.html"
+          test -f "$target/js/agency-desk.js"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: artifacts/nosmo-nexus/dist/public
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

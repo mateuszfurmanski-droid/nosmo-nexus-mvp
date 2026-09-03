@@ -1,0 +1,564 @@
+name: Validate Person Card Freeware
+
+on:
+  push:
+    branches:
+      - codex/person-card-freeware
+    paths:
+      - modules/person-card-freeware/**
+      - artifacts/api-server/src/person-card-freeware/**
+      - artifacts/api-server/src/person-card-freeware.ts
+      - artifacts/api-server/build.mjs
+      - artifacts/api-server/package.json
+      - lib/db/src/schema/nexusPerson.ts
+      - lib/db/src/schema/nexusPersonWorkProfile.ts
+      - lib/db/src/schema/nexusPersonAgency.ts
+      - lib/db/src/schema/index.ts
+      - .github/workflows/validate-person-card-freeware.yml
+      - .github/workflows/deploy-person-card-freeware-preview.yml
+  pull_request:
+    paths:
+      - modules/person-card-freeware/**
+      - artifacts/api-server/src/person-card-freeware/**
+      - artifacts/api-server/src/person-card-freeware.ts
+      - artifacts/api-server/build.mjs
+      - artifacts/api-server/package.json
+      - lib/db/src/schema/nexusPerson.ts
+      - lib/db/src/schema/nexusPersonWorkProfile.ts
+      - lib/db/src/schema/nexusPersonAgency.ts
+      - lib/db/src/schema/index.ts
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nosmo
+          POSTGRES_PASSWORD: nosmo
+          POSTGRES_DB: nosmo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nosmo -d nosmo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Freeware branch scope guard
+        shell: bash
+        run: |
+          git fetch origin main --depth=1
+          bad=0
+          while IFS= read -r file; do
+            case "$file" in
+              modules/person-card-freeware/*) ;;
+              artifacts/api-server/src/person-card-freeware/*) ;;
+              artifacts/api-server/src/person-card-freeware.ts) ;;
+              artifacts/api-server/build.mjs) ;;
+              artifacts/api-server/package.json) ;;
+              lib/db/src/schema/nexusPerson.ts) ;;
+              lib/db/src/schema/nexusPersonWorkProfile.ts) ;;
+              lib/db/src/schema/nexusPersonAgency.ts) ;;
+              lib/db/src/schema/index.ts) ;;
+              .github/workflows/validate-person-card-freeware.yml) ;;
+              .github/workflows/deploy-person-card-freeware-preview.yml) ;;
+              "")
+                ;;
+              *)
+                echo "OUT_OF_SCOPE_FREEWARE_CHANGE: $file"
+                bad=1
+                ;;
+            esac
+          done < <(git diff --name-only origin/main...HEAD)
+          test "$bad" -eq 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Frozen donor and source manifest
+        shell: bash
+        run: |
+          grep -F '"version": "v47top1"' modules/person-card-freeware/source-manifest.json
+          grep -F '"blobSha": "6b33057751dacb58555fc3462f2b6b811f53d48d"' modules/person-card-freeware/source-manifest.json
+          grep -F '"head": "fde179a4ad0e08ce418821b7b1017099ec9d3f14"' modules/person-card-freeware/source-manifest.json
+          grep -F '"head": "d1de9c4aa5d7f9ed44284bea5ceed752f493456c"' modules/person-card-freeware/source-manifest.json
+
+      - name: Standalone product boundary
+        shell: bash
+        run: |
+          test -f modules/person-card-freeware/index.html
+          test -f modules/person-card-freeware/onboarding.html
+          test -f modules/person-card-freeware/agency-invite.html
+          test -f modules/person-card-freeware/data-fetcher/index.html
+          test -f modules/person-card-freeware/js/contact-action-engine.js
+          test -f modules/person-card-freeware/work-mode-v2/construction-app-registry.json
+          test -f modules/person-card-freeware/work-mode-v2/contracts.mjs
+          test -f modules/person-card-freeware/work-mode-v2/local-discovery.mjs
+          test -f modules/person-card-freeware/work-mode-v2/privacy-connections.html
+          test -f modules/person-card-freeware/work-mode-v2/trust-copy.json
+          ! grep -F 'work-mode-v2/' modules/person-card-freeware/index.html
+          grep -Fi 'Work Hub' modules/person-card-freeware/index.html
+          grep -F '>Inbox</span>' modules/person-card-freeware/index.html
+          grep -Fi 'Data Fetcher' modules/person-card-freeware/index.html
+          grep -F 'Find Work' modules/person-card-freeware/index.html
+          grep -F 'Matches' modules/person-card-freeware/index.html
+          grep -F 'Agencies' modules/person-card-freeware/index.html
+          grep -F 'AI Check' modules/person-card-freeware/index.html
+          grep -F 'Request Pack' modules/person-card-freeware/index.html
+          grep -F 'Offer Work' modules/person-card-freeware/index.html
+          grep -F 'nexus-contact-action-engine/v1' modules/person-card-freeware/js/contact-action-engine.js
+          grep -F 'navigator.share' modules/person-card-freeware/js/contact-action-engine.js
+          grep -F 'wa.me/' modules/person-card-freeware/js/contact-action-engine.js
+          grep -F 'indexeddb-local' modules/person-card-freeware/data-fetcher/app.js
+          runtime_args=(--include='*.html' --include='*.js' --include='*.json')
+          ! grep -RFi "${runtime_args[@]}" 'Open in Tree' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'relationship-tree' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" '/apps/nexus/' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'NEXUS_DEMO_PROJECT_001_eSAFE_CATANIA' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'SKANSKA' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'DoorFlow' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" '/work-wallet' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'work-wallet/' modules/person-card-freeware
+          ! grep -RFi "${runtime_args[@]}" 'FabStation' modules/person-card-freeware
+
+      - name: Documents window local-only contract
+        shell: bash
+        run: |
+          screen=modules/person-card-freeware/screen.html
+          grep -F 'DOCUMENTS' "$screen"
+          grep -F 'CSCS / ECS / OTHER CARDS' "$screen"
+          grep -F 'CERTIFICATES' "$screen"
+          grep -F 'TRAINING' "$screen"
+          grep -F 'ID / RIGHT TO WORK' "$screen"
+          grep -F '+ Add document' "$screen"
+          grep -F 'VALID' "$screen"
+          grep -F 'EXPIRING' "$screen"
+          grep -F 'EXPIRED' "$screen"
+          grep -F 'NO EXPIRY' "$screen"
+          grep -F 'localStorage' "$screen"
+          ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$screen"
+
+      - name: Work Card local-only contract
+        shell: bash
+        run: |
+          screen=modules/person-card-freeware/screen.html
+          grep -F 'WORK CARD' "$screen"
+          grep -F 'Current role / trade' "$screen"
+          grep -F 'Availability' "$screen"
+          grep -F 'Preferred work location' "$screen"
+          grep -F 'Employment type' "$screen"
+          grep -F 'Recent projects' "$screen"
+          grep -F 'Work history' "$screen"
+          grep -F 'References' "$screen"
+          grep -F 'Skills' "$screen"
+          grep -F 'Licences / tickets' "$screen"
+          grep -F 'Employer / agency notes' "$screen"
+          grep -F 'Project name' "$screen"
+          grep -F 'Short description' "$screen"
+          grep -F 'Share Work Card' "$screen"
+          grep -F 'verified' "$screen"
+          grep -F 'unverified' "$screen"
+          grep -F 'nosmo-person-card-freeware:work-card/v2' "$screen"
+          grep -F 'Work Mode V2 runs only in the fourth window and does not scan from Work Card.' "$screen"
+          ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$screen"
+
+      - name: Agency Desk multi-worker ATS contract
+        shell: bash
+        run: |
+          desk=modules/person-card-freeware/agency-desk.html
+          desk_js=modules/person-card-freeware/js/agency-desk.js
+          recruiter=modules/person-card-freeware/js/person-work-profile.js
+          invite=modules/person-card-freeware/agency-invite.html
+          invite_js=modules/person-card-freeware/js/person-agency-invite.js
+          directory=modules/person-card-freeware/directory.html
+          agency_api=artifacts/api-server/src/person-card-freeware/agency.ts
+          agency_schema=lib/db/src/schema/nexusPersonAgency.ts
+          standalone=artifacts/api-server/src/person-card-freeware.ts
+          test -f "$desk"
+          test -f "$desk_js"
+          test -f "$agency_api"
+          test -f "$agency_schema"
+          grep -F 'AGENCY <span>DESK</span>' "$desk"
+          grep -F 'Multi-worker ATS view' "$desk"
+          grep -F 'recruiter-safe server projection' "$desk"
+          grep -F 'Create Agency Account' "$desk"
+          grep -F 'Candidate pipeline' "$desk"
+          grep -F 'Request Pack' "$desk"
+          grep -F 'Offer Work' "$desk"
+          grep -F '"/api/person-card/agency"' "$desk_js"
+          grep -F 'credentials:"include"' "$desk_js"
+          grep -F 'await api("/_health")' "$desk_js"
+          grep -F 'DB activation pending' "$desk_js"
+          grep -F '/candidates?limit=200' "$desk_js"
+          grep -F 'REQUEST_PACK_DRAFTED' "$desk_js"
+          grep -F 'OFFER_DRAFTED' "$desk_js"
+          grep -F 'SHORTLISTED' "$desk_js"
+          grep -F '/person-card/agency/account' "$agency_api"
+          grep -F '/person-card/agency/candidates' "$agency_api"
+          grep -F '/person-card/agency/activity' "$agency_api"
+          grep -F '/person-card/agency/profile' "$agency_api"
+          grep -F 'database-migration-required' "$agency_api"
+          grep -F "to_regclass('public.nexus_person_agency_access_grants')" "$agency_api"
+          grep -F 'nexusPersonAgencyAccessGrantsTable' "$agency_api"
+          grep -F 'nexusPersonAgencyRecruiterProfilesTable' "$agency_api"
+          grep -F 'eq(nexusPersonAgencyAccessGrantsTable.status, "ACTIVE")' "$agency_api"
+          grep -F 'eq(nexusPersonAgencyAccessGrantsTable.scope, "RECRUITER_SAFE")' "$agency_api"
+          grep -F 'privateFieldsIncluded: false' "$agency_api"
+          grep -F 'privateDocumentsIncluded: false' "$agency_api"
+          grep -F 'nexus_person_agencies' "$agency_schema"
+          grep -F 'nexus_person_agency_members' "$agency_schema"
+          grep -F 'nexus_person_agency_recruiter_profiles' "$agency_schema"
+          grep -F 'nexus_person_agency_access_grants' "$agency_schema"
+          grep -F 'nexus_person_agency_candidate_states' "$agency_schema"
+          grep -F 'nexus_person_agency_actions' "$agency_schema"
+          grep -F 'authMiddleware' "$standalone"
+          grep -F 'authRouter' "$standalone"
+          grep -F 'agencyRouter' "$standalone"
+          grep -F './agency-desk.html' "$recruiter"
+          grep -F 'href="./agency-desk.html"' "$invite"
+          grep -F 'href="./agency-desk.html"' "$directory"
+          grep -F 'agencyAccountEndpoint="/api/person-card/agency/account"' "$invite_js"
+          grep -F '/api/person-card/agency/profile' "$invite_js"
+          grep -F 'Authenticated Agency Account' "$invite"
+          ! grep -F './data/person-work-profile-kamil.json' "$desk_js"
+          test "$(find modules/person-card-freeware/data -maxdepth 1 -type f -name 'person-work-profile-*.json' | wc -l)" -eq 1
+
+      - name: Worker to agency explicit consent contract
+        shell: bash
+        run: |
+          onboarding=modules/person-card-freeware/onboarding.html
+          onboarding_js=modules/person-card-freeware/js/person-onboarding-v47.js
+          onboarding_api=artifacts/api-server/src/person-card-freeware/onboarding.ts
+          persistence=artifacts/api-server/src/person-card-freeware/person-work-profile-persistence.ts
+          invite_contract=artifacts/api-server/src/person-card-freeware/onboarding-invite.ts
+          invite_schema=lib/db/src/schema/nexusPersonWorkProfile.ts
+          agency_schema=lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'id="shareWithInvitingAgency" type="checkbox" disabled' "$onboarding"
+          ! grep -F 'id="shareWithInvitingAgency" type="checkbox" checked' "$onboarding"
+          grep -F 'Not shared by this permission: phone, email, CV text, private documents or Vault contents.' "$onboarding"
+          grep -F 'verifiedInviteIdentity=false' "$onboarding_js"
+          grep -F 'loadSecureInviteInfo' "$onboarding_js"
+          grep -F 'verifiedInviteIdentity && d.shareWithInvitingAgency' "$onboarding_js"
+          grep -F '/invite-info' "$onboarding_api"
+          grep -F 'router.use("/person-card/onboarding", (req, res, next) => {' "$onboarding_api"
+          grep -F 'verifiedSignedInvite: true' "$onboarding_api"
+          grep -F 'recruiterName: agencyAccount.recruiterName' "$onboarding_api"
+          grep -F 'agencyId: agencyAccount.agencyId' "$onboarding_api"
+          grep -F 'shareWithInvitingAgency = bool(req.body?.shareWithInvitingAgency)' "$onboarding_api"
+          grep -F 'consentSource: "WORKER_INVITE_ONBOARDING"' "$persistence"
+          grep -F 'status: "ACTIVE"' "$persistence"
+          grep -F 'status: "REVOKED"' "$persistence"
+          grep -F 'privateDocumentsIncluded: false' "$persistence"
+          grep -F 'contactDetailsIncluded: false' "$persistence"
+          grep -F 'cvTextIncluded: false' "$persistence"
+          grep -F 'agencyId?: string' "$invite_contract"
+          grep -F 'recruiterName?: string' "$invite_contract"
+          grep -F 'agencyId: text("agency_id")' "$invite_schema"
+          grep -F 'createdByUserId: varchar("created_by_user_id")' "$invite_schema"
+          grep -F 'nexus_person_agency_access_grants' "$agency_schema"
+
+      - name: Person Card dev DB migration and rollback E2E contract
+        shell: bash
+        run: |
+          migration=artifacts/api-server/src/person-card-freeware/sql/001-person-card-agency-persistence.sql
+          verify=artifacts/api-server/src/person-card-freeware/sql/verify-person-card-agency-e2e.sql
+          test -f "$migration"
+          test -f "$verify"
+          test "$(grep -c '^CREATE TABLE IF NOT EXISTS nexus_person_' "$migration")" -eq 9
+          grep -F 'nexus_person_onboarding_invites' "$migration"
+          grep -F 'nexus_person_work_profiles' "$migration"
+          grep -F 'nexus_person_work_events' "$migration"
+          grep -F 'nexus_person_agencies' "$migration"
+          grep -F 'nexus_person_agency_members' "$migration"
+          grep -F 'nexus_person_agency_recruiter_profiles' "$migration"
+          grep -F 'nexus_person_agency_access_grants' "$migration"
+          grep -F 'nexus_person_agency_candidate_states' "$migration"
+          grep -F 'nexus_person_agency_actions' "$migration"
+          grep -F 'CONSENT_GATE_EXPECTED_1_VISIBLE' "$verify"
+          grep -F 'DENIED_WORKER_MUST_NOT_HAVE_ACTIVE_GRANT' "$verify"
+          grep -F 'SECOND_CONSENT_EXPECTED_2_VISIBLE' "$verify"
+          grep -F 'REVOKE_EXPECTED_1_VISIBLE' "$verify"
+          grep -F 'PRIVACY_FLAGS_NOT_FALSE' "$verify"
+          grep -F "status='REVOKED'" "$verify"
+          grep -F "scope = 'RECRUITER_SAFE'" "$verify"
+          grep -F 'ROLLBACK;' "$verify"
+          ! grep -F 'COMMIT;' "$verify"
+
+      - name: Work Mode V2 active local-only contract
+        shell: bash
+        run: |
+          screen=modules/person-card-freeware/screen.html
+          runtime=modules/person-card-freeware/work-mode-v2/work-mode-screen.mjs
+          trust=modules/person-card-freeware/work-mode-v2/trust-copy.json
+          registry=modules/person-card-freeware/work-mode-v2/construction-app-registry.json
+          registry_js=modules/person-card-freeware/work-mode-v2/construction-app-registry.mjs
+          grep -F 'WORK MODE' "$screen"
+          grep -F 'Connected / Available Work Apps' "$screen"
+          grep -F 'BIM / drawings' "$runtime"
+          grep -F 'Snagging' "$runtime"
+          grep -F 'Site forms' "$runtime"
+          grep -F 'Timesheets' "$runtime"
+          grep -F 'Work Wallet' "$runtime"
+          grep -F 'Cloud storage' "$runtime"
+          grep -F 'Communication' "$runtime"
+          grep -F 'Project management' "$runtime"
+          grep -F 'Scan for work apps' "$screen"
+          grep -F 'Add to Work Mode' "$runtime"
+          grep -F 'Open' "$runtime"
+          grep -F 'Remove from Work Mode' "$runtime"
+          grep -F 'Privacy info' "$screen"
+          grep -F 'App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps.' "$screen"
+          grep -F 'App discovery happens only on this device. NOSMO does not upload or store a list of your installed apps.' "$trust"
+          grep -F 'createWorkCardV2Controller' "$runtime"
+          grep -F 'createAndroidWorkCardAdapter' "$runtime"
+          grep -F 'controller.discover()' "$runtime"
+          grep -F 'controller.decide(button.dataset.modeAdd, "ADD")' "$runtime"
+          grep -F 'controller.removeTile' "$runtime"
+          grep -F 'nativeAdapter.open' "$runtime"
+          grep -F 'history.pushState' "$screen"
+          grep -F './work-mode-v2/work-mode-screen.mjs' "$screen"
+          ! grep -E 'fetch\(|XMLHttpRequest|sendBeacon\(|WebSocket\(' "$runtime"
+          node --input-type=module - <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          import { CONSTRUCTION_APP_REGISTRY } from "./modules/person-card-freeware/work-mode-v2/construction-app-registry.mjs";
+          const json=JSON.parse(await readFile("./modules/person-card-freeware/work-mode-v2/construction-app-registry.json","utf8"));
+          assert.deepEqual(CONSTRUCTION_APP_REGISTRY,json);
+          console.log("WORK_MODE_REGISTRY_UI_PARITY_PASS");
+          NODE
+
+      - name: Static JavaScript and JSON validation
+        shell: bash
+        run: |
+          node --check modules/person-card-freeware/js/person-work-profile.js
+          node --check modules/person-card-freeware/js/person-onboarding-v47.js
+          node --check modules/person-card-freeware/js/person-agency-invite.js
+          node --check modules/person-card-freeware/js/person-work-overlay-controller.js
+          node --check modules/person-card-freeware/js/contact-action-engine.js
+          node --check modules/person-card-freeware/js/canonical-work-profile-bridge.js
+          node --check modules/person-card-freeware/js/work-hub.js
+          node --check modules/person-card-freeware/js/agency-desk.js
+          node --check modules/person-card-freeware/tests/agency-ui-api-e2e.cjs
+          node --check modules/person-card-freeware/data-fetcher/app.js
+          node --check modules/person-card-freeware/work-mode-v2/contracts.mjs
+          node --check modules/person-card-freeware/work-mode-v2/local-discovery.mjs
+          node --check modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs
+          node --check modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs
+          node --check modules/person-card-freeware/work-mode-v2/construction-app-registry.mjs
+          node --check modules/person-card-freeware/work-mode-v2/work-mode-screen.mjs
+          node --check modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
+          node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/construction-app-registry.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/work-mode-v2/trust-copy.json','utf8'))"
+          node modules/person-card-freeware/work-mode-v2/tests/privacy-acceptance.test.mjs
+          node modules/person-card-freeware/work-mode-v2/tests/work-card-controller.test.mjs
+          ! grep -RE 'fetch\(|XMLHttpRequest|sendBeacon|WebSocket' modules/person-card-freeware/work-mode-v2/contracts.mjs modules/person-card-freeware/work-mode-v2/local-discovery.mjs modules/person-card-freeware/work-mode-v2/local-work-card-store.mjs modules/person-card-freeware/work-mode-v2/work-card-v2-controller.mjs modules/person-card-freeware/work-mode-v2/work-mode-screen.mjs
+
+      - name: Android targeted discovery adapter
+        shell: bash
+        run: |
+          manifest=modules/person-card-freeware/work-mode-v2/android-adapter/src/main/AndroidManifest.xml
+          test -f "$manifest"
+          ! grep -RE '<uses-permission[^>]+android\.permission\.QUERY_ALL_PACKAGES' "$manifest"
+          grep -F '<queries>' "$manifest"
+          for pkg in com.whatsapp com.microsoft.teams com.google.android.apps.docs com.microsoft.skydrive com.dropbox.android; do
+            grep -F "android:name=\"$pkg\"" "$manifest"
+          done
+          ! grep -RE 'java\.net|okhttp|retrofit|HttpURLConnection|URLConnection|Socket' modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java
+          rm -rf /tmp/person-card-freeware-java
+          mkdir -p /tmp/person-card-freeware-java
+          javac -d /tmp/person-card-freeware-java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/SupportedAppPackages.java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/ControlledAndroidDiscovery.java             modules/person-card-freeware/work-mode-v2/android-adapter/src/test/java/tech/nosmo/personcard/workmodev2/ControlledAndroidDiscoveryTest.java
+          java -cp /tmp/person-card-freeware-java tech.nosmo.personcard.workmodev2.ControlledAndroidDiscoveryTest
+          ANDROID_JAR="$(find "$ANDROID_HOME/platforms" -name android.jar | sort -V | tail -1)"
+          test -n "$ANDROID_JAR"
+          javac -cp "$ANDROID_JAR:/tmp/person-card-freeware-java" -d /tmp/person-card-freeware-java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/AndroidPackageProbe.java             modules/person-card-freeware/work-mode-v2/android-adapter/src/main/java/tech/nosmo/personcard/workmodev2/AndroidWorkCardDiscoveryBridge.java
+          node - <<'NODE'
+          const fs=require("fs");
+          const registry=JSON.parse(fs.readFileSync("modules/person-card-freeware/work-mode-v2/construction-app-registry.json","utf8"));
+          const enabled=registry.apps
+            .filter(app=>app.discoveryEnabled)
+            .flatMap(app=>app.platforms?.android?.packageIds||[])
+            .sort();
+          const manifest=fs.readFileSync("modules/person-card-freeware/work-mode-v2/android-adapter/src/main/AndroidManifest.xml","utf8");
+          const declared=[...manifest.matchAll(/<package\s+android:name="([^"]+)"/g)].map(m=>m[1]).sort();
+          if(JSON.stringify(enabled)!==JSON.stringify(declared)){
+            throw new Error("ANDROID_MANIFEST_REGISTRY_MISMATCH "+JSON.stringify({enabled,declared}));
+          }
+          if(/<uses-permission[^>]+android:name=["']android\.permission\.QUERY_ALL_PACKAGES["']/.test(manifest)) throw new Error("QUERY_ALL_PACKAGES_FORBIDDEN");
+          console.log("ANDROID_TARGETED_DISCOVERY_CONTRACT_PASS");
+          NODE
+          node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/data/person-work-profile-kamil.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('modules/person-card-freeware/source-manifest.json','utf8'))"
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck canonical Person and Freeware API
+        run: |
+          pnpm run typecheck:libs
+          pnpm --filter @workspace/api-server run typecheck
+
+      - name: Build standalone server entry
+        run: |
+          pnpm --filter @workspace/api-server run build
+          test -f artifacts/api-server/dist/person-card-freeware.mjs
+
+      - name: Upload standalone server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: person-card-freeware-server
+          path: |
+            artifacts/api-server/dist/person-card-freeware.mjs
+            artifacts/api-server/dist/person-card-freeware.mjs.map
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Standalone server startup smoke
+        shell: bash
+        run: |
+          DATABASE_URL='postgresql://nosmo:nosmo@127.0.0.1:5432/nosmo' \
+            PORT=8129 \
+            node artifacts/api-server/dist/person-card-freeware.mjs \
+            >/tmp/person-card-freeware-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:8129/api/person-card/_health \
+              >/tmp/person-card-freeware-health.json; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/person-card-freeware-server.log
+              exit 1
+            fi
+            sleep 0.25
+          done
+          grep -F '"status":"ok"' /tmp/person-card-freeware-health.json
+          curl --fail --silent --show-error \
+            http://127.0.0.1:8129/agency-desk.html \
+            >/dev/null
+          curl --fail --silent --show-error \
+            http://127.0.0.1:8129/worker-route-fallback \
+            >/dev/null
+
+      - name: Agency Desk browser to API to Postgres E2E
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://nosmo:nosmo@127.0.0.1:5432/nosmo
+          AGENCY_E2E_BASE_URL: http://127.0.0.1:8130
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f modules/person-card-freeware/tests/agency-ui-api-e2e-setup.sql
+
+          playwright_dir="$(mktemp -d)"
+          test -n "$playwright_dir"
+          case "$playwright_dir" in
+            /tmp/*) ;;
+            *) echo "Unexpected temporary path"; exit 1 ;;
+          esac
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ]; then
+              kill "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$playwright_dir"
+          }
+          trap cleanup EXIT
+
+          npm install --prefix "$playwright_dir" --ignore-scripts --no-audit --no-fund \
+            playwright@1.55.0
+          "$playwright_dir/node_modules/.bin/playwright" install --with-deps chromium
+
+          PORT=8130 node artifacts/api-server/dist/person-card-freeware.mjs \
+            >/tmp/person-card-freeware-agency-e2e.log 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --show-error \
+              "$AGENCY_E2E_BASE_URL/api/person-card/agency/_health" \
+              >/tmp/person-card-freeware-agency-health.json; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/person-card-freeware-agency-e2e.log
+              exit 1
+            fi
+            sleep 0.25
+          done
+
+          grep -F '"databaseReady":true' \
+            /tmp/person-card-freeware-agency-health.json
+
+          NODE_PATH="$playwright_dir/node_modules" \
+            node modules/person-card-freeware/tests/agency-ui-api-e2e.cjs
+
+          test "$(psql "$DATABASE_URL" -Atc \
+            "select stage from nexus_person_agency_candidate_states where agency_id='nosmo-ui-e2e-agency' and person_id='nosmo-ui-e2e-worker-alice'")" \
+            = "SHORTLISTED"
+          test "$(psql "$DATABASE_URL" -Atc \
+            "select count(*) from nexus_person_agency_actions where agency_id='nosmo-ui-e2e-agency' and person_id='nosmo-ui-e2e-worker-alice' and action_type='SHORTLISTED'")" \
+            = "1"
+          test "$(psql "$DATABASE_URL" -Atc \
+            "select record_json->>'privateDocumentsIncluded' from nexus_person_agency_actions where agency_id='nosmo-ui-e2e-agency' and person_id='nosmo-ui-e2e-worker-alice' and action_type='SHORTLISTED'")" \
+            = "false"
+          echo "AGENCY_UI_DATABASE_E2E_PASS"
+
+      - name: Static route smoke
+        shell: bash
+        run: |
+          cd modules/person-card-freeware
+          python3 -m http.server 8128 >/tmp/person-card-freeware-static.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          sleep 2
+          curl --fail http://127.0.0.1:8128/index.html >/dev/null
+          curl --fail 'http://127.0.0.1:8128/screen.html?screen=documents' >/dev/null
+          curl --fail 'http://127.0.0.1:8128/screen.html?screen=work' >/dev/null
+          curl --fail 'http://127.0.0.1:8128/screen.html?screen=work-mode' >/dev/null
+          curl --fail http://127.0.0.1:8128/work-mode-v2/work-mode-screen.mjs >/dev/null
+          curl --fail http://127.0.0.1:8128/work-mode-v2/construction-app-registry.mjs >/dev/null
+          curl --fail http://127.0.0.1:8128/onboarding.html >/dev/null
+          curl --fail http://127.0.0.1:8128/agency-invite.html >/dev/null
+          curl --fail http://127.0.0.1:8128/agency-desk.html >/dev/null
+          curl --fail http://127.0.0.1:8128/js/agency-desk.js >/dev/null
+          curl --fail http://127.0.0.1:8128/section.html?section=cv >/dev/null
+          curl --fail http://127.0.0.1:8128/data-fetcher/ >/dev/null
+          curl --fail http://127.0.0.1:8128/directory.html >/dev/null
+          curl --fail http://127.0.0.1:8128/js/contact-action-engine.js >/dev/null
+          curl --fail http://127.0.0.1:8128/work-mode-v2/privacy-connections.html >/dev/null
+          curl --fail http://127.0.0.1:8128/work-mode-v2/construction-app-registry.json >/dev/null
+
+      - name: Backend contract boundary
+        shell: bash
+        run: |
+          grep -F '/person-card/jobs/search' artifacts/api-server/src/person-card-freeware/job-search.ts
+          grep -F '/person-card/jobs/ai/match' artifacts/api-server/src/person-card-freeware/job-ai-match.ts
+          grep -F '/person-card/onboarding/claim' artifacts/api-server/src/person-card-freeware/onboarding.ts
+          grep -F '/person-card/onboarding/drafts/load' artifacts/api-server/src/person-card-freeware/onboarding.ts
+          grep -F '/person-card/onboarding/drafts/save' artifacts/api-server/src/person-card-freeware/onboarding.ts
+          grep -F 'nexus_person_work_profiles' lib/db/src/schema/nexusPersonWorkProfile.ts
+          grep -F 'nexus-person-work-profile/v1' artifacts/api-server/src/person-card-freeware/person-work-profile-persistence.ts
+          grep -F 'nexus_pm_people' lib/db/src/schema/nexusPerson.ts
+          grep -F '/person-card/agency/account' artifacts/api-server/src/person-card-freeware/agency.ts
+          grep -F '/person-card/agency/candidates' artifacts/api-server/src/person-card-freeware/agency.ts
+          grep -F 'nexus_person_agencies' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'nexus_person_agency_candidate_states' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'nexus_person_agency_recruiter_profiles' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F 'nexus_person_agency_access_grants' lib/db/src/schema/nexusPersonAgency.ts
+          grep -F '/person-card/agency/profile' artifacts/api-server/src/person-card-freeware/agency.ts
+          grep -F 'authenticatedAgency(req)' artifacts/api-server/src/person-card-freeware/onboarding.ts
+          ! grep -RFi 'relationship-tree' artifacts/api-server/src/person-card-freeware
