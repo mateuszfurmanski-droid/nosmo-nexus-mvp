@@ -40,7 +40,9 @@ app.use("/api", onboardingRouter);
 app.use("/api", agencyRouter);
 app.use(express.static(staticDir, { index: "index.html", fallthrough: true }));
 
-app.get("*", (_req, res) => {
+// Express 5 / path-to-regexp v8 requires a named wildcard. The braced form
+// also matches `/`, preserving the SPA fallback used by the standalone app.
+app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));
 });
 
