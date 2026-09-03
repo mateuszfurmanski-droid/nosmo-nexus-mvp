@@ -38,7 +38,7 @@ const allowedOrigins = new Set(
     .filter(Boolean),
 );
 
-router.use((req, res, next) => {
+router.use("/person-card/onboarding", (req, res, next) => {
   const origin = req.get("origin");
   if (origin) {
     if (!allowedOrigins.has(origin)) {
