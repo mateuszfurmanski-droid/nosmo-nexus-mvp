@@ -399,6 +399,35 @@ jobs:
           pnpm --filter @workspace/api-server run build
           test -f artifacts/api-server/dist/person-card-freeware.mjs
 
+      - name: Standalone server startup smoke
+        shell: bash
+        run: |
+          DATABASE_URL='postgresql://nosmo:nosmo@127.0.0.1:5432/nosmo' \
+            PORT=8129 \
+            node artifacts/api-server/dist/person-card-freeware.mjs \
+            >/tmp/person-card-freeware-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:8129/api/person-card/_health \
+              >/tmp/person-card-freeware-health.json; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/person-card-freeware-server.log
+              exit 1
+            fi
+            sleep 0.25
+          done
+          grep -F '"status":"ok"' /tmp/person-card-freeware-health.json
+          curl --fail --silent --show-error \
+            http://127.0.0.1:8129/agency-desk.html \
+            >/dev/null
+          curl --fail --silent --show-error \
+            http://127.0.0.1:8129/worker-route-fallback \
+            >/dev/null
+
       - name: Static route smoke
         shell: bash
         run: |
