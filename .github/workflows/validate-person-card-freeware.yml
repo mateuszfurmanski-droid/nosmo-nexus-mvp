@@ -253,6 +253,7 @@ jobs:
           grep -F 'loadSecureInviteInfo' "$onboarding_js"
           grep -F 'verifiedInviteIdentity && d.shareWithInvitingAgency' "$onboarding_js"
           grep -F '/invite-info' "$onboarding_api"
+          grep -F 'router.use("/person-card/onboarding", (req, res, next) => {' "$onboarding_api"
           grep -F 'verifiedSignedInvite: true' "$onboarding_api"
           grep -F 'recruiterName: agencyAccount.recruiterName' "$onboarding_api"
           grep -F 'agencyId: agencyAccount.agencyId' "$onboarding_api"
