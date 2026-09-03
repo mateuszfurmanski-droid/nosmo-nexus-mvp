@@ -32,6 +32,20 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nosmo
+          POSTGRES_PASSWORD: nosmo
+          POSTGRES_DB: nosmo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nosmo -d nosmo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -336,6 +350,7 @@ jobs:
           node --check modules/person-card-freeware/js/canonical-work-profile-bridge.js
           node --check modules/person-card-freeware/js/work-hub.js
           node --check modules/person-card-freeware/js/agency-desk.js
+          node --check modules/person-card-freeware/tests/agency-ui-api-e2e.cjs
           node --check modules/person-card-freeware/data-fetcher/app.js
           node --check modules/person-card-freeware/work-mode-v2/contracts.mjs
           node --check modules/person-card-freeware/work-mode-v2/local-discovery.mjs
@@ -437,6 +452,69 @@ jobs:
           curl --fail --silent --show-error \
             http://127.0.0.1:8129/worker-route-fallback \
             >/dev/null
+
+      - name: Agency Desk browser to API to Postgres E2E
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://nosmo:nosmo@127.0.0.1:5432/nosmo
+          AGENCY_E2E_BASE_URL: http://127.0.0.1:8130
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f modules/person-card-freeware/tests/agency-ui-api-e2e-setup.sql
+
+          playwright_dir="$(mktemp -d)"
+          test -n "$playwright_dir"
+          case "$playwright_dir" in
+            /tmp/*) ;;
+            *) echo "Unexpected temporary path"; exit 1 ;;
+          esac
+          server_pid=""
+          cleanup() {
+            if [ -n "$server_pid" ]; then
+              kill "$server_pid" 2>/dev/null || true
+            fi
+            rm -rf "$playwright_dir"
+          }
+          trap cleanup EXIT
+
+          npm install --prefix "$playwright_dir" --ignore-scripts --no-audit --no-fund \
+            playwright@1.55.0
+          "$playwright_dir/node_modules/.bin/playwright" install --with-deps chromium
+
+          PORT=8130 node artifacts/api-server/dist/person-card-freeware.mjs \
+            >/tmp/person-card-freeware-agency-e2e.log 2>&1 &
+          server_pid=$!
+
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --show-error \
+              "$AGENCY_E2E_BASE_URL/api/person-card/agency/_health" \
+              >/tmp/person-card-freeware-agency-health.json; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/person-card-freeware-agency-e2e.log
+              exit 1
+            fi
+            sleep 0.25
+          done
+
+          grep -F '"databaseReady":true' \
+            /tmp/person-card-freeware-agency-health.json
+
+          NODE_PATH="$playwright_dir/node_modules" \
+            node modules/person-card-freeware/tests/agency-ui-api-e2e.cjs
+
+          test "$(psql "$DATABASE_URL" -Atc \
+            "select stage from nexus_person_agency_candidate_states where agency_id='nosmo-ui-e2e-agency' and person_id='nosmo-ui-e2e-worker-alice'")" \
+            = "SHORTLISTED"
+          test "$(psql "$DATABASE_URL" -Atc \
+            "select count(*) from nexus_person_agency_actions where agency_id='nosmo-ui-e2e-agency' and person_id='nosmo-ui-e2e-worker-alice' and action_type='SHORTLISTED'")" \
+            = "1"
+          test "$(psql "$DATABASE_URL" -Atc \
+            "select record_json->>'privateDocumentsIncluded' from nexus_person_agency_actions where agency_id='nosmo-ui-e2e-agency' and person_id='nosmo-ui-e2e-worker-alice' and action_type='SHORTLISTED'")" \
+            = "false"
+          echo "AGENCY_UI_DATABASE_E2E_PASS"
 
       - name: Static route smoke
         shell: bash
