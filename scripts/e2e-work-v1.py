@@ -1,9 +1,10 @@
-import json, os, time
+import json, os, time, shutil
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 
 BASE=os.environ.get('WORK_BASE_URL','http://127.0.0.1:4173').rstrip('/')
 results=[]
@@ -26,7 +27,8 @@ def click(driver,selector):
     driver.execute_script('arguments[0].click()',el);return el
 
 opts=Options();opts.page_load_strategy='eager';opts.add_argument('--headless=new');opts.add_argument('--no-sandbox');opts.add_argument('--disable-dev-shm-usage');opts.add_argument('--disable-gpu');opts.add_argument('--window-size=390,844');opts.set_capability('goog:loggingPrefs',{'browser':'ALL'})
-driver=webdriver.Chrome(options=opts);driver.set_page_load_timeout(15);driver.set_script_timeout(8)
+driver_path=shutil.which('chromedriver');assert driver_path,'chromedriver not found on runner'
+driver=webdriver.Chrome(service=Service(driver_path),options=opts);driver.set_page_load_timeout(15);driver.set_script_timeout(8)
 try:
     driver.set_window_size(390,844);open_page(driver,'/index.html')
     js(driver,"localStorage.clear(); location.reload()")
@@ -40,8 +42,7 @@ try:
     check('selected flag is current language',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇵🇱');check('language persisted',js(driver,'return localStorage.getItem("nosmo-work:v1:language")')=='pl')
     open_page(driver,'/screen.html?screen=documents');check('language survives navigation',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇵🇱');no_overflow(driver,'390px documents')
 
-    click(driver,'.workLangButton');click(driver,'.workLanguageOption[data-lang="en"]')
-    click(driver,'#workThemeButton')
+    click(driver,'.workLangButton');click(driver,'.workLanguageOption[data-lang="en"]');click(driver,'#workThemeButton')
     check('theme toggles',js(driver,'return document.documentElement.dataset.workTheme')=='light')
     open_page(driver,'/screen.html?screen=work');check('theme survives navigation',js(driver,'return document.documentElement.dataset.workTheme')=='light')
     bg=js(driver,'return getComputedStyle(document.querySelector(".appWindowNav")).backgroundColor');check('light nav is not dark orphan','0, 5, 13' not in bg,bg)
