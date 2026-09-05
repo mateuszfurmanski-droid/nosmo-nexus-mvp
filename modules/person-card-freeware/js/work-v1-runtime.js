@@ -48,7 +48,7 @@
     const lang=localStorage.getItem(KEYS.lang)||'en';
     document.documentElement.lang=lang==='uk'?'uk':lang;
     document.documentElement.dir=['ar','ur'].includes(lang)?'rtl':'ltr';
-    root.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(get(key))el.textContent=get(key)});
+    root.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n,value=get(key);if(value&&el.textContent!==value)el.textContent=value});
     const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){
       if(!node.parentElement||['SCRIPT','STYLE','TEXTAREA','INPUT','OPTION'].includes(node.parentElement.tagName))return NodeFilter.FILTER_REJECT;
       const text=node.nodeValue.trim();return exactKeys[text]?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;
@@ -56,7 +56,7 @@
     const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
     nodes.forEach(node=>{const raw=node.nodeValue,trim=raw.trim(),key=exactKeys[trim];node.nodeValue=raw.replace(trim,get(key))});
     document.querySelectorAll('#availabilityState,#availability').forEach(select=>{
-      Array.from(select.options).forEach(opt=>{if(opt.value==='available')opt.textContent=get('available');if(opt.value==='busy'||opt.value==='not-looking')opt.textContent=get('busy');if(opt.value==='from-date')opt.textContent=get('ready')});
+      Array.from(select.options).forEach(opt=>{const value=opt.value==='available'?get('available'):(opt.value==='busy'||opt.value==='not-looking')?get('busy'):opt.value==='from-date'?get('ready'):null;if(value&&opt.textContent!==value)opt.textContent=value});
     });
   }
   function setLanguage(lang){
