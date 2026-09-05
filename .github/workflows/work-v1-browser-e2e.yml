@@ -1,0 +1,71 @@
+name: NOSMO Work V1 Browser E2E
+
+on:
+  push:
+    branches:
+      - codex/work-v1-finalisation
+    paths:
+      - 'modules/person-card-freeware/**'
+      - 'scripts/e2e-work-v1.py'
+      - '.github/workflows/work-v1-browser-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/work-v1-finalisation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax checks
+        run: |
+          node --check modules/person-card-freeware/js/work-v1-runtime.js
+          node --check modules/person-card-freeware/js/work-hub.js
+          node --check modules/person-card-freeware/js/person-work-profile.js
+          node --check modules/person-card-freeware/js/person-onboarding-v47.js
+          node --check modules/person-card-freeware/sw.js
+      - name: Confirm finalisation is idempotent
+        run: |
+          node scripts/finalise-work-v1.mjs
+          git diff --exit-code -- modules/person-card-freeware
+      - name: Run static readiness QA again
+        run: node scripts/qa-work-v1.mjs
+      - name: Install Selenium
+        run: python3 -m pip install --user selenium==4.35.0
+      - name: Start local static server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory modules/person-card-freeware > /tmp/nosmo-work-server.log 2>&1 &
+          echo $! > /tmp/nosmo-work-server.pid
+          for i in {1..20}; do curl -fsS http://127.0.0.1:4173/index.html >/dev/null && exit 0; sleep 1; done
+          cat /tmp/nosmo-work-server.log
+          exit 1
+      - name: Run real Chrome acceptance smoke
+        env:
+          WORK_BASE_URL: http://127.0.0.1:4173
+        run: python3 scripts/e2e-work-v1.py
+      - name: Stop local server
+        if: always()
+        run: kill $(cat /tmp/nosmo-work-server.pid) 2>/dev/null || true
+      - name: Deploy preview to existing NOSMO Work Vercel project when CI token is configured
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo 'VERCEL_TOKEN_MISSING: browser QA passed, preview deployment skipped.'
+            exit 0
+          fi
+          npm install -g vercel@48.8.0
+          mkdir -p modules/person-card-freeware/.vercel
+          printf '%s\n' '{"orgId":"team_xYGLaQSQvOQxxs3S5O6cfkQR","projectId":"prj_oXogiEBXQJOw2IkQOnqNPkeR8u0x"}' > modules/person-card-freeware/.vercel/project.json
+          DEPLOY_URL=$(vercel deploy --yes --cwd modules/person-card-freeware --token="$VERCEL_TOKEN" 2>/tmp/vercel-deploy.log | tail -n 1)
+          cat /tmp/vercel-deploy.log
+          echo "PREVIEW_URL=$DEPLOY_URL"
+          test -n "$DEPLOY_URL"
