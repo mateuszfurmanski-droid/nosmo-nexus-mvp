@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/person-card-freeware
+      - codex/work-v1-finalisation
     paths:
       - "modules/person-card-freeware/**"
       - ".github/workflows/deploy-person-card-freeware-preview.yml"
