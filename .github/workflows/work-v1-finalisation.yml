@@ -26,6 +26,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Restore canonical NOSMO NEXUS logo
+        shell: bash
+        run: |
+          mkdir -p modules/person-card-freeware/assets/pwa
+          curl -fsSL 'https://raw.githubusercontent.com/mateuszfurmanski-droid/NOSMO-website/main/assets/NEXUS_Logo.png' \
+            -o modules/person-card-freeware/assets/NEXUS_Logo.png
+      - name: Derive PWA launcher icons from canonical logo
+        shell: bash
+        run: |
+          python3 -m pip install --quiet --user pillow==11.3.0
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          source=Image.open('modules/person-card-freeware/assets/NEXUS_Logo.png').convert('RGBA')
+          out=Path('modules/person-card-freeware/assets/pwa');out.mkdir(parents=True,exist_ok=True)
+          bg=(2,7,19,255)
+          def make(size,name,scale):
+              canvas=Image.new('RGBA',(size,size),bg)
+              logo=source.copy()
+              logo.thumbnail((int(size*scale),int(size*scale)),Image.Resampling.LANCZOS)
+              x=(size-logo.width)//2;y=(size-logo.height)//2
+              canvas.alpha_composite(logo,(x,y))
+              canvas.convert('RGB').save(out/name,'PNG',optimize=True)
+          make(192,'icon-192.png',0.84)
+          make(512,'icon-512.png',0.84)
+          make(512,'icon-512-maskable.png',0.66)
+          PY
       - name: Apply deterministic Work V1 finalisation patch
         run: node scripts/finalise-work-v1.mjs
       - name: Run Work V1 static readiness QA
