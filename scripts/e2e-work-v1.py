@@ -1,0 +1,113 @@
+import json, os, time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+
+BASE=os.environ.get('WORK_BASE_URL','http://127.0.0.1:4173').rstrip('/')
+results=[]
+def check(name, condition, detail=''):
+    results.append((name,bool(condition),detail))
+    if not condition: raise AssertionError(name+((': '+detail) if detail else ''))
+
+def js(driver, code, *args): return driver.execute_script(code,*args)
+def wait(driver, seconds=8): return WebDriverWait(driver,seconds)
+
+def open_page(driver,path):
+    driver.get(BASE+path)
+    wait(driver).until(lambda d: js(d,'return document.readyState')=='complete')
+    wait(driver).until(lambda d: js(d,'return !!document.querySelector(".workLangButton")'))
+
+def no_overflow(driver,name):
+    data=js(driver,'return {sw:document.documentElement.scrollWidth,iw:window.innerWidth,bw:document.body.scrollWidth}')
+    check(name+' no horizontal overflow',data['sw']<=data['iw']+2 and data['bw']<=data['iw']+2,str(data))
+
+def click(driver,selector):
+    el=wait(driver).until(EC.element_to_be_clickable((By.CSS_SELECTOR,selector)))
+    driver.execute_script('arguments[0].click()',el)
+    return el
+
+opts=Options();opts.add_argument('--headless=new');opts.add_argument('--no-sandbox');opts.add_argument('--disable-dev-shm-usage');opts.add_argument('--disable-gpu');opts.add_argument('--window-size=390,844');opts.set_capability('goog:loggingPrefs',{'browser':'ALL'})
+driver=webdriver.Chrome(options=opts)
+try:
+    driver.set_window_size(390,844)
+    open_page(driver,'/index.html')
+    js(driver,"localStorage.clear(); location.reload()")
+    wait(driver).until(lambda d: js(d,'return !!document.querySelector(".workLangButton")'))
+
+    check('default theme present',js(driver,'return document.documentElement.dataset.workTheme') in ['dark','light'])
+    check('current language flag English',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇬🇧')
+    top_h=js(driver,'return document.querySelector(".top").getBoundingClientRect().height')
+    bottom_h=js(driver,'return document.querySelector(".appWindowNav").getBoundingClientRect().height')
+    check('top bar substantial',top_h>=64,f'{top_h}px')
+    check('bottom bar substantial',bottom_h>=78,f'{bottom_h}px')
+    no_overflow(driver,'390px index')
+
+    click(driver,'.workLangButton');click(driver,'.workLanguageOption[data-lang="pl"]')
+    check('selected flag is current language',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇵🇱')
+    check('language persisted',js(driver,'return localStorage.getItem("nosmo-work:v1:language")')=='pl')
+    open_page(driver,'/screen.html?screen=documents')
+    check('language survives navigation',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇵🇱')
+    no_overflow(driver,'390px documents')
+
+    click(driver,'.workLangButton');click(driver,'.workLanguageOption[data-lang="en"]')
+    click(driver,'.workLangButton');click(driver,'#workThemeButton')
+    check('theme toggles',js(driver,'return document.documentElement.dataset.workTheme')=='light')
+    open_page(driver,'/screen.html?screen=work')
+    check('theme survives navigation',js(driver,'return document.documentElement.dataset.workTheme')=='light')
+    bg=js(driver,'return getComputedStyle(document.querySelector(".appWindowNav")).backgroundColor')
+    check('light nav is not dark orphan',not ('0, 5, 13' in bg),bg)
+
+    open_page(driver,'/index.html')
+    click(driver,'#workAvailabilityCompact')
+    click(driver,'.workAvailabilityChoice[data-state="busy"]')
+    click(driver,'.workAvailabilityDone')
+    avail=json.loads(js(driver,'return localStorage.getItem("nosmo-work:v1:availability")'))
+    check('Busy availability saved',avail['state']=='busy',str(avail))
+    check('Busy compact visible','Busy' in driver.find_element(By.ID,'workAvailabilityCompact').text)
+    click(driver,'#workAvailabilityCompact');click(driver,'.workAvailabilityChoice[data-state="from-date"]')
+    date=driver.find_element(By.ID,'workReadyDateInput');date.send_keys('09/15/2026');click(driver,'.workAvailabilityDone')
+    avail=json.loads(js(driver,'return localStorage.getItem("nosmo-work:v1:availability")'))
+    check('Ready on date saved',avail['state']=='from-date' and bool(avail['date']),str(avail))
+
+    # N/NEXUS logo must be a predictable Ask Nexus entry point.
+    click(driver,'.top .brand')
+    ask_open=js(driver,'return !!document.querySelector("#workOverlay.open") || location.hash==="#ask-nexus" || document.querySelector("#workTitle")?.textContent?.includes("Nexus")')
+    check('N logo opens Ask Nexus route/panel',ask_open)
+
+    open_page(driver,'/screen.html?screen=work')
+    search=wait(driver).until(EC.presence_of_element_located((By.ID,'jobSearchInput')))
+    search.clear();search.send_keys('carpenter')
+    wait(driver).until(lambda d: js(d,'return localStorage.getItem("nosmo-work:v1:job-search")?.includes("carpenter")'))
+    open_page(driver,'/screen.html?screen=documents');open_page(driver,'/screen.html?screen=work')
+    check('Find Work query survives navigation',driver.find_element(By.ID,'jobSearchInput').get_attribute('value')=='carpenter')
+
+    # PWA wiring: linked manifest, valid fields, service worker registration and control after reload.
+    manifest=js(driver,"return fetch('./manifest.webmanifest').then(r=>r.json())")
+    check('browser can fetch manifest',manifest.get('name')=='NOSMO Work' and manifest.get('display')=='standalone')
+    reg=js(driver,"return navigator.serviceWorker.getRegistration('./').then(r=>!!r)")
+    check('service worker registers in browser',reg)
+    driver.refresh();wait(driver).until(lambda d: js(d,'return document.readyState')=='complete');time.sleep(.5)
+    controller=js(driver,'return !!navigator.serviceWorker.controller')
+    check('service worker controls reopened app',controller)
+
+    # Responsive acceptance: Fold-narrow, phone, Fold-wide/tablet and tablet width.
+    for width,height,label in [(320,720,'Fold narrow'),(360,800,'small Android'),(673,841,'Fold wide'),(768,1024,'tablet')]:
+        driver.set_window_size(width,height);open_page(driver,'/screen.html?screen=work-mode');no_overflow(driver,label)
+        nav=js(driver,'return document.querySelector(".appWindowNav").getBoundingClientRect()')
+        check(label+' nav visible',nav['bottom']<=height+2 and nav['width']<=width+2,str(nav))
+
+    # Onboarding remains reachable and receives the same V1 runtime.
+    driver.set_window_size(390,844);open_page(driver,'/onboarding.html')
+    check('onboarding language control',bool(driver.find_elements(By.CSS_SELECTOR,'.workLangButton')))
+    no_overflow(driver,'onboarding')
+
+    severe=[x for x in driver.get_log('browser') if x.get('level')=='SEVERE' and 'favicon' not in x.get('message','').lower()]
+    check('no severe browser console errors',len(severe)==0,json.dumps(severe[:4]))
+finally:
+    driver.quit()
+
+print('\nNOSMO WORK V1 BROWSER E2E')
+for name,ok,detail in results: print(('PASS' if ok else 'FAIL'),name,detail)
+print(f'\n{sum(1 for _,ok,_ in results if ok)} passed; {sum(1 for _,ok,_ in results if not ok)} failed.')
