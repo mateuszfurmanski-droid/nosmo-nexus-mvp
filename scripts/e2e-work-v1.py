@@ -42,8 +42,12 @@ try:
     check('selected flag is current language',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇵🇱');check('language persisted',js(driver,'return localStorage.getItem("nosmo-work:v1:language")')=='pl')
     open_page(driver,'/screen.html?screen=documents');check('language survives navigation',driver.find_element(By.CSS_SELECTOR,'.workLangButton').text=='🇵🇱');no_overflow(driver,'390px documents')
 
-    click(driver,'.workLangButton');click(driver,'.workLanguageOption[data-lang="en"]');click(driver,'#workThemeButton')
-    check('theme toggles',js(driver,'return document.documentElement.dataset.workTheme')=='light')
+    click(driver,'.workLangButton');click(driver,'.workLanguageOption[data-lang="en"]')
+    before_theme=js(driver,'return document.documentElement.dataset.workTheme');click(driver,'#workThemeButton');after_theme=js(driver,'return document.documentElement.dataset.workTheme')
+    check('theme toggles',after_theme in ['dark','light'] and after_theme!=before_theme,f'{before_theme} -> {after_theme}')
+    if after_theme!='light':
+        click(driver,'#workThemeButton');after_theme=js(driver,'return document.documentElement.dataset.workTheme')
+    check('light theme can be selected',after_theme=='light')
     open_page(driver,'/screen.html?screen=work');check('theme survives navigation',js(driver,'return document.documentElement.dataset.workTheme')=='light')
     bg=js(driver,'return getComputedStyle(document.querySelector(".appWindowNav")).backgroundColor');check('light nav is not dark orphan','0, 5, 13' not in bg,bg)
 
