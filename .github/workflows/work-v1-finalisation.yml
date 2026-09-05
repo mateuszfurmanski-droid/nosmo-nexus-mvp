@@ -1,0 +1,44 @@
+name: NOSMO Work V1 Finalisation
+
+on:
+  push:
+    branches:
+      - codex/work-v1-finalisation
+    paths:
+      - 'modules/person-card-freeware/**'
+      - 'scripts/finalise-work-v1.mjs'
+      - 'scripts/qa-work-v1.mjs'
+      - '.github/workflows/work-v1-finalisation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalise-and-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: codex/work-v1-finalisation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply deterministic Work V1 finalisation patch
+        run: node scripts/finalise-work-v1.mjs
+      - name: Run Work V1 static readiness QA
+        run: node scripts/qa-work-v1.mjs
+      - name: Commit generated finalisation changes
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No generated changes.'
+            exit 0
+          fi
+          git config user.name 'NOSMO Work CI'
+          git config user.email 'noreply@nosmo.tech'
+          git add modules/person-card-freeware
+          git commit -m 'feat(work): apply V1 finalisation [skip ci]'
+          git push origin HEAD:codex/work-v1-finalisation
