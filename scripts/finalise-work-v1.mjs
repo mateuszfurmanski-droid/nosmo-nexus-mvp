@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 const root='modules/person-card-freeware';
 const htmlFiles=['index.html','screen.html','onboarding.html','section.html','about.html','directory.html'];
@@ -26,7 +27,6 @@ for(const file of htmlFiles){
   fs.writeFileSync(p,s);
 }
 
-// Keep old availability persistence compatible while exposing exactly the V1 states.
 const profileJs=path.join(root,'js/person-work-profile.js');
 if(fs.existsSync(profileJs)){
   let s=fs.readFileSync(profileJs,'utf8');
@@ -44,7 +44,6 @@ if(fs.existsSync(onboardingJs)){
   fs.writeFileSync(onboardingJs,s);
 }
 
-// Persist Find Work controls across navigation without changing the existing search engine.
 const workHub=path.join(root,'js/work-hub.js');
 if(fs.existsSync(workHub)){
   let s=fs.readFileSync(workHub,'utf8');
@@ -52,11 +51,9 @@ if(fs.existsSync(workHub)){
   fs.writeFileSync(workHub,s);
 }
 
-// Generate deterministic PNG launcher icons using only Node stdlib.
 function crc32(buf){let c=0xffffffff;for(const b of buf){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return (c^0xffffffff)>>>0}
 function chunk(type,data){const t=Buffer.from(type);const len=Buffer.alloc(4);len.writeUInt32BE(data.length);const crc=Buffer.alloc(4);crc.writeUInt32BE(crc32(Buffer.concat([t,data])));return Buffer.concat([len,t,data,crc])}
 function png(size,maskable=false){
-  const zlib=require('node:zlib');
   const raw=Buffer.alloc((size*4+1)*size);const cx=size/2,cy=size/2;
   for(let y=0;y<size;y++){const row=y*(size*4+1);raw[row]=0;for(let x=0;x<size;x++){
     const i=row+1+x*4;const r=Math.hypot(x-cx,y-cy);let R=2,G=7,B=19,A=255;
