@@ -49,7 +49,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck Agency backend
-        run: pnpm --filter @workspace/api-server run typecheck
+        run: |
+          pnpm run typecheck:libs
+          pnpm --filter @workspace/api-server run typecheck
 
       - name: Build standalone Agency host
         run: |
