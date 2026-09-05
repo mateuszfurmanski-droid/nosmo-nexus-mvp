@@ -6,6 +6,7 @@ import jobSearchRouter from "./person-card-freeware/job-search";
 import jobAiRouter from "./person-card-freeware/job-ai-match";
 import onboardingRouter from "./person-card-freeware/onboarding";
 import agencyRouter from "./person-card-freeware/agency";
+import agencyV1FinalisationRouter from "./person-card-freeware/agency-v1-finalisation";
 import authRouter from "./routes/auth";
 import { authMiddleware } from "./middlewares/authMiddleware";
 
@@ -29,6 +30,7 @@ app.get("/api/person-card/_health", (_req, res) => {
     workProfileSchema: "nexus-person-work-profile/v1",
     jobObjectSchema: "nexus-job-object/v1",
     agencyAtsSchema: "nexus-person-agency-candidate-list/v1",
+    agencyV1FinalisationSchema: "nosmo-agency-v1-health/v1",
     authenticatedAgencyDesk: true,
   });
 });
@@ -38,6 +40,7 @@ app.use("/api", jobSearchRouter);
 app.use("/api", jobAiRouter);
 app.use("/api", onboardingRouter);
 app.use("/api", agencyRouter);
+app.use("/api", agencyV1FinalisationRouter);
 app.use(express.static(staticDir, { index: "index.html", fallthrough: true }));
 
 // Express 5 / path-to-regexp v8 requires a named wildcard. The braced form
