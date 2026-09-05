@@ -1,0 +1,118 @@
+name: Validate NOSMO Agency V1
+
+on:
+  pull_request:
+    paths:
+      - artifacts/api-server/src/person-card-freeware/agency-v1-finalisation.ts
+      - artifacts/api-server/src/person-card-freeware/sql/002-agency-v1-roster-pipeline.sql
+      - artifacts/api-server/src/person-card-freeware.ts
+      - modules/person-card-freeware/tests/agency-v1-*
+      - modules/person-card-freeware/tests/agency-ui-api-e2e-setup.sql
+      - .github/workflows/validate-nosmo-agency-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agency-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nosmo
+          POSTGRES_PASSWORD: nosmo
+          POSTGRES_DB: nosmo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nosmo -d nosmo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Agency backend
+        run: |
+          pnpm run typecheck:libs
+          pnpm --filter @workspace/api-server run typecheck
+
+      - name: Build standalone Agency host
+        run: |
+          pnpm --filter @workspace/api-server run build
+          test -f artifacts/api-server/dist/person-card-freeware.mjs
+
+      - name: Prepare disposable Agency V1 database
+        env:
+          DATABASE_URL: postgresql://nosmo:nosmo@127.0.0.1:5432/nosmo
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f modules/person-card-freeware/tests/agency-ui-api-e2e-setup.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f artifacts/api-server/src/person-card-freeware/sql/002-agency-v1-roster-pipeline.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f modules/person-card-freeware/tests/agency-v1-api-e2e-fixture.sql
+
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_roster_workers where agency_id='nosmo-ui-e2e-agency'")" = "3"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_roster_workers where agency_id='agency-v1-isolation-tenant'")" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_requests where agency_id='nosmo-ui-e2e-agency'")" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_applications where agency_id='nosmo-ui-e2e-agency'")" = "3"
+
+      - name: Agency V1 API and two-tenant E2E
+        env:
+          DATABASE_URL: postgresql://nosmo:nosmo@127.0.0.1:5432/nosmo
+          AGENCY_V1_E2E_BASE_URL: http://127.0.0.1:8131
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=8131 node artifacts/api-server/dist/person-card-freeware.mjs \
+            >/tmp/nosmo-agency-v1-e2e.log 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --show-error \
+              "$AGENCY_V1_E2E_BASE_URL/api/person-card/agency/v1/_health" \
+              >/tmp/nosmo-agency-v1-health.json; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat /tmp/nosmo-agency-v1-e2e.log
+              exit 1
+            fi
+            sleep 0.25
+          done
+          test "$ready" = "1"
+          grep -F '"databaseReady":true' /tmp/nosmo-agency-v1-health.json
+
+          node modules/person-card-freeware/tests/agency-v1-api-e2e.cjs
+
+          test "$(psql "$DATABASE_URL" -Atc "select stage from nexus_person_agency_applications where agency_id='nosmo-ui-e2e-agency' and application_id='agency-v1-e2e-app-maya'")" = "INTERVIEW"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_placements where agency_id='nosmo-ui-e2e-agency' and application_id='agency-v1-e2e-app-alex'")" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_pipeline_events where agency_id='nosmo-ui-e2e-agency' and application_id='agency-v1-e2e-app-maya' and event_type='APPLICATION_UPDATED'")" = "1"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_requests where agency_id='agency-v1-isolation-tenant' and client_name='Agency Scope E2E'")" = "0"
+          test "$(psql "$DATABASE_URL" -Atc "select count(*) from nexus_person_agency_requests where agency_id='nosmo-ui-e2e-agency' and client_name='Agency Scope E2E'")" = "1"
+
+          echo "NOSMO_AGENCY_V1_DATABASE_E2E_PASS"
