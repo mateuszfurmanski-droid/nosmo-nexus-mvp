@@ -24,6 +24,7 @@ for(const file of htmlFiles){
   s=insertOnce(s,'</body>',runtimeTag,true);
   s=s.replaceAll('#9a64ff','#d6b35f').replaceAll('#9A64FF','#D6B35F');
   s=s.replace(/<option value="not-looking">Not looking<\/option>/g,'<option value="busy">Busy</option>');
+  s=s.replace(/<title>[^<]*<\/title>/i,'<title>NOSMO Work</title>');
   fs.writeFileSync(p,s);
 }
 
@@ -49,6 +50,14 @@ if(fs.existsSync(workHub)){
   let s=fs.readFileSync(workHub,'utf8');
   s=s.replace('function bind(){STATUSES.forEach',`function restoreSearchState(){try{const s=JSON.parse(localStorage.getItem("nosmo-work:v1:job-search")||"{}");[["jobSearchInput","input"],["jobStatusFilter","change"],["constructionTradeFilter","change"]].forEach(([id,type])=>{const el=q("#"+id);if(el&&s[id]!=null)el.value=s[id]})}catch(_){}}\n  function bind(){restoreSearchState();STATUSES.forEach`);
   fs.writeFileSync(workHub,s);
+}
+
+const runtimeJs=path.join(root,'js/work-v1-runtime.js');
+if(fs.existsSync(runtimeJs)){
+  let s=fs.readFileSync(runtimeJs,'utf8');
+  s=s.replace("root.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(get(key))el.textContent=get(key)});","root.querySelectorAll('[data-i18n]').forEach(el=>{const key=el.dataset.i18n,value=get(key);if(value&&el.textContent!==value)el.textContent=value});");
+  s=s.replace("Array.from(select.options).forEach(opt=>{if(opt.value==='available')opt.textContent=get('available');if(opt.value==='busy'||opt.value==='not-looking')opt.textContent=get('busy');if(opt.value==='from-date')opt.textContent=get('ready')});","Array.from(select.options).forEach(opt=>{const value=opt.value==='available'?get('available'):(opt.value==='busy'||opt.value==='not-looking')?get('busy'):opt.value==='from-date'?get('ready'):null;if(value&&opt.textContent!==value)opt.textContent=value});");
+  fs.writeFileSync(runtimeJs,s);
 }
 
 function crc32(buf){let c=0xffffffff;for(const b of buf){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return (c^0xffffffff)>>>0}
