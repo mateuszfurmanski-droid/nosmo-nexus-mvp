@@ -37,8 +37,11 @@ jobs:
           git diff --exit-code -- modules/person-card-freeware
       - name: Run static readiness QA again
         run: node scripts/qa-work-v1.mjs
-      - name: Install Selenium
-        run: python3 -m pip install --user selenium==4.35.0
+      - name: Install Selenium and verify browser driver
+        run: |
+          python3 -m pip install --user selenium==4.35.0
+          google-chrome --version || chromium --version
+          chromedriver --version
       - name: Start local static server
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 --directory modules/person-card-freeware > /tmp/nosmo-work-server.log 2>&1 &
@@ -49,7 +52,7 @@ jobs:
       - name: Run real Chrome acceptance smoke
         env:
           WORK_BASE_URL: http://127.0.0.1:4173
-        run: python3 scripts/e2e-work-v1.py
+        run: timeout 150s python3 -u scripts/e2e-work-v1.py
       - name: Stop local server
         if: always()
         run: kill $(cat /tmp/nosmo-work-server.pid) 2>/dev/null || true
