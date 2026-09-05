@@ -255,8 +255,8 @@
   }
   function availabilityLabel(a){
     if(!a)return "Available";
-    if(a.status==="not-looking")return "Not Looking";
-    if(a.status==="from-date")return a.availableFrom ? "From "+a.availableFrom : "From Date";
+    if(a.status==="busy")return "Busy";
+    if(a.status==="from-date")return a.availableFrom ? "Ready on "+a.availableFrom : "Ready on date";
     return "Available";
   }
   function readLocalAvailability(profile){
@@ -293,7 +293,7 @@
       if(night&&night.checked)shifts.push("night");
       var next={
         status:state?state.value:"available",
-        label:state&&state.value==="not-looking"?"Not Looking":state&&state.value==="from-date"?"From Date":"Available",
+        label:state&&state.value==="busy"?"Busy":state&&state.value==="from-date"?"Ready on date":"Available",
         availableFrom:date?date.value:"",
         preferredRadiusKm:radius?Number(radius.value||0):0,
         shifts:shifts,

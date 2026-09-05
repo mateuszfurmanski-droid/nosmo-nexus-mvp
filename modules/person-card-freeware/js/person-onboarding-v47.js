@@ -134,7 +134,7 @@
   }
 
   function availabilityLabel(d){
-    if(d.availability==="not-looking")return "Not Looking";
+    if(d.availability==="busy")return "Busy";
     if(d.availability==="from-date")return d.availableFrom ? "From "+d.availableFrom : "From Date";
     return "Available";
   }
