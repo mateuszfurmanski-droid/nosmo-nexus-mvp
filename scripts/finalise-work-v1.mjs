@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import zlib from 'node:zlib';
 
 const root='modules/person-card-freeware';
 const htmlFiles=['index.html','screen.html','onboarding.html','section.html','about.html','directory.html'];
@@ -59,27 +58,5 @@ if(fs.existsSync(runtimeJs)){
   s=s.replace("Array.from(select.options).forEach(opt=>{if(opt.value==='available')opt.textContent=get('available');if(opt.value==='busy'||opt.value==='not-looking')opt.textContent=get('busy');if(opt.value==='from-date')opt.textContent=get('ready')});","Array.from(select.options).forEach(opt=>{const value=opt.value==='available'?get('available'):(opt.value==='busy'||opt.value==='not-looking')?get('busy'):opt.value==='from-date'?get('ready'):null;if(value&&opt.textContent!==value)opt.textContent=value});");
   fs.writeFileSync(runtimeJs,s);
 }
-
-function crc32(buf){let c=0xffffffff;for(const b of buf){c^=b;for(let k=0;k<8;k++)c=(c>>>1)^((c&1)?0xedb88320:0)}return (c^0xffffffff)>>>0}
-function chunk(type,data){const t=Buffer.from(type);const len=Buffer.alloc(4);len.writeUInt32BE(data.length);const crc=Buffer.alloc(4);crc.writeUInt32BE(crc32(Buffer.concat([t,data])));return Buffer.concat([len,t,data,crc])}
-function png(size,maskable=false){
-  const raw=Buffer.alloc((size*4+1)*size);const cx=size/2,cy=size/2;
-  for(let y=0;y<size;y++){const row=y*(size*4+1);raw[row]=0;for(let x=0;x<size;x++){
-    const i=row+1+x*4;const r=Math.hypot(x-cx,y-cy);let R=2,G=7,B=19,A=255;
-    if(maskable&&r>size*.48){R=0;G=0;B=0}
-    if(r<size*.38){R=5;G=20;B=34}
-    if(r<size*.29&&r>size*.25){R=47;G=134;B=255}
-    const nx=(x-cx)/size,ny=(y-cy)/size;
-    const nShape=Math.abs(nx)<.035&&Math.abs(ny)<.13 || (nx<0&&nx>-.13&&Math.abs(ny)<.13) || (nx>0&&nx<.13&&Math.abs(ny)<.13) || Math.abs(ny-nx*.9)<.035&&Math.abs(nx)<.13;
-    if(nShape){R=214;G=179;B=95}
-    raw[i]=R;raw[i+1]=G;raw[i+2]=B;raw[i+3]=A;
-  }}
-  const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(size,0);ihdr.writeUInt32BE(size,4);ihdr[8]=8;ihdr[9]=6;
-  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',zlib.deflateSync(raw,{level:9})),chunk('IEND',Buffer.alloc(0))]);
-}
-const iconDir=path.join(root,'assets/pwa');fs.mkdirSync(iconDir,{recursive:true});
-fs.writeFileSync(path.join(iconDir,'icon-192.png'),png(192));
-fs.writeFileSync(path.join(iconDir,'icon-512.png'),png(512));
-fs.writeFileSync(path.join(iconDir,'icon-512-maskable.png'),png(512,true));
 
 console.log('NOSMO Work V1 finalisation patch applied.');
