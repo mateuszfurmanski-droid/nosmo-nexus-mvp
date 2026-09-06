@@ -41,6 +41,9 @@ jobs:
       - name: Smoke test e-SAFE core work cycle
         run: pnpm run smoke:esafe-core
 
+      - name: Smoke test canonical authority core
+        run: pnpm run smoke:authority-core
+
       - name: Build Nexus web application
         env:
           PORT: 4173

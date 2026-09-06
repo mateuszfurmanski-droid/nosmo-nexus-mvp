@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true
+  },
+  "files": [
+    "src/core/permissions/canonicalAuthorityContract.ts",
+    "src/core/permissions/canonicalAuthorityService.ts",
+    "src/core/permissions/canonicalAuthorityService.contract.test.ts"
+  ]
+}
