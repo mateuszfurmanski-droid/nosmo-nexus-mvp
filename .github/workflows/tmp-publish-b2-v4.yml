@@ -1,0 +1,98 @@
+name: TEMP Publish B2 Authority V4
+
+on:
+  push:
+    branches:
+      - tmp/b2-v4-publisher-20260906
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-publish-b2-v4
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout temporary publisher branch
+        uses: actions/checkout@v4
+        with:
+          ref: tmp/b2-v4-publisher-20260906
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reconstruct and verify exact V4 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .tmp/b2-v4/chunk-*.b64 | tr -d '\r\n' | base64 -d > /tmp/b2-v4.zip
+          echo 'fed309b0fca59890cf5bfcb942990b6c1ab89a08c035e61cb2a597ed6b0fda19  /tmp/b2-v4.zip' | sha256sum -c -
+
+          rm -rf /tmp/b2-v4
+          mkdir -p /tmp/b2-v4
+          unzip -q /tmp/b2-v4.zip -d /tmp/b2-v4
+
+          expected_files="$(printf '%s\n' \
+            package.json \
+            src/core/permissions/canonicalAuthorityContract.ts \
+            src/core/permissions/canonicalAuthorityService.contract.test.ts \
+            src/core/permissions/canonicalAuthorityService.ts \
+            tsconfig.authority-core.json)"
+          actual_files="$(find /tmp/b2-v4 -type f -printf '%P\n' | sort)"
+          test "$actual_files" = "$expected_files"
+
+          echo 'fc7082039a50fc30a5550e4c98bf4231868aa0029319573ceab059b6f8305a87  /tmp/b2-v4/src/core/permissions/canonicalAuthorityContract.ts' | sha256sum -c -
+          echo 'ff48f54a4d90b58caf20da1f3800e6bc7425f69fecdae9f28bec44a3d723a7d3  /tmp/b2-v4/src/core/permissions/canonicalAuthorityService.ts' | sha256sum -c -
+          echo 'e34b78283298c461a98f5a7fa3d76d13b393457db072e62fb818d8c3f9085182  /tmp/b2-v4/src/core/permissions/canonicalAuthorityService.contract.test.ts' | sha256sum -c -
+          echo 'c4c4396021525f784a3bf9d2dc67227ac57df4c65fea6d7c101cb6165ea1f785  /tmp/b2-v4/tsconfig.authority-core.json' | sha256sum -c -
+          echo '86a1d2cfc98a83672d1de0c3d10544eba1860978c86ddfe72eee8cbee2e94467  /tmp/b2-v4/package.json' | sha256sum -c -
+
+      - name: Create exactly one complete V4 commit on target branch
+        shell: bash
+        env:
+          BASE_SHA: 20d8293a69eacfbd448585291e74e916051af170
+          TARGET_BRANCH: codex/esafe-person-authority-convergence
+        run: |
+          set -euo pipefail
+
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$BASE_SHA"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+
+          mkdir -p src/core/permissions
+          cp /tmp/b2-v4/src/core/permissions/canonicalAuthorityContract.ts src/core/permissions/
+          cp /tmp/b2-v4/src/core/permissions/canonicalAuthorityService.ts src/core/permissions/
+          cp /tmp/b2-v4/src/core/permissions/canonicalAuthorityService.contract.test.ts src/core/permissions/
+          cp /tmp/b2-v4/tsconfig.authority-core.json .
+          cp /tmp/b2-v4/package.json .
+
+          git add -- \
+            package.json \
+            tsconfig.authority-core.json \
+            src/core/permissions/canonicalAuthorityContract.ts \
+            src/core/permissions/canonicalAuthorityService.ts \
+            src/core/permissions/canonicalAuthorityService.contract.test.ts
+
+          expected_files="$(printf '%s\n' \
+            package.json \
+            src/core/permissions/canonicalAuthorityContract.ts \
+            src/core/permissions/canonicalAuthorityService.contract.test.ts \
+            src/core/permissions/canonicalAuthorityService.ts \
+            tsconfig.authority-core.json)"
+          actual_files="$(git diff --cached --name-only | sort)"
+          test "$actual_files" = "$expected_files"
+          test "$(git diff --cached --name-only | wc -l)" -eq 5
+          test "$(git rev-list --count "$BASE_SHA"..HEAD)" -eq 0
+
+          git config user.name 'j-kosek'
+          git config user.email 'joanna.kosek.mrugala@gmail.com'
+          git commit -m 'feat(authority): add canonical authority core'
+
+          test "$(git rev-list --count "$BASE_SHA"..HEAD)" -eq 1
+          test "$(git rev-parse HEAD^)" = "$BASE_SHA"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+
+          echo "B2_V4_COMMIT_SHA=$(git rev-parse HEAD)"
