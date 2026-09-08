@@ -5,6 +5,8 @@ export * from './timeline/timelineContract';
 export * from './events/eventBus';
 export * from './permissions/permissionContract';
 export * from './permissions/runtimeIdentityContract';
+export * from './work-packages/canonicalWorkPackageContract';
+export * from './work-packages/canonicalWorkPackageService';
 export * from './storage/storageContract';
 export * from './storage/cloudRouting';
 export * from './storage/cloudAssetContract';

@@ -44,6 +44,9 @@ jobs:
       - name: Smoke test canonical authority core
         run: pnpm run smoke:authority-core
 
+      - name: Smoke test canonical Work Package / semantic drop core
+        run: pnpm run smoke:work-package-core
+
       - name: Build Nexus web application
         env:
           PORT: 4173

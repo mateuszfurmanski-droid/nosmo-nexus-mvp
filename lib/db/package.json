@@ -8,11 +8,13 @@
     "./schema": "./src/schema/index.ts",
     "./nexus-cloud-persistence": "./src/nexusCloudPersistence.ts",
     "./nexus-cloud-persistence-smoke": "./src/nexusCloudPersistenceSmoke.ts",
-    "./nexus-core-work-persistence": "./src/nexusCoreWorkPersistence.ts"
+    "./nexus-core-work-persistence": "./src/nexusCoreWorkPersistence.ts",
+    "./nexus-work-package-persistence": "./src/nexusWorkPackagePersistence.ts"
   },
   "scripts": {
     "migrate": "pnpm --dir ../../scripts exec tsx ../lib/db/scripts/migrate.ts",
-    "smoke:core-db": "pnpm --dir ../../scripts exec tsx ../lib/db/scripts/nexusCoreDbSmoke.ts"
+    "smoke:core-db": "pnpm --dir ../../scripts exec tsx ../lib/db/scripts/nexusCoreDbSmoke.ts",
+    "smoke:work-package-db": "pnpm --dir ../../scripts exec tsx ../lib/db/scripts/nexusWorkPackageDbSmoke.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
