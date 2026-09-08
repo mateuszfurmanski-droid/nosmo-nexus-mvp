@@ -67,7 +67,7 @@ const main = async (): Promise<void> => {
 
   await persistCanonicalChecklistRun({ runId: `checklist-run-${runId}`, workPackageAssignmentId: assigned.assignmentId!, taskId, workerPersonId: workerId, checklistId: "checklist-c2", checklistRevision: 3, startedAtIso: persistedAtIso, updatedAtIso: persistedAtIso, completedAtIso: persistedAtIso, completionState: "COMPLETE", responses: [{ itemId: "check-1", responseJson: true, respondedAtIso: persistedAtIso }] }); assert.equal((await db.select().from(nexusWpChecklistRunsTable).where(eq(nexusWpChecklistRunsTable.workPackageAssignmentId, assigned.assignmentId!))).length, 1);
 
-  console.log(JSON.stringify({ marker: "NEXUS_WORK_PACKAGE_DB_E2E_PASS", migration: "0004_work_package_semantic_drop", companionGrantRegressions: true, grantFailureRollsBackAssignment: true, assignmentFailureRollsBackGrant: true, exactRetry: true, mismatchRetry: true, concurrentRetry: true, concurrentCompanionGrantRetry: true, noPartialRows: true }));
+  console.log(JSON.stringify({ marker: "NEXUS_WORK_PACKAGE_DB_E2E_PASS", migration: "0004_work_package_semantic_drop", companionGrantRegressions: true, grantFailureRollsBackAssignment: true, assignmentFailureRollsBackGrant: true, exactRetry: true, mismatchRetry: true, concurrentRetry: true, concurrentCompanionGrantRetry: true, rollbackNoPartial: true, noPartialRows: true }));
 };
 
 try { await main(); } finally { await pool.end(); }
