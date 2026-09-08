@@ -73,6 +73,13 @@ const validateComposition = (packageId: string, groups: NexusWorkPackageGroup[],
 const actor = (a: NexusCanonicalAuthorityEvaluation): string | undefined => a.allowed && a.identity.state === 'BOUND' ? a.identity.personId : undefined;
 const authorityFailure = (a: NexusCanonicalAuthorityEvaluation) => fail(a.status === 'STALE' ? 'AUTHORITY_STALE' : 'AUTHORITY_DENIED', `Canonical Authority blocked operation: ${a.status}/${a.reasonCode}.`);
 const recipientKey = (r: NexusWorkPackageAssignmentRecipient) => r.type === 'PERSON' ? `PERSON:${r.personId}` : `OBJECT:${r.objectId}`;
+const sameOptional = (left: string | undefined, right: string | undefined): boolean => (left ?? null) === (right ?? null);
+const companionMatchesRequirement = (grant: NexusCompanionCapabilityGrant, requirement: NexusTargetCapabilityRequirement): boolean =>
+  grant.intentId === requirement.companionGrantIntentId &&
+  grant.moduleId === requirement.moduleId &&
+  grant.actionKey === requirement.actionKey &&
+  sameOptional(grant.objectScopeId, requirement.objectScopeId) &&
+  sameOptional(grant.dataScope, requirement.dataScope);
 const intentShape: Record<NexusSemanticIntent, [NexusSemanticReference['type'], NexusSemanticReference['type']]> = {
   TASK_TO_PERSON: ['TASK', 'PERSON'], APP_TO_PERSON: ['APP', 'PERSON'], DOCUMENT_TO_TASK: ['DOCUMENT', 'TASK'],
   WORK_PACKAGE_TO_PERSON: ['WORK_PACKAGE', 'PERSON'], WORK_PACKAGE_TO_OBJECT: ['WORK_PACKAGE', 'OBJECT'],
@@ -145,12 +152,63 @@ export class CanonicalWorkPackageService {
   private requirements(p: NexusCanonicalWorkPackage): NexusTargetCapabilityRequirement[] {
     const all = p.items.flatMap((i) => i.targetCapabilityRequirements ?? []); return all.length ? clone(all) : [{ moduleId: 'worksuite', actionKey: NEXUS_AUTHORITY_ACTIONS.workerReadAssignedPackage, objectScopeId: p.packageId, accessMode: 'CURRENT_ACCESS_REQUIRED' }];
   }
+
+  private validateWorkPackageCompanionGrants(
+    r: NexusSemanticOperationRequest,
+    requirements: NexusTargetCapabilityRequirement[],
+  ): { status: 'VALID'; grants: NexusCompanionCapabilityGrant[] } | { status: 'INVALID'; failures: NexusSemanticValidationFailure[] } {
+    if (r.intent !== 'WORK_PACKAGE_TO_PERSON' || r.target.type !== 'PERSON') return { status: 'VALID', grants: [] };
+    const grantable = requirements.filter((requirement) => requirement.accessMode === 'GRANTABLE_IN_SAME_OPERATION');
+    const grants = clone(r.companionGrants ?? []);
+    if (grantable.length === 0) {
+      return grants.length === 0
+        ? { status: 'VALID', grants: [] }
+        : { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', 'Work Package companion grants require a matching GRANTABLE_IN_SAME_OPERATION capability.')] };
+    }
+    if (grantable.some((requirement) => !requirement.companionGrantIntentId?.trim())) {
+      return { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', 'Every grantable Work Package capability requires companionGrantIntentId.')] };
+    }
+    const requiredIntentIds = grantable.map((requirement) => requirement.companionGrantIntentId!);
+    if (uniq(requiredIntentIds).length !== requiredIntentIds.length) {
+      return { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', 'Duplicate or conflicting Work Package companionGrantIntentId values are forbidden.')] };
+    }
+    if (
+      grants.length !== grantable.length ||
+      grants.some((grant) => !grant.intentId.trim() || !grant.grantId.trim() || !grant.reason.trim()) ||
+      uniq(grants.map((grant) => grant.intentId)).length !== grants.length ||
+      uniq(grants.map((grant) => grant.grantId)).length !== grants.length
+    ) {
+      return { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', 'Work Package grantable capabilities require exactly one unique trusted companion grant each.')] };
+    }
+    for (const requirement of grantable) {
+      const matches = grants.filter((grant) => companionMatchesRequirement(grant, requirement));
+      if (matches.length !== 1) {
+        return { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', `Companion grant ${requirement.companionGrantIntentId} does not exactly match module/action/object/data scope.`)] };
+      }
+    }
+    for (const grant of grants) {
+      const matches = grantable.filter((requirement) => companionMatchesRequirement(grant, requirement));
+      if (matches.length !== 1) {
+        return { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', `Trusted companion grant ${grant.intentId} is unmatched or ambiguous.`)] };
+      }
+      if (this.memory.permissionGrants.some((existing) => existing.id === grant.grantId)) {
+        return { status: 'INVALID', failures: [fail('COMPANION_GRANT_INVALID', `PermissionGrant ID ${grant.grantId} already exists.`)] };
+      }
+    }
+    // The trusted payload is operation-scoped: every emitted grant is structurally bound to this exact semantic target Person.
+    return { status: 'VALID', grants };
+  }
+
   private authorityRequest(r: NexusSemanticOperationRequest): NexusCanonicalAuthorityRequest | NexusSemanticValidationFailure[] {
     let objectScopeId: string | undefined; let targetPersonId = r.target.type === 'PERSON' ? r.target.id : undefined; let reqs: NexusTargetCapabilityRequirement[] = [];
     if (r.intent === 'TASK_TO_PERSON' && r.source.type === 'TASK') { objectScopeId = r.source.id; reqs = [{ moduleId: 'worksuite', actionKey: NEXUS_AUTHORITY_ACTIONS.workerStartTask, objectScopeId, accessMode: 'CURRENT_ACCESS_REQUIRED' }]; }
     if (r.intent === 'DOCUMENT_TO_TASK' && r.target.type === 'TASK') objectScopeId = r.target.id;
     if (r.intent === 'WORK_PACKAGE_TO_OBJECT' && r.target.type === 'OBJECT') objectScopeId = r.target.id;
-    if (r.intent === 'WORK_PACKAGE_TO_PERSON' && r.source.type === 'WORK_PACKAGE') { const p = this.packages.get(r.source.id); if (!p) return [fail('PACKAGE_NOT_FOUND', 'Package not found.')]; objectScopeId = p.packageId; reqs = this.requirements(p); }
+    if (r.intent === 'WORK_PACKAGE_TO_PERSON' && r.source.type === 'WORK_PACKAGE') {
+      const p = this.packages.get(r.source.id); if (!p) return [fail('PACKAGE_NOT_FOUND', 'Package not found.')];
+      objectScopeId = p.packageId; reqs = this.requirements(p);
+      const companion = this.validateWorkPackageCompanionGrants(r, reqs); if (companion.status === 'INVALID') return companion.failures;
+    }
     if (r.intent === 'APP_TO_PERSON') { const grants = r.companionGrants ?? []; if (!targetPersonId || !grants.length || uniq(grants.map((g) => g.intentId)).length !== grants.length || uniq(grants.map((g) => g.grantId)).length !== grants.length) return [fail('COMPANION_GRANT_INVALID', 'App -> Person requires unique companion grants.')]; reqs = grants.map((g) => ({ moduleId: g.moduleId, actionKey: g.actionKey, objectScopeId: g.objectScopeId, dataScope: g.dataScope, accessMode: 'GRANTABLE_IN_SAME_OPERATION', companionGrantIntentId: g.intentId })); }
     return { session: r.session, workspaceId: r.workspaceId, projectId: r.projectId, worldId: r.worldId, moduleId: r.intent === 'APP_TO_PERSON' ? 'authority' : 'worksuite', actionKey: actionFor(r.intent), objectScopeId, targetPersonId, targetCapabilityRequirements: reqs };
   }
@@ -160,7 +218,14 @@ export class CanonicalWorkPackageService {
     if (r.intent === 'TASK_TO_PERSON' && r.source.type === 'TASK' && r.target.type === 'PERSON') e.push({ type: 'PROJECT_TASK_ASSIGNMENT', taskId: r.source.id, personId: r.target.id }, { type: 'PROJECT_RELATIONSHIP_EDGE', edgeId, sourceId: r.source.id, targetId: r.target.id, relationshipType: 'ASSIGNED_TO' });
     if (r.intent === 'DOCUMENT_TO_TASK' && r.source.type === 'DOCUMENT' && r.target.type === 'TASK') e.push({ type: 'PROJECT_DOCUMENT_TASK_LINK', documentId: r.source.id, taskId: r.target.id }, { type: 'PROJECT_RELATIONSHIP_EDGE', edgeId, sourceId: r.source.id, targetId: r.target.id, relationshipType: 'RELATES_TO' });
     if (r.intent === 'APP_TO_PERSON' && r.target.type === 'PERSON') { for (const g of r.companionGrants ?? []) e.push({ type: 'COMPANION_PERMISSION_GRANT', grantId: g.grantId, intentId: g.intentId, targetPersonId: r.target.id }); e.push({ type: 'PROJECT_RELATIONSHIP_EDGE', edgeId, sourceId: r.source.id, targetId: r.target.id, relationshipType: 'ASSIGNED_TO' }); }
-    if ((r.intent === 'WORK_PACKAGE_TO_PERSON' || r.intent === 'WORK_PACKAGE_TO_OBJECT') && r.source.type === 'WORK_PACKAGE') { const recipient: NexusWorkPackageAssignmentRecipient = r.target.type === 'PERSON' ? { type: 'PERSON', personId: r.target.id } : { type: 'OBJECT', objectId: r.target.id }; e.push({ type: 'CREATE_WORK_PACKAGE_ASSIGNMENT', assignmentId: `work-package-assignment:${r.semanticOperationId}`, recipient }, { type: 'PROJECT_RELATIONSHIP_EDGE', edgeId, sourceId: r.source.id, targetId: r.target.id, relationshipType: 'ASSIGNED_TO' }); }
+    if ((r.intent === 'WORK_PACKAGE_TO_PERSON' || r.intent === 'WORK_PACKAGE_TO_OBJECT') && r.source.type === 'WORK_PACKAGE') {
+      const recipient: NexusWorkPackageAssignmentRecipient = r.target.type === 'PERSON' ? { type: 'PERSON', personId: r.target.id } : { type: 'OBJECT', objectId: r.target.id };
+      e.push({ type: 'CREATE_WORK_PACKAGE_ASSIGNMENT', assignmentId: `work-package-assignment:${r.semanticOperationId}`, recipient });
+      if (r.intent === 'WORK_PACKAGE_TO_PERSON' && r.target.type === 'PERSON') {
+        for (const g of r.companionGrants ?? []) e.push({ type: 'COMPANION_PERMISSION_GRANT', grantId: g.grantId, intentId: g.intentId, targetPersonId: r.target.id });
+      }
+      e.push({ type: 'PROJECT_RELATIONSHIP_EDGE', edgeId, sourceId: r.source.id, targetId: r.target.id, relationshipType: 'ASSIGNED_TO' });
+    }
     e.push({ type: 'PROJECT_MEMORY_EVENT', eventId, timelineEventId }); return e;
   }
 
@@ -189,8 +254,8 @@ export class CanonicalWorkPackageService {
           if (e.type === 'PROJECT_TASK_ASSIGNMENT') { const t = mem.tasks.find((x) => x.id === e.taskId); if (!t) throw new Error('task missing'); t.assignedPersonIds = uniq([...t.assignedPersonIds, e.personId]); t.updatedAt = r.occurredAt; t.updatedBy = personId; }
           if (e.type === 'PROJECT_DOCUMENT_TASK_LINK') { const t = mem.tasks.find((x) => x.id === e.taskId); if (!t) throw new Error('task missing'); t.relatedFileIds = uniq([...(t.relatedFileIds ?? []), e.documentId]); }
           if (e.type === 'PROJECT_RELATIONSHIP_EDGE') { const edge: NexusRelationshipEdgeRecord = { id: e.edgeId, status: 'active', title: `${r.intent} relation`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', sourceObjectId: e.sourceId, targetObjectId: e.targetId, relationshipType: e.relationshipType, direction: 'directed', projectScopeId: r.projectId, relationshipStatus: 'confirmed', relationshipConfidence: 'confirmed', relationshipSourceType: 'nexus', sourceReference: r.semanticOperationId, confirmedBy: personId, confirmedAt: r.occurredAt }; mem.relationshipEdges.push(edge); }
-          if (e.type === 'COMPANION_PERMISSION_GRANT') { const g = (r.companionGrants ?? []).find((x) => x.grantId === e.grantId) as NexusCompanionCapabilityGrant | undefined; const ps = mem.projectParticipations.filter((x) => x.status === 'active' && x.participationStatus === 'active' && x.personId === e.targetPersonId && x.projectId === r.projectId && x.worldId === r.worldId); if (!g || ps.length !== 1) throw new Error('companion grant participation invalid'); const p = ps[0]!; const grant: NexusPermissionGrantRecord = { id: g.grantId, status: 'active', title: `Companion grant ${g.intentId}`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', participationId: p.id, effect: 'allow', moduleId: g.moduleId, actionKey: g.actionKey, objectScopeId: g.objectScopeId, dataScope: g.dataScope, reason: g.reason }; mem.permissionGrants.push(grant); p.permissionGrantIds = uniq([...p.permissionGrantIds, grant.id]); }
-          if (e.type === 'PROJECT_MEMORY_EVENT') { const event: NexusEventRecord = { id: e.eventId, status: 'active', title: `Semantic operation ${r.intent}`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', eventType: 'NEXUS_SEMANTIC_OPERATION_COMMITTED', occurredAt: r.occurredAt, recordedAt: r.occurredAt, actorType: 'PERSON', actorId: personId, projectId: r.projectId, worldId: r.worldId, primaryObjectId: r.source.id, relatedObjectIds: uniq([r.source.id, r.target.id, ...(assignment ? [assignment.assignmentId] : [])]), eventSourceType: 'NEXUS', sourceReference: r.semanticOperationId, eventState: 'COMMITTED', summary: `${r.intent} committed`, verificationState: 'VERIFIED_BY_SOURCE', correlationId: r.semanticOperationId }; const timeline: NexusTimelineEventRecord = { id: e.timelineEventId, status: 'active', title: `Semantic operation ${r.intent}`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', projectId: r.projectId, worldId: r.worldId, eventType: r.intent === 'DOCUMENT_TO_TASK' ? 'file-linked' : r.intent === 'TASK_TO_PERSON' ? 'task-updated' : 'graph-link-created', eventAt: r.occurredAt, actorPersonId: personId, relatedRecordIds: uniq([r.source.id, r.target.id, e.eventId]), payload: { operation: r.intent, semanticOperationId: r.semanticOperationId, authorityRevision: fresh.authorityRevision, packageRevision: plan.expectedPackageRevision } }; mem.nexusEvents.push(event); mem.timelineEvents.push(timeline); }
+          if (e.type === 'COMPANION_PERMISSION_GRANT') { const g = (r.companionGrants ?? []).find((x) => x.grantId === e.grantId && x.intentId === e.intentId) as NexusCompanionCapabilityGrant | undefined; const ps = mem.projectParticipations.filter((x) => x.status === 'active' && x.participationStatus === 'active' && x.personId === e.targetPersonId && x.projectId === r.projectId && x.worldId === r.worldId); if (!g || ps.length !== 1) throw new Error('companion grant participation invalid'); const p = ps[0]!; if (mem.permissionGrants.some((existing) => existing.id === g.grantId)) throw new Error('companion grant already exists'); const grant: NexusPermissionGrantRecord = { id: g.grantId, status: 'active', title: `Companion grant ${g.intentId}`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', participationId: p.id, effect: 'allow', moduleId: g.moduleId, actionKey: g.actionKey, objectScopeId: g.objectScopeId, dataScope: g.dataScope, reason: g.reason }; mem.permissionGrants.push(grant); p.permissionGrantIds = uniq([...p.permissionGrantIds, grant.id]); }
+          if (e.type === 'PROJECT_MEMORY_EVENT') { const companionGrantIds = plan.effects.filter((effect): effect is Extract<NexusSemanticEffect, { type: 'COMPANION_PERMISSION_GRANT' }> => effect.type === 'COMPANION_PERMISSION_GRANT').map((effect) => effect.grantId); const event: NexusEventRecord = { id: e.eventId, status: 'active', title: `Semantic operation ${r.intent}`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', eventType: 'NEXUS_SEMANTIC_OPERATION_COMMITTED', occurredAt: r.occurredAt, recordedAt: r.occurredAt, actorType: 'PERSON', actorId: personId, projectId: r.projectId, worldId: r.worldId, primaryObjectId: r.source.id, relatedObjectIds: uniq([r.source.id, r.target.id, ...(assignment ? [assignment.assignmentId] : []), ...companionGrantIds]), eventSourceType: 'NEXUS', sourceReference: r.semanticOperationId, eventState: 'COMMITTED', summary: `${r.intent} committed`, verificationState: 'VERIFIED_BY_SOURCE', correlationId: r.semanticOperationId }; const timeline: NexusTimelineEventRecord = { id: e.timelineEventId, status: 'active', title: `Semantic operation ${r.intent}`, createdAt: r.occurredAt, updatedAt: r.occurredAt, createdBy: personId, updatedBy: personId, sourceSystem: 'nexus', confidence: 'confirmed', projectId: r.projectId, worldId: r.worldId, eventType: r.intent === 'DOCUMENT_TO_TASK' ? 'file-linked' : r.intent === 'TASK_TO_PERSON' ? 'task-updated' : 'graph-link-created', eventAt: r.occurredAt, actorPersonId: personId, relatedRecordIds: uniq([r.source.id, r.target.id, e.eventId, ...companionGrantIds]), payload: { operation: r.intent, semanticOperationId: r.semanticOperationId, authorityRevision: fresh.authorityRevision, packageRevision: plan.expectedPackageRevision, companionGrantIds } }; mem.nexusEvents.push(event); mem.timelineEvents.push(timeline); }
         }
         await this.faults.beforeSemanticCommitSwap?.();
       } catch (error) { return { schema: NEXUS_SEMANTIC_OPERATION_SCHEMA, status: 'BLOCKED', memory: this.getMemory(), failures: [fail('INVALID_SHAPE', `Atomic semantic commit rolled back: ${error instanceof Error ? error.message : String(error)}`)] }; }
@@ -201,8 +266,7 @@ export class CanonicalWorkPackageService {
 
   recordChecklistRun(input: { runId: string; assignmentId: string; taskId: string; workerPersonId: string; checklistId: string; responses: NexusChecklistRun['itemResponses']; occurredAt: string }): { status: 'APPLIED'; run: NexusChecklistRun } | { status: 'BLOCKED'; failures: NexusSemanticValidationFailure[] } {
     const a = this.assignments.get(input.assignmentId); if (!a || a.recipient.type !== 'PERSON' || a.recipient.personId !== input.workerPersonId || !a.snapshot.items.some((i) => i.taskId === input.taskId)) return { status: 'BLOCKED', failures: [fail('TARGET_NOT_FOUND', 'Checklist worker/task not in assigned snapshot.')] };
-    const defs = a.snapshot.checklistDefinitions.filter((d) => d.checklistId === input.checklistId); if (defs.length !== 1) return { status: 'BLOCKED', failures: [fail('INVALID_SHAPE', 'Checklist snapshot is ambiguous.')] }; const d = defs[0]!, allowed = new Set(d.items.map((i) => i.itemId)); if (input.responses.some((r) => !allowed.has(r.itemId))) return { status: 'BLOCKED', failures: [fail('INVALID_SHAPE', 'Checklist response outside snapshot.')] };
-    const answered = new Set(input.responses.map((r) => r.itemId)), complete = d.items.filter((i) => i.required).every((i) => answered.has(i.itemId)), old = this.checklistRuns.get(input.runId); const run: NexusChecklistRun = { runId: input.runId, workPackageAssignmentId: a.assignmentId, taskId: input.taskId, workerPersonId: input.workerPersonId, checklistId: d.checklistId, checklistRevision: d.revision, itemResponses: clone(input.responses), startedAt: old?.startedAt ?? input.occurredAt, updatedAt: input.occurredAt, completedAt: complete ? input.occurredAt : undefined, completionState: !input.responses.length ? 'NOT_STARTED' : complete ? 'COMPLETE' : 'IN_PROGRESS' }; this.checklistRuns.set(run.runId, clone(run)); return { status: 'APPLIED', run: clone(run) };
+    const defs = a.snapshot.checklistDefinitions.filter((d) => d.checklistId === input.checklistId); if (defs.length !== 1) return { status: 'BLOCKED', failures: [fail('INVALID_SHAPE', 'Checklist snapshot is ambiguous.')] }; const d = defs[0]!, allowed = new Set(d.items.map((i) => i.itemId)); if (input.responses.some((r) => !allowed.has(r.itemId))) return { status: 'BLOCKED', failures: [fail('INVALID_SHAPE', 'Checklist response outside snapshot.')] }; const answered = new Set(input.responses.map((r) => r.itemId)), complete = d.items.filter((i) => i.required).every((i) => answered.has(i.itemId)), old = this.checklistRuns.get(input.runId); const run: NexusChecklistRun = { runId: input.runId, workPackageAssignmentId: a.assignmentId, taskId: input.taskId, workerPersonId: input.workerPersonId, checklistId: d.checklistId, checklistRevision: d.revision, itemResponses: clone(input.responses), startedAt: old?.startedAt ?? input.occurredAt, updatedAt: input.occurredAt, completedAt: complete ? input.occurredAt : undefined, completionState: !input.responses.length ? 'NOT_STARTED' : complete ? 'COMPLETE' : 'IN_PROGRESS' }; this.checklistRuns.set(run.runId, clone(run)); return { status: 'APPLIED', run: clone(run) };
   }
   evidenceRequirementsBeforeFinish(input: { assignmentId: string; taskId: string }): { allowed: boolean; missingRequirementIds: string[] } {
     const a = this.assignments.get(input.assignmentId); if (!a) return { allowed: false, missingRequirementIds: ['ASSIGNMENT_NOT_FOUND'] }; const required = a.snapshot.evidenceRequirements.filter((r) => r.requiredBeforeFinish && (!r.taskId || r.taskId === input.taskId)); const missing = required.filter((r) => this.memory.evidence.filter((e) => e.status === 'active' && e.projectId === a.snapshot.projectId && e.worldId === a.snapshot.worldId && e.linkedTaskId === input.taskId && e.evidenceType === r.allowedEvidenceType && e.evidenceStatus !== 'rejected' && e.evidenceStatus !== 'superseded').length < r.requiredCount).map((r) => r.requirementId); return { allowed: !missing.length, missingRequirementIds: missing };
