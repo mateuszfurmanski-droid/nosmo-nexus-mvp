@@ -157,6 +157,13 @@ export const persistCanonicalSemanticOperation = async (
     ? { schema: NEXUS_WORK_PACKAGE_DB_SCHEMA, status: "ALREADY_COMMITTED", semanticOperationId: input.semanticOperationId, assignmentId: existing.assignmentId ?? undefined }
     : { schema: NEXUS_WORK_PACKAGE_DB_SCHEMA, status: "IDEMPOTENCY_CONFLICT", semanticOperationId: input.semanticOperationId };
   const committedAt = asDate(input.committedAtIso, "committed_at");
+  const companionWrites = input.companionGrantWrites ?? [];
+  const expectedTargetPersonId = input.semanticIntent === "WORK_PACKAGE_TO_PERSON" && input.assignment?.recipient.type === "PERSON"
+    ? input.assignment.recipient.personId
+    : undefined;
+  if (input.semanticIntent === "WORK_PACKAGE_TO_PERSON" && companionWrites.length > 0 && !expectedTargetPersonId) {
+    throw new Error("NEXUS_WORK_PACKAGE_DB_TARGET_PERSON_ASSIGNMENT_REQUIRED");
+  }
   try {
     return await db.transaction(async (tx) => {
       if (input.expectedPackage) {
@@ -184,10 +191,27 @@ export const persistCanonicalSemanticOperation = async (
           .returning({ taskId: nexusPmTasksTable.taskId });
         if (rows.length !== 1) throw new Error(`NEXUS_WORK_PACKAGE_DB_TASK_SCOPE_MISMATCH:${task.taskId}`);
       }
-      for (const grant of input.companionGrantWrites ?? []) {
+      for (const grant of companionWrites) {
+        const participationScope = expectedTargetPersonId
+          ? and(
+              eq(nexusPmProjectParticipationsTable.participationId, grant.participationId),
+              eq(nexusPmProjectParticipationsTable.workspaceId, input.workspaceId),
+              eq(nexusPmProjectParticipationsTable.projectId, input.projectId),
+              eq(nexusPmProjectParticipationsTable.worldId, input.worldId),
+              eq(nexusPmProjectParticipationsTable.personId, expectedTargetPersonId),
+            )
+          : and(
+              eq(nexusPmProjectParticipationsTable.participationId, grant.participationId),
+              eq(nexusPmProjectParticipationsTable.workspaceId, input.workspaceId),
+              eq(nexusPmProjectParticipationsTable.projectId, input.projectId),
+              eq(nexusPmProjectParticipationsTable.worldId, input.worldId),
+            );
         const [participation] = await tx.select().from(nexusPmProjectParticipationsTable)
-          .where(and(eq(nexusPmProjectParticipationsTable.participationId, grant.participationId), eq(nexusPmProjectParticipationsTable.workspaceId, input.workspaceId), eq(nexusPmProjectParticipationsTable.projectId, input.projectId), eq(nexusPmProjectParticipationsTable.worldId, input.worldId))).for("update");
-        if (!participation) throw new Error(`NEXUS_WORK_PACKAGE_DB_PARTICIPATION_SCOPE_MISMATCH:${grant.participationId}`);
+          .where(participationScope).for("update");
+        if (!participation) {
+          const suffix = expectedTargetPersonId ? `:${expectedTargetPersonId}` : "";
+          throw new Error(`NEXUS_WORK_PACKAGE_DB_PARTICIPATION_SCOPE_MISMATCH:${grant.participationId}${suffix}`);
+        }
         await tx.insert(nexusPmPermissionGrantsTable).values({ grantId: grant.grantId, workspaceId: input.workspaceId, participationId: grant.participationId, effect: grant.effect, moduleId: grant.moduleId ?? null, actionKey: grant.actionKey ?? null, objectScopeId: grant.objectScopeId ?? null, recordJson: grant.recordJson, persistedAt: committedAt });
         await tx.update(nexusPmProjectParticipationsTable).set({ recordJson: grant.updatedParticipationRecordJson, persistedAt: committedAt }).where(eq(nexusPmProjectParticipationsTable.participationId, grant.participationId));
       }
