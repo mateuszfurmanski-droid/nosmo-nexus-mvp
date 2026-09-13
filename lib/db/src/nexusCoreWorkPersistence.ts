@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { db } from "./index";
+import { db, type NexusDatabase } from "./index";
 import {
   nexusPmAccessDecisionsTable,
   nexusPmApprovalsTable,
@@ -198,8 +198,9 @@ const replayResult = (
 
 const findTimelineCommit = async (
   input: NexusCoreWorkDbCommitInput,
+  database: NexusDatabase = db,
 ): Promise<NexusPmTimelineEventRow | undefined> => {
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(nexusPmTimelineEventsTable)
     .where(eq(nexusPmTimelineEventsTable.timelineEventId, input.timeline.id))
@@ -412,6 +413,7 @@ const assertApprovalWrite = async (
 
 export const persistNexusCoreWorkCommit = async (
   input: NexusCoreWorkDbCommitInput,
+  database: NexusDatabase = db,
 ): Promise<NexusCoreWorkDbCommitResult> => {
   if (!Number.isInteger(input.workspaceId) || input.workspaceId <= 0) {
     throw new Error("NEXUS_CORE_WORK_DB_INVALID_WORKSPACE_ID");
@@ -450,7 +452,7 @@ export const persistNexusCoreWorkCommit = async (
   const fingerprint = commitFingerprint(input);
 
   try {
-    return await db.transaction(async (tx) => {
+    return await database.transaction(async (tx) => {
       const [existingTimeline] = await tx
         .select()
         .from(nexusPmTimelineEventsTable)
@@ -594,7 +596,7 @@ export const persistNexusCoreWorkCommit = async (
       };
     });
   } catch (error) {
-    const committedReplay = await findTimelineCommit(input);
+    const committedReplay = await findTimelineCommit(input, database);
     if (committedReplay) return replayResult(committedReplay, input);
     throw error;
   }

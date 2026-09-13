@@ -13,4 +13,7 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
+export type NexusTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type NexusDatabase = typeof db | NexusTransaction;
+
 export * from "./schema";

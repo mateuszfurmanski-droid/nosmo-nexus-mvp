@@ -40,6 +40,13 @@ import {
 
 type AuthorityPort = Pick<CanonicalAuthorityService, 'authorize' | 'recheckForCommit'>;
 type EngineFaults = { beforeSemanticCommitSwap?: () => void | Promise<void> };
+/** Trusted durable state loaded by the server adapter; never an HTTP payload. */
+export interface CanonicalWorkPackageRestoredState {
+  packages: NexusCanonicalWorkPackage[];
+  assignments: NexusWorkPackageAssignment[];
+  receipts: NexusSemanticOperationReceipt[];
+  checklistRuns: NexusChecklistRun[];
+}
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const uniq = (values: readonly string[]): string[] => [...new Set(values)];
 const fail = (code: NexusSemanticValidationFailure['code'], message: string): NexusSemanticValidationFailure => ({ code, message });
@@ -99,7 +106,15 @@ export class CanonicalWorkPackageService {
   private readonly receipts = new Map<string, NexusSemanticOperationReceipt>();
   private readonly checklistRuns = new Map<string, NexusChecklistRun>();
   private readonly locks = new Map<string, Promise<void>>();
-  constructor(private readonly authority: AuthorityPort, memory: NexusProjectMemorySnapshot, private readonly faults: EngineFaults = {}) { this.memory = clone(memory); }
+  constructor(private readonly authority: AuthorityPort, memory: NexusProjectMemorySnapshot, private readonly faults: EngineFaults = {}, restored?: CanonicalWorkPackageRestoredState) {
+    this.memory = clone(memory);
+    // Integration-only hydration. The existing domain methods and all their
+    // authority, revision, snapshot and consequence rules remain unchanged.
+    for (const p of restored?.packages ?? []) this.packages.set(p.packageId, clone(p));
+    for (const a of restored?.assignments ?? []) this.assignments.set(a.assignmentId, clone(a));
+    for (const r of restored?.receipts ?? []) this.receipts.set(r.semanticOperationId, clone(r));
+    for (const r of restored?.checklistRuns ?? []) this.checklistRuns.set(r.runId, clone(r));
+  }
   getMemory(): NexusProjectMemorySnapshot { return clone(this.memory); }
   syncProjectMemory(memory: NexusProjectMemorySnapshot): void { this.memory = clone(memory); }
   getWorkPackage(id: string): NexusCanonicalWorkPackage | undefined { const p = this.packages.get(id); return p ? clone(p) : undefined; }
