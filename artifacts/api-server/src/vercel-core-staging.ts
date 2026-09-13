@@ -1,0 +1,69 @@
+import express, { type Express } from "express";
+import cookieParser from "cookie-parser";
+import pinoHttp from "pino-http";
+import { authMiddleware } from "./middlewares/authMiddleware";
+import { nexusCoreBrowserCors } from "./middlewares/nexusCoreBrowserCors";
+import healthRouter from "./routes/health";
+import mobileAuthBootstrapRouter from "./routes/mobile-auth-bootstrap";
+import authRouter from "./routes/auth";
+import nexusCoreIdentityClaimRouter from "./routes/nexus-core-identity-claim";
+import nexusCoreStagingDeviceLoginRouter from "./routes/nexus-core-staging-device-login";
+import nexusCoreE2eRouter from "./routes/nexus-core-e2e";
+import { logger } from "./lib/logger";
+
+const app: Express = express();
+if (process.env.NEXUS_ENV !== "development" || process.env.VERCEL_ENV === "production") {
+  throw new Error("NEXUS_P0_NON_PRODUCTION_RUNTIME_REQUIRED");
+}
+app.set("trust proxy", true);
+
+app.use(
+  pinoHttp({
+    logger,
+    serializers: {
+      req(req) {
+        return {
+          id: req.id,
+          method: req.method,
+          url: req.url?.split("?")[0],
+        };
+      },
+      res(res) {
+        return { statusCode: res.statusCode };
+      },
+    },
+  }),
+);
+app.use(cookieParser());
+// NON_PRODUCTION browser bridge for the canonical public Relationship Tree.
+// Exact-origin CORS is evaluated before auth so preflight can complete; bearer
+// session authority is still enforced by authMiddleware on actual Core calls.
+app.use(nexusCoreBrowserCors);
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+app.use(authMiddleware);
+
+// Deliberately narrow non-production runtime. No generic MVP, public file upload,
+// Work Wallet, Cloud/Drive or web UI routes are mounted here.
+app.use("/api", healthRouter);
+app.use("/api", mobileAuthBootstrapRouter);
+app.use("/api", authRouter);
+app.use("/api", nexusCoreIdentityClaimRouter);
+// NON_PRODUCTION only: one-time physical-device session bootstrap. This route is
+// intentionally absent from the normal application route index.
+app.use("/api", nexusCoreStagingDeviceLoginRouter);
+// Each Core operation discovers scope through the shared B2 session binding.
+// No donor authority resolver or automatic personal workspace is mounted.
+app.use("/api", nexusCoreE2eRouter);
+
+app.get("/", (_req, res) => {
+  res.json({
+    service: "NOSMO Nexus Core staging",
+    schema: "nexus-core-staging-runtime/v1",
+    environment: "NON_PRODUCTION",
+    projectId: "project-esafe-catania",
+    worldId: "world-esafe-catania",
+  });
+});
+
+export default app;

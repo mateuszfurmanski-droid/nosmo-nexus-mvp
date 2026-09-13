@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { db } from "./index";
+import { db, type NexusDatabase } from "./index";
 import {
   nexusPmNexusEventsTable,
   nexusPmPermissionGrantsTable,
@@ -97,11 +97,12 @@ const nested = (error: unknown, key: "code" | "constraint"): string | undefined 
 
 export const persistCanonicalWorkPackageRevision = async (
   input: NexusPersistWorkPackageRevisionInput,
+  database: NexusDatabase = db,
 ): Promise<NexusPersistWorkPackageRevisionResult> => {
   const createdAt = asDate(input.createdAtIso, "created_at");
   const updatedAt = asDate(input.updatedAtIso, "updated_at");
   const deadline = input.deadlineIso ? asDate(input.deadlineIso, "deadline") : null;
-  return db.transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     const [current] = await tx.select({ currentRevision: nexusWpPackagesTable.currentRevision })
       .from(nexusWpPackagesTable).where(eq(nexusWpPackagesTable.packageId, input.packageId)).for("update");
     const currentRevision = current?.currentRevision ?? null;
@@ -144,15 +145,16 @@ export const persistCanonicalWorkPackageRevision = async (
   });
 };
 
-const readReceipt = async (id: string) => {
-  const [receipt] = await db.select().from(nexusSemanticOperationReceiptsTable).where(eq(nexusSemanticOperationReceiptsTable.semanticOperationId, id));
+const readReceipt = async (id: string, database: NexusDatabase) => {
+  const [receipt] = await database.select().from(nexusSemanticOperationReceiptsTable).where(eq(nexusSemanticOperationReceiptsTable.semanticOperationId, id));
   return receipt;
 };
 
 export const persistCanonicalSemanticOperation = async (
   input: NexusPersistSemanticOperationInput,
+  database: NexusDatabase = db,
 ): Promise<NexusPersistSemanticOperationResult> => {
-  const existing = await readReceipt(input.semanticOperationId);
+  const existing = await readReceipt(input.semanticOperationId, database);
   if (existing) return existing.canonicalFingerprint === input.canonicalFingerprint
     ? { schema: NEXUS_WORK_PACKAGE_DB_SCHEMA, status: "ALREADY_COMMITTED", semanticOperationId: input.semanticOperationId, assignmentId: existing.assignmentId ?? undefined }
     : { schema: NEXUS_WORK_PACKAGE_DB_SCHEMA, status: "IDEMPOTENCY_CONFLICT", semanticOperationId: input.semanticOperationId };
@@ -165,7 +167,7 @@ export const persistCanonicalSemanticOperation = async (
     throw new Error("NEXUS_WORK_PACKAGE_DB_TARGET_PERSON_ASSIGNMENT_REQUIRED");
   }
   try {
-    return await db.transaction(async (tx) => {
+    return await database.transaction(async (tx) => {
       if (input.expectedPackage) {
         const [workPackage] = await tx.select({ currentRevision: nexusWpPackagesTable.currentRevision }).from(nexusWpPackagesTable)
           .where(eq(nexusWpPackagesTable.packageId, input.expectedPackage.packageId)).for("update");
@@ -222,7 +224,7 @@ export const persistCanonicalSemanticOperation = async (
     });
   } catch (error) {
     if (nested(error, "code") === "23505") {
-      const receipt = await readReceipt(input.semanticOperationId);
+      const receipt = await readReceipt(input.semanticOperationId, database);
       if (receipt) return receipt.canonicalFingerprint === input.canonicalFingerprint
         ? { schema: NEXUS_WORK_PACKAGE_DB_SCHEMA, status: "ALREADY_COMMITTED", semanticOperationId: input.semanticOperationId, assignmentId: receipt.assignmentId ?? undefined }
         : { schema: NEXUS_WORK_PACKAGE_DB_SCHEMA, status: "IDEMPOTENCY_CONFLICT", semanticOperationId: input.semanticOperationId };
@@ -232,8 +234,8 @@ export const persistCanonicalSemanticOperation = async (
   }
 };
 
-export const persistCanonicalChecklistRun = async (input: NexusPersistChecklistRunInput): Promise<void> => {
-  await db.transaction(async (tx) => {
+export const persistCanonicalChecklistRun = async (input: NexusPersistChecklistRunInput, database: NexusDatabase = db): Promise<void> => {
+  await database.transaction(async (tx) => {
     await tx.insert(nexusWpChecklistRunsTable).values({ runId: input.runId, workPackageAssignmentId: input.workPackageAssignmentId, taskId: input.taskId, workerPersonId: input.workerPersonId, checklistId: input.checklistId, checklistRevision: input.checklistRevision, startedAt: asDate(input.startedAtIso, "checklist_started_at"), updatedAt: asDate(input.updatedAtIso, "checklist_updated_at"), completedAt: input.completedAtIso ? asDate(input.completedAtIso, "checklist_completed_at") : null, completionState: input.completionState }).onConflictDoUpdate({ target: nexusWpChecklistRunsTable.runId, set: { updatedAt: asDate(input.updatedAtIso, "checklist_updated_at"), completedAt: input.completedAtIso ? asDate(input.completedAtIso, "checklist_completed_at") : null, completionState: input.completionState } });
     await tx.delete(nexusWpChecklistRunResponsesTable).where(eq(nexusWpChecklistRunResponsesTable.runId, input.runId));
     if (input.responses.length) await tx.insert(nexusWpChecklistRunResponsesTable).values(input.responses.map((response) => ({ runId: input.runId, itemId: response.itemId, responseJson: response.responseJson, respondedAt: asDate(response.respondedAtIso, "checklist_response_at") })));

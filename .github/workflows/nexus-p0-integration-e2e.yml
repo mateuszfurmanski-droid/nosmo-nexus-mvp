@@ -1,0 +1,61 @@
+name: NEXUS P0 Integration E2E
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - artifacts/api-server/**
+      - src/core/**
+      - lib/db/**
+      - .github/workflows/nexus-p0-integration-e2e.yml
+      - pnpm-lock.yaml
+permissions:
+  contents: read
+jobs:
+  p0-http-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      NEXUS_ENV: development
+      NEXUS_P0_E2E: '1'
+      NODE_ENV: test
+      LOG_LEVEL: silent
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact head
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - name: Frozen A B2 C2 contracts
+        run: |
+          pnpm run smoke:esafe-core
+          pnpm run smoke:authority-core
+          pnpm run smoke:work-package-core
+      - name: Build narrow non-production HTTP runtime
+        run: node artifacts/api-server/build-vercel-core-staging.mjs
+      - name: Migration clean, A/B2 and C2 upgrade, replay, checksum, rollback
+        run: pnpm --dir scripts exec tsx ../lib/db/scripts/nexusP0MigrationE2e.ts
+      - name: Full authenticated multi-user P0 on real PostgreSQL
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_p0_clean
+        run: pnpm --dir scripts exec tsx ../artifacts/api-server/scripts/validate-nexus-p0-http-e2e.ts
