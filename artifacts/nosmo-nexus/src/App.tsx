@@ -8,6 +8,7 @@ import { FocusOverlay } from "@/focus/focus-overlay";
 import { AvailabilityProvider } from "@/availability/availability-context";
 
 // Pages
+import EsafeCoreWorkspace from "@/pages/esafe-core-workspace";
 import NexusLaunchpad from "@/pages/nexus-launchpad";
 import SystemMap from "@/pages/system-map";
 import PlanReview from "@/pages/plan-review";
@@ -38,6 +39,7 @@ function Router() {
   return (
     <Switch>
       {/* Specialist full-screen workflows intentionally run without the app shell. */}
+      <Route path="/esafe-core" component={EsafeCoreWorkspace} />
       <Route path="/first-run" component={FirstRun} />
       <Route path="/relationship-tree" component={RelationshipTreeExport} />
       <Route path="/workspace" component={RelationshipTreeExport} />

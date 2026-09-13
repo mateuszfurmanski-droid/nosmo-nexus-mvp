@@ -38,7 +38,7 @@ export function nexusCoreBrowserCors(
 
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.append("Vary", "Origin");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
     "authorization,content-type,accept",

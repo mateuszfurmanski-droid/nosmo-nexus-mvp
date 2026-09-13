@@ -124,7 +124,7 @@ try {
   const assignmentId=concurrent[0].assignment.assignmentId;
   await call(manager,'semantic-drop',{...drop,target:{type:'OBJECT',id:objectId}},409);
   const inbox=await call(worker,'work-inbox'); assert.equal(inbox.assignments.length,1); assert.equal(inbox.tasks[0].id,taskId); assert.equal(inbox.tasks[0].workPackage.packageId,packageId);
-  const assigned=await call(worker,`assignments/${assignmentId}`); assert.equal(assigned.snapshot.revision,p.revision);
+  const assigned=await call(worker,`assignments/${assignmentId}`); assert.equal(assigned.snapshot.packageRevision,p.revision);
   const rawTask=(await pool.query('select record_json from nexus_pm_tasks where task_id=$1',[taskId])).rows[0].record_json; assert.equal(rawTask.workPackage,undefined);
   pass('concurrent retry one outcome / persisted immutable snapshot / Android projection');
   await call(worker,`tasks/${taskId}/start`,{requestId:'start',actorPersonId:manager});
@@ -144,7 +144,7 @@ try {
   await call(manager,`approvals/${f.approvalId}/decision`,{requestId:'approve',decision:'rejected',reason:'Changed semantics'},409);
   const memory=(await call(manager,'project-memory')).snapshot;
   assert.equal(memory.tasks[0].taskStatus,'done'); assert.equal(memory.evidence[0].evidenceStatus,'reviewed'); assert.equal(memory.approvals[0].approvalStatus,'approved');
-  assert.equal(memory.assignments[0].status,'COMPLETED'); assert.equal(memory.assignments[0].snapshot.revision,p.revision);
+  assert.equal(memory.assignments[0].status,'COMPLETED'); assert.equal(memory.assignments[0].snapshot.packageRevision,p.revision);
   assert.ok(memory.timeline.length>=6 && memory.relationshipEdges.length>0 && memory.people.length===2 && memory.objects.length===1);
   assert.equal((await call(manager,'approval-queue')).approvals.length,0); assert.ok((await call(manager,'timeline')).timeline.length>=6);
   assert.equal((await call(worker,`tasks/${taskId}/approval-state`)).approval.approvalStatus,'approved');

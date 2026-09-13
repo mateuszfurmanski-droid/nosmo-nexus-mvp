@@ -82,6 +82,7 @@ function managerProjection(s: State, ctx: CoreContext): Json {
     snapshot: { tasks: s.memory.tasks, evidence: s.memory.evidence, approvals: s.memory.approvals, timeline: s.memory.timelineEvents,
       workPackages: s.restored.packages, assignments: s.restored.assignments, relationshipEdges: s.memory.relationshipEdges,
       people: s.memory.people.map((p) => ({ id: p.id, displayName: p.displayName, status: p.status })),
+      files: s.memory.files.map((f) => ({ id: f.id, title: f.title })),
       objects: s.memory.canonicalObjects.map((o) => ({ id: o.id, title: o.title, objectType: o.objectType, lifecycleStatus: o.lifecycleStatus })),
       nexusEvents: s.memory.nexusEvents.map(({ id, eventType, occurredAt, relatedObjectIds }) => ({ id, eventType, occurredAt, relatedObjectIds })) } };
 }

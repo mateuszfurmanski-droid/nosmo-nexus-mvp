@@ -20,10 +20,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  NODES,
-  TASK_LINKS,
-  PROJECT_ID,
-  MANAGER_ID,
+  NODES as DEFAULT_NODES,
+  TASK_LINKS as DEFAULT_TASK_LINKS,
+  PROJECT_ID as DEFAULT_PROJECT_ID,
+  MANAGER_ID as DEFAULT_MANAGER_ID,
   TYPE_STYLE,
   TYPE_ORDER,
   ISSUE_ICON,
@@ -33,7 +33,6 @@ import {
   TASK_REQUIREMENTS,
   PERSON_INVENTORY,
   PROJECT_INVENTORY,
-  NODES as ALL_NODES,
   seedTaskStatus,
   taskWorker,
   buildAdjacency,
@@ -220,6 +219,7 @@ function Tile({
       onClick={onClick}
       disabled={isCenter}
       data-testid={`tile-${node.id}`}
+      data-node-id={node.id}
       className={[
         "relative flex flex-col items-center justify-center gap-1.5 rounded-xl bg-card text-card-foreground shadow-sm outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring",
         s.box,
@@ -267,6 +267,7 @@ function MicroNode({
       type="button"
       onClick={onClick}
       data-testid={`tile-${node.id}`}
+      data-node-id={node.id}
       title={node.label}
       aria-label={`${node.type}: ${node.label}`}
       className={`group relative flex w-14 flex-col items-center gap-1 rounded-md p-0.5 outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring ${ring}`}
@@ -320,6 +321,7 @@ function DocStack({
                 type="button"
                 onClick={() => onPick(n.id)}
                 data-testid={`tile-${n.id}`}
+                data-node-id={n.id}
                 title={n.label}
                 aria-label={`${n.type}: ${n.label}`}
                 className={`group relative flex items-center gap-2 rounded-md px-1.5 py-1 text-left outline-none transition-all hover:bg-secondary/40 focus-visible:ring-2 focus-visible:ring-ring ${tileRing(
@@ -361,8 +363,26 @@ function DocStack({
   );
 }
 
-export default function InteractiveWorkspace() {
-  const [centerId, setCenterId] = useState<string>(PROJECT_ID);
+export interface InteractiveWorkspaceProps {
+  nodes?: WorkspaceNode[];
+  projectId?: string;
+  managerId?: string;
+  adjacency?: Record<string, string[]>;
+  taskLinks?: Record<string, { people: string[]; docs: string[] }>;
+  headerTitle?: string;
+  authoritativeTaskStatuses?: Record<string, TaskStatus>;
+}
+
+export default function InteractiveWorkspace({
+  nodes = DEFAULT_NODES,
+  projectId = DEFAULT_PROJECT_ID,
+  managerId = DEFAULT_MANAGER_ID,
+  adjacency: externalAdjacency,
+  taskLinks = DEFAULT_TASK_LINKS,
+  headerTitle = "Halifax / Lloyds Bank – 360 Interiors",
+  authoritativeTaskStatuses,
+}: InteractiveWorkspaceProps = {}) {
+  const [centerId, setCenterId] = useState<string>(projectId);
   const [collabPair, setCollabPair] = useState<[string, string] | null>(null);
 
   // Workflow state — session-only, no backend.
@@ -378,7 +398,7 @@ export default function InteractiveWorkspace() {
 
   // Interaction control — desktop-like selection, context, and history.
   // Pure interaction state: no backend, no business logic.
-  const [selectedId, setSelectedId] = useState<string | null>(PROJECT_ID);
+  const [selectedId, setSelectedId] = useState<string | null>(projectId);
   const [contextIds, setContextIds] = useState<string[]>([]);
   const [contextLinks, setContextLinks] = useState<string[]>([]);
   const [history, setHistory] = useState<string[]>([]);
@@ -400,16 +420,21 @@ export default function InteractiveWorkspace() {
 
   const byId = useMemo(() => {
     const map: Record<string, WorkspaceNode> = {};
-    for (const node of NODES) map[node.id] = node;
+    for (const node of nodes) map[node.id] = node;
     return map;
-  }, []);
+  }, [nodes]);
 
-  const adjacency = useMemo(() => buildAdjacency(), []);
+  const adjacency = useMemo(() => externalAdjacency ?? buildAdjacency(), [externalAdjacency]);
   const issuesById = useMemo(() => {
     const map: Record<string, Issue> = {};
     for (const i of issues) map[i.id] = i;
     return map;
   }, [issues]);
+
+  useEffect(() => {
+    if (!byId[centerId]) setCenterId(projectId);
+    if (selectedId && !byId[selectedId]) setSelectedId(projectId);
+  }, [byId, centerId, projectId, selectedId]);
 
   useEffect(() => {
     setCenterAction("none");
@@ -438,7 +463,7 @@ export default function InteractiveWorkspace() {
   };
 
   const getTaskStatus = (taskId: string): TaskStatus =>
-    taskOverrides[taskId] ?? seedTaskStatus(byId[taskId]?.sublabel ?? "");
+    authoritativeTaskStatuses?.[taskId] ?? taskOverrides[taskId] ?? seedTaskStatus(byId[taskId]?.sublabel ?? "");
 
   const seedTier = (taskId: string): Tier => {
     const status = getTaskStatus(taskId);
@@ -456,7 +481,7 @@ export default function InteractiveWorkspace() {
 
   // Who is on a task — a live session assignment overrides the static link.
   const peopleForTask = (taskId: string): string[] =>
-    taskAssignee[taskId] ?? TASK_LINKS[taskId]?.people ?? [];
+    taskAssignee[taskId] ?? taskLinks[taskId]?.people ?? [];
 
   // Default stage before the user drives any transition.
   const seedStage = (taskId: string): Stage => {
@@ -471,7 +496,7 @@ export default function InteractiveWorkspace() {
   // Candidate workers: those matching a required role, plus the in-house team.
   const assignCandidates = (taskId: string): WorkspaceNode[] => {
     const roles = TASK_REQUIREMENTS[taskId]?.roles ?? [];
-    return ALL_NODES.filter(
+    return nodes.filter(
       (n) =>
         n.type === "person" &&
         (roles.includes(n.sublabel) || (n.company === "360 Interiors" && n.sublabel === "Contractor")),
@@ -489,29 +514,34 @@ export default function InteractiveWorkspace() {
   // Transitions — each keeps stage / status / tier in sync. No bypass: a task
   // only reaches "active" via "ready", and only "ready" exposes "Set active".
   const assignPerson = (taskId: string, personId: string) => {
+    if (authoritativeTaskStatuses) return;
     setTaskAssignee((prev) => ({ ...prev, [taskId]: [personId] }));
     setTaskStage((prev) => ({ ...prev, [taskId]: "assigned" }));
-    logEvent(`${byId[personId]?.label} assigned to ${byId[taskId]?.label}`, [taskId, personId, MANAGER_ID]);
+    logEvent(`${byId[personId]?.label} assigned to ${byId[taskId]?.label}`, [taskId, personId, managerId]);
   };
   const gateConfirmReady = (taskId: string) => {
+    if (authoritativeTaskStatuses) return;
     setTaskStage((prev) => ({ ...prev, [taskId]: "ready" }));
-    logEvent(`Supplies confirmed — ${byId[taskId]?.label} cleared the gate`, [taskId, MANAGER_ID]);
+    logEvent(`Supplies confirmed — ${byId[taskId]?.label} cleared the gate`, [taskId, managerId]);
   };
   const gateReportMissing = (taskId: string) => {
+    if (authoritativeTaskStatuses) return;
     setTaskStage((prev) => ({ ...prev, [taskId]: "ordering" }));
-    logEvent(`Missing items flagged on ${byId[taskId]?.label}`, [taskId, MANAGER_ID]);
+    logEvent(`Missing items flagged on ${byId[taskId]?.label}`, [taskId, managerId]);
   };
   const confirmOrder = (taskId: string) => {
+    if (authoritativeTaskStatuses) return;
     setTaskStage((prev) => ({ ...prev, [taskId]: "ready" }));
-    logEvent(`${SUPPLIER} order confirmed for ${byId[taskId]?.label}`, [taskId, MANAGER_ID]);
+    logEvent(`${SUPPLIER} order confirmed for ${byId[taskId]?.label}`, [taskId, managerId]);
   };
   const setTaskActive = (taskId: string) => {
+    if (authoritativeTaskStatuses) return;
     if (getStage(taskId) !== "ready") return; // gate: cannot bypass
     setTaskStage((prev) => ({ ...prev, [taskId]: "active" }));
     setTaskOverrides((prev) => ({ ...prev, [taskId]: "in-progress" }));
     setTaskTier((prev) => {
       const next = { ...prev };
-      for (const n of NODES) {
+      for (const n of nodes) {
         if (n.type === "task" && n.id !== taskId && (next[n.id] ?? seedTier(n.id)) === "now") {
           next[n.id] = "next";
         }
@@ -535,7 +565,7 @@ export default function InteractiveWorkspace() {
       (i) => i.status === "open" && (i.reporterId === personId || i.managerId === personId),
     );
     if (hasOpen) return "red";
-    const tasks = Object.entries(TASK_LINKS)
+    const tasks = Object.entries(taskLinks)
       .filter(([, v]) => v.people.includes(personId))
       .map(([t]) => t);
     if (tasks.some((t) => getTaskStatus(t) === "in-progress")) return "yellow";
@@ -556,12 +586,12 @@ export default function InteractiveWorkspace() {
   const neighborsOf = (id: string): string[] => {
     const iss = issuesById[id];
     if (iss) {
-      return [...new Set([iss.taskId, iss.reporterId, iss.managerId, PROJECT_ID])];
+      return [...new Set([iss.taskId, iss.reporterId, iss.managerId, projectId])];
     }
     const base = new Set(adjacency[id] ?? []);
     for (const i of issues) {
       if (i.status !== "open") continue;
-      if (i.taskId === id || i.reporterId === id || i.managerId === id || id === PROJECT_ID) {
+      if (i.taskId === id || i.reporterId === id || i.managerId === id || id === projectId) {
         base.add(i.id);
       }
     }
@@ -598,7 +628,8 @@ export default function InteractiveWorkspace() {
   };
 
   const reportIssue = (taskId: string, preset: IssuePreset) => {
-    const reporterId = peopleForTask(taskId)[0] ?? taskWorker(taskId);
+    if (authoritativeTaskStatuses) return;
+    const reporterId = peopleForTask(taskId)[0] ?? (taskLinks === DEFAULT_TASK_LINKS ? taskWorker(taskId) : managerId);
     const id = nextId("issue");
     setIssues((prev) => [
       ...prev,
@@ -609,7 +640,7 @@ export default function InteractiveWorkspace() {
         action: preset.action,
         taskId,
         reporterId,
-        managerId: MANAGER_ID,
+        managerId: managerId,
         status: "open",
       },
     ]);
@@ -617,13 +648,14 @@ export default function InteractiveWorkspace() {
       id,
       taskId,
       reporterId,
-      MANAGER_ID,
-      PROJECT_ID,
+      managerId,
+      projectId,
     ]);
     setCenterId(id); // routed: surface the issue node so the manager can act
   };
 
   const confirmIssue = (issue: Issue) => {
+    if (authoritativeTaskStatuses) return;
     setIssues((prev) =>
       prev.map((i) => (i.id === issue.id ? { ...i, status: "resolved" } : i)),
     );
@@ -631,12 +663,13 @@ export default function InteractiveWorkspace() {
       issue.taskId,
       issue.managerId,
       issue.reporterId,
-      PROJECT_ID,
+      projectId,
     ]);
     setCenterId(issue.taskId);
   };
 
   const completeTask = (taskId: string) => {
+    if (authoritativeTaskStatuses) return;
     setTaskOverrides((prev) => ({ ...prev, [taskId]: "done" }));
     setTaskStage((prev) => ({ ...prev, [taskId]: "done" }));
     setTaskTier((prev) => ({ ...prev, [taskId]: "later" }));
@@ -644,6 +677,7 @@ export default function InteractiveWorkspace() {
   };
 
   const updateItem = (itemId: string) => {
+    if (authoritativeTaskStatuses) return;
     const node = nodeById(itemId);
     if (node?.type === "task") {
       // Tasks progress only through the execution gate — open the task so the
@@ -1101,7 +1135,7 @@ export default function InteractiveWorkspace() {
 
   /* ---- single-center mode: multi-layer adaptive layout ------------- */
 
-  const centerNode = nodeById(centerId) ?? byId[PROJECT_ID]!;
+  const centerNode = nodeById(centerId) ?? byId[projectId]!;
   const surrounding = neighborsOf(centerId)
     .map(nodeById)
     .filter((n): n is WorkspaceNode => !!n);
@@ -1163,7 +1197,7 @@ export default function InteractiveWorkspace() {
     for (const node of [...peopleN, ...docsN]) relevance.set(node.id, "later");
     for (const t of tasksN) {
       const tier = getTier(t.id);
-      const link = TASK_LINKS[t.id];
+      const link = taskLinks[t.id];
       if (!link) continue;
       for (const id of [...peopleForTask(t.id), ...link.docs]) {
         const cur = relevance.get(id);
@@ -1645,7 +1679,7 @@ export default function InteractiveWorkspace() {
     <div className="dark flex h-[100dvh] w-full flex-col overflow-hidden bg-background text-foreground">
       {/* Compact header bar — graph area below is exactly 100dvh minus this. */}
       <header className="flex shrink-0 items-center gap-2 px-3 py-2 sm:px-6 sm:py-3">
-        <span className="truncate text-xs font-semibold sm:text-sm">Halifax / Lloyds Bank – 360 Interiors</span>
+        <span className="truncate text-xs font-semibold sm:text-sm">{headerTitle}</span>
         <span className="ml-auto hidden shrink-0 text-xs text-muted-foreground lg:inline">
           Click or <span className="text-foreground">arrow-key</span> ·{" "}
           <span className="text-foreground">Enter</span> focuses · <span className="text-foreground">Space</span> context ·
