@@ -136,7 +136,12 @@ export function NexusCoreSourcePalette({
       evidenceRequirements:p.evidenceRequirements.filter((r:any)=>kept.some((i:any)=>i.evidenceRequirementId===r.requirementId)) });
   };
   const editContext = async () => {
-    const p=canonical.current;
+    let p=canonical.current;
+    if (!p) {
+      const existingId=window.prompt('Existing Work Package ID (empty creates a new package)','');
+      if(existingId===null)return;
+      if(existingId.trim()){const found=await nexusCoreRequest(`work-packages/${encodeURIComponent(existingId.trim())}?${new URLSearchParams(scope)}`);adopt(found.workPackage);return;}
+    }
     const title=window.prompt('Work Package title',p?.title??'Work Package');if(!title)return;
     const deadline=window.prompt('Deadline (ISO date/time); empty clears it',p?.deadline??'');if(deadline===null)return;
     const objectId=choose('issue','Optional Object / Location (Cancel keeps current)');
@@ -152,6 +157,18 @@ export function NexusCoreSourcePalette({
     ordered.splice(Math.min(order,ordered.length),0,{...item,title,groupId:group?.groupId});
     await save({groups:group&&!p.groups.some((g:any)=>g.groupId===group.groupId)?[...p.groups,group]:p.groups,items:ordered.map((i:any,n:number)=>({...stripAuthority(i),order:n}))});
   };
+  useEffect(() => {
+    const restore = (event: Event) => {
+      const packages = (event as CustomEvent).detail?.snapshot?.workPackages ?? [];
+      const current = canonical.current;
+      const candidate = current ? packages.find((p:any)=>p.packageId===current.packageId) : packages.length === 1 ? packages[0] : undefined;
+      if (candidate && !busy.current) adopt(candidate);
+    };
+    const clear = () => { canonical.current=null;setPackageItems([]); };
+    window.addEventListener('nexus:core-authoritative-projection',restore);
+    window.addEventListener('nexus:core-staging-session-change',clear);
+    return()=>{window.removeEventListener('nexus:core-authoritative-projection',restore);window.removeEventListener('nexus:core-staging-session-change',clear);};
+  }, []);
   const dragRef = useRef<DragPayload | null>(null);
   const targetRef = useRef<string | null>(null);
   const overPackageRef = useRef(false);

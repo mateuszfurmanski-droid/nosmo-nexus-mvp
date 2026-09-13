@@ -190,7 +190,7 @@ router.post("/nexus/core/identity/claim", async (req, res): Promise<void> => {
       });
       return;
     }
-    req.log.error({ err: error }, "Canonical identity claim failed");
+    req.log.error("Canonical identity claim failed; diagnostic details withheld to protect identity material");
     res.status(500).json({
       schema: "nexus-canonical-identity-claim-error/v1",
       error: "IDENTITY_CLAIM_STORE_UNAVAILABLE",

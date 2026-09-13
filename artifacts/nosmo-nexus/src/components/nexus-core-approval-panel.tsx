@@ -74,7 +74,7 @@ export function NexusCoreApprovalPanel({ embedded = false }: { embedded?: boolea
         void refresh();
       }
     };
-    const onSession = () => void refresh();
+    const onSession = () => { setProjection(null); setQueue([]); setInspected({}); void refresh(); };
     window.addEventListener("nexus:core-package-saved",onSession);
     window.addEventListener("nexus:semantic-drop-authoritative-result", onMutation as EventListener);
     window.addEventListener("nexus:core-staging-session-change", onSession as EventListener);

@@ -164,7 +164,7 @@ export function NexusFloatingWindow({
           </button>
         ) : null}
       </div>
-      {!minimized ? <div className={`overflow-auto ${heightClass}`}>{children}</div> : null}
+      <div hidden={minimized} className={`overflow-auto ${heightClass}`}>{children}</div>
     </section>
   );
 }

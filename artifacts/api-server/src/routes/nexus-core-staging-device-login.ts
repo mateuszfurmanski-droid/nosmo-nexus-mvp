@@ -205,7 +205,7 @@ router.post("/nexus/core/staging-device-login", async (req, res): Promise<void> 
       });
       return;
     }
-    req.log.error({ err: error }, "Staging device login failed");
+    req.log.error("Staging device login failed; diagnostic details withheld to protect session material");
     res.status(500).json({
       schema: "nexus-staging-device-login-error/v1",
       error: "STAGING_DEVICE_LOGIN_UNAVAILABLE",
