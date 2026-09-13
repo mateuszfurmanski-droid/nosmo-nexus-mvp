@@ -58,4 +58,6 @@ jobs:
       - name: Full authenticated multi-user P0 on real PostgreSQL
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nexus_p0_clean
-        run: pnpm --dir scripts exec tsx ../artifacts/api-server/scripts/validate-nexus-p0-http-e2e.ts
+        run: |
+          node artifacts/api-server/build-vercel-core-staging.mjs --e2e
+          node artifacts/api-server/dist/validate-nexus-p0-http-e2e.mjs

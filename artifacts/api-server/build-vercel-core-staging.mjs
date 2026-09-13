@@ -14,7 +14,7 @@ await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
 
 await esbuild({
-  entryPoints: [path.join(artifactDir, "src/vercel-core-staging.ts")],
+  entryPoints: [path.join(artifactDir, process.argv.includes("--e2e") ? "scripts/validate-nexus-p0-http-e2e.ts" : "src/vercel-core-staging.ts")],
   platform: "node",
   target: "node22",
   bundle: true,
