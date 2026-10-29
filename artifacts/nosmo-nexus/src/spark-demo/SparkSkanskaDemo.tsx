@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   demoAssets,
   demoProject,
@@ -284,7 +285,7 @@ export default function SparkSkanskaDemo() {
   const [theme, setTheme] = useState<DemoTheme>(loadTheme);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [view, setView] = useState<"project" | "environment">("project");
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(() => new URLSearchParams(window.location.search).get("object"));
   const [createOpen, setCreateOpen] = useState(false);
   const [zoneFilter, setZoneFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -547,7 +548,7 @@ function CreateObjectCard({ onClose, onCreate }: { onClose: () => void; onCreate
   const create = () => {
     if (!canCreate) return;
     const at = new Date().toISOString();
-    const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const suffix = crypto.randomUUID();
     const id = `demo-${profile.toLowerCase()}-${suffix}`;
     const typeLabel = detailType.trim() ? `${profile} · ${detailType.trim()}` : profile;
     const evidence = sourceDocument.trim() ? [{
@@ -683,6 +684,11 @@ function AssetDetail({
       <h2>{asset.name}</h2>
       <div className="spark-badge-row"><StatusBadge value={asset.circularStatus} /><ProvenanceBadge value={asset.provenance} /><span className={`spark-badge spark-attention-text ${asset.maintenanceAttention.toLowerCase()}`}>{asset.maintenanceAttention} attention</span></div>
     </header>
+    <DetailSection title="Demo QR / object ID">
+      <QRCodeSVG value={`${window.location.origin}${window.location.pathname}?object=${encodeURIComponent(asset.id)}`} size={160} marginSize={4} />
+      <p className="spark-mono">{asset.id}</p>
+      <small>Demo only: created objects are stored in this browser. A scan on another device cannot retrieve them. No authentication or access control is provided by this demo.</small>
+    </DetailSection>
     <div className="spark-detail-body">
       <dl className="spark-kv">
         <div><dt>Area</dt><dd>{zoneName}</dd></div>
