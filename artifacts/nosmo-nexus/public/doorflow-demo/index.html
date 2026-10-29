@@ -599,7 +599,13 @@
     }
     function mergedDoor(base) {
       const edit = app.edits[base.id] || {};
-      return { ...base, ...edit, checklist: Array.isArray(edit.checklist) ? edit.checklist : CHECKS.map(() => false), photos: Array.isArray(edit.photos) ? edit.photos : [], notes: edit.notes || "" };
+      const door = { ...base, ...edit, checklist: Array.isArray(edit.checklist) ? edit.checklist : CHECKS.map(() => false), photos: Array.isArray(edit.photos) ? edit.photos : [], notes: edit.notes || "" };
+      // Old demo data allowed approval without inspection. Never present that as valid.
+      if (door.status === "approved" && (!isApprovalReady(door) || !door.approvedAt)) door.status = "ready";
+      return door;
+    }
+    function isApprovalReady(door) {
+      return CHECKS.every((_, index) => door.checklist[index] === true) && door.photos.length > 0;
     }
     function doorById(id) { const base = DOORS.find(d => d.id === id); return base ? mergedDoor(base) : null; }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch])); }
@@ -710,7 +716,7 @@
       document.getElementById("detailTitle").textContent = door.id;
       document.getElementById("detailSubtitle").textContent = `${door.room} · ${STATUS[door.status].label}`;
       const completeCount = door.checklist.filter(Boolean).length;
-      const canApprove = completeCount === CHECKS.length && door.photos.length > 0;
+      const canApprove = isApprovalReady(door);
       document.getElementById("detailBody").innerHTML = `
         <div class="identity">
           <div class="field"><small>Room</small><b>${escapeHtml(door.room)}</b></div>
@@ -721,7 +727,7 @@
 
         <div class="section">
           <div class="section-title"><h3>Workflow status</h3><span>${STATUS[door.status].label}</span></div>
-          <div class="status-grid">${Object.entries(STATUS).map(([key, meta]) => `<button class="status-btn ${door.status === key ? "active" : ""}" data-status="${key}" style="border-left:4px solid ${meta.color}">${meta.label}</button>`).join("")}</div>
+          <div class="status-grid">${Object.entries(STATUS).filter(([key]) => key !== "approved").map(([key, meta]) => `<button class="status-btn ${door.status === key ? "active" : ""}" data-status="${key}" style="border-left:4px solid ${meta.color}">${meta.label}</button>`).join("")}</div>
         </div>
 
         <div class="section">
@@ -740,14 +746,14 @@
           <div class="photo-list">${door.photos.map(name => `<span class="photo-chip">${escapeHtml(name)}</span>`).join("")}</div>
         </div>
 
-        <button id="approveBtn" class="action" type="button" ${canApprove ? "" : "disabled"}>Complete authorised fire approval</button>
-        <p class="hint">Approval unlocks when all required checks are complete and at least one evidence photo is attached. Demo evidence stores filenames only.</p>`;
+        <button id="approveBtn" class="action" type="button" ${canApprove ? "" : "disabled"}>Complete demo approval</button>
+        <p class="hint">Demo only: approval requires all checks and a photo filename. No image is uploaded and this is not a real fire-door certification.</p>`;
 
-      document.querySelectorAll("[data-status]").forEach(el => el.addEventListener("click", () => { updateDoor(door.id, { status: el.dataset.status }); showToast(`${door.id} · ${STATUS[el.dataset.status].label}`); }));
+      document.querySelectorAll("[data-status]").forEach(el => el.addEventListener("click", () => { updateDoor(door.id, { status: el.dataset.status, approvedAt: null }); showToast(`${door.id} · ${STATUS[el.dataset.status].label}`); }));
       document.querySelectorAll("[data-check]").forEach(el => el.addEventListener("change", () => {
         const next = [...door.checklist];
         next[Number(el.dataset.check)] = el.checked;
-        updateDoor(door.id, { checklist: next, status: door.status === "todo" ? "in-progress" : door.status });
+        updateDoor(door.id, { checklist: next, status: door.status === "approved" ? "ready" : door.status === "todo" ? "in-progress" : door.status, approvedAt: null });
       }));
       document.getElementById("notesInput").addEventListener("input", event => {
         app.edits[door.id] = { ...(app.edits[door.id] || {}), notes: event.target.value };
